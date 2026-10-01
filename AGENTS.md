@@ -28,7 +28,6 @@ Guidance for coding agents working in this repository.
 - Commit and push when the user requests delivery.
 - Use small, buildable commits and factual commit messages.
 - Keep PR descriptions concise: behavior added and verification performed.
-- Keep prose focused on this module and its API integration.
 - Keep process notes and reviews outside the repository.
 - Obtain an independent implementation review before opening a PR.
 - Propose API or architectural changes before implementation.
