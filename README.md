@@ -86,6 +86,7 @@ Packages under `x/` may change or be removed in any release.
 | Package | Purpose | Example |
 | --- | --- | --- |
 | [`x/pick`](x/pick) | Select an original item from caller-supplied candidates, or abstain. | [`examples/pick`](examples/pick) |
+| [`x/gate`](x/gate) | Apply explicit policies and return allow, review, or escalate with reasons. | [`examples/gate`](examples/gate) |
 
 Run the email selection example with `TYPESAFE_API_KEY` set:
 
