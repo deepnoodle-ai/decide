@@ -41,6 +41,20 @@ behavior, and transport. Environment defaults use `TYPESAFE_API_KEY`,
 The `github.com/deepnoodle-ai/sod/sodtest` package supplies a fake HTTP
 server, answer fixtures, request recording, and queued failures for tests.
 
+## Experimental packages
+
+Packages under `x/` may change or be removed in any release.
+
+| Package | Purpose | Example |
+| --- | --- | --- |
+| [`x/pick`](x/pick) | Select an original item from caller-supplied candidates, or abstain. | [`examples/pick`](examples/pick) |
+
+Run the email selection example with `TYPESAFE_API_KEY` set:
+
+```sh
+go run ./examples/pick
+```
+
 ## Choose a backend
 
 The experimental `x/backend` package selects TypeSafe Jev or Cloudflare
