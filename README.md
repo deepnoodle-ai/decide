@@ -85,7 +85,9 @@ Workers AI account-scoped routes, response envelope, and provider errors.
 HTTP failures expose `*sod.APIError` through `errors.As` and existing error
 sentinels. `cloudflare.Error` retains the full provider error array.
 `Response.Raw` holds the redacted envelope, and `Response.Header` retains
-headers such as `CF-Ray`. `Models.List` returns `errors.ErrUnsupported` for
+headers such as `CF-Ray`. Malformed and non-JSON response bodies are
+suppressed to prevent escaped credentials from reaching errors or logs.
+`Models.List` returns `errors.ErrUnsupported` for
 this adapter.
 
 Clef accepts Noul, Choice, and Score questions. The adapter checks its

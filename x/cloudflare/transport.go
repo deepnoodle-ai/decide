@@ -104,6 +104,7 @@ func (t *Transport) ListModels(context.Context) (*sod.ModelList, error) {
 // Response.Raw contains the redacted complete Workers AI envelope.
 // Response.Extra["cloudflare"] contains envelope metadata without result.
 // CF-Ray, when supplied, remains in Header; RequestID is not synthesized.
+// Malformed or non-JSON response bodies are suppressed to protect credentials.
 func (t *Transport) SystemOne(ctx context.Context, req *sod.Request) (*sod.Response, error) {
 	if err := validate(req); err != nil {
 		return nil, err
@@ -189,6 +190,11 @@ func object(raw json.RawMessage) bool {
 }
 
 func (t *Transport) redact(raw []byte) []byte {
+	// A structural parser cannot inspect strings beyond a syntax error.
+	// Suppress the entire body instead of retaining potentially escaped secrets.
+	if !json.Valid(raw) {
+		return []byte("[REDACTED: invalid JSON response body]")
+	}
 	// Inspect decoded string tokens so alternate JSON escapes cannot reveal
 	// the token after error/answer decoding. Copy every other byte verbatim,
 	// including number text and object member order.
@@ -201,6 +207,9 @@ func (t *Transport) redact(raw []byte) []byte {
 		before := int(decoder.InputOffset())
 		tok, err := decoder.ReadToken()
 		if err != nil {
+			if err != io.EOF {
+				return []byte("[REDACTED: invalid JSON response body]")
+			}
 			break
 		}
 		if tok.Kind() != '"' || !strings.Contains(tok.String(), t.apiToken) {
@@ -217,7 +226,7 @@ func (t *Transport) redact(raw []byte) []byte {
 		out.Write(raw[last:])
 		raw = out.Bytes()
 	}
-	// Non-JSON bodies and malformed suffixes still receive literal redaction.
+	// Apply literal redaction to any other matching bytes.
 	raw = bytes.ReplaceAll(raw, []byte(t.apiToken), []byte(redacted))
 	encoded, _ := json.Marshal(t.apiToken)
 	if len(encoded) > 2 {

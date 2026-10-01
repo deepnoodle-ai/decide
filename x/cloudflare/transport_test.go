@@ -405,6 +405,41 @@ func TestRedactionMatchesResponseDecoder(t *testing.T) {
 	}
 }
 
+func TestMalformedResponseBodiesAreSuppressed(t *testing.T) {
+	escaped := `\u0074` + token[1:]
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"syntax error before secret", `{"broken":,"message":"` + escaped + `"}`},
+		{"syntax error after redacted prefix", `{"echo":"` + token + `","broken":,"message":"` + escaped + `"}`},
+		{"truncated string", `{"message":"` + escaped},
+		{"non-JSON", `upstream failed: ` + escaped},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			client, _ := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = io.WriteString(w, tc.body)
+			}, sod.WithLogger(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))), sod.WithLogBodies(true))
+			_, err := client.SystemOne(context.Background(), noulRequest())
+			var ae *sod.APIError
+			var ce *cloudflare.Error
+			if !errors.As(err, &ae) || !errors.As(err, &ce) || ae.StatusCode != http.StatusBadRequest {
+				t.Fatalf("HTTP error classification lost: %v", err)
+			}
+			for _, exposed := range []string{err.Error(), ae.Message, string(ae.Body), string(ce.Body), logs.String()} {
+				if strings.Contains(exposed, token) || strings.Contains(exposed, escaped) || strings.Contains(exposed, token[1:]) {
+					t.Fatal("malformed response disclosed a recoverable credential")
+				}
+			}
+			if !strings.Contains(string(ae.Body), "invalid JSON response body") || !bytes.Equal(ae.Body, ce.Body) {
+				t.Fatal("suppressed response did not retain a safe diagnostic")
+			}
+		})
+	}
+}
+
 // External question implementations with a supported wire type work without
 // registration. The adapter must not restrict requests to concrete sod types.
 type externalNoul struct{ *sod.NoulQuestion }

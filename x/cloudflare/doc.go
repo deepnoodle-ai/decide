@@ -13,6 +13,8 @@
 //
 // Config reads no environment variables. Use a Workers AI API token and
 // account ID. Credentials are redacted from formatting and response bodies.
+// Malformed and non-JSON response bodies are suppressed, since they cannot
+// be safely inspected for escaped credentials.
 // Like sod.Request, a request must not be mutated while a call uses it.
 //
 // Schemas: https://developers.cloudflare.com/workers-ai/models/clef/

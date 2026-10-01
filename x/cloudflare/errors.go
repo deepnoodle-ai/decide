@@ -25,7 +25,7 @@ type ErrorDetail struct {
 type Error struct {
 	StatusCode int
 	Errors     []ErrorDetail
-	Body       []byte // full response body, API token redacted
+	Body       []byte // redacted response body; malformed/non-JSON bodies suppressed
 	Header     http.Header
 	apiError   *sod.APIError
 }
@@ -75,7 +75,7 @@ func errorMessage(details []ErrorDetail, raw []byte) string {
 	if len(parts) > 0 {
 		return strings.Join(parts, "; ")
 	}
-	// Non-JSON error bodies are useful for proxies and outages.
+	// Suppressed bodies retain a safe explanation for proxies and outages.
 	if !json.Valid(raw) {
 		msg := strings.TrimSpace(string(raw))
 		if len(msg) > 200 {
