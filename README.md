@@ -92,6 +92,7 @@ Packages under `x/` may change or be removed in any release.
 | [`x/calibrate`](x/calibrate) | Fit thresholds and compare labeled evidence offline. | [`examples/calibrate`](examples/calibrate) |
 | [`x/heads`](x/heads) | Ask selector and branch questions together; read the selected branch. | [`examples/heads`](examples/heads) |
 | [`x/funnel`](x/funnel) | Screen items in stages while retaining answers and drop reasons. | [`examples/funnel`](examples/funnel) |
+| [`x/compact`](x/compact) | Keep whole context segments or supplied short forms under a budget. | [`examples/compact`](examples/compact) |
 
 Run the email selection example with `TYPESAFE_API_KEY` set:
 
