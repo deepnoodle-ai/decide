@@ -1,0 +1,264 @@
+{
+  "about": "Fixed corpus for the live validation test. Every answer must pass validation; failures are evidence about the provisional tolerances in validate.go.",
+  "states": [
+    "Help! My payouts have been failing for 3 days and support has not replied.",
+    "Thanks for the quick fix yesterday, everything works now.",
+    "Can you add dark mode to the dashboard? Not urgent.",
+    "Your latest release deleted all of our saved reports. We are evaluating other vendors.",
+    {
+      "ticket": {
+        "subject": "Invoice question",
+        "body": "Why was I billed for 12 seats when we have 9 users?",
+        "plan": "team"
+      }
+    },
+    "The API returns 500 for every request since 09:00 UTC. Production is down."
+  ],
+  "questions": {
+    "is_billing": {
+      "type": "noul",
+      "instructions": "Is the message about billing, invoices, or charges?"
+    },
+    "is_bug": {
+      "type": "noul",
+      "instructions": "Does the message report a defect in the product?"
+    },
+    "is_feature_request": {
+      "type": "noul",
+      "instructions": "Does the message ask for a new feature?"
+    },
+    "is_positive": {
+      "type": "noul",
+      "instructions": "Is the overall sentiment of the message positive?"
+    },
+    "mentions_competitor": {
+      "type": "noul",
+      "instructions": "Does the customer say they are considering another vendor?"
+    },
+    "is_outage": {
+      "type": "noul",
+      "instructions": "Does the message describe a service outage affecting production?"
+    },
+    "needs_reply": {
+      "type": "noul",
+      "instructions": "Does the message need a reply from support?"
+    },
+    "is_billing_criteria": {
+      "type": "noul",
+      "instructions": "Is this about money the customer paid?",
+      "criteria": {
+        "true": "The customer mentions a charge, invoice, refund, or price",
+        "false": "Anything else"
+      }
+    },
+    "tone_2": {
+      "type": "choice",
+      "instructions": "Is the customer happy or unhappy?",
+      "criteria": {
+        "happy": null,
+        "unhappy": null
+      }
+    },
+    "tone_4": {
+      "type": "choice",
+      "instructions": "What is the customer's tone?",
+      "criteria": {
+        "calm": null,
+        "grateful": "Thanking or praising",
+        "frustrated": null,
+        "angry": "Hostile or threatening to leave"
+      }
+    },
+    "team_6": {
+      "type": "choice",
+      "instructions": "Which team should handle this?",
+      "criteria": {
+        "billing": null,
+        "engineering": null,
+        "product": null,
+        "success": null,
+        "sales": null,
+        "security": null
+      }
+    },
+    "product_area_12": {
+      "type": "choice",
+      "instructions": "Which product area is this about?",
+      "criteria": {
+        "payouts": null,
+        "invoices": null,
+        "seats": null,
+        "dashboard": null,
+        "reports": null,
+        "api": null,
+        "auth": null,
+        "webhooks": null,
+        "exports": null,
+        "mobile": null,
+        "integrations": null,
+        "other": null
+      }
+    },
+    "country_20": {
+      "type": "choice",
+      "instructions": "Which country is the customer most likely in? Pick unknown if there is no signal.",
+      "criteria": {
+        "unknown": null,
+        "us": null,
+        "uk": null,
+        "canada": null,
+        "germany": null,
+        "france": null,
+        "spain": null,
+        "italy": null,
+        "netherlands": null,
+        "sweden": null,
+        "india": null,
+        "japan": null,
+        "brazil": null,
+        "mexico": null,
+        "australia": null,
+        "singapore": null,
+        "ireland": null,
+        "poland": null,
+        "nigeria": null,
+        "south_africa": null
+      }
+    },
+    "intent_50": {
+      "type": "choice",
+      "instructions": "What is the customer's primary intent?",
+      "criteria": {
+        "intent_01": "Intent number 1",
+        "intent_02": "Intent number 2",
+        "intent_03": "Intent number 3",
+        "intent_04": "Intent number 4",
+        "intent_05": "Intent number 5",
+        "intent_06": "Intent number 6",
+        "intent_07": "Intent number 7",
+        "intent_08": "Intent number 8",
+        "intent_09": "Intent number 9",
+        "intent_10": "Intent number 10",
+        "intent_11": "Intent number 11",
+        "intent_12": "Intent number 12",
+        "intent_13": "Intent number 13",
+        "intent_14": "Intent number 14",
+        "intent_15": "Intent number 15",
+        "intent_16": "Intent number 16",
+        "intent_17": "Intent number 17",
+        "intent_18": "Intent number 18",
+        "intent_19": "Intent number 19",
+        "intent_20": "Intent number 20",
+        "intent_21": "Intent number 21",
+        "intent_22": "Intent number 22",
+        "intent_23": "Intent number 23",
+        "intent_24": "Intent number 24",
+        "intent_25": "Intent number 25",
+        "intent_26": "Intent number 26",
+        "intent_27": "Intent number 27",
+        "intent_28": "Intent number 28",
+        "intent_29": "Intent number 29",
+        "intent_30": "Intent number 30",
+        "intent_31": "Intent number 31",
+        "intent_32": "Intent number 32",
+        "intent_33": "Intent number 33",
+        "intent_34": "Intent number 34",
+        "intent_35": "Intent number 35",
+        "intent_36": "Intent number 36",
+        "intent_37": "Intent number 37",
+        "intent_38": "Intent number 38",
+        "intent_39": "Intent number 39",
+        "intent_40": "Intent number 40",
+        "intent_41": "Intent number 41",
+        "intent_42": "Intent number 42",
+        "intent_43": "Intent number 43",
+        "intent_44": "Intent number 44",
+        "intent_45": "Intent number 45",
+        "intent_46": "Intent number 46",
+        "intent_47": "Intent number 47",
+        "intent_48": "Intent number 48",
+        "intent_49": "Intent number 49",
+        "report_outage": "The customer reports the service is down"
+      }
+    },
+    "urgency_2": {
+      "type": "score",
+      "instructions": "How urgent is this?",
+      "criteria": [
+        "can wait",
+        "urgent"
+      ]
+    },
+    "urgency_3": {
+      "type": "score",
+      "instructions": "How urgent is this?",
+      "criteria": [
+        "can wait",
+        "this week",
+        "today"
+      ]
+    },
+    "frustration_3": {
+      "type": "score",
+      "instructions": "How frustrated is the customer?",
+      "criteria": [
+        "Calm",
+        "Frustrated",
+        "Very angry"
+      ]
+    },
+    "severity_5": {
+      "type": "score",
+      "instructions": "How severe is the reported problem?",
+      "criteria": [
+        "no problem",
+        "cosmetic",
+        "minor",
+        "major",
+        "critical"
+      ]
+    },
+    "churn_risk_7": {
+      "type": "score",
+      "instructions": "How likely is this customer to cancel?",
+      "criteria": [
+        "certain to stay",
+        "very unlikely",
+        "unlikely",
+        "unsure",
+        "likely",
+        "very likely",
+        "certain to leave"
+      ]
+    },
+    "satisfaction_10": {
+      "type": "score",
+      "instructions": "Rate the customer's satisfaction from 1 to 10.",
+      "criteria": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+        "10"
+      ]
+    },
+    "effort_4_structured": {
+      "type": "score",
+      "instructions": {
+        "task": "How much effort will resolving this take?",
+        "path": "`ticket.body` if present"
+      },
+      "criteria": [
+        "none",
+        "small",
+        "medium",
+        "large"
+      ]
+    }
+  }
+}

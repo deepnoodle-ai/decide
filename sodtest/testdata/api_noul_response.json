@@ -1,0 +1,10 @@
+{
+  "model": "jev-1.13.0",
+  "answers": {
+    "is_billing": {
+      "type": "noul",
+      "noul": 0.97
+    }
+  },
+  "usage": { "input_tokens": 212, "output_tokens": 6 }
+}
