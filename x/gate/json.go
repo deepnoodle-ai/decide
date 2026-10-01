@@ -1,6 +1,7 @@
 package gate
 
 import (
+	"bytes"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"errors"
@@ -46,6 +47,13 @@ func unmarshal(typ string, data []byte, v any, required []string) error {
 	var members map[string]jsontext.Value
 	if err := json.Unmarshal(data, &members); err != nil {
 		return fmt.Errorf("gate: decode %s: %w", typ, err)
+	}
+	// Null cannot supply an explicit numeric bound: decoding it as zero
+	// would silently loosen a policy. Zero itself remains a valid bound.
+	for _, name := range []string{"allow", "review", "floor", "top", "lead"} {
+		if raw, ok := members[name]; ok && bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			return fmt.Errorf("gate: decode %s: null bound %q", typ, name)
+		}
 	}
 	for _, name := range required {
 		if name == "type" {
@@ -239,7 +247,7 @@ func (r *Compose) UnmarshalJSON(data []byte) error {
 
 // DecodeRule decodes one built-in rule by its "type" member, rejects
 // unknown members (a typo such as "alow" would read as a 0 bound),
-// duplicate members, and missing bounds, decodes Compose children
+// duplicate members, and missing or null bounds, decodes Compose children
 // recursively, and validates. It returns value types (gate.Bands, not
 // *gate.Bands). An unknown or missing "type" wraps ErrUnknownRule; a rule
 // that fails validation wraps ErrInvalidRule.

@@ -112,6 +112,7 @@ func NewInputs(in ...Input) Inputs {
 		if _, ok := m[x.Name]; ok {
 			panic(fmt.Sprintf("gate: NewInputs: duplicate name %q", x.Name))
 		}
+		x.Probabilities = maps.Clone(x.Probabilities)
 		m[x.Name] = x
 	}
 	return Inputs{m: m}
@@ -120,6 +121,7 @@ func NewInputs(in ...Input) Inputs {
 // Get returns the input under name, or Missing(name) if there is none.
 func (s Inputs) Get(name string) Input {
 	if x, ok := s.m[name]; ok {
+		x.Probabilities = maps.Clone(x.Probabilities)
 		return x
 	}
 	return Missing(name)
@@ -129,7 +131,7 @@ func (s Inputs) Get(name string) Input {
 func (s Inputs) All() iter.Seq2[string, Input] {
 	return func(yield func(string, Input) bool) {
 		for _, k := range slices.Sorted(maps.Keys(s.m)) {
-			if !yield(k, s.m[k]) {
+			if !yield(k, s.Get(k)) {
 				return
 			}
 		}
