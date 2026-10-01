@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/deepnoodle-ai/sod"
+	"github.com/deepnoodle-ai/decide"
 )
 
 // ErrorDetail is one entry in a Workers AI error array. Body on Error keeps
@@ -20,14 +20,14 @@ type ErrorDetail struct {
 }
 
 // Error reports an unsuccessful Workers AI response. HTTP failures wrap
-// *sod.APIError, so errors.As, errors.Is, and client retries still work.
+// *decide.APIError, so errors.As, errors.Is, and client retries still work.
 // An unsuccessful 2xx envelope retains its actual status and is not retried.
 type Error struct {
 	StatusCode int
 	Errors     []ErrorDetail
 	Body       []byte // redacted response body; malformed/non-JSON bodies suppressed
 	Header     http.Header
-	apiError   *sod.APIError
+	apiError   *decide.APIError
 }
 
 // Error describes the response status and provider messages.
@@ -35,10 +35,10 @@ func (e *Error) Error() string {
 	if e.apiError != nil {
 		return e.apiError.Error()
 	}
-	return fmt.Sprintf("sod: cloudflare status %d: %s", e.StatusCode, errorMessage(e.Errors, e.Body))
+	return fmt.Sprintf("decide: cloudflare status %d: %s", e.StatusCode, errorMessage(e.Errors, e.Body))
 }
 
-// Unwrap returns the underlying *sod.APIError for an HTTP failure.
+// Unwrap returns the underlying *decide.APIError for an HTTP failure.
 func (e *Error) Unwrap() error {
 	if e.apiError == nil {
 		return nil
@@ -58,7 +58,7 @@ func providerError(status int, header http.Header, raw []byte, httpFailure bool)
 		if message == "Workers AI reported an unsuccessful response" {
 			message = http.StatusText(status)
 		}
-		e.apiError = &sod.APIError{StatusCode: status, Message: message,
+		e.apiError = &decide.APIError{StatusCode: status, Message: message,
 			Body: raw, RetryAfter: retryAfter(header, time.Now())}
 		if len(e.Errors) > 0 {
 			e.apiError.Type = strconv.Itoa(e.Errors[0].Code)

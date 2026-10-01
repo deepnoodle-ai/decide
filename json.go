@@ -1,4 +1,4 @@
-package sod
+package decide
 
 import (
 	"bytes"
@@ -32,7 +32,7 @@ func (w *objectWriter) field(key string, v any) {
 	}
 	b, err := json.Marshal(v)
 	if err != nil {
-		w.err = fmt.Errorf("sod: encode %q: %w", key, err)
+		w.err = fmt.Errorf("decide: encode %q: %w", key, err)
 		return
 	}
 	w.rawField(key, b)
@@ -62,7 +62,7 @@ func (w *objectWriter) extra(extra map[string]any, reserved ...string) {
 	keys := slices.Sorted(maps.Keys(extra))
 	for _, k := range keys {
 		if slices.Contains(reserved, k) {
-			w.err = fmt.Errorf("sod: Extra key %q collides with a modeled field", k)
+			w.err = fmt.Errorf("decide: Extra key %q collides with a modeled field", k)
 			return
 		}
 	}
@@ -99,7 +99,7 @@ func (w *objectWriter) bytes() ([]byte, error) {
 func decodeObject(data []byte) (map[string]json.RawMessage, error) {
 	data = bytes.TrimSpace(data)
 	if len(data) == 0 || data[0] != '{' {
-		return nil, errors.New("sod: expected a JSON object")
+		return nil, errors.New("decide: expected a JSON object")
 	}
 	var m map[string]json.RawMessage
 	if err := json.Unmarshal(data, &m); err != nil {
@@ -125,7 +125,7 @@ func decodeOrderedObject(data []byte) ([]orderedMember, error) {
 		return nil, err
 	}
 	if tok.Kind() != jsontext.KindBeginObject {
-		return nil, errors.New("sod: expected a JSON object")
+		return nil, errors.New("decide: expected a JSON object")
 	}
 	var out []orderedMember
 	for dec.PeekKind() != jsontext.KindEndObject {
@@ -160,7 +160,7 @@ func decodeAny(raw json.RawMessage) (any, error) {
 		return s, nil
 	}
 	if !json.Valid(raw) {
-		return nil, errors.New("sod: invalid JSON value")
+		return nil, errors.New("decide: invalid JSON value")
 	}
 	return json.RawMessage(bytes.Clone(raw)), nil
 }

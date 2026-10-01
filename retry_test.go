@@ -1,4 +1,4 @@
-package sod_test
+package decide_test
 
 import (
 	"context"
@@ -19,8 +19,8 @@ import (
 	"testing/synctest"
 	"time"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/sodtest"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/decidetest"
 )
 
 // All tests here run inside synctest bubbles, so retry sleeps cost no wall
@@ -30,13 +30,13 @@ import (
 const retryKey = "retry-test-key-123"
 
 // newFake is created outside the bubble; its loopback listener is unused.
-func newFake(t *testing.T) *sodtest.Server {
-	return sodtest.NewServer(t, sodtest.WithAPIKey(retryKey))
+func newFake(t *testing.T) *decidetest.Server {
+	return decidetest.NewServer(t, decidetest.WithAPIKey(retryKey))
 }
 
 // bubbleClient mounts fake's Handler on an in-memory server inside the
 // current bubble and returns a client for it.
-func bubbleClient(t *testing.T, fake *sodtest.Server, opts ...sod.ClientOption) *sod.Client {
+func bubbleClient(t *testing.T, fake *decidetest.Server, opts ...decide.ClientOption) *decide.Client {
 	t.Helper()
 	ts := httptest.NewTestServer(t, fake.Handler())
 	hc := ts.Client() // sets ts.URL
@@ -48,13 +48,13 @@ func bubbleClient(t *testing.T, fake *sodtest.Server, opts ...sod.ClientOption) 
 }
 
 // rawBubbleClient is bubbleClient for a hand-written handler.
-func rawBubbleClient(t *testing.T, h http.Handler, opts ...sod.ClientOption) *sod.Client {
+func rawBubbleClient(t *testing.T, h http.Handler, opts ...decide.ClientOption) *decide.Client {
 	t.Helper()
 	ts := httptest.NewTestServer(t, h)
 	hc := ts.Client()
-	c, err := sod.NewClient(append([]sod.ClientOption{
-		sod.WithoutEnvironment(), sod.WithAPIKey(retryKey),
-		sod.WithBaseURL(ts.URL), sod.WithHTTPClient(hc),
+	c, err := decide.NewClient(append([]decide.ClientOption{
+		decide.WithoutEnvironment(), decide.WithAPIKey(retryKey),
+		decide.WithBaseURL(ts.URL), decide.WithHTTPClient(hc),
 	}, opts...)...)
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +71,7 @@ func elapsed(f func()) time.Duration {
 func TestRetryAfterSeconds(t *testing.T) {
 	fake := newFake(t)
 	synctest.Test(t, func(t *testing.T) {
-		fake.FailNext(429, sodtest.RetryAfter(time.Second))
+		fake.FailNext(429, decidetest.RetryAfter(time.Second))
 		c := bubbleClient(t, fake)
 		var err error
 		d := elapsed(func() { _, err = c.SystemOne(t.Context(), valid()) })
@@ -88,7 +88,7 @@ func TestRetryAfterSeconds(t *testing.T) {
 func TestRetryAfterMSWins(t *testing.T) {
 	fake := newFake(t)
 	synctest.Test(t, func(t *testing.T) {
-		fake.FailNext(429, sodtest.RetryAfter(3*time.Second), sodtest.RetryAfterMS(250))
+		fake.FailNext(429, decidetest.RetryAfter(3*time.Second), decidetest.RetryAfterMS(250))
 		c := bubbleClient(t, fake)
 		if d := elapsed(func() { c.SystemOne(t.Context(), valid()) }); d != 250*time.Millisecond {
 			t.Fatalf("slept %v", d)
@@ -129,8 +129,8 @@ func newFakeInBubbleHandler(intercept func(w http.ResponseWriter) bool) http.Han
 func TestLongRetryAfterFallsBackToBackoff(t *testing.T) {
 	fake := newFake(t)
 	synctest.Test(t, func(t *testing.T) {
-		fake.FailNext(429, sodtest.RetryAfter(2*time.Minute))
-		c := bubbleClient(t, fake, sod.WithRetryBackoff(100*time.Millisecond, time.Second))
+		fake.FailNext(429, decidetest.RetryAfter(2*time.Minute))
+		c := bubbleClient(t, fake, decide.WithRetryBackoff(100*time.Millisecond, time.Second))
 		if d := elapsed(func() { c.SystemOne(t.Context(), valid()) }); d < 75*time.Millisecond || d > 100*time.Millisecond {
 			t.Fatalf("slept %v, want backoff in [75ms, 100ms]", d)
 		}
@@ -141,7 +141,7 @@ func TestBackoffBounds(t *testing.T) {
 	fake := newFake(t)
 	synctest.Test(t, func(t *testing.T) {
 		fake.Overloaded(2)
-		c := bubbleClient(t, fake, sod.WithRetryBackoff(100*time.Millisecond, 150*time.Millisecond))
+		c := bubbleClient(t, fake, decide.WithRetryBackoff(100*time.Millisecond, 150*time.Millisecond))
 		var err error
 		d := elapsed(func() { _, err = c.SystemOne(t.Context(), valid()) })
 		// Retry 0 waits in [75ms, 100ms]; retry 1 is capped at 150ms, so [112.5ms, 150ms].
@@ -156,7 +156,7 @@ func TestNotRetried422(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		fake.FailNext(422)
 		c := bubbleClient(t, fake)
-		if _, err := c.SystemOne(t.Context(), valid()); !errors.Is(err, sod.ErrValidation) || len(fake.Requests()) != 1 {
+		if _, err := c.SystemOne(t.Context(), valid()); !errors.Is(err, decide.ErrValidation) || len(fake.Requests()) != 1 {
 			t.Fatalf("err %v, %d requests", err, len(fake.Requests()))
 		}
 	})
@@ -167,18 +167,18 @@ func TestRetriesExhausted(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		fake.Overloaded(3)
 		logger, logs := debugLogger()
-		c := bubbleClient(t, fake, sod.WithLogger(logger))
+		c := bubbleClient(t, fake, decide.WithLogger(logger))
 		_, err := c.SystemOne(t.Context(), valid())
-		ae, ok := errors.AsType[*sod.APIError](err)
-		if !ok || ae.StatusCode != 529 || ae.RequestID != "req_3" || !errors.Is(err, sod.ErrOverloaded) {
+		ae, ok := errors.AsType[*decide.APIError](err)
+		if !ok || ae.StatusCode != 529 || ae.RequestID != "req_3" || !errors.Is(err, decide.ErrOverloaded) {
 			t.Fatalf("err %v", err)
 		}
 		out := logs.String()
 		for _, want := range []string{
-			`level=INFO msg="sod retry" op=systemone attempt=1`,
-			`level=INFO msg="sod retry" op=systemone attempt=2`,
-			`level=WARN msg="sod retries exhausted" op=systemone attempts=3`,
-			`level=DEBUG msg="sod request" op=systemone attempt=2`,
+			`level=INFO msg="decide retry" op=systemone attempt=1`,
+			`level=INFO msg="decide retry" op=systemone attempt=2`,
+			`level=WARN msg="decide retries exhausted" op=systemone attempts=3`,
+			`level=DEBUG msg="decide request" op=systemone attempt=2`,
 		} {
 			if !strings.Contains(out, want) {
 				t.Errorf("log missing %q:\n%s", want, out)
@@ -198,7 +198,7 @@ func TestHugeRetryAfterFallsBack(t *testing.T) {
 			}
 			return false
 		})
-		c := rawBubbleClient(t, h, sod.WithRetryBackoff(100*time.Millisecond, time.Second))
+		c := rawBubbleClient(t, h, decide.WithRetryBackoff(100*time.Millisecond, time.Second))
 		var err error
 		if d := elapsed(func() { _, err = c.SystemOne(t.Context(), valid()) }); err != nil || d > 100*time.Millisecond || d < 75*time.Millisecond {
 			t.Fatalf("err %v slept %v", err, d)
@@ -209,14 +209,14 @@ func TestHugeRetryAfterFallsBack(t *testing.T) {
 func TestDeadlineShortcutLogsWarn(t *testing.T) {
 	fake := newFake(t)
 	synctest.Test(t, func(t *testing.T) {
-		fake.FailNext(429, sodtest.RetryAfter(10*time.Second))
+		fake.FailNext(429, decidetest.RetryAfter(10*time.Second))
 		logger, logs := debugLogger()
-		c := bubbleClient(t, fake, sod.WithLogger(logger))
+		c := bubbleClient(t, fake, decide.WithLogger(logger))
 		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 		defer cancel()
 		c.SystemOne(ctx, valid())
 		out := logs.String()
-		if !strings.Contains(out, `level=WARN msg="sod retries exhausted" op=systemone attempts=1`) {
+		if !strings.Contains(out, `level=WARN msg="decide retries exhausted" op=systemone attempts=1`) {
 			t.Fatalf("no Warn on deadline shortcut:\n%s", out)
 		}
 		if n := strings.Count(out, "status="); n != 1 {
@@ -229,7 +229,7 @@ func TestSuccessLogOmitsStatus(t *testing.T) {
 	fake := newFake(t)
 	synctest.Test(t, func(t *testing.T) {
 		logger, logs := debugLogger()
-		c := bubbleClient(t, fake, sod.WithLogger(logger))
+		c := bubbleClient(t, fake, decide.WithLogger(logger))
 		if _, err := c.SystemOne(t.Context(), valid()); err != nil {
 			t.Fatal(err)
 		}
@@ -243,10 +243,10 @@ func TestSuccessLogOmitsStatus(t *testing.T) {
 // A transport may return a response and an error together.
 func TestResponseAndErrorLoggedOnce(t *testing.T) {
 	logger, logs := debugLogger()
-	tr := stubTransport{systemOne: func(context.Context, *sod.Request) (*sod.Response, error) {
-		return &sod.Response{RequestID: "req_both"}, &sod.APIError{StatusCode: 400, RequestID: "req_both"}
+	tr := stubTransport{systemOne: func(context.Context, *decide.Request) (*decide.Response, error) {
+		return &decide.Response{RequestID: "req_both"}, &decide.APIError{StatusCode: 400, RequestID: "req_both"}
 	}}
-	c := stubClient(t, tr, sod.WithLogger(logger))
+	c := stubClient(t, tr, decide.WithLogger(logger))
 	c.SystemOne(t.Context(), valid())
 	out := logs.String()
 	if strings.Count(out, " status=") != 1 || strings.Count(out, " request_id=") != 1 {
@@ -257,13 +257,13 @@ func TestResponseAndErrorLoggedOnce(t *testing.T) {
 func TestCancelDuringSleep(t *testing.T) {
 	fake := newFake(t)
 	synctest.Test(t, func(t *testing.T) {
-		fake.FailNext(429, sodtest.RetryAfter(10*time.Second))
+		fake.FailNext(429, decidetest.RetryAfter(10*time.Second))
 		c := bubbleClient(t, fake)
 		ctx, cancel := context.WithCancel(t.Context())
 		time.AfterFunc(time.Second, cancel)
 		var err error
 		d := elapsed(func() { _, err = c.SystemOne(ctx, valid()) })
-		ae, ok := errors.AsType[*sod.APIError](err)
+		ae, ok := errors.AsType[*decide.APIError](err)
 		if d != time.Second || !errors.Is(err, context.Canceled) || !ok || ae.StatusCode != 429 {
 			t.Fatalf("after %v: %v", d, err)
 		}
@@ -287,13 +287,13 @@ func TestCancelBeforeAnyFailure(t *testing.T) {
 func TestDeadlineShorterThanDelay(t *testing.T) {
 	fake := newFake(t)
 	synctest.Test(t, func(t *testing.T) {
-		fake.FailNext(429, sodtest.RetryAfter(10*time.Second))
+		fake.FailNext(429, decidetest.RetryAfter(10*time.Second))
 		c := bubbleClient(t, fake)
 		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 		defer cancel()
 		var err error
 		d := elapsed(func() { _, err = c.SystemOne(ctx, valid()) })
-		if d != 0 || !errors.Is(err, sod.ErrRateLimited) || len(fake.Requests()) != 1 {
+		if d != 0 || !errors.Is(err, decide.ErrRateLimited) || len(fake.Requests()) != 1 {
 			t.Fatalf("after %v: %v", d, err)
 		}
 	})
@@ -302,17 +302,17 @@ func TestDeadlineShorterThanDelay(t *testing.T) {
 func TestAttemptTimeoutRetried(t *testing.T) {
 	fake := newFake(t)
 	synctest.Test(t, func(t *testing.T) {
-		fake.FailNext(500, sodtest.FaultDelay(5*time.Second))
-		c := bubbleClient(t, fake, sod.WithAttemptTimeout(time.Second), sod.WithRetryBackoff(time.Millisecond, time.Millisecond))
+		fake.FailNext(500, decidetest.FaultDelay(5*time.Second))
+		c := bubbleClient(t, fake, decide.WithAttemptTimeout(time.Second), decide.WithRetryBackoff(time.Millisecond, time.Millisecond))
 		var err error
 		d := elapsed(func() { _, err = c.SystemOne(t.Context(), valid()) })
 		if err != nil || len(fake.Requests()) != 2 || d > 1100*time.Millisecond {
 			t.Fatalf("err %v after %v, %d requests", err, d, len(fake.Requests()))
 		}
 		// A per-call timeout overrides the client's.
-		fake.FailNext(500, sodtest.FaultDelay(5*time.Second))
+		fake.FailNext(500, decidetest.FaultDelay(5*time.Second))
 		d = elapsed(func() {
-			_, err = c.SystemOne(t.Context(), valid(), sod.WithCallAttemptTimeout(3*time.Second))
+			_, err = c.SystemOne(t.Context(), valid(), decide.WithCallAttemptTimeout(3*time.Second))
 		})
 		if err != nil || d < 3*time.Second || d > 3100*time.Millisecond {
 			t.Fatalf("per-call timeout: err %v after %v", err, d)
@@ -325,7 +325,7 @@ func TestCallMaxRetriesZero(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		fake.Overloaded(1)
 		c := bubbleClient(t, fake)
-		if _, err := c.SystemOne(t.Context(), valid(), sod.WithCallMaxRetries(0)); !errors.Is(err, sod.ErrOverloaded) {
+		if _, err := c.SystemOne(t.Context(), valid(), decide.WithCallMaxRetries(0)); !errors.Is(err, decide.ErrOverloaded) {
 			t.Fatalf("err %v", err)
 		}
 		if n := len(fake.Requests()); n != 1 {
@@ -391,7 +391,7 @@ func TestTransportErrorClassification(t *testing.T) {
 	run := func(name string, cause error, wantCalls int32) {
 		synctest.Test(t, func(t *testing.T) {
 			var calls atomic.Int32
-			c := stubClient(t, stubTransport{systemOne: func(context.Context, *sod.Request) (*sod.Response, error) {
+			c := stubClient(t, stubTransport{systemOne: func(context.Context, *decide.Request) (*decide.Response, error) {
 				calls.Add(1)
 				return nil, cause
 			}})

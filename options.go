@@ -1,4 +1,4 @@
-package sod
+package decide
 
 import (
 	"errors"
@@ -56,7 +56,7 @@ func WithBaseURL(url string) ClientOption {
 func WithModel(name string) ClientOption {
 	return func(c *clientConfig) error {
 		if name == "" {
-			return errors.New("sod: WithModel with empty name")
+			return errors.New("decide: WithModel with empty name")
 		}
 		c.model = &name
 		return nil
@@ -68,7 +68,7 @@ func WithModel(name string) ClientOption {
 func WithHTTPClient(hc *http.Client) ClientOption {
 	return func(c *clientConfig) error {
 		if hc == nil {
-			return errors.New("sod: WithHTTPClient(nil)")
+			return errors.New("decide: WithHTTPClient(nil)")
 		}
 		c.httpClient = hc
 		return nil
@@ -82,7 +82,7 @@ func WithHTTPClient(hc *http.Client) ClientOption {
 func WithTransport(t Transport) ClientOption {
 	return func(c *clientConfig) error {
 		if t == nil {
-			return errors.New("sod: WithTransport(nil)")
+			return errors.New("decide: WithTransport(nil)")
 		}
 		c.transport, c.transSet = t, true
 		return nil
@@ -94,7 +94,7 @@ func WithTransport(t Transport) ClientOption {
 func WithLogger(l *slog.Logger) ClientOption {
 	return func(c *clientConfig) error {
 		if l == nil {
-			return errors.New("sod: WithLogger(nil)")
+			return errors.New("decide: WithLogger(nil)")
 		}
 		c.logger = l
 		return nil
@@ -112,7 +112,7 @@ func WithLogBodies(on bool) ClientOption {
 func WithMaxRetries(n int) ClientOption {
 	return func(c *clientConfig) error {
 		if n < 0 {
-			return errors.New("sod: WithMaxRetries must be >= 0")
+			return errors.New("decide: WithMaxRetries must be >= 0")
 		}
 		c.maxRetries = n
 		return nil
@@ -123,7 +123,7 @@ func WithMaxRetries(n int) ClientOption {
 func WithRetryBackoff(initial, max time.Duration) ClientOption {
 	return func(c *clientConfig) error {
 		if initial < 0 || initial > max {
-			return errors.New("sod: WithRetryBackoff needs 0 <= initial <= max")
+			return errors.New("decide: WithRetryBackoff needs 0 <= initial <= max")
 		}
 		c.initial, c.max = initial, max
 		return nil
@@ -136,7 +136,7 @@ func WithRetryBackoff(initial, max time.Duration) ClientOption {
 func WithAttemptTimeout(d time.Duration) ClientOption {
 	return func(c *clientConfig) error {
 		if d < 0 {
-			return errors.New("sod: WithAttemptTimeout must be >= 0")
+			return errors.New("decide: WithAttemptTimeout must be >= 0")
 		}
 		c.timeout = d
 		return nil

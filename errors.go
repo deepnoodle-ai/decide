@@ -1,4 +1,4 @@
-package sod
+package decide
 
 import (
 	"cmp"
@@ -13,20 +13,20 @@ import (
 
 // Sentinel errors. Match them with errors.Is.
 var (
-	ErrAuth           = errors.New("sod: authentication failed")     // 401, 403
-	ErrValidation     = errors.New("sod: request validation failed") // 422
-	ErrRateLimited    = errors.New("sod: rate limited")              // 429
-	ErrOverloaded     = errors.New("sod: overloaded")                // 529
-	ErrServer         = errors.New("sod: server error")              // any 5xx, including 529
-	ErrNoAPIKey       = errors.New("sod: no API key: set TYPESAFE_API_KEY or use WithAPIKey")
-	ErrInvalidRequest = errors.New("sod: invalid request")
-	ErrInvalidAnswer  = errors.New("sod: invalid answer")
+	ErrAuth           = errors.New("decide: authentication failed")     // 401, 403
+	ErrValidation     = errors.New("decide: request validation failed") // 422
+	ErrRateLimited    = errors.New("decide: rate limited")              // 429
+	ErrOverloaded     = errors.New("decide: overloaded")                // 529
+	ErrServer         = errors.New("decide: server error")              // any 5xx, including 529
+	ErrNoAPIKey       = errors.New("decide: no API key: set TYPESAFE_API_KEY or use WithAPIKey")
+	ErrInvalidRequest = errors.New("decide: invalid request")
+	ErrInvalidAnswer  = errors.New("decide: invalid answer")
 	// ErrInconsistentAnswer marks an answer that is well formed but whose
 	// numbers disagree with each other beyond tolerance: the choice is not
 	// the argmax, the score is outside its range, or the probabilities do not
 	// sum to about 1. It is always accompanied by ErrInvalidAnswer.
-	ErrInconsistentAnswer = errors.New("sod: inconsistent answer")
-	ErrDecode             = errors.New("sod: cannot decode response")
+	ErrInconsistentAnswer = errors.New("decide: inconsistent answer")
+	ErrDecode             = errors.New("decide: cannot decode response")
 )
 
 // APIError is a non-2xx response from the API.
@@ -49,10 +49,10 @@ type ValidationDetail struct {
 	Ctx   map[string]any  `json:"ctx,omitempty"`
 }
 
-// Error returns "sod: <status> <message> (request_id=<id>)".
+// Error returns "decide: <status> <message> (request_id=<id>)".
 func (e *APIError) Error() string {
 	var b strings.Builder
-	b.WriteString("sod: ")
+	b.WriteString("decide: ")
 	b.WriteString(strconv.Itoa(e.StatusCode))
 	if e.Message != "" {
 		b.WriteByte(' ')
@@ -218,10 +218,10 @@ type AnswerError struct {
 	scoreRange bool // out_of_range on a score's value (check 14)
 }
 
-// Error returns `sod: answer "k" (choice): choice_not_option: ...`.
+// Error returns `decide: answer "k" (choice): choice_not_option: ...`.
 func (e *AnswerError) Error() string {
 	var b strings.Builder
-	b.WriteString("sod: answer ")
+	b.WriteString("decide: answer ")
 	b.WriteString(strconv.Quote(e.Key))
 	if e.Type != "" {
 		b.WriteString(" (")
@@ -276,7 +276,7 @@ type InvalidAnswersError struct{ Answers []*AnswerError }
 // Error returns the count plus the first two failures.
 func (e *InvalidAnswersError) Error() string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "sod: %d invalid answer", len(e.Answers))
+	fmt.Fprintf(&b, "decide: %d invalid answer", len(e.Answers))
 	if len(e.Answers) != 1 {
 		b.WriteByte('s')
 	}
@@ -290,7 +290,7 @@ func (e *InvalidAnswersError) Error() string {
 		} else {
 			b.WriteString("; ")
 		}
-		b.WriteString(strings.TrimPrefix(a.Error(), "sod: "))
+		b.WriteString(strings.TrimPrefix(a.Error(), "decide: "))
 	}
 	return b.String()
 }

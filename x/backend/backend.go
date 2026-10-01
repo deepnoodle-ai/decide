@@ -1,6 +1,6 @@
-// Package backend selects a decision provider during sod.Client construction.
+// Package backend selects a decision provider during decide.Client construction.
 // It is experimental. Requests, typed handles, retries, and answer validation
-// use the same sod API for either provider.
+// use the same decide API for either provider.
 //
 // Config supplies connection settings explicitly. NewClient reads no
 // environment variables, so a TypeSafe environment cannot affect Cloudflare
@@ -13,8 +13,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/x/cloudflare"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/x/cloudflare"
 )
 
 // Provider identifies the service used by a client.
@@ -61,16 +61,16 @@ func (c Config) LogValue() slog.Value { return slog.StringValue(c.String()) }
 // and validation. Set connection settings through cfg, not through opts.
 // WithModel can override cfg.Model. The selected transport cannot be replaced
 // through opts; options that configure native HTTP settings return an error.
-func NewClient(cfg Config, opts ...sod.ClientOption) (*sod.Client, error) {
-	var transport sod.Transport
+func NewClient(cfg Config, opts ...decide.ClientOption) (*decide.Client, error) {
+	var transport decide.Transport
 	var err error
 	model := cfg.Model
 	switch cfg.Provider {
 	case TypeSafe:
 		if cfg.AccountID != "" {
-			return nil, fmt.Errorf("%w: backend AccountID is only for Cloudflare", sod.ErrInvalidRequest)
+			return nil, fmt.Errorf("%w: backend AccountID is only for Cloudflare", decide.ErrInvalidRequest)
 		}
-		transport, err = sod.NewHTTPTransport(sod.HTTPTransportConfig{
+		transport, err = decide.NewHTTPTransport(decide.HTTPTransportConfig{
 			APIKey: cfg.APIKey, BaseURL: cfg.BaseURL, HTTPClient: cfg.HTTPClient, UserAgent: cfg.UserAgent,
 		})
 		if model == "" {
@@ -85,13 +85,13 @@ func NewClient(cfg Config, opts ...sod.ClientOption) (*sod.Client, error) {
 			model = "clef"
 		}
 	default:
-		return nil, fmt.Errorf("%w: backend Provider must be typesafe or cloudflare", sod.ErrInvalidRequest)
+		return nil, fmt.Errorf("%w: backend Provider must be typesafe or cloudflare", decide.ErrInvalidRequest)
 	}
 	if err != nil {
 		return nil, err
 	}
-	all := []sod.ClientOption{sod.WithModel(model)}
+	all := []decide.ClientOption{decide.WithModel(model)}
 	all = append(all, opts...)
-	all = append(all, sod.WithoutEnvironment(), sod.WithTransport(transport))
-	return sod.NewClient(all...)
+	all = append(all, decide.WithoutEnvironment(), decide.WithTransport(transport))
+	return decide.NewClient(all...)
 }

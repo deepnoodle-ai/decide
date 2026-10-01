@@ -1,4 +1,4 @@
-package sod
+package decide
 
 import (
 	"context"
@@ -206,7 +206,7 @@ func withRetry[T any](ctx context.Context, c *Client, p retryPolicy, op string,
 			return v, err
 		}
 		exhausted := func() (T, error) {
-			c.logger.LogAttrs(ctx, slog.LevelWarn, "sod retries exhausted",
+			c.logger.LogAttrs(ctx, slog.LevelWarn, "decide retries exhausted",
 				slog.String("op", op),
 				slog.Int("attempts", attempt+1),
 				slog.String("error", err.Error()),
@@ -221,7 +221,7 @@ func withRetry[T any](ctx context.Context, c *Client, p retryPolicy, op string,
 		if dl, ok := ctx.Deadline(); ok && time.Now().Add(delay).After(dl) {
 			return exhausted() // the deadline leaves no room for another attempt
 		}
-		c.logger.LogAttrs(ctx, slog.LevelInfo, "sod retry",
+		c.logger.LogAttrs(ctx, slog.LevelInfo, "decide retry",
 			slog.String("op", op),
 			slog.Int("attempt", attempt+1),
 			slog.Duration("delay", delay),

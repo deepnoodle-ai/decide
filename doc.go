@@ -1,9 +1,13 @@
-// Package sod is a Go client for TypeSafe AI's System One models, such
+// Package decide is a Go client for TypeSafe AI's System One models, such
 // as Jev.
 //
 // A System One model evaluates a piece of state (a ticket, a diff, a JSON
 // record) against a set of typed questions and returns typed answers with
 // probabilities that code can act on directly. It does not generate text.
+//
+// [Eval] asks one typed question and returns an [Evaluation]. [Pick]
+// selects an original candidate or abstains, returning a [Decision]. Both
+// retain response evidence and apply no application thresholds.
 //
 // Three primitives cover most questions:
 //
@@ -16,21 +20,21 @@
 // Build a [Request], add questions with [Ask] to get typed handles, send it
 // with [Client.SystemOne], and read answers back through the handles:
 //
-//	client, err := sod.NewClient() // reads TYPESAFE_API_KEY
+//	client, err := decide.NewClient() // reads TYPESAFE_API_KEY
 //	if err != nil {
 //		return err
 //	}
-//	req := sod.NewRequest(ticketText)
-//	billing := sod.Ask(req, "billing", sod.Noul("Is this ticket about billing?"))
-//	tone := sod.Ask(req, "tone", sod.Choice("What is the customer's tone?",
-//		sod.Option("calm"), sod.Option("frustrated"), sod.Option("angry")))
+//	req := decide.NewRequest(ticketText)
+//	billing := decide.Ask(req, "billing", decide.Noul("Is this ticket about billing?"))
+//	tone := decide.Ask(req, "tone", decide.Choice("What is the customer's tone?",
+//		decide.Option("calm"), decide.Option("frustrated"), decide.Option("angry")))
 //
 //	resp, err := client.SystemOne(ctx, req)
 //	if err != nil {
 //		return err
 //	}
-//	b, _ := billing.From(resp) // *sod.NoulAnswer
-//	t, _ := tone.From(resp)    // *sod.ChoiceAnswer
+//	b, _ := billing.From(resp) // *decide.NoulAnswer
+//	t, _ := tone.From(resp)    // *decide.ChoiceAnswer
 //	fmt.Println(resp.Model, b.Noul, t.Choice, t.Confidence)
 //
 // Every answer is checked against its question before it is returned: the
@@ -53,5 +57,5 @@
 // nobody knows decodes to a [*RawAnswer] instead of failing the response.
 // [RawQuestion] sends a question type this package does not model.
 //
-// The sodtest package provides a fake server for tests and examples.
-package sod
+// The decidetest package provides a fake server for tests and examples.
+package decide

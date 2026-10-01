@@ -4,9 +4,9 @@ Guidance for coding agents working in this repository.
 
 ## Layout and guarantees
 
-- Module: `github.com/deepnoodle-ai/sod`. Root package: `sod`.
+- Module: `github.com/deepnoodle-ai/decide`. Root package: `decide`.
 - Go 1.27 or later. The root package uses only the standard library.
-- The root client and `sodtest` follow semantic versioning after v1.
+- The root client and `decidetest` follow semantic versioning after v1.
 - Packages under `x/` and the CLI are experimental.
 - The root package never imports `x/` or CLI packages.
 - Describe behavior in package comments, examples, and the README.

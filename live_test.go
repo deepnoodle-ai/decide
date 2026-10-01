@@ -3,7 +3,7 @@
 // Live tests call the real API. Run with:
 //
 //	TYPESAFE_API_KEY=... go test -tags live -run Live ./...
-package sod_test
+package decide_test
 
 import (
 	"context"
@@ -14,15 +14,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/deepnoodle-ai/sod"
+	"github.com/deepnoodle-ai/decide"
 )
 
-func liveClient(t *testing.T, opts ...sod.ClientOption) *sod.Client {
+func liveClient(t *testing.T, opts ...decide.ClientOption) *decide.Client {
 	t.Helper()
 	if os.Getenv("TYPESAFE_API_KEY") == "" {
 		t.Skip("TYPESAFE_API_KEY is not set")
 	}
-	c, err := sod.NewClient(opts...)
+	c, err := decide.NewClient(opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,11 +39,11 @@ var versioned = regexp.MustCompile(`^jev-\d+\.\d+\.\d+$`)
 
 func TestLiveAllPrimitives(t *testing.T) {
 	c := liveClient(t)
-	req := sod.NewRequest("Help! My payouts have been failing for 3 days.")
-	billing := sod.Ask(req, "billing", sod.Noul("Is this ticket about billing or payouts?"))
-	tone := sod.Ask(req, "tone", sod.Choice("What is the customer's tone?",
-		sod.Option("calm"), sod.Option("frustrated"), sod.Option("angry")))
-	urgency := sod.Ask(req, "urgency", sod.Score("How urgent is this?", "can wait", "this week", "today"))
+	req := decide.NewRequest("Help! My payouts have been failing for 3 days.")
+	billing := decide.Ask(req, "billing", decide.Noul("Is this ticket about billing or payouts?"))
+	tone := decide.Ask(req, "tone", decide.Choice("What is the customer's tone?",
+		decide.Option("calm"), decide.Option("frustrated"), decide.Option("angry")))
+	urgency := decide.Ask(req, "urgency", decide.Score("How urgent is this?", "can wait", "this week", "today"))
 	resp, err := c.SystemOne(liveCtx(t), req)
 	if err != nil {
 		t.Fatalf("%v (request_id=%s)", err, requestID(resp))
@@ -77,13 +77,13 @@ func TestLiveModelsList(t *testing.T) {
 
 func TestLiveBadKey(t *testing.T) {
 	liveClient(t) // skip without a key
-	c, err := sod.NewClient(sod.WithAPIKey("sk-invalid-live-test-key"))
+	c, err := decide.NewClient(decide.WithAPIKey("sk-invalid-live-test-key"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	_, err = c.Models.List(liveCtx(t))
-	ae, ok := errors.AsType[*sod.APIError](err)
-	if !ok || !errors.Is(err, sod.ErrAuth) || ae.RequestID == "" {
+	ae, ok := errors.AsType[*decide.APIError](err)
+	if !ok || !errors.Is(err, decide.ErrAuth) || ae.RequestID == "" {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -108,13 +108,13 @@ func TestLiveValidationCorpus(t *testing.T) {
 		t.Fatalf("corpus has %d questions, want at least 20", len(corpus.Questions))
 	}
 	for i, state := range corpus.States {
-		req := sod.NewRequest(state)
+		req := decide.NewRequest(state)
 		var s string
 		if json.Unmarshal(state, &s) == nil {
 			req.State = s
 		}
 		for k, qraw := range corpus.Questions {
-			q, err := sod.DecodeQuestion(qraw)
+			q, err := decide.DecodeQuestion(qraw)
 			if err != nil {
 				t.Fatalf("question %s: %v", k, err)
 			}
@@ -132,7 +132,7 @@ func TestLiveValidationCorpus(t *testing.T) {
 	}
 }
 
-func requestID(resp *sod.Response) string {
+func requestID(resp *decide.Response) string {
 	if resp == nil {
 		return ""
 	}

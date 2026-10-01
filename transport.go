@@ -1,4 +1,4 @@
-package sod
+package decide
 
 import (
 	"bytes"
@@ -59,7 +59,7 @@ type HTTPTransportConfig struct {
 
 // String describes the config with the API key redacted.
 func (c HTTPTransportConfig) String() string {
-	return fmt.Sprintf("sod.HTTPTransportConfig{APIKey:%s BaseURL:%q UserAgent:%q}",
+	return fmt.Sprintf("decide.HTTPTransportConfig{APIKey:%s BaseURL:%q UserAgent:%q}",
 		keyState(c.APIKey), c.BaseURL, c.UserAgent)
 }
 
@@ -98,7 +98,7 @@ func NewHTTPTransport(cfg HTTPTransportConfig) (*HTTPTransport, error) {
 	if hc == nil {
 		hc = &http.Client{Transport: http.DefaultTransport}
 	}
-	ua := "sod-go/" + Version
+	ua := "decide-go/" + Version
 	if cfg.UserAgent != "" {
 		ua = cfg.UserAgent + " " + ua
 	}
@@ -111,7 +111,7 @@ func NewHTTPTransport(cfg HTTPTransportConfig) (*HTTPTransport, error) {
 func normalizeBaseURL(s string) (string, error) {
 	u, err := url.Parse(s)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return "", fmt.Errorf("sod: base URL %q must be an absolute http or https URL", s)
+		return "", fmt.Errorf("decide: base URL %q must be an absolute http or https URL", s)
 	}
 	return strings.TrimRight(s, "/"), nil
 }
@@ -120,7 +120,7 @@ func normalizeBaseURL(s string) (string, error) {
 // GoString, and LogValue have value receivers so that both HTTPTransport and
 // *HTTPTransport print safely, including with %+v.
 func (t HTTPTransport) String() string {
-	return fmt.Sprintf("sod.HTTPTransport{base_url: %s, api_key: %s}", t.baseURL, keyState(t.apiKey))
+	return fmt.Sprintf("decide.HTTPTransport{base_url: %s, api_key: %s}", t.baseURL, keyState(t.apiKey))
 }
 
 // GoString describes the transport with the API key redacted, for %#v.
@@ -205,7 +205,7 @@ func (t *HTTPTransport) do(ctx context.Context, method, path string, body []byte
 		h.Set("Content-Type", "application/json")
 	}
 	h.Set("User-Agent", t.userAgent)
-	h.Set("X-TypeSafe-SDK", "sod-go/"+Version)
+	h.Set("X-TypeSafe-SDK", "decide-go/"+Version)
 	h.Set("X-TypeSafe-Runtime", "go/"+runtime.Version()+" "+runtime.GOOS+"/"+runtime.GOARCH)
 	if n := Attempt(ctx); n > 0 {
 		h.Set("X-TypeSafe-Retry-Count", strconv.Itoa(n))

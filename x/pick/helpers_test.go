@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/deepnoodle-ai/sod"
+	"github.com/deepnoodle-ai/decide"
 )
 
 // criteria returns the option keys and descriptions of q in order.
-func criteria(q *sod.ChoiceQuestion) (keys []string, descs []any) {
+func criteria(q *decide.ChoiceQuestion) (keys []string, descs []any) {
 	for _, o := range q.Criteria {
 		keys = append(keys, o.Key)
 		descs = append(descs, o.Description)

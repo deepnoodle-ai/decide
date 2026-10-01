@@ -6,20 +6,20 @@ import (
 	"log"
 	"strings"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/sodtest"
-	"github.com/deepnoodle-ai/sod/x/pick"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/decidetest"
+	"github.com/deepnoodle-ai/decide/x/pick"
 )
 
 // Pick the address a receipt goes to, from spans a regex found. The fake
 // server's numbers are placeholders, not model output.
 func Example() {
-	srv, err := sodtest.Start()
+	srv, err := decidetest.Start()
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer srv.Close()
-	srv.Answer("receipt", sodtest.ChoiceAnswer(map[string]float64{
+	srv.Answer("receipt", decidetest.ChoiceAnswer(map[string]float64{
 		"dana.whit@acme-corp.com": 0.01, "billing@acme-corp.com": 0.005, "orders@acme-corp.com": 0.0,
 		"Dana.Personal@gmail.com": 0.98, "none": 0.005,
 	}))
@@ -32,7 +32,7 @@ func Example() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	req := sod.NewRequest("Reply-To: Dana.Personal@gmail.com\n\nSend my receipt to my personal address.")
+	req := decide.NewRequest("Reply-To: Dana.Personal@gmail.com\n\nSend my receipt to my personal address.")
 	receipt := emails.Ask(req, "receipt", "Which email address does the sender want their receipt sent to?")
 
 	resp, err := client.SystemOne(context.Background(), req)
@@ -59,7 +59,7 @@ func ExamplePicker_Read() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	a := &sod.ChoiceAnswer{
+	a := &decide.ChoiceAnswer{
 		Choice:        "none",
 		Probabilities: map[string]float64{"(415) 555-0199": 0.2, "(415) 555-0142": 0.1, "none": 0.7},
 		Confidence:    0.55,
@@ -98,7 +98,7 @@ func ExamplePicker_Ranked() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	a := sodtest.ChoiceAnswer(map[string]float64{"$1,200.00": 0.15, "$1,315.50": 0.8, "$50.00": 0.0, "none": 0.05})
+	a := decidetest.ChoiceAnswer(map[string]float64{"$1,200.00": 0.15, "$1,315.50": 0.8, "$50.00": 0.0, "none": 0.05})
 	for r, p := range amounts.Ranked(a) {
 		fmt.Printf("%-10s picked=%-5v p=%.2f\n", r.Key, r.Picked, p)
 	}

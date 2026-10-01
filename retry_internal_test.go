@@ -1,4 +1,4 @@
-package sod
+package decide
 
 import (
 	"math"

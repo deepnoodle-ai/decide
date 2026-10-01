@@ -1,4 +1,4 @@
-package sod
+package decide
 
 import (
 	"bytes"
@@ -128,7 +128,7 @@ func (a *NoulAnswer) UnmarshalJSON(data []byte) error {
 	var v NoulAnswer
 	missing, extra, err := decodeFields(data, map[string]any{"noul": &v.Noul})
 	if err != nil {
-		return fmt.Errorf("sod: noul answer: %w", err)
+		return fmt.Errorf("decide: noul answer: %w", err)
 	}
 	v.Extra, v.missing = extra, missing
 	*a = v
@@ -144,7 +144,7 @@ func (a *ChoiceAnswer) UnmarshalJSON(data []byte) error {
 		"confidence":    &v.Confidence,
 	})
 	if err != nil {
-		return fmt.Errorf("sod: choice answer: %w", err)
+		return fmt.Errorf("decide: choice answer: %w", err)
 	}
 	v.Extra, v.missing = extra, missing
 	*a = v
@@ -161,7 +161,7 @@ func (a *ScoreAnswer) UnmarshalJSON(data []byte) error {
 		"confidence":    &v.Confidence,
 	})
 	if err != nil {
-		return fmt.Errorf("sod: score answer: %w", err)
+		return fmt.Errorf("decide: score answer: %w", err)
 	}
 	v.Extra, v.missing = extra, missing
 	*a = v
@@ -225,15 +225,15 @@ var (
 // into.
 func RegisterAnswerType(typ string, newAnswer func() Answer) error {
 	if typ == "" {
-		return errors.New("sod: RegisterAnswerType with empty type")
+		return errors.New("decide: RegisterAnswerType with empty type")
 	}
 	if newAnswer == nil {
-		return errors.New("sod: RegisterAnswerType with nil constructor")
+		return errors.New("decide: RegisterAnswerType with nil constructor")
 	}
 	registryMu.Lock()
 	defer registryMu.Unlock()
 	if _, ok := registry[typ]; ok {
-		return fmt.Errorf("sod: answer type %q already registered", typ)
+		return fmt.Errorf("decide: answer type %q already registered", typ)
 	}
 	registry[typ] = newAnswer
 	return nil
@@ -260,7 +260,7 @@ func decodeAnswer(data []byte, q Question) (Answer, error) {
 	raw := &RawAnswer{JSON: bytes.Clone(data)}
 	typ, _, err := readType(data)
 	if err != nil {
-		raw.Err = fmt.Errorf("sod: decode answer: %w", err)
+		raw.Err = fmt.Errorf("decide: decode answer: %w", err)
 		return raw, raw.Err
 	}
 	raw.Type = typ
@@ -277,7 +277,7 @@ func decodeAnswer(data []byte, q Question) (Answer, error) {
 		return raw, nil
 	}
 	if err := json.Unmarshal(data, a); err != nil {
-		raw.Err = fmt.Errorf("sod: decode %s answer: %w", typ, err)
+		raw.Err = fmt.Errorf("decide: decode %s answer: %w", typ, err)
 		return raw, raw.Err
 	}
 	return a, nil

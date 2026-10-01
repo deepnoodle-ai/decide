@@ -11,7 +11,7 @@
 // Results expose the item's index, probability, abstain probability,
 // runner-up key, and margin. The underlying ChoiceAnswer remains available.
 //
-// Handle.From follows sod.Handle.From: an answer that fails only a
+// Handle.From follows decide.Handle.From: an answer that fails only a
 // consistency check returns a full Result together with an error matching
-// sod.ErrInconsistentAnswer, so a caller can choose to accept it.
+// decide.ErrInconsistentAnswer, so a caller can choose to accept it.
 package pick

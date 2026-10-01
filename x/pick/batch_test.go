@@ -5,9 +5,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/sodtest"
-	"github.com/deepnoodle-ai/sod/x/pick"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/decidetest"
+	"github.com/deepnoodle-ai/decide/x/pick"
 )
 
 // An email with several candidate receipt addresses.
@@ -26,9 +26,9 @@ var (
 
 // batch is section 4's request: three picks and a Noul.
 type batch struct {
-	req                    *sod.Request
+	req                    *decide.Request
 	receipt, sender, total pick.Handle[string]
-	urgent                 sod.Handle[*sod.NoulAnswer]
+	urgent                 decide.Handle[*decide.NoulAnswer]
 }
 
 func newBatch(t *testing.T) batch {
@@ -41,30 +41,30 @@ func newBatch(t *testing.T) batch {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := sod.NewRequest(emailDoc)
+	req := decide.NewRequest(emailDoc)
 	return batch{
 		req:     req,
 		receipt: emails.Ask(req, "receipt", "Which email address does the sender want their receipt sent to?"),
 		sender:  emails.Ask(req, "sender", "Which email address did this message come from (the From line)?"),
 		total:   amounts.Ask(req, "total", "Which amount is the total the customer must pay?"),
-		urgent:  sod.Ask(req, "urgent", sod.Noul("Does the sender say this is urgent?")),
+		urgent:  decide.Ask(req, "urgent", decide.Noul("Does the sender say this is urgent?")),
 	}
 }
 
 // Placeholder distributions, not model output.
-func cannedBatch(srv *sodtest.Server) {
-	srv.Answer("receipt", sodtest.ChoiceAnswer(map[string]float64{
+func cannedBatch(srv *decidetest.Server) {
+	srv.Answer("receipt", decidetest.ChoiceAnswer(map[string]float64{
 		"dana.whit@acme-corp.com": 0.005, "billing@acme-corp.com": 0.005, "orders@acme-corp.com": 0.0,
 		"dana.personal@gmail.com": 0.98, "none": 0.01,
 	}))
-	srv.Answer("sender", sodtest.ChoiceAnswer(map[string]float64{
+	srv.Answer("sender", decidetest.ChoiceAnswer(map[string]float64{
 		"dana.whit@acme-corp.com": 0.99, "billing@acme-corp.com": 0.0, "orders@acme-corp.com": 0.0,
 		"dana.personal@gmail.com": 0.01, "none": 0.0,
 	}))
-	srv.Answer("total", sodtest.ChoiceAnswer(map[string]float64{
+	srv.Answer("total", decidetest.ChoiceAnswer(map[string]float64{
 		"$1,200.00": 0.02, "$115.50": 0.0, "$1,315.50": 0.97, "$50.00": 0.0, "none": 0.01,
 	}))
-	srv.Answer("urgent", sodtest.NoulAnswer(0.03))
+	srv.Answer("urgent", decidetest.NoulAnswer(0.03))
 }
 
 var emailProbs = map[string]float64{
@@ -75,12 +75,12 @@ var emailProbs = map[string]float64{
 func TestBatch(t *testing.T) {
 	tests := []struct {
 		name  string
-		setup func(srv *sodtest.Server)
-		check func(t *testing.T, b batch, resp *sod.Response, sendErr error)
+		setup func(srv *decidetest.Server)
+		check func(t *testing.T, b batch, resp *decide.Response, sendErr error)
 	}{
 		{
 			name: "three picks and a noul in one request",
-			check: func(t *testing.T, b batch, resp *sod.Response, sendErr error) {
+			check: func(t *testing.T, b batch, resp *decide.Response, sendErr error) {
 				if sendErr != nil {
 					t.Fatal(sendErr)
 				}
@@ -108,19 +108,19 @@ func TestBatch(t *testing.T) {
 		},
 		{
 			name: "choice_not_option is returned by From",
-			setup: func(srv *sodtest.Server) {
-				srv.Answer("receipt", &sod.ChoiceAnswer{Choice: "someone@else.com", Probabilities: emailProbs, Confidence: 0.7})
+			setup: func(srv *decidetest.Server) {
+				srv.Answer("receipt", &decide.ChoiceAnswer{Choice: "someone@else.com", Probabilities: emailProbs, Confidence: 0.7})
 			},
-			check: func(t *testing.T, b batch, resp *sod.Response, sendErr error) {
-				if !errors.Is(sendErr, sod.ErrInvalidAnswer) {
+			check: func(t *testing.T, b batch, resp *decide.Response, sendErr error) {
+				if !errors.Is(sendErr, decide.ErrInvalidAnswer) {
 					t.Fatalf("SystemOne err = %v, want ErrInvalidAnswer", sendErr)
 				}
 				_, err := b.receipt.From(resp)
-				ae, ok := errors.AsType[*sod.AnswerError](err)
-				if !ok || ae != resp.Invalid["receipt"] || ae.Reason != sod.ReasonChoiceNotOption {
+				ae, ok := errors.AsType[*decide.AnswerError](err)
+				if !ok || ae != resp.Invalid["receipt"] || ae.Reason != decide.ReasonChoiceNotOption {
 					t.Fatalf("From err = %v, want resp.Invalid[receipt] (choice_not_option)", err)
 				}
-				if errors.Is(err, pick.ErrUnmappedChoice) || errors.Is(err, sod.ErrInconsistentAnswer) {
+				if errors.Is(err, pick.ErrUnmappedChoice) || errors.Is(err, decide.ErrInconsistentAnswer) {
 					t.Error("client error was replaced by pick's")
 				}
 				if r, err := b.sender.From(resp); err != nil || r.Item != "dana.whit@acme-corp.com" {
@@ -130,15 +130,15 @@ func TestBatch(t *testing.T) {
 		},
 		{
 			name: "argmax mismatch returns the full result and the consistency error",
-			setup: func(srv *sodtest.Server) {
-				srv.Answer("receipt", &sod.ChoiceAnswer{Choice: "billing@acme-corp.com", Probabilities: emailProbs, Confidence: 0.7})
+			setup: func(srv *decidetest.Server) {
+				srv.Answer("receipt", &decide.ChoiceAnswer{Choice: "billing@acme-corp.com", Probabilities: emailProbs, Confidence: 0.7})
 			},
-			check: func(t *testing.T, b batch, resp *sod.Response, sendErr error) {
-				if !errors.Is(resp.Invalid["receipt"], sod.ErrInconsistentAnswer) {
+			check: func(t *testing.T, b batch, resp *decide.Response, sendErr error) {
+				if !errors.Is(resp.Invalid["receipt"], decide.ErrInconsistentAnswer) {
 					t.Fatalf("Invalid[receipt] = %v, want ErrInconsistentAnswer", resp.Invalid["receipt"])
 				}
 				r, err := b.receipt.From(resp)
-				if !errors.Is(err, sod.ErrInconsistentAnswer) || err != error(resp.Invalid["receipt"]) {
+				if !errors.Is(err, decide.ErrInconsistentAnswer) || err != error(resp.Invalid["receipt"]) {
 					t.Fatalf("err = %v, want resp.Invalid[receipt]", err)
 				}
 				if !r.Picked || r.Item != "billing@acme-corp.com" || r.P != 0.1 || r.RunnerUp != "dana.personal@gmail.com" {
@@ -151,41 +151,41 @@ func TestBatch(t *testing.T) {
 		},
 		{
 			name: "probability sum off returns the full result and the consistency error",
-			setup: func(srv *sodtest.Server) {
-				srv.Answer("total", &sod.ChoiceAnswer{Choice: "$1,315.50", Confidence: 0.5, Probabilities: map[string]float64{
+			setup: func(srv *decidetest.Server) {
+				srv.Answer("total", &decide.ChoiceAnswer{Choice: "$1,315.50", Confidence: 0.5, Probabilities: map[string]float64{
 					"$1,200.00": 0.1, "$115.50": 0.0, "$1,315.50": 0.4, "$50.00": 0.0, "none": 0.0,
 				}})
 			},
-			check: func(t *testing.T, b batch, resp *sod.Response, sendErr error) {
-				if ae := resp.Invalid["total"]; ae == nil || ae.Reason != sod.ReasonProbabilitySum {
+			check: func(t *testing.T, b batch, resp *decide.Response, sendErr error) {
+				if ae := resp.Invalid["total"]; ae == nil || ae.Reason != decide.ReasonProbabilitySum {
 					t.Fatalf("Invalid[total] = %v, want probability_sum", ae)
 				}
 				r, err := b.total.From(resp)
-				if !errors.Is(err, sod.ErrInconsistentAnswer) || !r.Picked || r.Item != "$1,315.50" || r.Index != 2 || r.P != 0.4 {
+				if !errors.Is(err, decide.ErrInconsistentAnswer) || !r.Picked || r.Item != "$1,315.50" || r.Index != 2 || r.P != 0.4 {
 					t.Errorf("got %+v, %v", r, err)
 				}
 			},
 		},
 		{
 			name:  "type mismatch passes through",
-			setup: func(srv *sodtest.Server) { srv.Answer("total", sodtest.NoulAnswer(0.5)) },
-			check: func(t *testing.T, b batch, resp *sod.Response, sendErr error) {
+			setup: func(srv *decidetest.Server) { srv.Answer("total", decidetest.NoulAnswer(0.5)) },
+			check: func(t *testing.T, b batch, resp *decide.Response, sendErr error) {
 				_, err := b.total.From(resp)
-				if ae, ok := errors.AsType[*sod.AnswerError](err); !ok || ae.Reason != sod.ReasonTypeMismatch {
+				if ae, ok := errors.AsType[*decide.AnswerError](err); !ok || ae.Reason != decide.ReasonTypeMismatch {
 					t.Fatalf("err = %v, want type_mismatch", err)
 				}
 			},
 		},
 		{
 			name: "missing answer passes through",
-			setup: func(srv *sodtest.Server) {
-				srv.Respond(func(req *sod.Request) (*sod.Response, error) {
-					return &sod.Response{Answers: map[string]sod.Answer{"urgent": sodtest.NoulAnswer(0.1)}}, nil
+			setup: func(srv *decidetest.Server) {
+				srv.Respond(func(req *decide.Request) (*decide.Response, error) {
+					return &decide.Response{Answers: map[string]decide.Answer{"urgent": decidetest.NoulAnswer(0.1)}}, nil
 				})
 			},
-			check: func(t *testing.T, b batch, resp *sod.Response, sendErr error) {
+			check: func(t *testing.T, b batch, resp *decide.Response, sendErr error) {
 				_, err := b.receipt.From(resp)
-				if ae, ok := errors.AsType[*sod.AnswerError](err); !ok || ae.Reason != sod.ReasonMissingAnswer {
+				if ae, ok := errors.AsType[*decide.AnswerError](err); !ok || ae.Reason != decide.ReasonMissingAnswer {
 					t.Fatalf("err = %v, want missing_answer", err)
 				}
 			},
@@ -193,7 +193,7 @@ func TestBatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			srv := sodtest.NewServer(t)
+			srv := decidetest.NewServer(t)
 			cannedBatch(srv)
 			if tt.setup != nil {
 				tt.setup(srv)
@@ -216,7 +216,7 @@ func TestBatch(t *testing.T) {
 
 func TestFromNilResponse(t *testing.T) {
 	b := newBatch(t)
-	if _, err := b.receipt.From(nil); !errors.Is(err, sod.ErrInvalidAnswer) {
+	if _, err := b.receipt.From(nil); !errors.Is(err, decide.ErrInvalidAnswer) {
 		t.Fatalf("err = %v, want ErrInvalidAnswer", err)
 	}
 }

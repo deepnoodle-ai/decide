@@ -1,4 +1,4 @@
-package sod
+package decide
 
 import (
 	"bytes"
@@ -176,7 +176,7 @@ func Option(key string, description ...any) ChoiceOption {
 	case 1:
 		return ChoiceOption{Key: key, Description: description[0]}
 	default:
-		panic("sod: Option takes at most one description")
+		panic("decide: Option takes at most one description")
 	}
 }
 
@@ -256,15 +256,15 @@ func encodeOptions(opts []ChoiceOption) ([]byte, error) {
 	seen := make(map[string]bool, len(opts))
 	for _, o := range opts {
 		if o.Key == "" {
-			return nil, errors.New("sod: choice option key is empty")
+			return nil, errors.New("decide: choice option key is empty")
 		}
 		if seen[o.Key] {
-			return nil, fmt.Errorf("sod: choice option key %q is repeated", o.Key)
+			return nil, fmt.Errorf("decide: choice option key %q is repeated", o.Key)
 		}
 		seen[o.Key] = true
 		d, err := json.Marshal(o.Description)
 		if err != nil {
-			return nil, fmt.Errorf("sod: choice option %q: %w", o.Key, err)
+			return nil, fmt.Errorf("decide: choice option %q: %w", o.Key, err)
 		}
 		if err := enc.WriteToken(jsontext.String(o.Key)); err != nil {
 			return nil, err
@@ -302,10 +302,10 @@ func (q *ScoreQuestion) MarshalJSON() ([]byte, error) {
 func (q *RawQuestion) MarshalJSON() ([]byte, error) {
 	typ, _, err := readType(q.JSON)
 	if err != nil {
-		return nil, fmt.Errorf("sod: raw question: %w", err)
+		return nil, fmt.Errorf("decide: raw question: %w", err)
 	}
 	if typ != q.Type {
-		return nil, fmt.Errorf("sod: raw question: JSON type %q does not match Type %q", typ, q.Type)
+		return nil, fmt.Errorf("decide: raw question: JSON type %q does not match Type %q", typ, q.Type)
 	}
 	return q.JSON, nil
 }
@@ -325,7 +325,7 @@ func (q *NoulQuestion) UnmarshalJSON(data []byte) error {
 	if raw, ok := m["criteria"]; ok && !isNull(raw) {
 		cm, err := decodeObject(raw)
 		if err != nil {
-			return fmt.Errorf("sod: noul criteria: %w", err)
+			return fmt.Errorf("decide: noul criteria: %w", err)
 		}
 		q.Criteria = &NoulCriteria{}
 		if q.Criteria.True, err = decodeAny(cm["true"]); err != nil {
@@ -351,7 +351,7 @@ func (q *ChoiceQuestion) UnmarshalJSON(data []byte) error {
 	if raw, ok := m["criteria"]; ok && !isNull(raw) {
 		members, err := decodeOrderedObject(raw) // jsontext, so wire order survives
 		if err != nil {
-			return fmt.Errorf("sod: choice criteria: %w", err)
+			return fmt.Errorf("decide: choice criteria: %w", err)
 		}
 		q.Criteria = make([]ChoiceOption, 0, len(members))
 		for _, mem := range members {
@@ -378,7 +378,7 @@ func (q *ScoreQuestion) UnmarshalJSON(data []byte) error {
 	if raw, ok := m["criteria"]; ok && !isNull(raw) {
 		var levels []json.RawMessage
 		if err := json.Unmarshal(raw, &levels); err != nil {
-			return fmt.Errorf("sod: score criteria: %w", err)
+			return fmt.Errorf("decide: score criteria: %w", err)
 		}
 		q.Criteria = make([]any, len(levels))
 		for i, l := range levels {
@@ -394,7 +394,7 @@ func (q *ScoreQuestion) UnmarshalJSON(data []byte) error {
 func (q *RawQuestion) UnmarshalJSON(data []byte) error {
 	typ, _, err := readType(data)
 	if err != nil {
-		return fmt.Errorf("sod: raw question: %w", err)
+		return fmt.Errorf("decide: raw question: %w", err)
 	}
 	q.Type = typ
 	q.JSON = append(json.RawMessage(nil), data...)
@@ -405,7 +405,7 @@ func (q *RawQuestion) UnmarshalJSON(data []byte) error {
 func DecodeQuestion(data []byte) (Question, error) {
 	typ, _, err := readType(data)
 	if err != nil {
-		return nil, fmt.Errorf("sod: decode question: %w", err)
+		return nil, fmt.Errorf("decide: decode question: %w", err)
 	}
 	var q interface {
 		Question
@@ -431,10 +431,10 @@ func DecodeQuestion(data []byte) (Question, error) {
 func decodeQuestionObject(data []byte, want string) (map[string]json.RawMessage, error) {
 	typ, m, err := readType(data)
 	if err != nil {
-		return nil, fmt.Errorf("sod: decode %s question: %w", want, err)
+		return nil, fmt.Errorf("decide: decode %s question: %w", want, err)
 	}
 	if typ != want {
-		return nil, fmt.Errorf("sod: decode %s question: type is %q", want, typ)
+		return nil, fmt.Errorf("decide: decode %s question: type is %q", want, typ)
 	}
 	return m, nil
 }
@@ -481,16 +481,16 @@ func (h Handle[A]) From(resp *Response) (A, error) {
 // like registering a duplicate route in net/http.
 func Ask[A Answer](req *Request, key string, q QuestionFor[A]) Handle[A] {
 	if req == nil {
-		panic("sod: Ask with nil request")
+		panic("decide: Ask with nil request")
 	}
 	if key == "" {
-		panic("sod: Ask with empty key")
+		panic("decide: Ask with empty key")
 	}
 	if req.Questions == nil {
 		req.Questions = make(map[string]Question)
 	}
 	if _, ok := req.Questions[key]; ok {
-		panic(fmt.Sprintf("sod: Ask: question %q already present", key))
+		panic(fmt.Sprintf("decide: Ask: question %q already present", key))
 	}
 	req.Questions[key] = q
 	return Handle[A]{key: key, qtype: q.QuestionType()}

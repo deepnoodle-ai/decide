@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/sodtest"
-	"github.com/deepnoodle-ai/sod/x/backend"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/decidetest"
+	"github.com/deepnoodle-ai/decide/x/backend"
 )
 
 const testKey = "backend-test-key-00000000"
@@ -21,7 +21,7 @@ const testKey = "backend-test-key-00000000"
 // fakeBoth uses the two actual HTTP dialects with the same canned answer.
 func fakeBoth() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var req sod.Request
+		var req decide.Request
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "invalid request", 400)
 			return
@@ -30,7 +30,7 @@ func fakeBoth() *httptest.Server {
 			http.Error(w, "invalid key", 401)
 			return
 		}
-		response := &sod.Response{Model: req.Model, Answers: map[string]sod.Answer{"billing": sodtest.NoulAnswer(0.93)}}
+		response := &decide.Response{Model: req.Model, Answers: map[string]decide.Answer{"billing": decidetest.NoulAnswer(0.93)}}
 		switch r.URL.Path {
 		case "/v1/systemone":
 			_ = json.NewEncoder(w).Encode(response)
@@ -49,8 +49,8 @@ func TestSwitchProviders(t *testing.T) {
 	t.Setenv("TYPESAFE_LOG_LEVEL", "invalid-environment-level")
 	srv := fakeBoth()
 	defer srv.Close()
-	req := sod.NewRequest("I was charged twice.")
-	billing := sod.Ask(req, "billing", sod.Noul("Is this about billing?"))
+	req := decide.NewRequest("I was charged twice.")
+	billing := decide.Ask(req, "billing", decide.Noul("Is this about billing?"))
 	for _, tc := range []struct {
 		provider backend.Provider
 		model    string
@@ -63,7 +63,7 @@ func TestSwitchProviders(t *testing.T) {
 		if tc.provider == backend.Cloudflare {
 			cfg.AccountID = "account-1"
 		}
-		client, err := backend.NewClient(cfg, sod.WithMaxRetries(0), sod.WithAttemptTimeout(time.Second))
+		client, err := backend.NewClient(cfg, decide.WithMaxRetries(0), decide.WithAttemptTimeout(time.Second))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -85,8 +85,8 @@ func TestRequestModelOverridesBackendDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := sod.NewRequest("state", sod.WithRequestModel("clef-flash"))
-	sod.Ask(req, "billing", sod.Noul("Billing?"))
+	req := decide.NewRequest("state", decide.WithRequestModel("clef-flash"))
+	decide.Ask(req, "billing", decide.Noul("Billing?"))
 	resp, err := c.SystemOne(context.Background(), req)
 	if err != nil || resp.Model != "clef-flash" {
 		t.Fatalf("per-request selector failed: %+v %v", resp, err)
@@ -104,15 +104,15 @@ func TestInvalidConfigAndConnectionOptions(t *testing.T) {
 		}
 	}
 	cfg := backend.Config{Provider: backend.TypeSafe, APIKey: testKey}
-	for _, opt := range []sod.ClientOption{sod.WithAPIKey("other-key"), sod.WithBaseURL("https://example.com"), sod.WithHTTPClient(http.DefaultClient), sod.WithUserAgent("custom")} {
+	for _, opt := range []decide.ClientOption{decide.WithAPIKey("other-key"), decide.WithBaseURL("https://example.com"), decide.WithHTTPClient(http.DefaultClient), decide.WithUserAgent("custom")} {
 		if _, err := backend.NewClient(cfg, opt); err == nil {
 			t.Fatal("native connection option accepted")
 		}
 	}
-	if _, err := backend.NewClient(cfg, sod.WithMaxRetries(-1)); err == nil {
+	if _, err := backend.NewClient(cfg, decide.WithMaxRetries(-1)); err == nil {
 		t.Fatal("invalid shared option accepted")
 	}
-	if _, err := backend.NewClient(backend.Config{Provider: backend.Cloudflare, AccountID: "account-1"}); !errors.Is(err, sod.ErrNoAPIKey) {
+	if _, err := backend.NewClient(backend.Config{Provider: backend.Cloudflare, AccountID: "account-1"}); !errors.Is(err, decide.ErrNoAPIKey) {
 		t.Fatalf("credential sentinel lost: %v", err)
 	}
 	if strings.Contains(fmt.Sprintf("%v %+v %#v", cfg, cfg, cfg), testKey) {
@@ -125,8 +125,8 @@ func TestInvalidConfigAndConnectionOptions(t *testing.T) {
 func ExampleNewClient() {
 	srv := fakeBoth()
 	defer srv.Close()
-	req := sod.NewRequest("I was charged twice.")
-	billing := sod.Ask(req, "billing", sod.Noul("Is this about billing?"))
+	req := decide.NewRequest("I was charged twice.")
+	billing := decide.Ask(req, "billing", decide.Noul("Is this about billing?"))
 	for _, provider := range []backend.Provider{backend.TypeSafe, backend.Cloudflare} {
 		cfg := backend.Config{Provider: provider, APIKey: testKey, BaseURL: srv.URL}
 		if provider == backend.Cloudflare {

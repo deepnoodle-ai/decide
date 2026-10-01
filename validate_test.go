@@ -1,4 +1,4 @@
-package sod_test
+package decide_test
 
 import (
 	"encoding/json"
@@ -6,22 +6,22 @@ import (
 	"math"
 	"testing"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/sodtest"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/decidetest"
 )
 
 var (
-	noulQ   = sod.Noul("q")
-	choiceQ = sod.Choice("q", sod.Option("a"), sod.Option("b"))
-	scoreQ  = sod.Score("q", "lo", "mid", "hi")
+	noulQ   = decide.Noul("q")
+	choiceQ = decide.Choice("q", decide.Option("a"), decide.Option("b"))
+	scoreQ  = decide.Score("q", "lo", "mid", "hi")
 )
 
-func goodChoice() *sod.ChoiceAnswer {
-	return &sod.ChoiceAnswer{Choice: "a", Probabilities: map[string]float64{"a": 0.7, "b": 0.3}, Confidence: 0.4}
+func goodChoice() *decide.ChoiceAnswer {
+	return &decide.ChoiceAnswer{Choice: "a", Probabilities: map[string]float64{"a": 0.7, "b": 0.3}, Confidence: 0.4}
 }
 
-func goodScore() *sod.ScoreAnswer {
-	return sodtest.ScoreAnswer([]any{"lo", "mid", "hi"}, 0.2, 0.5, 0.3)
+func goodScore() *decide.ScoreAnswer {
+	return decidetest.ScoreAnswer([]any{"lo", "mid", "hi"}, 0.2, 0.5, 0.3)
 }
 
 // fakeChoice claims to be a choice answer but is not *ChoiceAnswer.
@@ -30,11 +30,11 @@ type fakeChoice struct{}
 func (fakeChoice) AnswerType() string { return "choice" }
 
 // validateOne sends q under "k" and returns the error for that key.
-func validateOne(t *testing.T, q sod.Question, a sod.Answer) *sod.AnswerError {
+func validateOne(t *testing.T, q decide.Question, a decide.Answer) *decide.AnswerError {
 	t.Helper()
-	req := sod.NewRequest("s")
+	req := decide.NewRequest("s")
 	req.Questions["k"] = q
-	resp, err := stubClient(t, answering(map[string]sod.Answer{"k": a})).SystemOne(t.Context(), req)
+	resp, err := stubClient(t, answering(map[string]decide.Answer{"k": a})).SystemOne(t.Context(), req)
 	if err == nil {
 		if resp.Invalid != nil {
 			t.Fatalf("Invalid set without error: %v", resp.Invalid)
@@ -52,33 +52,33 @@ func validateOne(t *testing.T, q sod.Question, a sod.Answer) *sod.AnswerError {
 
 func TestValidationChecks(t *testing.T) {
 	nan, inf := math.NaN(), math.Inf(1)
-	withChoice := func(f func(*sod.ChoiceAnswer)) *sod.ChoiceAnswer { a := goodChoice(); f(a); return a }
-	withScore := func(f func(*sod.ScoreAnswer)) *sod.ScoreAnswer { a := goodScore(); f(a); return a }
+	withChoice := func(f func(*decide.ChoiceAnswer)) *decide.ChoiceAnswer { a := goodChoice(); f(a); return a }
+	withScore := func(f func(*decide.ScoreAnswer)) *decide.ScoreAnswer { a := goodScore(); f(a); return a }
 	cases := []struct {
 		name       string
-		q          sod.Question
-		a          sod.Answer
+		q          decide.Question
+		a          decide.Answer
 		reason     string
 		consistent bool // true when the failure is a consistency check
 	}{
-		{"raw decode error", choiceQ, &sod.RawAnswer{Type: "choice", Err: errors.New("bad")}, sod.ReasonDecodeFailed, false},
-		{"4 type mismatch", choiceQ, sodtest.NoulAnswer(0.5), sod.ReasonTypeMismatch, false},
-		{"3 concrete type", choiceQ, fakeChoice{}, sod.ReasonDecodeFailed, false},
-		{"5 noul NaN", noulQ, sodtest.NoulAnswer(nan), sod.ReasonNotFinite, false},
-		{"6 noul range", noulQ, sodtest.NoulAnswer(1.5), sod.ReasonOutOfRange, false},
-		{"7 confidence Inf", choiceQ, withChoice(func(a *sod.ChoiceAnswer) { a.Confidence = inf }), sod.ReasonNotFinite, false},
-		{"7 probability NaN", scoreQ, withScore(func(a *sod.ScoreAnswer) { a.Probabilities["1"] = nan }), sod.ReasonNotFinite, false},
-		{"8 probability range", choiceQ, withChoice(func(a *sod.ChoiceAnswer) { a.Probabilities["b"] = -0.1 }), sod.ReasonOutOfRange, false},
-		{"8 confidence range", scoreQ, withScore(func(a *sod.ScoreAnswer) { a.Confidence = 1.2 }), sod.ReasonOutOfRange, false},
-		{"9 choice probability keys", choiceQ, withChoice(func(a *sod.ChoiceAnswer) { a.Probabilities["c"] = 0 }), sod.ReasonProbabilityKeys, false},
-		{"10 choice not option", choiceQ, withChoice(func(a *sod.ChoiceAnswer) { a.Choice = "z" }), sod.ReasonChoiceNotOption, false},
-		{"11 choice not argmax", choiceQ, withChoice(func(a *sod.ChoiceAnswer) { a.Choice = "b" }), sod.ReasonChoiceNotArgmax, true},
-		{"12 score probability keys", scoreQ, withScore(func(a *sod.ScoreAnswer) { delete(a.Probabilities, "2") }), sod.ReasonProbabilityKeys, false},
-		{"13 legend keys", scoreQ, withScore(func(a *sod.ScoreAnswer) { a.Legend["3"] = "extra" }), sod.ReasonLegendKeys, false},
-		{"14a score NaN", scoreQ, withScore(func(a *sod.ScoreAnswer) { a.Score = nan }), sod.ReasonNotFinite, false},
-		{"14b score range", scoreQ, withScore(func(a *sod.ScoreAnswer) { a.Score = 3 }), sod.ReasonOutOfRange, true},
-		{"15 choice sum", choiceQ, withChoice(func(a *sod.ChoiceAnswer) { a.Probabilities = map[string]float64{"a": 0.5, "b": 0.3} }), sod.ReasonProbabilitySum, true},
-		{"15 score sum", scoreQ, withScore(func(a *sod.ScoreAnswer) { a.Probabilities["2"] = 0.9 }), sod.ReasonProbabilitySum, true},
+		{"raw decode error", choiceQ, &decide.RawAnswer{Type: "choice", Err: errors.New("bad")}, decide.ReasonDecodeFailed, false},
+		{"4 type mismatch", choiceQ, decidetest.NoulAnswer(0.5), decide.ReasonTypeMismatch, false},
+		{"3 concrete type", choiceQ, fakeChoice{}, decide.ReasonDecodeFailed, false},
+		{"5 noul NaN", noulQ, decidetest.NoulAnswer(nan), decide.ReasonNotFinite, false},
+		{"6 noul range", noulQ, decidetest.NoulAnswer(1.5), decide.ReasonOutOfRange, false},
+		{"7 confidence Inf", choiceQ, withChoice(func(a *decide.ChoiceAnswer) { a.Confidence = inf }), decide.ReasonNotFinite, false},
+		{"7 probability NaN", scoreQ, withScore(func(a *decide.ScoreAnswer) { a.Probabilities["1"] = nan }), decide.ReasonNotFinite, false},
+		{"8 probability range", choiceQ, withChoice(func(a *decide.ChoiceAnswer) { a.Probabilities["b"] = -0.1 }), decide.ReasonOutOfRange, false},
+		{"8 confidence range", scoreQ, withScore(func(a *decide.ScoreAnswer) { a.Confidence = 1.2 }), decide.ReasonOutOfRange, false},
+		{"9 choice probability keys", choiceQ, withChoice(func(a *decide.ChoiceAnswer) { a.Probabilities["c"] = 0 }), decide.ReasonProbabilityKeys, false},
+		{"10 choice not option", choiceQ, withChoice(func(a *decide.ChoiceAnswer) { a.Choice = "z" }), decide.ReasonChoiceNotOption, false},
+		{"11 choice not argmax", choiceQ, withChoice(func(a *decide.ChoiceAnswer) { a.Choice = "b" }), decide.ReasonChoiceNotArgmax, true},
+		{"12 score probability keys", scoreQ, withScore(func(a *decide.ScoreAnswer) { delete(a.Probabilities, "2") }), decide.ReasonProbabilityKeys, false},
+		{"13 legend keys", scoreQ, withScore(func(a *decide.ScoreAnswer) { a.Legend["3"] = "extra" }), decide.ReasonLegendKeys, false},
+		{"14a score NaN", scoreQ, withScore(func(a *decide.ScoreAnswer) { a.Score = nan }), decide.ReasonNotFinite, false},
+		{"14b score range", scoreQ, withScore(func(a *decide.ScoreAnswer) { a.Score = 3 }), decide.ReasonOutOfRange, true},
+		{"15 choice sum", choiceQ, withChoice(func(a *decide.ChoiceAnswer) { a.Probabilities = map[string]float64{"a": 0.5, "b": 0.3} }), decide.ReasonProbabilitySum, true},
+		{"15 score sum", scoreQ, withScore(func(a *decide.ScoreAnswer) { a.Probabilities["2"] = 0.9 }), decide.ReasonProbabilitySum, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -86,10 +86,10 @@ func TestValidationChecks(t *testing.T) {
 			if ae == nil || ae.Reason != tc.reason || ae.Key != "k" {
 				t.Fatalf("got %v, want reason %s", ae, tc.reason)
 			}
-			if !errors.Is(ae, sod.ErrInvalidAnswer) {
+			if !errors.Is(ae, decide.ErrInvalidAnswer) {
 				t.Error("does not match ErrInvalidAnswer")
 			}
-			if got := errors.Is(ae, sod.ErrInconsistentAnswer); got != tc.consistent {
+			if got := errors.Is(ae, decide.ErrInconsistentAnswer); got != tc.consistent {
 				t.Errorf("ErrInconsistentAnswer = %v, want %v", got, tc.consistent)
 			}
 		})
@@ -97,18 +97,18 @@ func TestValidationChecks(t *testing.T) {
 }
 
 func TestValidationMissingAndUnexpected(t *testing.T) {
-	req := sod.NewRequest("s")
+	req := decide.NewRequest("s")
 	req.Questions["asked"] = noulQ
-	resp, err := stubClient(t, answering(map[string]sod.Answer{"extra": goodChoice()})).SystemOne(t.Context(), req)
-	var iae *sod.InvalidAnswersError
+	resp, err := stubClient(t, answering(map[string]decide.Answer{"extra": goodChoice()})).SystemOne(t.Context(), req)
+	var iae *decide.InvalidAnswersError
 	if !errors.As(err, &iae) || len(iae.Answers) != 2 {
 		t.Fatalf("err = %v", err)
 	}
 	// Sorted by key.
-	if a := iae.Answers[0]; a.Key != "asked" || a.Reason != sod.ReasonMissingAnswer || a.Type != "noul" {
+	if a := iae.Answers[0]; a.Key != "asked" || a.Reason != decide.ReasonMissingAnswer || a.Type != "noul" {
 		t.Errorf("first: %+v", a)
 	}
-	if a := iae.Answers[1]; a.Key != "extra" || a.Reason != sod.ReasonUnexpectedAnswer || a.Type != "choice" {
+	if a := iae.Answers[1]; a.Key != "extra" || a.Reason != decide.ReasonUnexpectedAnswer || a.Type != "choice" {
 		t.Errorf("second: %+v", a)
 	}
 	if resp.Invalid["asked"] != iae.Answers[0] {
@@ -118,7 +118,7 @@ func TestValidationMissingAndUnexpected(t *testing.T) {
 
 func TestValidationMissingField(t *testing.T) {
 	cases := []struct {
-		q      sod.Question
+		q      decide.Question
 		answer string
 	}{
 		{noulQ, `{"type":"noul"}`},
@@ -129,15 +129,15 @@ func TestValidationMissingField(t *testing.T) {
 		{scoreQ, `{"type":"score","legend":{},"probabilities":{"0":0,"1":1,"2":0},"confidence":1}`},
 	}
 	for _, tc := range cases {
-		req := sod.NewRequest("s")
+		req := decide.NewRequest("s")
 		req.Questions["k"] = tc.q
 		resp, err := stubClient(t, decoding(`{"model":"m","answers":{"k":`+tc.answer+`}}`)).SystemOne(t.Context(), req)
-		if err == nil || resp.Invalid["k"].Reason != sod.ReasonMissingField {
+		if err == nil || resp.Invalid["k"].Reason != decide.ReasonMissingField {
 			t.Errorf("%s: err %v", tc.answer, err)
 		}
 	}
 	// Present zero values are not missing.
-	req := sod.NewRequest("s")
+	req := decide.NewRequest("s")
 	req.Questions["k"] = noulQ
 	req.Questions["c"] = choiceQ
 	body := `{"model":"m","answers":{"k":{"type":"noul","noul":0},"c":{"type":"choice","choice":"a","probabilities":{"a":0.5,"b":0.5},"confidence":0}}}`
@@ -148,38 +148,38 @@ func TestValidationMissingField(t *testing.T) {
 
 func TestValidationOrder(t *testing.T) {
 	// A *RawAnswer with Err and the wrong type is decode_failed, not type_mismatch.
-	if ae := validateOne(t, choiceQ, &sod.RawAnswer{Type: "score", Err: errors.New("bad")}); ae.Reason != sod.ReasonDecodeFailed {
+	if ae := validateOne(t, choiceQ, &decide.RawAnswer{Type: "score", Err: errors.New("bad")}); ae.Reason != decide.ReasonDecodeFailed {
 		t.Errorf("raw with Err: %v", ae)
 	}
 	// The wrong type without Err is type_mismatch.
-	if ae := validateOne(t, choiceQ, &sod.RawAnswer{Type: "score"}); ae.Reason != sod.ReasonTypeMismatch {
+	if ae := validateOne(t, choiceQ, &decide.RawAnswer{Type: "score"}); ae.Reason != decide.ReasonTypeMismatch {
 		t.Errorf("raw without Err: %v", ae)
 	}
 	// Structural and consistency failures together report only the structural one.
-	a := &sod.ChoiceAnswer{Choice: "z", Probabilities: map[string]float64{"a": 0.2, "b": 0.2}, Confidence: 0}
-	if ae := validateOne(t, choiceQ, a); ae.Reason != sod.ReasonChoiceNotOption || errors.Is(ae, sod.ErrInconsistentAnswer) {
+	a := &decide.ChoiceAnswer{Choice: "z", Probabilities: map[string]float64{"a": 0.2, "b": 0.2}, Confidence: 0}
+	if ae := validateOne(t, choiceQ, a); ae.Reason != decide.ReasonChoiceNotOption || errors.Is(ae, decide.ErrInconsistentAnswer) {
 		t.Errorf("structural first: %v", ae)
 	}
 }
 
 func TestValidationPasses(t *testing.T) {
 	cases := map[string]struct {
-		q sod.Question
-		a sod.Answer
+		q decide.Question
+		a decide.Answer
 	}{
-		"argmax tie": {choiceQ, &sod.ChoiceAnswer{Choice: "b", Probabilities: map[string]float64{"a": 0.5, "b": 0.5}}},
+		"argmax tie": {choiceQ, &decide.ChoiceAnswer{Choice: "b", Probabilities: map[string]float64{"a": 0.5, "b": 0.5}}},
 		// n=2: tol = 0.06.
-		"sum at tol": {choiceQ, &sod.ChoiceAnswer{Choice: "a", Probabilities: map[string]float64{"a": 0.53, "b": 0.53}}},
+		"sum at tol": {choiceQ, &decide.ChoiceAnswer{Choice: "a", Probabilities: map[string]float64{"a": 0.53, "b": 0.53}}},
 		// n=3: tol = 0.065, so score may reach 2*1.065 = 2.13 or -0.13.
-		"score high edge": {scoreQ, func() sod.Answer { a := goodScore(); a.Score = 2.13; return a }()},
-		"score low edge":  {scoreQ, func() sod.Answer { a := goodScore(); a.Score = -0.13; return a }()},
-		"legend missing keys": {scoreQ, func() sod.Answer {
+		"score high edge": {scoreQ, func() decide.Answer { a := goodScore(); a.Score = 2.13; return a }()},
+		"score low edge":  {scoreQ, func() decide.Answer { a := goodScore(); a.Score = -0.13; return a }()},
+		"legend missing keys": {scoreQ, func() decide.Answer {
 			a := goodScore()
 			delete(a.Legend, "1")
 			return a
 		}()},
 		"legend absent after decode": {scoreQ, goodScoreNoLegend()},
-		"raw question":               {&sod.RawQuestion{Type: "rank", JSON: json.RawMessage(`{"type":"rank"}`)}, &sod.RawAnswer{Type: "rank"}},
+		"raw question":               {&decide.RawQuestion{Type: "rank", JSON: json.RawMessage(`{"type":"rank"}`)}, &decide.RawAnswer{Type: "rank"}},
 	}
 	for name, tc := range cases {
 		if ae := validateOne(t, tc.q, tc.a); ae != nil {
@@ -187,13 +187,13 @@ func TestValidationPasses(t *testing.T) {
 		}
 	}
 	fails := map[string]struct {
-		q      sod.Question
-		a      sod.Answer
+		q      decide.Question
+		a      decide.Answer
 		reason string
 	}{
-		"sum beyond tol":  {choiceQ, &sod.ChoiceAnswer{Choice: "a", Probabilities: map[string]float64{"a": 0.54, "b": 0.53}}, sod.ReasonProbabilitySum},
-		"score beyond hi": {scoreQ, func() sod.Answer { a := goodScore(); a.Score = 2.14; return a }(), sod.ReasonOutOfRange},
-		"score beyond lo": {scoreQ, func() sod.Answer { a := goodScore(); a.Score = -0.14; return a }(), sod.ReasonOutOfRange},
+		"sum beyond tol":  {choiceQ, &decide.ChoiceAnswer{Choice: "a", Probabilities: map[string]float64{"a": 0.54, "b": 0.53}}, decide.ReasonProbabilitySum},
+		"score beyond hi": {scoreQ, func() decide.Answer { a := goodScore(); a.Score = 2.14; return a }(), decide.ReasonOutOfRange},
+		"score beyond lo": {scoreQ, func() decide.Answer { a := goodScore(); a.Score = -0.14; return a }(), decide.ReasonOutOfRange},
 	}
 	for name, tc := range fails {
 		if ae := validateOne(t, tc.q, tc.a); ae == nil || ae.Reason != tc.reason {
@@ -204,28 +204,28 @@ func TestValidationPasses(t *testing.T) {
 
 // goodScoreNoLegend is a score answer with an empty legend, which check 13
 // allows (every legend key present is in range, trivially).
-func goodScoreNoLegend() *sod.ScoreAnswer {
+func goodScoreNoLegend() *decide.ScoreAnswer {
 	a := goodScore()
 	a.Legend = map[string]any{}
 	return a
 }
 
 func TestValidationOff(t *testing.T) {
-	bad := map[string]sod.Answer{"k": sodtest.NoulAnswer(7)}
-	req := sod.NewRequest("s")
+	bad := map[string]decide.Answer{"k": decidetest.NoulAnswer(7)}
+	req := decide.NewRequest("s")
 	req.Questions["k"] = noulQ
-	if resp, err := stubClient(t, answering(bad), sod.WithValidation(false)).SystemOne(t.Context(), req); err != nil || resp.Invalid != nil {
+	if resp, err := stubClient(t, answering(bad), decide.WithValidation(false)).SystemOne(t.Context(), req); err != nil || resp.Invalid != nil {
 		t.Fatalf("WithValidation(false): %v", err)
 	}
 	c := stubClient(t, answering(bad))
-	if _, err := c.SystemOne(t.Context(), req, sod.WithCallValidation(false)); err != nil {
+	if _, err := c.SystemOne(t.Context(), req, decide.WithCallValidation(false)); err != nil {
 		t.Fatalf("WithCallValidation(false): %v", err)
 	}
 	if _, err := c.SystemOne(t.Context(), req); err == nil {
 		t.Fatal("call option leaked into the next call")
 	}
-	c = stubClient(t, answering(bad), sod.WithValidation(false))
-	if _, err := c.SystemOne(t.Context(), req, sod.WithCallValidation(true)); err == nil {
+	c = stubClient(t, answering(bad), decide.WithValidation(false))
+	if _, err := c.SystemOne(t.Context(), req, decide.WithCallValidation(true)); err == nil {
 		t.Fatal("WithCallValidation(true) did not override")
 	}
 }
@@ -235,37 +235,37 @@ type strictQuestion struct{ err error }
 
 func (strictQuestion) QuestionType() string         { return "tstest-strict" }
 func (strictQuestion) MarshalJSON() ([]byte, error) { return []byte(`{"type":"tstest-strict"}`), nil }
-func (q strictQuestion) ValidateAnswer(sod.Answer) error {
+func (q strictQuestion) ValidateAnswer(decide.Answer) error {
 	return q.err
 }
 
 func TestCustomValidator(t *testing.T) {
 	sentinel := errors.New("too spicy")
-	ae := validateOne(t, strictQuestion{err: sentinel}, &sod.RawAnswer{Type: "tstest-strict"})
-	if ae == nil || ae.Reason != sod.ReasonCustom || !errors.Is(ae, sentinel) || ae.Type != "tstest-strict" {
+	ae := validateOne(t, strictQuestion{err: sentinel}, &decide.RawAnswer{Type: "tstest-strict"})
+	if ae == nil || ae.Reason != decide.ReasonCustom || !errors.Is(ae, sentinel) || ae.Type != "tstest-strict" {
 		t.Fatalf("custom: %v", ae)
 	}
-	mine := &sod.AnswerError{Reason: sod.ReasonOutOfRange, Detail: "mine"}
-	ae = validateOne(t, strictQuestion{err: mine}, &sod.RawAnswer{Type: "tstest-strict"})
-	if ae == nil || ae.Reason != sod.ReasonOutOfRange || ae.Key != "k" || mine.Key != "" {
+	mine := &decide.AnswerError{Reason: decide.ReasonOutOfRange, Detail: "mine"}
+	ae = validateOne(t, strictQuestion{err: mine}, &decide.RawAnswer{Type: "tstest-strict"})
+	if ae == nil || ae.Reason != decide.ReasonOutOfRange || ae.Key != "k" || mine.Key != "" {
 		t.Fatalf("AnswerError passthrough: %v (validator's value mutated: %q)", ae, mine.Key)
 	}
-	if ae := validateOne(t, strictQuestion{}, &sod.RawAnswer{Type: "tstest-strict"}); ae != nil {
+	if ae := validateOne(t, strictQuestion{}, &decide.RawAnswer{Type: "tstest-strict"}); ae != nil {
 		t.Fatalf("nil from validator: %v", ae)
 	}
 }
 
 func TestInvalidAnswersErrorText(t *testing.T) {
-	e := &sod.InvalidAnswersError{Answers: []*sod.AnswerError{
-		{Key: "a", Type: "choice", Reason: sod.ReasonChoiceNotOption, Detail: `choice "x" not in options`},
-		{Key: "b", Type: "noul", Reason: sod.ReasonMissingAnswer},
-		{Key: "c", Type: "noul", Reason: sod.ReasonMissingAnswer},
+	e := &decide.InvalidAnswersError{Answers: []*decide.AnswerError{
+		{Key: "a", Type: "choice", Reason: decide.ReasonChoiceNotOption, Detail: `choice "x" not in options`},
+		{Key: "b", Type: "noul", Reason: decide.ReasonMissingAnswer},
+		{Key: "c", Type: "noul", Reason: decide.ReasonMissingAnswer},
 	}}
-	want := `sod: 3 invalid answers: answer "a" (choice): choice_not_option: choice "x" not in options; answer "b" (noul): missing_answer; ...`
+	want := `decide: 3 invalid answers: answer "a" (choice): choice_not_option: choice "x" not in options; answer "b" (noul): missing_answer; ...`
 	if e.Error() != want {
 		t.Fatalf("got  %s\nwant %s", e.Error(), want)
 	}
-	if !errors.Is(e, sod.ErrInvalidAnswer) || errors.Is(e, sod.ErrInconsistentAnswer) {
+	if !errors.Is(e, decide.ErrInvalidAnswer) || errors.Is(e, decide.ErrInconsistentAnswer) {
 		t.Fatal("aggregate Is")
 	}
 }

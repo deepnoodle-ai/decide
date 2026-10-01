@@ -13,7 +13,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/deepnoodle-ai/sod"
+	"github.com/deepnoodle-ai/decide"
 )
 
 const (
@@ -28,7 +28,7 @@ type Config struct {
 	APIToken   string
 	BaseURL    string       // default https://api.cloudflare.com/client/v4
 	HTTPClient *http.Client // default http.DefaultTransport, no client timeout
-	UserAgent  string       // optional product token, before sod-go/version
+	UserAgent  string       // optional product token, before decide-go/version
 }
 
 // String describes the config with its API token redacted.
@@ -56,11 +56,11 @@ type Transport struct {
 // absolute HTTP(S) URL without user information, a query, or a fragment.
 func NewTransport(cfg Config) (*Transport, error) {
 	if cfg.APIToken == "" {
-		return nil, &transportError{cause: sod.ErrNoAPIKey,
-			message: "sod: cloudflare requires a Workers AI API token: set cloudflare.Config.APIToken"}
+		return nil, &transportError{cause: decide.ErrNoAPIKey,
+			message: "decide: cloudflare requires a Workers AI API token: set cloudflare.Config.APIToken"}
 	}
 	if !identifier(cfg.AccountID, false) {
-		return nil, fmt.Errorf("%w: cloudflare requires a valid AccountID", sod.ErrInvalidRequest)
+		return nil, fmt.Errorf("%w: cloudflare requires a valid AccountID", decide.ErrInvalidRequest)
 	}
 	base := cfg.BaseURL
 	if base == "" {
@@ -69,13 +69,13 @@ func NewTransport(cfg Config) (*Transport, error) {
 	u, err := url.Parse(base)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
 		u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.RawFragment != "" {
-		return nil, fmt.Errorf("%w: cloudflare BaseURL must be an absolute HTTP(S) URL without credentials, query, or fragment", sod.ErrInvalidRequest)
+		return nil, fmt.Errorf("%w: cloudflare BaseURL must be an absolute HTTP(S) URL without credentials, query, or fragment", decide.ErrInvalidRequest)
 	}
 	hc := cfg.HTTPClient
 	if hc == nil {
 		hc = &http.Client{Transport: http.DefaultTransport}
 	}
-	ua := "sod-go/" + sod.Version
+	ua := "decide-go/" + decide.Version
 	if cfg.UserAgent != "" {
 		ua = cfg.UserAgent + " " + ua
 	}
@@ -96,7 +96,7 @@ func (t Transport) LogValue() slog.Value { return slog.StringValue(t.String()) }
 
 // ListModels returns errors.ErrUnsupported. This adapter does not advertise
 // model availability for an account or synthesize a model catalog.
-func (t *Transport) ListModels(context.Context) (*sod.ModelList, error) {
+func (t *Transport) ListModels(context.Context) (*decide.ModelList, error) {
 	return nil, fmt.Errorf("%w: cloudflare model listing", errors.ErrUnsupported)
 }
 
@@ -106,16 +106,16 @@ func (t *Transport) ListModels(context.Context) (*sod.ModelList, error) {
 // Response.Extra["cloudflare"] contains envelope metadata without result.
 // CF-Ray, when supplied, remains in Header; RequestID is not synthesized.
 // Malformed or non-JSON response bodies are suppressed to protect credentials.
-func (t *Transport) SystemOne(ctx context.Context, req *sod.Request) (*sod.Response, error) {
+func (t *Transport) SystemOne(ctx context.Context, req *decide.Request) (*decide.Response, error) {
 	if err := validate(req); err != nil {
 		return nil, err
 	}
 	body, err := json.Marshal(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: cloudflare request: %w", sod.ErrInvalidRequest, err)
+		return nil, fmt.Errorf("%w: cloudflare request: %w", decide.ErrInvalidRequest, err)
 	}
 	if len(body) > maxRequestBytes {
-		return nil, fmt.Errorf("%w: cloudflare request exceeds 13 MiB", sod.ErrInvalidRequest)
+		return nil, fmt.Errorf("%w: cloudflare request exceeds 13 MiB", decide.ErrInvalidRequest)
 	}
 	endpoint := t.baseURL + "/accounts/" + t.accountID + "/ai/run/@cf/cloudflare/" + req.Model
 	hreq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
@@ -136,7 +136,7 @@ func (t *Transport) SystemOne(ctx context.Context, req *sod.Request) (*sod.Respo
 		return nil, t.safeError(err)
 	}
 	if len(raw) > maxBodyBytes {
-		return nil, fmt.Errorf("%w: cloudflare response exceeds %d bytes", sod.ErrDecode, maxBodyBytes)
+		return nil, fmt.Errorf("%w: cloudflare response exceeds %d bytes", decide.ErrDecode, maxBodyBytes)
 	}
 	raw = t.redact(raw)
 	header := hresp.Header.Clone()
@@ -154,21 +154,21 @@ func (t *Transport) SystemOne(ctx context.Context, req *sod.Request) (*sod.Respo
 		Errors  []ErrorDetail   `json:"errors"`
 	}
 	if err := json.Unmarshal(raw, &envelope); err != nil || envelope.Success == nil {
-		return nil, fmt.Errorf("%w: cloudflare response has an invalid envelope", sod.ErrDecode)
+		return nil, fmt.Errorf("%w: cloudflare response has an invalid envelope", decide.ErrDecode)
 	}
 	if !*envelope.Success || len(envelope.Errors) != 0 {
 		return nil, providerError(hresp.StatusCode, header, raw, false)
 	}
 	var result map[string]json.RawMessage
 	if err := json.Unmarshal(envelope.Result, &result); err != nil || result == nil {
-		return nil, fmt.Errorf("%w: cloudflare result must be an object", sod.ErrDecode)
+		return nil, fmt.Errorf("%w: cloudflare result must be an object", decide.ErrDecode)
 	}
 	if !object(result["answers"]) {
-		return nil, fmt.Errorf("%w: cloudflare result.answers must be an object", sod.ErrDecode)
+		return nil, fmt.Errorf("%w: cloudflare result.answers must be an object", decide.ErrDecode)
 	}
-	resp, err := sod.DecodeResponse(envelope.Result, req)
+	resp, err := decide.DecodeResponse(envelope.Result, req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: cloudflare result: %w", sod.ErrDecode, err)
+		return nil, fmt.Errorf("%w: cloudflare result: %w", decide.ErrDecode, err)
 	}
 	var metadata map[string]json.RawMessage
 	_ = json.Unmarshal(raw, &metadata) // envelope was already decoded successfully
@@ -264,4 +264,4 @@ func (t *Transport) safeError(err error) error {
 	return &transportError{cause: err, message: message}
 }
 
-var _ sod.Transport = (*Transport)(nil)
+var _ decide.Transport = (*Transport)(nil)

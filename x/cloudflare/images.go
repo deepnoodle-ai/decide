@@ -11,7 +11,7 @@ import (
 	_ "image/png"
 	"strings"
 
-	"github.com/deepnoodle-ai/sod"
+	"github.com/deepnoodle-ai/decide"
 )
 
 const (
@@ -44,7 +44,7 @@ func NewImage(contentType string, data []byte) (Image, error) {
 // validating them. It leaves req unchanged on failure. It accepts at most
 // four images, with at most 8 MiB of decoded data combined. Do not call it
 // while req is in use by another goroutine.
-func SetImages(req *sod.Request, images ...Image) error {
+func SetImages(req *decide.Request, images ...Image) error {
 	if req == nil {
 		return invalid("request is nil")
 	}

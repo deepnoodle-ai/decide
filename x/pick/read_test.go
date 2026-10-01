@@ -5,8 +5,8 @@ import (
 	"math"
 	"testing"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/x/pick"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/x/pick"
 )
 
 func TestRead(t *testing.T) {
@@ -114,20 +114,20 @@ func TestReadErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Run("unmapped choice", func(t *testing.T) {
-		_, err := p.Read(&sod.ChoiceAnswer{Choice: "zzz", Probabilities: map[string]float64{"zzz": 1}})
+		_, err := p.Read(&decide.ChoiceAnswer{Choice: "zzz", Probabilities: map[string]float64{"zzz": 1}})
 		ue, ok := errors.AsType[*pick.UnmappedChoiceError](err)
 		if !ok || !errors.Is(err, pick.ErrUnmappedChoice) || ue.Choice != "zzz" {
 			t.Fatalf("err = %v, want *UnmappedChoiceError for zzz", err)
 		}
 	})
 	t.Run("empty choice is unmapped, not abstain", func(t *testing.T) {
-		if _, err := p.Read(&sod.ChoiceAnswer{}); !errors.Is(err, pick.ErrUnmappedChoice) {
+		if _, err := p.Read(&decide.ChoiceAnswer{}); !errors.Is(err, pick.ErrUnmappedChoice) {
 			t.Fatalf("err = %v, want ErrUnmappedChoice", err)
 		}
 	})
 	t.Run("nil answer", func(t *testing.T) {
 		r, err := p.Read(nil)
-		if !errors.Is(err, sod.ErrInvalidAnswer) || r.Picked {
+		if !errors.Is(err, decide.ErrInvalidAnswer) || r.Picked {
 			t.Fatalf("Read(nil) = %+v, %v", r, err)
 		}
 	})
@@ -158,8 +158,8 @@ func TestItem(t *testing.T) {
 }
 
 // answer builds a choice answer. An empty choice means the argmax.
-func answer(probs map[string]float64, choice string) *sod.ChoiceAnswer {
-	a := &sod.ChoiceAnswer{Probabilities: probs, Confidence: 0.42}
+func answer(probs map[string]float64, choice string) *decide.ChoiceAnswer {
+	a := &decide.ChoiceAnswer{Probabilities: probs, Confidence: 0.42}
 	if choice != "" {
 		a.Choice = choice
 		return a

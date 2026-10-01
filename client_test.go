@@ -1,4 +1,4 @@
-package sod_test
+package decide_test
 
 import (
 	"bytes"
@@ -13,8 +13,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/sodtest"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/decidetest"
 )
 
 const envKey = "env-key-12345678"
@@ -26,7 +26,7 @@ func clearEnv(t *testing.T) {
 }
 
 func TestEnvironment(t *testing.T) {
-	srv := sodtest.NewServer(t, sodtest.WithAPIKey(envKey))
+	srv := decidetest.NewServer(t, decidetest.WithAPIKey(envKey))
 	ctx := t.Context()
 
 	t.Run("env used", func(t *testing.T) {
@@ -35,7 +35,7 @@ func TestEnvironment(t *testing.T) {
 		t.Setenv("TYPESAFE_BASE_URL", srv.URL)
 		t.Setenv("TYPESAFE_DEFAULT_MODEL", "jev-preview")
 		t.Setenv("TYPESAFE_LOG_LEVEL", "ERROR")
-		c, err := sod.NewClient()
+		c, err := decide.NewClient()
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -53,8 +53,8 @@ func TestEnvironment(t *testing.T) {
 		t.Setenv("TYPESAFE_BASE_URL", "http://127.0.0.1:1")
 		t.Setenv("TYPESAFE_DEFAULT_MODEL", "jev-preview")
 		t.Setenv("TYPESAFE_LOG_LEVEL", "nonsense")
-		c, err := sod.NewClient(sod.WithAPIKey(envKey), sod.WithBaseURL(srv.URL),
-			sod.WithModel("jev-1.13.0"), sod.WithLogger(discardLogger()))
+		c, err := decide.NewClient(decide.WithAPIKey(envKey), decide.WithBaseURL(srv.URL),
+			decide.WithModel("jev-1.13.0"), decide.WithLogger(discardLogger()))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -69,14 +69,14 @@ func TestEnvironment(t *testing.T) {
 	t.Run("blank env ignored", func(t *testing.T) {
 		clearEnv(t)
 		t.Setenv("TYPESAFE_API_KEY", "   ")
-		if _, err := sod.NewClient(); !errors.Is(err, sod.ErrNoAPIKey) {
+		if _, err := decide.NewClient(); !errors.Is(err, decide.ErrNoAPIKey) {
 			t.Fatalf("err %v", err)
 		}
 		t.Setenv("TYPESAFE_API_KEY", envKey)
 		t.Setenv("TYPESAFE_BASE_URL", " ")
 		t.Setenv("TYPESAFE_DEFAULT_MODEL", " ")
 		t.Setenv("TYPESAFE_LOG_LEVEL", " ")
-		c, err := sod.NewClient()
+		c, err := decide.NewClient()
 		if err != nil || !strings.Contains(c.String(), "model: jev-latest") || !strings.Contains(c.String(), "https://api.typesafe.ai") {
 			t.Fatalf("defaults: %v %v", c, err)
 		}
@@ -87,10 +87,10 @@ func TestEnvironment(t *testing.T) {
 		t.Setenv("TYPESAFE_BASE_URL", srv.URL)
 		t.Setenv("TYPESAFE_DEFAULT_MODEL", "jev-preview")
 		t.Setenv("TYPESAFE_LOG_LEVEL", "nonsense")
-		if _, err := sod.NewClient(sod.WithoutEnvironment()); !errors.Is(err, sod.ErrNoAPIKey) {
+		if _, err := decide.NewClient(decide.WithoutEnvironment()); !errors.Is(err, decide.ErrNoAPIKey) {
 			t.Fatalf("err %v", err)
 		}
-		c, err := sod.NewClient(sod.WithoutEnvironment(), sod.WithAPIKey(envKey))
+		c, err := decide.NewClient(decide.WithoutEnvironment(), decide.WithAPIKey(envKey))
 		if err != nil || !strings.Contains(c.String(), "model: jev-latest") || !strings.Contains(c.String(), "https://api.typesafe.ai") {
 			t.Fatalf("env leaked: %v %v", c, err)
 		}
@@ -99,12 +99,12 @@ func TestEnvironment(t *testing.T) {
 		clearEnv(t)
 		t.Setenv("TYPESAFE_API_KEY", envKey)
 		t.Setenv("TYPESAFE_LOG_LEVEL", "verbose")
-		if _, err := sod.NewClient(); err == nil {
+		if _, err := decide.NewClient(); err == nil {
 			t.Fatal("want error")
 		}
 		for _, lvl := range []string{"debug", "Info", "WARN", "error", "off"} {
 			t.Setenv("TYPESAFE_LOG_LEVEL", lvl)
-			if _, err := sod.NewClient(); err != nil {
+			if _, err := decide.NewClient(); err != nil {
 				t.Errorf("%s: %v", lvl, err)
 			}
 		}
@@ -115,35 +115,35 @@ func discardLogger() *slog.Logger { return slog.New(slog.DiscardHandler) }
 
 func TestNewClientErrors(t *testing.T) {
 	tr := answering(nil)
-	cases := map[string][]sod.ClientOption{
-		"no key":           {sod.WithoutEnvironment()},
-		"empty key":        {sod.WithAPIKey("")},
-		"negative retries": {sod.WithAPIKey(envKey), sod.WithMaxRetries(-1)},
-		"initial > max":    {sod.WithAPIKey(envKey), sod.WithRetryBackoff(2, 1)},
-		"negative timeout": {sod.WithAPIKey(envKey), sod.WithAttemptTimeout(-1)},
-		"relative base":    {sod.WithAPIKey(envKey), sod.WithBaseURL("/v1")},
-		"ftp base":         {sod.WithAPIKey(envKey), sod.WithBaseURL("ftp://x")},
-		"empty base":       {sod.WithAPIKey(envKey), sod.WithBaseURL("")},
-		"nil transport":    {sod.WithTransport(nil)},
-		"nil http client":  {sod.WithAPIKey(envKey), sod.WithHTTPClient(nil)},
-		"nil logger":       {sod.WithAPIKey(envKey), sod.WithLogger(nil)},
-		"empty model":      {sod.WithAPIKey(envKey), sod.WithModel("")},
-		"transport+key":    {sod.WithTransport(tr), sod.WithAPIKey(envKey)},
-		"transport+base":   {sod.WithTransport(tr), sod.WithBaseURL("https://x")},
-		"transport+http":   {sod.WithTransport(tr), sod.WithHTTPClient(http.DefaultClient)},
-		"transport+agent":  {sod.WithTransport(tr), sod.WithUserAgent("app/1")},
+	cases := map[string][]decide.ClientOption{
+		"no key":           {decide.WithoutEnvironment()},
+		"empty key":        {decide.WithAPIKey("")},
+		"negative retries": {decide.WithAPIKey(envKey), decide.WithMaxRetries(-1)},
+		"initial > max":    {decide.WithAPIKey(envKey), decide.WithRetryBackoff(2, 1)},
+		"negative timeout": {decide.WithAPIKey(envKey), decide.WithAttemptTimeout(-1)},
+		"relative base":    {decide.WithAPIKey(envKey), decide.WithBaseURL("/v1")},
+		"ftp base":         {decide.WithAPIKey(envKey), decide.WithBaseURL("ftp://x")},
+		"empty base":       {decide.WithAPIKey(envKey), decide.WithBaseURL("")},
+		"nil transport":    {decide.WithTransport(nil)},
+		"nil http client":  {decide.WithAPIKey(envKey), decide.WithHTTPClient(nil)},
+		"nil logger":       {decide.WithAPIKey(envKey), decide.WithLogger(nil)},
+		"empty model":      {decide.WithAPIKey(envKey), decide.WithModel("")},
+		"transport+key":    {decide.WithTransport(tr), decide.WithAPIKey(envKey)},
+		"transport+base":   {decide.WithTransport(tr), decide.WithBaseURL("https://x")},
+		"transport+http":   {decide.WithTransport(tr), decide.WithHTTPClient(http.DefaultClient)},
+		"transport+agent":  {decide.WithTransport(tr), decide.WithUserAgent("app/1")},
 	}
 	for name, opts := range cases {
-		if _, err := sod.NewClient(opts...); err == nil {
+		if _, err := decide.NewClient(opts...); err == nil {
 			t.Errorf("%s: want error", name)
 		}
 	}
 	clearEnv(t)
-	if _, err := sod.NewClient(); !errors.Is(err, sod.ErrNoAPIKey) {
+	if _, err := decide.NewClient(); !errors.Is(err, decide.ErrNoAPIKey) {
 		t.Errorf("ErrNoAPIKey: %v", err)
 	}
 	t.Setenv("TYPESAFE_API_KEY", "")
-	if _, err := sod.NewClient(sod.WithTransport(tr)); err != nil {
+	if _, err := decide.NewClient(decide.WithTransport(tr)); err != nil {
 		t.Errorf("transport needs no key: %v", err)
 	}
 }
@@ -164,8 +164,8 @@ func TestBaseURLAndHeaders(t *testing.T) {
 		w.Write([]byte(`{"model":"jev-1.13.0","answers":{"n":{"type":"noul","noul":0.5}},"usage":{"input_tokens":3,"output_tokens":1}}`))
 	}))
 	defer hs.Close()
-	c, err := sod.NewClient(sod.WithoutEnvironment(), sod.WithAPIKey(envKey),
-		sod.WithBaseURL(hs.URL+"/proxy/sod//"), sod.WithUserAgent("myapp/1.2"))
+	c, err := decide.NewClient(decide.WithoutEnvironment(), decide.WithAPIKey(envKey),
+		decide.WithBaseURL(hs.URL+"/proxy/decide//"), decide.WithUserAgent("myapp/1.2"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,22 +180,22 @@ func TestBaseURLAndHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := sod.Model{Name: "jev-latest", Description: "d", ReleaseDate: "2026-09-01"}
+	want := decide.Model{Name: "jev-latest", Description: "d", ReleaseDate: "2026-09-01"}
 	if len(list.Models) != 1 || list.Models[0].Name != want.Name || list.Models[0].ReleaseDate != want.ReleaseDate ||
 		list.RequestID != "req_h" || list.Header.Get("x-extra") != "1" || len(list.Raw) == 0 || string(list.Extra["object"]) != `"list"` {
 		t.Fatalf("model list: %+v", list)
 	}
 
 	post, get := got[0], got[1]
-	if post.URL.Path != "/proxy/sod/v1/systemone" || post.Method != http.MethodPost || get.URL.Path != "/proxy/sod/v1/models" {
+	if post.URL.Path != "/proxy/decide/v1/systemone" || post.Method != http.MethodPost || get.URL.Path != "/proxy/decide/v1/models" {
 		t.Fatalf("paths %s %s", post.URL.Path, get.URL.Path)
 	}
 	wantHeaders := map[string]string{
 		"Authorization":      "Bearer " + envKey,
 		"Accept":             "application/json",
 		"Content-Type":       "application/json",
-		"User-Agent":         "myapp/1.2 sod-go/" + sod.Version,
-		"X-Typesafe-Sdk":     "sod-go/" + sod.Version,
+		"User-Agent":         "myapp/1.2 decide-go/" + decide.Version,
+		"X-Typesafe-Sdk":     "decide-go/" + decide.Version,
 		"X-Typesafe-Runtime": "go/" + runtime.Version() + " " + runtime.GOOS + "/" + runtime.GOARCH,
 	}
 	for k, v := range wantHeaders {
@@ -209,12 +209,12 @@ func TestBaseURLAndHeaders(t *testing.T) {
 }
 
 func TestConcurrentSystemOne(t *testing.T) {
-	srv := sodtest.NewServer(t)
-	srv.Answer("tone", sodtest.ChoiceAnswer(map[string]float64{"calm": 0.8, "angry": 0.2}))
+	srv := decidetest.NewServer(t)
+	srv.Answer("tone", decidetest.ChoiceAnswer(map[string]float64{"calm": 0.8, "angry": 0.2}))
 	c := srv.Client(t)
-	req := sod.NewRequest("shared request, sent concurrently")
-	tone := sod.Ask(req, "tone", sod.Choice("Tone?", sod.Option("calm"), sod.Option("angry")))
-	sod.Ask(req, "urgency", sod.Score("Urgency?", "low", "high"))
+	req := decide.NewRequest("shared request, sent concurrently")
+	tone := decide.Ask(req, "tone", decide.Choice("Tone?", decide.Option("calm"), decide.Option("angry")))
+	decide.Ask(req, "urgency", decide.Score("Urgency?", "low", "high"))
 
 	var wg sync.WaitGroup
 	errs := make(chan error, 50)
@@ -249,11 +249,11 @@ const (
 )
 
 func TestKeyNeverPrinted(t *testing.T) {
-	srv := sodtest.NewServer(t, sodtest.WithAPIKey(secretKey))
+	srv := decidetest.NewServer(t, decidetest.WithAPIKey(secretKey))
 	logger, logs := debugLogger()
-	c := srv.Client(t, sod.WithLogger(logger), sod.WithLogBodies(true), sod.WithMaxRetries(1))
-	cfg := sod.HTTPTransportConfig{APIKey: secretKey, BaseURL: srv.URL}
-	tr, err := sod.NewHTTPTransport(cfg)
+	c := srv.Client(t, decide.WithLogger(logger), decide.WithLogBodies(true), decide.WithMaxRetries(1))
+	cfg := decide.HTTPTransportConfig{APIKey: secretKey, BaseURL: srv.URL}
+	tr, err := decide.NewHTTPTransport(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +271,7 @@ func TestKeyNeverPrinted(t *testing.T) {
 	// A custom transport that holds a key and has no String method: the
 	// client must print it by type only.
 	custom := stubClientTransport{apiKey: secretKey}
-	cc, err := sod.NewClient(sod.WithTransport(custom))
+	cc, err := decide.NewClient(decide.WithTransport(custom))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,15 +293,15 @@ func TestKeyNeverPrinted(t *testing.T) {
 	// Errors, with the key echoed in the body, from 401, 422, and 500.
 	echo := []byte(`{"detail":{"error_type":"authentication_error","message":"bad key ` + secretKey + `"}}`)
 	for _, status := range []int{401, 422, 500} {
-		srv.FailNext(status, sodtest.FaultBody(echo))
-		srv.FailNext(status, sodtest.FaultBody(echo)) // the 500 is retried once
+		srv.FailNext(status, decidetest.FaultBody(echo))
+		srv.FailNext(status, decidetest.FaultBody(echo)) // the 500 is retried once
 		_, err := c.SystemOne(t.Context(), valid())
 		if err == nil {
 			t.Fatalf("%d: no error", status)
 		}
 		check(fmt.Sprintf("%d Error()", status), err.Error())
 		check(fmt.Sprintf("%d %%+v", status), fmt.Sprintf("%+v %#v", err, err))
-		if ae, ok := errors.AsType[*sod.APIError](err); ok {
+		if ae, ok := errors.AsType[*decide.APIError](err); ok {
 			check(fmt.Sprintf("%d Body", status), string(ae.Body))
 			check(fmt.Sprintf("%d Message", status), ae.Message)
 			if !bytes.Contains(ae.Body, []byte("[REDACTED]")) {
@@ -312,12 +312,12 @@ func TestKeyNeverPrinted(t *testing.T) {
 	}
 
 	// A real 401 from a wrong key, and a success whose body echoes the key.
-	bad := srv.Client(t, sod.WithAPIKey("sk-test-WRONG-SECRET123"), sod.WithLogger(logger), sod.WithLogBodies(true))
+	bad := srv.Client(t, decide.WithAPIKey("sk-test-WRONG-SECRET123"), decide.WithLogger(logger), decide.WithLogBodies(true))
 	_, err = bad.SystemOne(t.Context(), valid())
 	check("wrong key", fmt.Sprintf("%v %+v", err, bad))
-	srv.Respond(func(req *sod.Request) (*sod.Response, error) {
-		return &sod.Response{
-			Answers: map[string]sod.Answer{"n": sodtest.NoulAnswer(0.5)},
+	srv.Respond(func(req *decide.Request) (*decide.Response, error) {
+		return &decide.Response{
+			Answers: map[string]decide.Answer{"n": decidetest.NoulAnswer(0.5)},
 			Extra:   map[string]json.RawMessage{"echo": json.RawMessage(`"` + secretKey + `"`)},
 		}, nil
 	})
@@ -349,11 +349,11 @@ type stubClientTransport struct {
 
 func TestShortKeyNotSubstituted(t *testing.T) {
 	const short = "abcd"
-	srv := sodtest.NewServer(t, sodtest.WithAPIKey(short))
+	srv := decidetest.NewServer(t, decidetest.WithAPIKey(short))
 	body := []byte(`{"detail":"abcd is not a real key"}`)
-	srv.FailNext(401, sodtest.FaultBody(body))
-	_, err := srv.Client(t, sod.WithMaxRetries(0)).SystemOne(t.Context(), valid())
-	ae, ok := errors.AsType[*sod.APIError](err)
+	srv.FailNext(401, decidetest.FaultBody(body))
+	_, err := srv.Client(t, decide.WithMaxRetries(0)).SystemOne(t.Context(), valid())
+	ae, ok := errors.AsType[*decide.APIError](err)
 	if !ok || !bytes.Equal(ae.Body, body) {
 		t.Fatalf("short key body changed: %v", err)
 	}
