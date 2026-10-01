@@ -26,12 +26,9 @@ func deriveKeys[T any](items []T, s *settings, describe func(T) any, keyFunc fun
 			if reason := checkKey(base); reason != "" {
 				return nil, nil, &KeyError{Index: i, Key: base, Reason: reason}
 			}
-			if hasText && text != base {
-				desc = text // a caller key such as "c1" still shows the model the item
-			}
 		case hasText:
 			if k := sanitize(text); k != "" && utf8.RuneCountInString(k) <= s.maxKeyLen {
-				base = k // the span itself is the key; null description
+				base = k
 			} else {
 				base, desc = positional(i), text
 			}
@@ -40,10 +37,13 @@ func deriveKeys[T any](items []T, s *settings, describe func(T) any, keyFunc fun
 		default:
 			base = positional(i)
 		}
+		keys[i] = claim(base, used)
+		if hasText && text != keys[i] {
+			desc = text // transformed keys must still expose the original candidate
+		}
 		if describe != nil {
 			desc = describe(item)
 		}
-		keys[i] = claim(base, used)
 		descs[i] = desc
 	}
 	return keys, descs, nil

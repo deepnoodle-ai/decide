@@ -27,7 +27,9 @@ type Picker[T any] struct {
 // collapsed to one space. Text that is empty, or longer than MaxKeyLen
 // runes, gets a positional key "c1", "c2", ... and is sent as the
 // description instead. A key already in use, including the abstain key,
-// gets " (2)", " (3)", ... appended. Duplicate items are kept: each maps
+// gets " (2)", " (3)", ... appended. Whenever the final key differs from
+// the item's text, the original text becomes its description, unless
+// Describe supplies one. Duplicate items are kept: each maps
 // back to its own index, and probability splits between them.
 //
 // Errors: ErrNoItems for an empty slice, *TooManyItemsError when

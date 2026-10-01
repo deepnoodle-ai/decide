@@ -1,6 +1,7 @@
 package pick_test
 
 import (
+	"encoding/json"
 	"errors"
 	"slices"
 	"strconv"
@@ -37,19 +38,19 @@ func TestKeysFromStrings(t *testing.T) {
 			name:      "newline and tab runs collapse to one space",
 			items:     []string{"a\n\tb", "x \r\n\v y", "p\x00\x01q"},
 			wantKeys:  []string{"a b", "x y", "p q"},
-			wantDescs: []any{nil, nil, nil},
+			wantDescs: []any{"a\n\tb", "x \r\n\v y", "p\x00\x01q"},
 		},
 		{
 			name:      "leading and trailing space trimmed",
 			items:     []string{"  a  ", "\tb\n"},
 			wantKeys:  []string{"a", "b"},
-			wantDescs: []any{nil, nil},
+			wantDescs: []any{"  a  ", "\tb\n"},
 		},
 		{
 			name:      "invalid UTF-8 replaced",
 			items:     []string{"a\xffb", "\xc3"},
 			wantKeys:  []string{"a\uFFFDb", "\uFFFD"},
-			wantDescs: []any{nil, nil},
+			wantDescs: []any{"a\xffb", "\xc3"},
 		},
 		{
 			name:      "empty and blank strings get positional keys",
@@ -74,13 +75,13 @@ func TestKeysFromStrings(t *testing.T) {
 			name:      "duplicates get numbered suffixes",
 			items:     []string{"x", "x", "y", "x"},
 			wantKeys:  []string{"x", "x (2)", "y", "x (3)"},
-			wantDescs: []any{nil, nil, nil, nil},
+			wantDescs: []any{nil, "x", nil, "x"},
 		},
 		{
 			name:      "item equal to the abstain key is renamed",
 			items:     []string{"none", "a"},
 			wantKeys:  []string{"none (2)", "a"},
-			wantDescs: []any{nil, nil},
+			wantDescs: []any{"none", nil},
 		},
 		{
 			name:      "item c2 collides with a positional c2",
@@ -92,20 +93,20 @@ func TestKeysFromStrings(t *testing.T) {
 			name:      "positional c1 collides with a later item c1",
 			items:     []string{"", "c1"},
 			wantKeys:  []string{"c1", "c1 (2)"},
-			wantDescs: []any{"", nil},
+			wantDescs: []any{"", "c1"},
 		},
 		{
 			name:      "suffix collides with a literal suffixed item",
 			items:     []string{"x", "x (2)", "x"},
 			wantKeys:  []string{"x", "x (2)", "x (3)"},
-			wantDescs: []any{nil, nil, nil},
+			wantDescs: []any{nil, nil, "x"},
 		},
 		{
 			name:      "custom abstain key collision",
 			items:     []string{"ask_user", "none"},
 			opts:      []pick.Option{pick.Abstain("ask_user", "Ask the user.")},
 			wantKeys:  []string{"ask_user (2)", "none"},
-			wantDescs: []any{nil, nil},
+			wantDescs: []any{"ask_user", nil},
 		},
 		{
 			name:      "KeyFunc keys verbatim, text becomes the description",
@@ -129,11 +130,32 @@ func TestKeysFromStrings(t *testing.T) {
 			wantDescs: []any{"a", "b", "c"},
 		},
 		{
+			name:      "KeyFunc equal to text still preserves renamed candidates",
+			items:     []string{"none", "none"},
+			opts:      []pick.Option{pick.KeyFunc(func(_ int, s string) string { return s })},
+			wantKeys:  []string{"none (2)", "none (3)"},
+			wantDescs: []any{"none", "none"},
+		},
+		{
 			name:      "Describe overrides every description",
 			items:     []string{"a", "", "abcdefghi"},
 			opts:      []pick.Option{pick.MaxKeyLen(8), pick.Describe(func(s string) any { return map[string]any{"len": len(s)} })},
 			wantKeys:  []string{"a", "c2", "c3"},
 			wantDescs: []any{map[string]any{"len": 1}, map[string]any{"len": 0}, map[string]any{"len": 9}},
+		},
+		{
+			name:      "Describe overrides sanitized and colliding candidates",
+			items:     []string{"a\nb", "none", "none"},
+			opts:      []pick.Option{pick.Describe(func(s string) any { return map[string]any{"len": len(s)} })},
+			wantKeys:  []string{"a b", "none (2)", "none (3)"},
+			wantDescs: []any{map[string]any{"len": 3}, map[string]any{"len": 4}, map[string]any{"len": 4}},
+		},
+		{
+			name:      "Describe can still omit renamed candidate descriptions",
+			items:     []string{"a\nb", "none"},
+			opts:      []pick.Option{pick.Describe(func(string) any { return nil })},
+			wantKeys:  []string{"a b", "none (2)"},
+			wantDescs: []any{nil, nil},
 		},
 	}
 	for _, tt := range tests {
@@ -159,6 +181,31 @@ func TestKeysFromStrings(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRenamedCandidatesRetainOriginalTextOnWire(t *testing.T) {
+	p, err := pick.New([]string{"a\nb", "none", "a b", "a\nb"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := p.Question("Which candidate fits?").MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire struct {
+		Criteria map[string]json.RawMessage `json:"criteria"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		t.Fatal(err)
+	}
+	for key, original := range map[string]string{
+		"a b": "a\nb", "none (2)": "none", "a b (2)": "a b", "a b (3)": "a\nb",
+	} {
+		var description string
+		if err := json.Unmarshal(wire.Criteria[key], &description); err != nil || description != original {
+			t.Errorf("wire description for %q = %q, %v; want original %q", key, description, err, original)
+		}
 	}
 }
 
