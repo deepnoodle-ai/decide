@@ -350,6 +350,18 @@ func TestConfigValidation(t *testing.T) {
 	}
 }
 
+func TestMissingTokenGuidance(t *testing.T) {
+	_, err := cloudflare.NewTransport(cloudflare.Config{AccountID: "account"})
+	if !errors.Is(err, sod.ErrNoAPIKey) {
+		t.Fatalf("missing credential sentinel lost: %v", err)
+	}
+	message := err.Error()
+	if !strings.Contains(message, "cloudflare.Config.APIToken") || !strings.Contains(message, "Workers AI API token") ||
+		strings.Contains(message, "TYPESAFE_API_KEY") || strings.Contains(message, "WithAPIKey") {
+		t.Fatalf("missing token guidance names the wrong configuration: %s", message)
+	}
+}
+
 func TestAlternateJSONEscapesAreRedacted(t *testing.T) {
 	escaped := `\u0074` + token[1:] // the provider encodes the token's first letter
 	for _, status := range []int{200, 400} {

@@ -56,7 +56,8 @@ type Transport struct {
 // absolute HTTP(S) URL without user information, a query, or a fragment.
 func NewTransport(cfg Config) (*Transport, error) {
 	if cfg.APIToken == "" {
-		return nil, fmt.Errorf("%w: cloudflare requires APIToken", sod.ErrNoAPIKey)
+		return nil, &transportError{cause: sod.ErrNoAPIKey,
+			message: "sod: cloudflare requires a Workers AI API token: set cloudflare.Config.APIToken"}
 	}
 	if !identifier(cfg.AccountID, false) {
 		return nil, fmt.Errorf("%w: cloudflare requires a valid AccountID", sod.ErrInvalidRequest)
