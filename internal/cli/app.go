@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/backend"
@@ -70,8 +71,21 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	case ctx.Err() != nil:
 		return 130
 	}
-	app.PrintError(err)
+	app.PrintError(safeError{err})
 	return cli.GetExitCode(err)
+}
+
+// safeError removes control characters from an error's message, which can
+// carry file names and other text from outside the program, while keeping
+// its lines.
+type safeError struct{ error }
+
+func (e safeError) Error() string {
+	lines := strings.Split(e.error.Error(), "\n")
+	for i, line := range lines {
+		lines[i] = printable(line)
+	}
+	return strings.Join(lines, "\n")
 }
 
 // interactiveStdin reports whether stdin is a terminal, where nobody is

@@ -514,13 +514,23 @@ func TestSkillAndFileTextCannotControlTheTerminal(t *testing.T) {
 
 	h.write(".decide/skills/bad/skill.json", `{"name": "bad", "description": "Bad",
   "questions": {"q\u001b[31m": {"type": "noul", "instructions": "?"}}}`)
-	for _, args := range [][]string{{"skills"}, {"skills", "show", "bad"}} {
-		out := h.run("", args...)
-		if !strings.Contains(out.stderr, "control characters") {
-			t.Errorf("%v did not reject the key: %q", args, out.stderr)
+	h.write(".decide/skills/broken\x1b[31m/skill.json", `{`)
+	h.write("bad/x\x1b]0;title\x07.jsonl", "{\"a\":1}\nnot json\n")
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"skills"}, "control characters"},
+		{[]string{"skills", "show", "bad"}, "control characters"},
+		{[]string{"skills"}, "broken"},
+		{[]string{"run", "odd", "bad", "--dry-run"}, "not valid JSON"},
+	} {
+		out := h.run("", c.args...)
+		if !strings.Contains(out.stderr, c.want) {
+			t.Errorf("%v: stderr %q, want %q", c.args, out.stderr, c.want)
 		}
 		if strings.ContainsAny(out.stdout+out.stderr, "\x1b\x07") {
-			t.Errorf("%v printed a control character:\n%q\n%q", args, out.stdout, out.stderr)
+			t.Errorf("%v printed a control character:\n%q\n%q", c.args, out.stdout, out.stderr)
 		}
 	}
 }
