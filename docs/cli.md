@@ -202,10 +202,10 @@ runs somewhere else.
 ## Write your own skill
 
 ```sh
-decide skills new support-triage --from ticket-routing
+decide skills new my-routing --from ticket-routing
 ```
 
-This creates `~/.decide/skills/support-triage/skill.json`. Add `--project`
+This creates `~/.decide/skills/my-routing/skill.json`. Add `--project`
 to create it in `.decide/skills` in the current folder instead, so you can
 commit it and share it with your team. Project skills take precedence over
 your own, which take precedence over the built-in skills.
@@ -214,7 +214,7 @@ A skill looks like this:
 
 ```json
 {
-  "name": "support-triage",
+  "name": "my-routing",
   "description": "Route each ticket to the team that should handle it.",
   "parameters": {
     "product": {"description": "The product the tickets are about", "default": "Acme"}
@@ -287,8 +287,8 @@ evidence rather than instructions. An optional `SKILL.md` next to
 Check your skill as you go:
 
 ```sh
-decide skills show support-triage
-decide run support-triage tickets.jsonl --dry-run
+decide skills show my-routing
+decide run my-routing tickets.jsonl --dry-run
 ```
 
 ## Providers

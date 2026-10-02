@@ -89,13 +89,13 @@ func TestSkills(t *testing.T) {
 	out = h.run("", "skills", "show", "relevance")
 	contains(t, out.stdout, "Is this item relevant to this topic or question: {{question}}", "matches when yes is 60% or more likely", "required", `decide run relevance data.jsonl -p question="..."`)
 
-	out = h.run("", "skills", "new", "triage", "--from", "ticket-routing")
+	out = h.run("", "skills", "new", "my-triage", "--from", "ticket-routing")
 	if out.code != 0 {
 		t.Fatalf("new: exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stdout, "Created", "triage/skill.json", "decide run triage data.jsonl --dry-run")
+	contains(t, out.stdout, "Created", "my-triage/skill.json", "decide run my-triage data.jsonl --dry-run")
 	out = h.run("", "skills")
-	contains(t, out.stdout, "triage", "(user)")
+	contains(t, out.stdout, "my-triage", "(user)")
 
 	out = h.run("", "skills", "show", "code-risk")
 	contains(t, out.stdout, "Does this code or configuration", "flagged when", "the score is 1.5 or lower", "yes is 60% or more likely")
