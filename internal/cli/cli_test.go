@@ -81,6 +81,14 @@ func TestOverview(t *testing.T) {
 	contains(t, out.stdout, "Examples:", "--dry-run", "--param")
 }
 
+func TestVersion(t *testing.T) {
+	var stdout bytes.Buffer
+	app := &App{Stdin: strings.NewReader(""), Stdout: &stdout, Stderr: &stdout, Version: "v1.2.3"}
+	if code := app.Run(context.Background(), []string{"--version"}); code != 0 || strings.TrimSpace(stdout.String()) != "v1.2.3" {
+		t.Fatalf("exit %d, output %q", code, stdout.String())
+	}
+}
+
 func TestTemplates(t *testing.T) {
 	h := setup(t)
 	out := h.run("", "templates")
@@ -193,7 +201,7 @@ func TestFailuresAndResume(t *testing.T) {
 	}
 	contains(t, out.stderr, "Resuming run", "1 request left", "✓ 2 answered")
 	out = h.run("", "runs", "resume")
-	contains(t, out.stdout, "already has an answer")
+	contains(t, out.stderr, "already has an answer")
 }
 
 func TestPipedTextThatLooksLikeJSON(t *testing.T) {
@@ -581,16 +589,19 @@ func TestLargeRecordsAreJudgedInParts(t *testing.T) {
 	contains(t, out.stdout, "✗ part 1 of 2: ")
 	contains(t, out.stderr, "Running relevance on 2 records (1 judged in parts, 3 requests)", "✓ 1 answered  ✗ 1 failed")
 
+	// Resuming prints the item answered before, then the one it finishes.
 	out = h.run("", "runs", "resume", "--json")
-	if out.code != 0 || strings.Count(out.stdout, "\n") != 1 {
+	lines := strings.Split(strings.TrimSpace(out.stdout), "\n")
+	if out.code != 0 || len(lines) != 2 {
 		t.Fatalf("resume: exit %d:\n%s%s", out.code, out.stdout, out.stderr)
 	}
+	contains(t, lines[0], `"source":"t.jsonl:2"`)
 	var it struct {
 		Source string
 		Parts  int
 		Where  map[string]string
 	}
-	json.Unmarshal([]byte(out.stdout), &it)
+	json.Unmarshal([]byte(lines[1]), &it)
 	if it.Source != "t.jsonl:1" || it.Parts != 2 || it.Where["relevant"] != "part 1 of 2" {
 		t.Fatalf("item = %+v", it)
 	}

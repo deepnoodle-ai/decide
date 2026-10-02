@@ -43,3 +43,14 @@ jobs:
             git ls-files --error-unmatch go.sum >/dev/null
             git diff --exit-code -- go.sum
           fi
+
+  release-config:
+    name: release config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: v2.15.3 # brews is deprecated; upgrade deliberately
+          args: check

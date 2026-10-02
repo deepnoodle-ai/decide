@@ -33,9 +33,10 @@ off, or remove them, as they land.
       from a table of the supported providers' models, dated and linked to
       each provider's pricing page. It can go stale, so label it an
       estimate.
-- [ ] **CSV and Markdown output.** `--format json|csv|md` on `run` and
-      `runs view`, keeping `--json` as a shorthand. Markdown is for pull
-      request comments.
+- [x] **Output formats.** `--format json|csv|md|github` on `run`, `runs
+      view`, and `runs resume`, keeping `--json` as a shorthand. Markdown is
+      for pull request comments and job summaries; `github` writes
+      annotations.
 - [ ] **Request cache.** An opt-in `--cache` that reuses identical requests.
 
 ## Providers and credentials
@@ -59,13 +60,26 @@ off, or remove them, as they land.
 
 ## Installing and releases
 
-- [ ] **Releases.** `decide --version`, release binaries and checksums for
+- [x] **Releases.** `decide --version`, release binaries and checksums for
       each `v*` tag, and a formula in `deepnoodle-ai/homebrew-tap`.
+
+## CI
+
+- [ ] **GitHub Action.** `uses: deepnoodle-ai/decide-action@v1`, in its own
+      repository with its own `v1` tag, listed on the GitHub Marketplace.
+      It installs a pinned release, diffs the pull request against its
+      base, and runs a template with `--format github`, with inputs for the
+      template, `--each`, `--fail-on`, and an optional pull request
+      comment. Build it after `v0.1.0` is tagged and the recipes have run
+      on a real repository, and keep it a thin wrapper over the CLI.
 
 ## Docs
 
 - [ ] **Demo.** A short README recording made with VHS.
-- [ ] **Recipes.** CI gates, pre-commit hooks, agents, and CSV exports.
+- [x] **Recipes.** GitHub Actions reviews, comments, and gates, issue
+      labels, GitLab, pre-commit hooks, and CSV exports.
+- [ ] **Agent recipes.** Running decide from an agent, with the Claude
+      Code plugin.
 - [ ] **Badges.** CI, Go Reference, and license, once the repository is
       public.
 
@@ -87,3 +101,6 @@ off, or remove them, as they land.
 - Falling back to a text model inside the CLI. Thresholds and fallbacks
   belong in `patterns/gate` and `patterns/funnel`.
 - An install script, for now. Homebrew and `go install` come first.
+- A hosted GitHub App, for now. The action gives the same results without
+  a service that holds keys and reads other people's code. Reconsider
+  once the action is in wide use.

@@ -55,7 +55,10 @@ Examples:
 
 With --fail-on flagged, decide exits with code 2 when any item is flagged,
 so a script or CI job can stop on the result. --fail-on matched does the
-same for matches.`
+same for matches.
+
+--format prints results as json, csv, md (a Markdown report), or github
+(annotations on a pull request, in GitHub Actions).`
 
 func (a *App) addRun(app *cli.App) {
 	app.Command("run").
@@ -74,7 +77,8 @@ func (a *App) addRun(app *cli.App) {
 			cli.Int("sample").Help("Pick this many items at random"),
 			cli.Bool("dry-run").Help("Show what would be asked, without calling the model"),
 			cli.Bool("details", "d").Help("Show the probability of every option"),
-			cli.Bool("json").Help("Print results as JSON lines"),
+			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
+			cli.String("format", "f").Enum(formats...).Help(formatHelp),
 			cli.String("fail-on").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
 			cli.String("provider").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare").
 				Help("Model provider: typesafe or cloudflare (default: typesafe; cloudflare for images)"),
@@ -112,9 +116,10 @@ func (a *App) run(c *cli.Context) error {
 			Hint("--limit takes the first items; --sample picks items at random.")
 	case workers < 1:
 		return cli.Error("--workers must be at least 1")
-	case c.Bool("json") && c.Bool("details"):
-		return cli.Error("Use --json or --details, not both").
-			Hint("JSON output always includes every probability.")
+	}
+	format, err := formatOf(c)
+	if err != nil {
+		return err
 	}
 	if len(paths) == 0 && a.interactiveStdin() {
 		return cli.Errorf("What should %s look at?", s.Name).
@@ -146,7 +151,10 @@ func (a *App) run(c *cli.Context) error {
 	changes := false
 	opts.Changes = func() { changes = true }
 	if c.Bool("dry-run") {
-		return a.dryRun(c, resolved, paths, opts, &changes)
+		if format != "text" && format != "json" {
+			return cli.Errorf("--dry-run prints text or JSON, not --format %s", format)
+		}
+		return a.dryRun(c, resolved, paths, opts, format, &changes)
 	}
 
 	provider := c.String("provider")
@@ -180,8 +188,7 @@ func (a *App) run(c *cli.Context) error {
 	})
 	if err == nil && run.Total == 0 && changes {
 		run.Discard()
-		nothingToJudge(c, s)
-		return nil
+		return nothingToJudge(c, s, format)
 	}
 	if err == nil && run.Total == 0 {
 		err = nothingFound(s, paths, opts)
@@ -208,22 +215,29 @@ func (a *App) run(c *cli.Context) error {
 		fmt.Fprintln(c.Stderr(), dim(hint))
 	}
 	fmt.Fprintln(c.Stderr())
-	return a.execute(c, run, client, workers, failOn)
+	return a.execute(c, run, client, workers, format, failOn)
 }
 
-// execute runs or resumes a run, printing each result and a summary. With
-// failOn set to "flagged" or "matched", a complete run with such items
-// exits with code 2.
-func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, workers int, failOn string) error {
+// execute runs or resumes a run, printing each result in the format
+// given, and a summary. With failOn set to "flagged" or "matched", a
+// complete run with such items exits with code 2.
+func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, workers int, format, failOn string) error {
 	saved, err := run.Results()
 	if err != nil {
 		return err
 	}
-	out := newCollector(marksOf(run.Template), saved, itemWriter(c, run.Template))
+	w := newOutput(c, format, run.Template, failOn)
+	if err := replay(w, saved, marksOf(run.Template)); err != nil {
+		return err
+	}
+	out := newCollector(marksOf(run.Template), saved, w.item)
 	start := time.Now()
 	err = run.Execute(c.Context(), client, workers, out.add)
 	elapsed := time.Since(start)
 	if ferr := out.finish(); ferr != nil && err == nil {
+		err = ferr
+	}
+	if ferr := w.finish(run); ferr != nil && err == nil {
 		err = ferr
 	}
 	var fatal *runs.FatalError
@@ -248,6 +262,20 @@ func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, work
 		return cli.Exit(1)
 	}
 	return failExit(c, failOn, marked)
+}
+
+// replay prints the items a resumed run answered before it stopped, so its
+// output covers the whole run.
+func replay(w resultWriter, saved []runs.Result, m marks) error {
+	for _, it := range group(saved, m) {
+		if it.Status != "complete" {
+			continue // it will be asked again
+		}
+		if err := w.item(it); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // checkFailOn refuses --fail-on when the template never marks an item that
@@ -296,15 +324,6 @@ func credentialHint(provider string) string {
 		return "Check CLOUDFLARE_AUTH_TOKEN and CLOUDFLARE_ACCOUNT_ID."
 	}
 	return "Check that TYPESAFE_API_KEY holds a valid key."
-}
-
-// itemWriter prints items as text, or as JSON lines with --json.
-func itemWriter(c *cli.Context, s *template.Template) func(item) error {
-	if c.Bool("json") {
-		enc := json.NewEncoder(c.Stdout())
-		return func(it item) error { return enc.Encode(it.json()) }
-	}
-	return newPrinter(c.Stdout(), s, c.Bool("details")).item
 }
 
 // progress counts a run's items, rather than its requests: how many were
@@ -410,8 +429,8 @@ func list(w io.Writer, label string, sources []string) {
 	fmt.Fprintf(w, "%s %s\n", dim(label), text)
 }
 
-func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts source.Options, changes *bool) error {
-	if c.Bool("json") {
+func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts source.Options, format string, changes *bool) error {
+	if format == "json" {
 		enc := json.NewEncoder(c.Stdout())
 		return source.Walk(c.Context(), paths, c.Stdin(), opts, func(it source.Item) error { return enc.Encode(it) })
 	}
@@ -430,8 +449,7 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 	}
 	total := found.items()
 	if total == 0 && *changes {
-		nothingToJudge(c, s)
-		return nil
+		return nothingToJudge(c, s, format)
 	}
 	if total == 0 {
 		return nothingFound(s, paths, opts)
@@ -478,10 +496,18 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 // nothingToJudge reports a diff, or empty input, with no changes for the
 // template to judge. That is not an error, so a CI gate on a change with
 // nothing to judge passes.
-func nothingToJudge(c *cli.Context, s *template.Template) {
-	if !c.Bool("json") {
-		fmt.Fprintf(c.Stderr(), "%s\n", dim(fmt.Sprintf("Nothing for %s to judge: no changes, or only changes it skips", s.Name)))
+func nothingToJudge(c *cli.Context, s *template.Template, format string) error {
+	msg := fmt.Sprintf("Nothing for %s to judge: no changes, or only changes it skips", s.Name)
+	if format != "json" {
+		fmt.Fprintf(c.Stderr(), "%s\n", dim(msg))
 	}
+	switch format {
+	case "md":
+		return emptyReport(c.Stdout(), s.Name, msg)
+	case "github":
+		return addToSummary(func(w io.Writer) error { return emptyReport(w, s.Name, msg) })
+	}
+	return nil
 }
 
 func nothingFound(s *template.Template, paths []string, opts source.Options) error {
