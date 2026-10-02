@@ -1,4 +1,4 @@
-// Package fanout runs independent System One requests over a collection of
+// Package fanout runs independent decision requests over a collection of
 // items with a bound on concurrent work.
 //
 // This package runs many requests. TypeSafe's speculative fan-out pattern

@@ -2,25 +2,50 @@
 
 **Ask typed questions about your data. Get answers with probabilities.**
 
-Decide asks yes-or-no, multiple-choice, and scale questions about files,
-folders, JSON records, and text. Each answer comes back typed, with a
-probability, so a script or a program can act on it directly. There is no
-prose to parse.
+Decide asks yes-or-no (`noul`), multiple-choice (`choice`), and scale
+(`score`) questions about files, folders, JSON records, and text. Each
+answer comes back typed, with a probability, so a script or a program can
+act on it directly. There is no prose to parse.
 
 Use it as a command-line tool or as a Go library.
 
-Decide runs on [System One](https://docs.typesafe.ai/introduction) models,
-which are built to answer typed questions rather than to generate text:
-TypeSafe's Jev and Cloudflare Workers AI's Clef.
+Decide runs on **decision models**, which are built to answer typed
+questions rather than to generate text. TypeSafe calls them System One
+models. Decide supports Jev and Clef through one API, so you can switch
+between them without changing anything else:
+
+| | [Jev](https://docs.typesafe.ai/introduction) by TypeSafe | [Clef](https://developers.cloudflare.com/workers-ai/models/clef/) by Cloudflare |
+| --- | --- | --- |
+| Models | `jev-latest` | `clef`, and `clef-flash` for lower latency |
+| Runs on | the [TypeSafe API](https://typesafe.ai) | [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/get-started/rest-api/) |
+
+Clef's weights are [open on Hugging Face](https://huggingface.co/Cloudflare/clef)
+under Apache 2.0.
 
 ## Try it
 
 ```sh
 go install github.com/deepnoodle-ai/decide/cmd/decide@latest
-export TYPESAFE_API_KEY=...   # from https://typesafe.ai
+```
 
+**With Jev,** the default, set your TypeSafe API key:
+
+```sh
+export TYPESAFE_API_KEY=...
 echo "The new release fixed everything I cared about" | decide run sentiment
 ```
+
+**With Clef,** set a Workers AI API token and your account ID, and choose
+the Cloudflare provider:
+
+```sh
+export CLOUDFLARE_AUTH_TOKEN=...
+export CLOUDFLARE_ACCOUNT_ID=...
+export DECIDE_PROVIDER=cloudflare   # or pass --provider cloudflare
+echo "The new release fixed everything I cared about" | decide run sentiment
+```
+
+Either way, you get a typed answer with its probability:
 
 ```
 Running sentiment on 1 line · typesafe jev-latest
@@ -45,7 +70,7 @@ Decide comes with five skills. A skill is a named set of questions.
 | `ticket-routing` | Does this support ticket belong to billing, engineering, or other? |
 | `relevance` | Is it relevant to a question you choose? |
 | `code-risk` | Could it cause security or data problems, and how maintainable is it? |
-| `receipt-quality` | Does this image show a readable receipt? |
+| `receipt-quality` | Does this image show a readable receipt? Runs on Clef. |
 
 ```sh
 decide run code-risk src --include '*.go'
@@ -64,11 +89,26 @@ your own skill in a few lines of JSON with `decide skills new`. The
 go get github.com/deepnoodle-ai/decide
 ```
 
+Create a client for Jev:
+
 ```go
 client, err := decide.NewClient() // reads TYPESAFE_API_KEY
-if err != nil {
-	return err
-}
+```
+
+Or for Clef:
+
+```go
+client, err := backend.NewClient(backend.Config{
+	Provider:  backend.Cloudflare,
+	APIKey:    os.Getenv("CLOUDFLARE_AUTH_TOKEN"),
+	AccountID: os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
+	Model:     "clef", // or "clef-flash"
+})
+```
+
+Then ask a question the same way with either one:
+
+```go
 e, err := decide.Eval(ctx, client, ticket,
 	decide.Noul("Is this about billing?"))
 if err != nil {
@@ -83,16 +123,6 @@ covers asking several questions at once, `Pick`, and test fakes in
 [`decidetest`](decidetest). Packages under `patterns/`, such as gate,
 rank, and funnel, build common decisions from answers. The
 [examples](examples) show each one in a short program.
-
-## Providers
-
-| Provider | Models | Credentials |
-| --- | --- | --- |
-| [TypeSafe](https://typesafe.ai) (default) | `jev-latest` | `TYPESAFE_API_KEY` |
-| [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/models/clef/) | `clef`, `clef-flash`, with images | `CLOUDFLARE_AUTH_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
-
-Choose one with `--provider` in the CLI or [`backend`](backend) in Go.
-Image skills use Cloudflare automatically.
 
 ## Status
 

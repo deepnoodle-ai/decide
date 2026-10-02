@@ -1,9 +1,11 @@
-// Package decide is a Go client for TypeSafe AI's System One models, such
-// as Jev.
+// Package decide is a Go client for decision models: TypeSafe's Jev and
+// Cloudflare's Clef. TypeSafe calls these System One models.
 //
-// A System One model evaluates a piece of state (a ticket, a diff, a JSON
+// A decision model evaluates a piece of state (a ticket, a diff, a JSON
 // record) against a set of typed questions and returns typed answers with
 // probabilities that code can act on directly. It does not generate text.
+// [NewClient] connects to TypeSafe; the backend package connects to either
+// provider through the same API.
 //
 // [Eval] asks one typed question and returns an [Evaluation]. [Pick]
 // selects an original candidate or abstains, returning a [Decision]. Both
