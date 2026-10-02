@@ -1,11 +1,11 @@
-package sodtest
+package decidetest
 
 import (
 	"math"
 	"strconv"
 	"time"
 
-	"github.com/deepnoodle-ai/sod"
+	"github.com/deepnoodle-ai/decide"
 )
 
 // Option configures a Server.
@@ -20,8 +20,8 @@ func WithResolvedModel(name string) Option { return func(s *Server) { s.resolved
 
 // WithModels sets what GET /v1/models returns. Default: jev-latest and
 // jev-preview.
-func WithModels(models ...sod.Model) Option {
-	return func(s *Server) { s.models = append([]sod.Model{}, models...) }
+func WithModels(models ...decide.Model) Option {
+	return func(s *Server) { s.models = append([]decide.Model{}, models...) }
 }
 
 // fault is one queued failure response.

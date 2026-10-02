@@ -1,5 +1,5 @@
-// Package sodtest provides a fake TypeSafe API server and answer
-// fixtures, so code built on package sod can be tested without an API
+// Package decidetest provides a fake TypeSafe API server and answer
+// fixtures, so code built on package decide can be tested without an API
 // key or a network.
 //
 // The server speaks the native HTTP API (POST /v1/systemone and GET
@@ -18,7 +18,7 @@
 // Client, ReadFile). Importing it from a main package, for example to run
 // an example without an API key, is fine: it never calls testing.Init, so
 // it registers no test flags. Use Start and NewClient there.
-package sodtest
+package decidetest
 
 import (
 	"cmp"
@@ -36,23 +36,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/deepnoodle-ai/sod"
+	"github.com/deepnoodle-ai/decide"
 )
 
 // Server is a fake TypeSafe API. It is safe for concurrent use.
 type Server struct {
-	URL string // base URL, for sod.WithBaseURL
+	URL string // base URL, for decide.WithBaseURL
 
 	ts *httptest.Server
 
 	// Set by options before the server starts; read-only afterwards.
 	apiKey   string
 	resolved string
-	models   []sod.Model
+	models   []decide.Model
 
 	mu        sync.Mutex
 	responder Responder // nil: default responder
-	canned    map[string]sod.Answer
+	canned    map[string]decide.Answer
 	faults    []*fault
 	latency   time.Duration
 	records   []Recorded
@@ -65,13 +65,13 @@ type Recorded struct {
 	Authorization string // raw header value; test keys only
 	Header        http.Header
 	Body          []byte
-	Request       *sod.Request // decoded POST body; nil for GET or on decode failure
-	RequestID     string       // the id the server sent back
+	Request       *decide.Request // decoded POST body; nil for GET or on decode failure
+	RequestID     string          // the id the server sent back
 }
 
 // Responder produces the answer to a decoded POST /v1/systemone request. A
-// returned *sod.APIError is written with its StatusCode and Body.
-type Responder func(req *sod.Request) (*sod.Response, error)
+// returned *decide.APIError is written with its StatusCode and Body.
+type Responder func(req *decide.Request) (*decide.Response, error)
 
 // defaultAPIKey is the bearer key the server expects unless WithAPIKey is
 // given. It is at least 8 characters, so the client's key redaction applies
@@ -82,11 +82,11 @@ func newServer(opts []Option) *Server {
 	s := &Server{
 		apiKey:   defaultAPIKey,
 		resolved: "jev-1.13.0",
-		models: []sod.Model{
+		models: []decide.Model{
 			{Name: "jev-latest", Description: "Most recent stable Jev release.", ReleaseDate: "2026-09-01"},
 			{Name: "jev-preview", Description: "Most recent Jev release of any kind.", ReleaseDate: "2026-09-01"},
 		},
-		canned: make(map[string]sod.Answer),
+		canned: make(map[string]decide.Answer),
 	}
 	for _, o := range opts {
 		o(s)
@@ -101,7 +101,7 @@ func Start(opts ...Option) (*Server, error) {
 	s := newServer(opts)
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return nil, fmt.Errorf("sodtest: listen: %w", err)
+		return nil, fmt.Errorf("decidetest: listen: %w", err)
 	}
 	// Built directly rather than with httptest.NewServer, which panics when
 	// it cannot listen; here a listen failure is Start's error.
@@ -138,32 +138,32 @@ func (s *Server) Handler() http.Handler { return http.HandlerFunc(s.serveHTTP) }
 // NewClient returns a client pointed at the server. It applies, in order,
 // WithoutEnvironment, WithBaseURL(s.URL), WithAPIKey(expected key), and
 // WithRetryBackoff(time.Millisecond, 5*time.Millisecond), then opts.
-func (s *Server) NewClient(opts ...sod.ClientOption) (*sod.Client, error) {
+func (s *Server) NewClient(opts ...decide.ClientOption) (*decide.Client, error) {
 	return s.NewClientFor(s.URL, nil, opts...)
 }
 
 // NewClientFor is NewClient for a server mounted elsewhere, typically
 // Handler() on httptest.NewTestServer inside a synctest bubble: pass that
 // server's URL and Client(). hc may be nil for the default HTTP client.
-func (s *Server) NewClientFor(baseURL string, hc *http.Client, opts ...sod.ClientOption) (*sod.Client, error) {
-	all := []sod.ClientOption{
-		sod.WithoutEnvironment(),
-		sod.WithBaseURL(baseURL),
-		sod.WithAPIKey(s.apiKey),
-		sod.WithRetryBackoff(time.Millisecond, 5*time.Millisecond),
+func (s *Server) NewClientFor(baseURL string, hc *http.Client, opts ...decide.ClientOption) (*decide.Client, error) {
+	all := []decide.ClientOption{
+		decide.WithoutEnvironment(),
+		decide.WithBaseURL(baseURL),
+		decide.WithAPIKey(s.apiKey),
+		decide.WithRetryBackoff(time.Millisecond, 5*time.Millisecond),
 	}
 	if hc != nil {
-		all = append(all, sod.WithHTTPClient(hc))
+		all = append(all, decide.WithHTTPClient(hc))
 	}
-	return sod.NewClient(append(all, opts...)...)
+	return decide.NewClient(append(all, opts...)...)
 }
 
 // Client is NewClient that fails the test on error.
-func (s *Server) Client(tb testing.TB, opts ...sod.ClientOption) *sod.Client {
+func (s *Server) Client(tb testing.TB, opts ...decide.ClientOption) *decide.Client {
 	tb.Helper()
 	c, err := s.NewClient(opts...)
 	if err != nil {
-		tb.Fatalf("sodtest: NewClient: %v", err)
+		tb.Fatalf("decidetest: NewClient: %v", err)
 	}
 	return c
 }
@@ -178,7 +178,7 @@ func (s *Server) Respond(r Responder) {
 
 // Answer sets a canned answer for a question key, used by the default
 // responder in place of its deterministic default.
-func (s *Server) Answer(key string, a sod.Answer) {
+func (s *Server) Answer(key string, a decide.Answer) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.canned[key] = a
@@ -234,7 +234,7 @@ func (s *Server) Reset() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.records, s.faults, s.responder, s.latency = nil, nil, nil, 0
-	s.canned = make(map[string]sod.Answer)
+	s.canned = make(map[string]decide.Answer)
 }
 
 const requestIDHeader = "x-typesafe-request-id"
@@ -248,10 +248,10 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		Header:        r.Header.Clone(),
 		Body:          body,
 	}
-	var decoded *sod.Request
+	var decoded *decide.Request
 	var decodeErr error
 	if r.Method == http.MethodPost {
-		decoded = &sod.Request{}
+		decoded = &decide.Request{}
 		if decodeErr = decoded.UnmarshalJSON(body); decodeErr != nil {
 			decoded = nil
 		}
@@ -310,7 +310,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/v1/models":
-		b, err := (&sod.ModelList{Models: s.models}).MarshalJSON()
+		b, err := (&decide.ModelList{Models: s.models}).MarshalJSON()
 		if err != nil {
 			b, _ = json.Marshal(map[string]string{"detail": err.Error()})
 			writeJSON(w, http.StatusInternalServerError, b)
@@ -324,7 +324,7 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) systemOne(w http.ResponseWriter, req *sod.Request, decodeErr error, bodyLen int, responder Responder) {
+func (s *Server) systemOne(w http.ResponseWriter, req *decide.Request, decodeErr error, bodyLen int, responder Responder) {
 	if decodeErr != nil {
 		writeJSON(w, http.StatusUnprocessableEntity, validationBody([]any{"body"}, "json_invalid", decodeErr.Error()))
 		return
@@ -334,7 +334,7 @@ func (s *Server) systemOne(w http.ResponseWriter, req *sod.Request, decodeErr er
 			"Dictionary should have at least 1 item after validation, not 0"))
 		return
 	}
-	var resp *sod.Response
+	var resp *decide.Response
 	var err error
 	if responder != nil {
 		resp, err = responder(req)
@@ -342,7 +342,7 @@ func (s *Server) systemOne(w http.ResponseWriter, req *sod.Request, decodeErr er
 		resp = s.defaultResponse(req, bodyLen)
 	}
 	if err != nil {
-		if ae, ok := errors.AsType[*sod.APIError](err); ok {
+		if ae, ok := errors.AsType[*decide.APIError](err); ok {
 			b := ae.Body
 			if len(b) == 0 {
 				b = defaultFaultBody(ae.StatusCode)
@@ -358,12 +358,12 @@ func (s *Server) systemOne(w http.ResponseWriter, req *sod.Request, decodeErr er
 		return
 	}
 	if resp == nil {
-		resp = &sod.Response{}
+		resp = &decide.Response{}
 	}
 	resp.Model = cmp.Or(resp.Model, s.resolved)
 	b, err := resp.MarshalJSON()
 	if err != nil {
-		b, _ = json.Marshal(map[string]string{"detail": "sodtest: encode response: " + err.Error()})
+		b, _ = json.Marshal(map[string]string{"detail": "decidetest: encode response: " + err.Error()})
 		writeJSON(w, http.StatusInternalServerError, b)
 		return
 	}
@@ -373,20 +373,20 @@ func (s *Server) systemOne(w http.ResponseWriter, req *sod.Request, decodeErr er
 // defaultResponse answers every question with a canned answer if set, else
 // a deterministic default: Noul 0.5; Choice uniform with the first option
 // chosen; Score uniform with score (n-1)/2. Unknown question types get a
-// *sod.RawAnswer carrying only "type".
+// *decide.RawAnswer carrying only "type".
 //
 // Usage is a stand-in: input tokens are the body length divided by 4 and
 // output tokens are 2 per question. It is not how TypeSafe counts tokens.
-func (s *Server) defaultResponse(req *sod.Request, bodyLen int) *sod.Response {
+func (s *Server) defaultResponse(req *decide.Request, bodyLen int) *decide.Response {
 	s.mu.Lock()
-	canned := make(map[string]sod.Answer, len(s.canned))
+	canned := make(map[string]decide.Answer, len(s.canned))
 	maps.Copy(canned, s.canned)
 	s.mu.Unlock()
 
-	resp := &sod.Response{
+	resp := &decide.Response{
 		Model:   s.resolved,
-		Answers: make(map[string]sod.Answer, len(req.Questions)),
-		Usage:   sod.Usage{InputTokens: bodyLen / 4, OutputTokens: 2 * len(req.Questions)},
+		Answers: make(map[string]decide.Answer, len(req.Questions)),
+		Usage:   decide.Usage{InputTokens: bodyLen / 4, OutputTokens: 2 * len(req.Questions)},
 	}
 	for key, q := range req.Questions {
 		if a, ok := canned[key]; ok {
@@ -398,13 +398,13 @@ func (s *Server) defaultResponse(req *sod.Request, bodyLen int) *sod.Response {
 	return resp
 }
 
-func defaultAnswer(q sod.Question) sod.Answer {
+func defaultAnswer(q decide.Question) decide.Answer {
 	switch q := q.(type) {
-	case *sod.NoulQuestion:
+	case *decide.NoulQuestion:
 		return NoulAnswer(0.5)
-	case *sod.ChoiceQuestion:
+	case *decide.ChoiceQuestion:
 		n := len(q.Criteria)
-		a := &sod.ChoiceAnswer{Probabilities: make(map[string]float64, n)}
+		a := &decide.ChoiceAnswer{Probabilities: make(map[string]float64, n)}
 		ps := make([]float64, n)
 		for i, o := range q.Criteria {
 			a.Probabilities[o.Key] = 1 / float64(n)
@@ -415,7 +415,7 @@ func defaultAnswer(q sod.Question) sod.Answer {
 		}
 		a.Confidence = Confidence(ps)
 		return a
-	case *sod.ScoreQuestion:
+	case *decide.ScoreQuestion:
 		n := len(q.Criteria)
 		ps := make([]float64, n)
 		for i := range ps {
@@ -426,7 +426,7 @@ func defaultAnswer(q sod.Question) sod.Answer {
 		return a
 	}
 	b, _ := json.Marshal(map[string]string{"type": q.QuestionType()})
-	return &sod.RawAnswer{Type: q.QuestionType(), JSON: b}
+	return &decide.RawAnswer{Type: q.QuestionType(), JSON: b}
 }
 
 // wait sleeps for d, reporting false if ctx ends first.

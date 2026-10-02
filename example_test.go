@@ -1,4 +1,4 @@
-package sod_test
+package decide_test
 
 import (
 	"context"
@@ -6,20 +6,20 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/sodtest"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/decidetest"
 )
 
 // startFake starts a fake API with canned answers, standing in for
 // https://api.typesafe.ai so the examples run without a key.
-func startFake() *sodtest.Server {
-	srv, err := sodtest.Start()
+func startFake() *decidetest.Server {
+	srv, err := decidetest.Start()
 	if err != nil {
 		log.Fatal(err)
 	}
-	srv.Answer("billing", sodtest.NoulAnswer(0.93))
-	srv.Answer("tone", sodtest.ChoiceAnswer(map[string]float64{"calm": 0.05, "frustrated": 0.25, "angry": 0.7}))
-	srv.Answer("urgency", sodtest.ScoreAnswer([]any{"can wait", "this week", "today"}, 0.1, 0.3, 0.6))
+	srv.Answer("billing", decidetest.NoulAnswer(0.93))
+	srv.Answer("tone", decidetest.ChoiceAnswer(map[string]float64{"calm": 0.05, "frustrated": 0.25, "angry": 0.7}))
+	srv.Answer("urgency", decidetest.ScoreAnswer([]any{"can wait", "this week", "today"}, 0.1, 0.3, 0.6))
 	return srv
 }
 
@@ -27,16 +27,16 @@ func startFake() *sodtest.Server {
 func Example() {
 	srv := startFake()
 	defer srv.Close()
-	client, err := srv.NewClient() // in production: sod.NewClient()
+	client, err := srv.NewClient() // in production: decide.NewClient()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	req := sod.NewRequest("I was charged twice this month and nobody answers my emails.")
-	billing := sod.Ask(req, "billing", sod.Noul("Is this ticket about billing?"))
-	tone := sod.Ask(req, "tone", sod.Choice("What is the customer's tone?",
-		sod.Option("calm"), sod.Option("frustrated"), sod.Option("angry")))
-	urgency := sod.Ask(req, "urgency", sod.Score("How urgent is this?",
+	req := decide.NewRequest("I was charged twice this month and nobody answers my emails.")
+	billing := decide.Ask(req, "billing", decide.Noul("Is this ticket about billing?"))
+	tone := decide.Ask(req, "tone", decide.Choice("What is the customer's tone?",
+		decide.Option("calm"), decide.Option("frustrated"), decide.Option("angry")))
+	urgency := decide.Ask(req, "urgency", decide.Score("How urgent is this?",
 		"can wait", "this week", "today"))
 
 	resp, err := client.SystemOne(context.Background(), req)
@@ -63,7 +63,7 @@ func ExampleClient_SystemOne_partialResults() {
 	srv := startFake()
 	defer srv.Close()
 	// A deliberately inconsistent answer: "calm" is not the most likely option.
-	srv.Answer("tone", &sod.ChoiceAnswer{
+	srv.Answer("tone", &decide.ChoiceAnswer{
 		Choice:        "calm",
 		Probabilities: map[string]float64{"calm": 0.2, "angry": 0.8},
 		Confidence:    0.6,
@@ -73,14 +73,14 @@ func ExampleClient_SystemOne_partialResults() {
 		log.Fatal(err)
 	}
 
-	req := sod.NewRequest("You people are useless.")
-	billing := sod.Ask(req, "billing", sod.Noul("Is this ticket about billing?"))
-	tone := sod.Ask(req, "tone", sod.Choice("Tone?", sod.Option("calm"), sod.Option("angry")))
+	req := decide.NewRequest("You people are useless.")
+	billing := decide.Ask(req, "billing", decide.Noul("Is this ticket about billing?"))
+	tone := decide.Ask(req, "tone", decide.Choice("Tone?", decide.Option("calm"), decide.Option("angry")))
 
 	resp, err := client.SystemOne(context.Background(), req)
 	fmt.Println("error:", err)
 	for key, ae := range resp.Invalid {
-		fmt.Println("invalid:", key, ae.Reason, errors.Is(ae, sod.ErrInconsistentAnswer))
+		fmt.Println("invalid:", key, ae.Reason, errors.Is(ae, decide.ErrInconsistentAnswer))
 	}
 	if b, err := billing.From(resp); err == nil {
 		fmt.Printf("billing still usable: %.2f\n", b.Noul)
@@ -88,7 +88,7 @@ func ExampleClient_SystemOne_partialResults() {
 	t, err := tone.From(resp)
 	fmt.Println("tone:", t.Choice, "err:", err != nil)
 	// Output:
-	// error: sod: 1 invalid answer: answer "tone" (choice): choice_not_argmax: choice "calm" has P=0.2, max is 0.8
+	// error: decide: 1 invalid answer: answer "tone" (choice): choice_not_argmax: choice "calm" has P=0.2, max is 0.8
 	// invalid: tone choice_not_argmax true
 	// billing still usable: 0.93
 	// tone: calm err: true
@@ -96,7 +96,7 @@ func ExampleClient_SystemOne_partialResults() {
 
 // Rank a Choice answer's full distribution rather than only its top option.
 func ExampleChoiceAnswer_Ranked() {
-	a := &sod.ChoiceAnswer{
+	a := &decide.ChoiceAnswer{
 		Choice:        "refund",
 		Probabilities: map[string]float64{"refund": 0.55, "exchange": 0.35, "other": 0.10},
 	}
@@ -142,12 +142,12 @@ func ExampleAPIError() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	req := sod.NewRequest("state")
-	sod.Ask(req, "billing", sod.Noul("About billing?"))
+	req := decide.NewRequest("state")
+	decide.Ask(req, "billing", decide.Noul("About billing?"))
 
 	_, err = client.SystemOne(context.Background(), req)
-	if ae, ok := errors.AsType[*sod.APIError](err); ok {
-		fmt.Println(ae.StatusCode, errors.Is(err, sod.ErrOverloaded), errors.Is(err, sod.ErrServer), ae.RequestID)
+	if ae, ok := errors.AsType[*decide.APIError](err); ok {
+		fmt.Println(ae.StatusCode, errors.Is(err, decide.ErrOverloaded), errors.Is(err, decide.ErrServer), ae.RequestID)
 	}
 	// Output:
 	// 529 true true req_3

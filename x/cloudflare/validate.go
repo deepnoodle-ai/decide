@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/deepnoodle-ai/sod"
+	"github.com/deepnoodle-ai/decide"
 )
 
-func validate(req *sod.Request) error {
+func validate(req *decide.Request) error {
 	if err := req.Validate(); err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func validate(req *sod.Request) error {
 		// question type remain usable. Root validation already checks encoding.
 		raw, err := marshalQuestion(q)
 		if err != nil {
-			return fmt.Errorf("%w: cloudflare question: %w", sod.ErrInvalidRequest, err)
+			return fmt.Errorf("%w: cloudflare question: %w", decide.ErrInvalidRequest, err)
 		}
 		var wire struct {
 			Type         string          `json:"type"`
@@ -77,7 +77,7 @@ func validate(req *sod.Request) error {
 	return nil
 }
 
-func marshalQuestion(q sod.Question) (raw []byte, err error) {
+func marshalQuestion(q decide.Question) (raw []byte, err error) {
 	defer func() {
 		if recover() != nil {
 			err = invalid("question JSON encoding panicked")
@@ -109,5 +109,5 @@ func content(raw json.RawMessage) bool {
 }
 
 func invalid(message string) error {
-	return fmt.Errorf("%w: cloudflare: %s", sod.ErrInvalidRequest, message)
+	return fmt.Errorf("%w: cloudflare: %s", decide.ErrInvalidRequest, message)
 }

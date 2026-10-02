@@ -1,4 +1,4 @@
-package sod_test
+package decide_test
 
 import (
 	"bytes"
@@ -8,42 +8,42 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/deepnoodle-ai/sod"
+	"github.com/deepnoodle-ai/decide"
 )
 
 // stubTransport is a Transport driven by functions, for tests that do not
 // need HTTP.
 type stubTransport struct {
-	systemOne  func(ctx context.Context, req *sod.Request) (*sod.Response, error)
-	listModels func(ctx context.Context) (*sod.ModelList, error)
+	systemOne  func(ctx context.Context, req *decide.Request) (*decide.Response, error)
+	listModels func(ctx context.Context) (*decide.ModelList, error)
 }
 
-func (s stubTransport) SystemOne(ctx context.Context, req *sod.Request) (*sod.Response, error) {
+func (s stubTransport) SystemOne(ctx context.Context, req *decide.Request) (*decide.Response, error) {
 	return s.systemOne(ctx, req)
 }
 
-func (s stubTransport) ListModels(ctx context.Context) (*sod.ModelList, error) {
+func (s stubTransport) ListModels(ctx context.Context) (*decide.ModelList, error) {
 	return s.listModels(ctx)
 }
 
 // answering returns a stub transport whose response carries answers.
-func answering(answers map[string]sod.Answer) stubTransport {
-	return stubTransport{systemOne: func(context.Context, *sod.Request) (*sod.Response, error) {
-		return &sod.Response{Model: "jev-1.13.0", Answers: answers}, nil
+func answering(answers map[string]decide.Answer) stubTransport {
+	return stubTransport{systemOne: func(context.Context, *decide.Request) (*decide.Response, error) {
+		return &decide.Response{Model: "jev-1.13.0", Answers: answers}, nil
 	}}
 }
 
 // decoding returns a stub transport that decodes body against the request,
 // as HTTPTransport does.
 func decoding(body string) stubTransport {
-	return stubTransport{systemOne: func(_ context.Context, req *sod.Request) (*sod.Response, error) {
-		return sod.DecodeResponse([]byte(body), req)
+	return stubTransport{systemOne: func(_ context.Context, req *decide.Request) (*decide.Response, error) {
+		return decide.DecodeResponse([]byte(body), req)
 	}}
 }
 
-func stubClient(t *testing.T, tr sod.Transport, opts ...sod.ClientOption) *sod.Client {
+func stubClient(t *testing.T, tr decide.Transport, opts ...decide.ClientOption) *decide.Client {
 	t.Helper()
-	c, err := sod.NewClient(append([]sod.ClientOption{sod.WithTransport(tr)}, opts...)...)
+	c, err := decide.NewClient(append([]decide.ClientOption{decide.WithTransport(tr)}, opts...)...)
 	if err != nil {
 		t.Fatal(err)
 	}

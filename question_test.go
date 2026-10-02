@@ -1,4 +1,4 @@
-package sod_test
+package decide_test
 
 import (
 	"encoding/json"
@@ -7,31 +7,31 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/sodtest"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/decidetest"
 )
 
 func TestQuestionBuildersJSON(t *testing.T) {
 	cases := []struct {
 		name string
-		q    sod.Question
+		q    decide.Question
 		want string
 	}{
-		{"noul", sod.Noul("Is it billing?"),
+		{"noul", decide.Noul("Is it billing?"),
 			`{"type":"noul","instructions":"Is it billing?"}`},
-		{"noul criteria", sod.Noul("Is it billing?", sod.NoulTrue("about money"), sod.NoulFalse(nil)),
+		{"noul criteria", decide.Noul("Is it billing?", decide.NoulTrue("about money"), decide.NoulFalse(nil)),
 			`{"type":"noul","instructions":"Is it billing?","criteria":{"true":"about money","false":null}}`},
-		{"noul false only", sod.Noul("q", sod.NoulFalse("no")),
+		{"noul false only", decide.Noul("q", decide.NoulFalse("no")),
 			`{"type":"noul","instructions":"q","criteria":{"true":null,"false":"no"}}`},
-		{"choice", sod.Choice("Tone?", sod.Option("calm"), sod.Option("angry", "Hostile")),
+		{"choice", decide.Choice("Tone?", decide.Option("calm"), decide.Option("angry", "Hostile")),
 			`{"type":"choice","instructions":"Tone?","criteria":{"calm":null,"angry":"Hostile"}}`},
-		{"score", sod.Score("Urgency?", "low", "high"),
+		{"score", decide.Score("Urgency?", "low", "high"),
 			`{"type":"score","instructions":"Urgency?","criteria":["low","high"]}`},
-		{"structured instructions", sod.Noul(map[string]any{"ask": "x"}),
+		{"structured instructions", decide.Noul(map[string]any{"ask": "x"}),
 			`{"type":"noul","instructions":{"ask":"x"}}`},
-		{"nil instructions", &sod.NoulQuestion{},
+		{"nil instructions", &decide.NoulQuestion{},
 			`{"type":"noul","instructions":null}`},
-		{"extra", &sod.ScoreQuestion{Instructions: "s", Criteria: []any{"a", "b"}, Extra: map[string]any{"z": 1, "hint": true}},
+		{"extra", &decide.ScoreQuestion{Instructions: "s", Criteria: []any{"a", "b"}, Extra: map[string]any{"z": 1, "hint": true}},
 			`{"type":"score","instructions":"s","criteria":["a","b"],"hint":true,"z":1}`},
 	}
 	for _, tc := range cases {
@@ -48,7 +48,7 @@ func TestQuestionBuildersJSON(t *testing.T) {
 }
 
 func TestChoiceOrderPreserved(t *testing.T) {
-	q := sod.Choice("?", sod.Option("z"), sod.Option("a"), sod.Option("m"))
+	q := decide.Choice("?", decide.Option("z"), decide.Option("a"), decide.Option("m"))
 	b, err := json.Marshal(q)
 	if err != nil {
 		t.Fatal(err)
@@ -56,7 +56,7 @@ func TestChoiceOrderPreserved(t *testing.T) {
 	if !strings.Contains(string(b), `{"z":null,"a":null,"m":null}`) {
 		t.Fatalf("order lost: %s", b)
 	}
-	var back sod.ChoiceQuestion
+	var back decide.ChoiceQuestion
 	if err := json.Unmarshal(b, &back); err != nil {
 		t.Fatal(err)
 	}
@@ -70,9 +70,9 @@ func TestChoiceOrderPreserved(t *testing.T) {
 }
 
 func TestChoiceBadKeys(t *testing.T) {
-	for name, q := range map[string]*sod.ChoiceQuestion{
-		"empty":     sod.Choice("?", sod.Option("")),
-		"duplicate": sod.Choice("?", sod.Option("a"), sod.Option("a")),
+	for name, q := range map[string]*decide.ChoiceQuestion{
+		"empty":     decide.Choice("?", decide.Option("")),
+		"duplicate": decide.Choice("?", decide.Option("a"), decide.Option("a")),
 	} {
 		if _, err := json.Marshal(q); err == nil {
 			t.Errorf("%s: want error", name)
@@ -86,24 +86,24 @@ func TestOptionTwoDescriptionsPanics(t *testing.T) {
 			t.Fatal("want panic")
 		}
 	}()
-	sod.Option("a", "one", "two")
+	decide.Option("a", "one", "two")
 }
 
 func TestOptionsFromMap(t *testing.T) {
-	got := sod.OptionsFromMap(map[string]any{"b": "B", "a": nil})
-	want := []sod.ChoiceOption{{Key: "a"}, {Key: "b", Description: "B"}}
+	got := decide.OptionsFromMap(map[string]any{"b": "B", "a": nil})
+	want := []decide.ChoiceOption{{Key: "a"}, {Key: "b", Description: "B"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v", got)
 	}
-	typed := sod.OptionsFromMap(map[string]string{"z": "Z", "m": "M", "a": "A"})
-	want = []sod.ChoiceOption{{Key: "a", Description: "A"}, {Key: "m", Description: "M"}, {Key: "z", Description: "Z"}}
+	typed := decide.OptionsFromMap(map[string]string{"z": "Z", "m": "M", "a": "A"})
+	want = []decide.ChoiceOption{{Key: "a", Description: "A"}, {Key: "m", Description: "M"}, {Key: "z", Description: "Z"}}
 	if !reflect.DeepEqual(typed, want) {
 		t.Fatalf("typed: got %v", typed)
 	}
 }
 
 func TestScoreOf(t *testing.T) {
-	q := sod.ScoreOf("How urgent?", []string{"low", "medium", "high"})
+	q := decide.ScoreOf("How urgent?", []string{"low", "medium", "high"})
 	b, err := json.Marshal(q)
 	if err != nil {
 		t.Fatal(err)
@@ -115,10 +115,10 @@ func TestScoreOf(t *testing.T) {
 
 func TestExtraCollision(t *testing.T) {
 	for _, k := range []string{"type", "instructions", "criteria"} {
-		qs := []sod.Question{
-			&sod.NoulQuestion{Instructions: "x", Extra: map[string]any{k: 1}},
-			&sod.ChoiceQuestion{Instructions: "x", Criteria: []sod.ChoiceOption{{Key: "a"}}, Extra: map[string]any{k: 1}},
-			&sod.ScoreQuestion{Instructions: "x", Criteria: []any{"a", "b"}, Extra: map[string]any{k: 1}},
+		qs := []decide.Question{
+			&decide.NoulQuestion{Instructions: "x", Extra: map[string]any{k: 1}},
+			&decide.ChoiceQuestion{Instructions: "x", Criteria: []decide.ChoiceOption{{Key: "a"}}, Extra: map[string]any{k: 1}},
+			&decide.ScoreQuestion{Instructions: "x", Criteria: []any{"a", "b"}, Extra: map[string]any{k: 1}},
 		}
 		for _, q := range qs {
 			if _, err := json.Marshal(q); err == nil {
@@ -134,7 +134,7 @@ func TestQuestionDecodeRoundTrip(t *testing.T) {
 		`{"type":"choice","instructions":{"a":1},"criteria":{"b":"B","a":null}}`,
 		`{"type":"score","instructions":"s","criteria":["lo",null,{"k":"hi"}]}`,
 	} {
-		q, err := sod.DecodeQuestion([]byte(in))
+		q, err := decide.DecodeQuestion([]byte(in))
 		if err != nil {
 			t.Fatalf("%s: %v", in, err)
 		}
@@ -150,11 +150,11 @@ func TestQuestionDecodeRoundTrip(t *testing.T) {
 
 func TestRawQuestion(t *testing.T) {
 	in := `{"type":"rank","instructions":"Order these","items":["a","b"]}`
-	q, err := sod.DecodeQuestion([]byte(in))
+	q, err := decide.DecodeQuestion([]byte(in))
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, ok := q.(*sod.RawQuestion)
+	raw, ok := q.(*decide.RawQuestion)
 	if !ok || raw.QuestionType() != "rank" {
 		t.Fatalf("got %T %v", q, q)
 	}
@@ -162,22 +162,22 @@ func TestRawQuestion(t *testing.T) {
 	if err != nil || string(out) != in {
 		t.Fatalf("round trip: %s, %v", out, err)
 	}
-	if _, ok := any(raw.NewAnswer()).(*sod.RawAnswer); !ok {
+	if _, ok := any(raw.NewAnswer()).(*decide.RawAnswer); !ok {
 		t.Fatal("NewAnswer is not *RawAnswer")
 	}
 
-	bad := &sod.RawQuestion{Type: "rank", JSON: json.RawMessage(`{"type":"other"}`)}
+	bad := &decide.RawQuestion{Type: "rank", JSON: json.RawMessage(`{"type":"other"}`)}
 	if _, err := json.Marshal(bad); err == nil {
 		t.Error("mismatched type: want error")
 	}
-	if _, err := json.Marshal(&sod.RawQuestion{Type: "rank", JSON: json.RawMessage(`[1]`)}); err == nil {
+	if _, err := json.Marshal(&decide.RawQuestion{Type: "rank", JSON: json.RawMessage(`[1]`)}); err == nil {
 		t.Error("non-object: want error")
 	}
 }
 
 func TestDecodeQuestionErrors(t *testing.T) {
 	for _, in := range []string{`[]`, `{"instructions":"x"}`, `{"type":1}`, `null`} {
-		if _, err := sod.DecodeQuestion([]byte(in)); err == nil {
+		if _, err := decide.DecodeQuestion([]byte(in)); err == nil {
 			t.Errorf("%s: want error", in)
 		}
 	}
@@ -185,19 +185,19 @@ func TestDecodeQuestionErrors(t *testing.T) {
 
 func TestQuestionDecodeKeepsObjectOrder(t *testing.T) {
 	in := `{"type":"choice","instructions":{"z":1,"a":2},"criteria":{"m":{"z":1,"a":2},"b":"B"}}`
-	q, err := sod.DecodeQuestion([]byte(in))
+	q, err := decide.DecodeQuestion([]byte(in))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := q.(*sod.ChoiceQuestion).Instructions.(json.RawMessage); !ok {
-		t.Fatalf("instructions decoded as %T", q.(*sod.ChoiceQuestion).Instructions)
+	if _, ok := q.(*decide.ChoiceQuestion).Instructions.(json.RawMessage); !ok {
+		t.Fatalf("instructions decoded as %T", q.(*decide.ChoiceQuestion).Instructions)
 	}
 	out, err := json.Marshal(q)
 	if err != nil || string(out) != in {
 		t.Fatalf("order lost\n got %s\nwant %s (%v)", out, in, err)
 	}
 	score := `{"type":"score","instructions":"s","criteria":[{"z":1,"a":2},"mid",null]}`
-	q, err = sod.DecodeQuestion([]byte(score))
+	q, err = decide.DecodeQuestion([]byte(score))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,7 +205,7 @@ func TestQuestionDecodeKeepsObjectOrder(t *testing.T) {
 		t.Fatalf("score levels: %s", out)
 	}
 	noul := `{"type":"noul","instructions":"n","criteria":{"true":{"z":1,"a":2},"false":"no"}}`
-	q, _ = sod.DecodeQuestion([]byte(noul))
+	q, _ = decide.DecodeQuestion([]byte(noul))
 	if out, _ := json.Marshal(q); string(out) != noul {
 		t.Fatalf("noul criteria: %s", out)
 	}
@@ -213,10 +213,10 @@ func TestQuestionDecodeKeepsObjectOrder(t *testing.T) {
 
 // TestReadmeQuickLook runs the README's "Quick look" against the fake.
 func TestReadmeQuickLook(t *testing.T) {
-	srv := sodtest.NewServer(t)
-	srv.Answer("billing", sodtest.NoulAnswer(0.93))
-	srv.Answer("tone", sodtest.ChoiceAnswer(map[string]float64{"calm": 0.05, "frustrated": 0.15, "angry": 0.8}))
-	srv.Answer("urgency", sodtest.ScoreAnswer([]any{"can wait", "this week", "today"}, 0.05, 0.25, 0.7))
+	srv := decidetest.NewServer(t)
+	srv.Answer("billing", decidetest.NoulAnswer(0.93))
+	srv.Answer("tone", decidetest.ChoiceAnswer(map[string]float64{"calm": 0.05, "frustrated": 0.15, "angry": 0.8}))
+	srv.Answer("urgency", decidetest.ScoreAnswer([]any{"can wait", "this week", "today"}, 0.05, 0.25, 0.7))
 	t.Setenv("TYPESAFE_API_KEY", "test-key-00000000")
 	t.Setenv("TYPESAFE_BASE_URL", srv.URL)
 	ctx := t.Context()
@@ -226,16 +226,16 @@ func TestReadmeQuickLook(t *testing.T) {
 	ticket := ticketText
 
 	quickLook := func() error {
-		client, err := sod.NewClient() // reads TYPESAFE_API_KEY
+		client, err := decide.NewClient() // reads TYPESAFE_API_KEY
 		if err != nil {
 			return err
 		}
 
-		req := sod.NewRequest(ticketText)
-		billing := sod.Ask(req, "billing", sod.Noul("Is this ticket about billing?"))
-		tone := sod.Ask(req, "tone", sod.Choice("What is the customer's tone?",
-			sod.Option("calm"), sod.Option("frustrated"), sod.Option("angry")))
-		urgency := sod.Ask(req, "urgency", sod.Score("How urgent is this?",
+		req := decide.NewRequest(ticketText)
+		billing := decide.Ask(req, "billing", decide.Noul("Is this ticket about billing?"))
+		tone := decide.Ask(req, "tone", decide.Choice("What is the customer's tone?",
+			decide.Option("calm"), decide.Option("frustrated"), decide.Option("angry")))
+		urgency := decide.Ask(req, "urgency", decide.Score("How urgent is this?",
 			"can wait", "this week", "today"))
 
 		resp, err := client.SystemOne(ctx, req)
@@ -245,9 +245,9 @@ func TestReadmeQuickLook(t *testing.T) {
 
 		// Once SystemOne returned no error, every answer has been validated
 		// against its question, so From cannot fail for these keys.
-		b, _ := billing.From(resp) // *sod.NoulAnswer
-		t, _ := tone.From(resp)    // *sod.ChoiceAnswer
-		u, _ := urgency.From(resp) // *sod.ScoreAnswer
+		b, _ := billing.From(resp) // *decide.NoulAnswer
+		t, _ := tone.From(resp)    // *decide.ChoiceAnswer
+		u, _ := urgency.From(resp) // *decide.ScoreAnswer
 
 		if b.Noul > 0.8 && t.Choice == "angry" && u.Score >= 1.5 {
 			escalate(ticket)
@@ -263,12 +263,12 @@ func TestReadmeQuickLook(t *testing.T) {
 }
 
 func TestHandleErrors(t *testing.T) {
-	srv := sodtest.NewServer(t)
+	srv := decidetest.NewServer(t)
 	c := srv.Client(t)
-	req := sod.NewRequest("state")
-	tone := sod.Ask(req, "tone", sod.Choice("Tone?",
-		sod.Option("calm"), sod.Option("angry", "Hostile or threatening")))
-	req.Questions["billing"] = &sod.NoulQuestion{Instructions: "About billing?"}
+	req := decide.NewRequest("state")
+	tone := decide.Ask(req, "tone", decide.Choice("Tone?",
+		decide.Option("calm"), decide.Option("angry", "Hostile or threatening")))
+	req.Questions["billing"] = &decide.NoulQuestion{Instructions: "About billing?"}
 	resp, err := c.SystemOne(t.Context(), req)
 	if err != nil {
 		t.Fatal(err)
@@ -277,25 +277,25 @@ func TestHandleErrors(t *testing.T) {
 	if tn, err := tone.From(resp); err != nil || tn.Choice != "calm" { // typed handle path
 		t.Fatalf("From: %+v, %v", tn, err)
 	}
-	if b, ok := resp.Answers["billing"].(*sod.NoulAnswer); !ok || b.Noul != 0.5 { // raw map path
+	if b, ok := resp.Answers["billing"].(*decide.NoulAnswer); !ok || b.Noul != 0.5 { // raw map path
 		t.Fatalf("raw path: %#v", resp.Answers["billing"])
 	}
 
 	reason := func(err error) string {
-		ae, ok := errors.AsType[*sod.AnswerError](err)
+		ae, ok := errors.AsType[*decide.AnswerError](err)
 		if !ok {
 			t.Fatalf("not an *AnswerError: %v", err)
 		}
 		return ae.Reason
 	}
-	if a, err := sod.AnswerAs[*sod.NoulAnswer](resp, "nope"); a != nil || reason(err) != sod.ReasonMissingAnswer {
+	if a, err := decide.AnswerAs[*decide.NoulAnswer](resp, "nope"); a != nil || reason(err) != decide.ReasonMissingAnswer {
 		t.Fatalf("missing key: %v %v", a, err)
 	}
-	if a, err := tone.From(nil); a != nil || reason(err) != sod.ReasonMissingAnswer {
+	if a, err := tone.From(nil); a != nil || reason(err) != decide.ReasonMissingAnswer {
 		t.Fatalf("nil response: %v", err)
 	}
-	a, err := sod.AnswerAs[*sod.ScoreAnswer](resp, "billing")
-	if a != nil || reason(err) != sod.ReasonTypeMismatch || !errors.Is(err, sod.ErrInvalidAnswer) {
+	a, err := decide.AnswerAs[*decide.ScoreAnswer](resp, "billing")
+	if a != nil || reason(err) != decide.ReasonTypeMismatch || !errors.Is(err, decide.ErrInvalidAnswer) {
 		t.Fatalf("type mismatch: %v %v", a, err)
 	}
 	if tone.Key() != "tone" {
@@ -304,16 +304,16 @@ func TestHandleErrors(t *testing.T) {
 }
 
 func TestHandleInvalidKeys(t *testing.T) {
-	req := sod.NewRequest("state")
-	notOption := sod.Ask(req, "c1", sod.Choice("?", sod.Option("a"), sod.Option("b")))
-	notArgmax := sod.Ask(req, "c2", sod.Choice("?", sod.Option("a"), sod.Option("b")))
-	broken := sod.Ask(req, "n1", sod.Noul("?"))
-	fine := sod.Ask(req, "n2", sod.Noul("?"))
-	c := stubClient(t, answering(map[string]sod.Answer{
-		"c1": &sod.ChoiceAnswer{Choice: "z", Probabilities: map[string]float64{"a": 0.5, "b": 0.5}, Confidence: 0},
-		"c2": &sod.ChoiceAnswer{Choice: "b", Probabilities: map[string]float64{"a": 0.9, "b": 0.1}, Confidence: 0.8},
-		"n1": &sod.RawAnswer{Type: "noul", JSON: []byte(`{"type":"noul","noul":"x"}`), Err: errors.New("bad")},
-		"n2": sodtest.NoulAnswer(0.2),
+	req := decide.NewRequest("state")
+	notOption := decide.Ask(req, "c1", decide.Choice("?", decide.Option("a"), decide.Option("b")))
+	notArgmax := decide.Ask(req, "c2", decide.Choice("?", decide.Option("a"), decide.Option("b")))
+	broken := decide.Ask(req, "n1", decide.Noul("?"))
+	fine := decide.Ask(req, "n2", decide.Noul("?"))
+	c := stubClient(t, answering(map[string]decide.Answer{
+		"c1": &decide.ChoiceAnswer{Choice: "z", Probabilities: map[string]float64{"a": 0.5, "b": 0.5}, Confidence: 0},
+		"c2": &decide.ChoiceAnswer{Choice: "b", Probabilities: map[string]float64{"a": 0.9, "b": 0.1}, Confidence: 0.8},
+		"n1": &decide.RawAnswer{Type: "noul", JSON: []byte(`{"type":"noul","noul":"x"}`), Err: errors.New("bad")},
+		"n2": decidetest.NoulAnswer(0.2),
 	}))
 	resp, err := c.SystemOne(t.Context(), req)
 	if resp == nil || err == nil || len(resp.Invalid) != 3 {
@@ -323,10 +323,10 @@ func TestHandleInvalidKeys(t *testing.T) {
 		t.Fatalf("choice_not_option: %v %v", a, err)
 	}
 	a, err := notArgmax.From(resp)
-	if a == nil || !errors.Is(err, sod.ErrInconsistentAnswer) {
+	if a == nil || !errors.Is(err, decide.ErrInconsistentAnswer) {
 		t.Fatalf("choice_not_argmax: %v %v", a, err)
 	}
-	if n, err := broken.From(resp); n != nil || err != resp.Invalid["n1"] || resp.Invalid["n1"].Reason != sod.ReasonDecodeFailed {
+	if n, err := broken.From(resp); n != nil || err != resp.Invalid["n1"] || resp.Invalid["n1"].Reason != decide.ReasonDecodeFailed {
 		t.Fatalf("decode_failed on raw: %v %v", n, err)
 	}
 	if n, err := fine.From(resp); err != nil || n.Noul != 0.2 {
@@ -336,12 +336,12 @@ func TestHandleInvalidKeys(t *testing.T) {
 
 func TestAskPanics(t *testing.T) {
 	cases := map[string]func(){
-		"nil request": func() { sod.Ask(nil, "k", sod.Noul("q")) },
-		"empty key":   func() { sod.Ask(sod.NewRequest("s"), "", sod.Noul("q")) },
+		"nil request": func() { decide.Ask(nil, "k", decide.Noul("q")) },
+		"empty key":   func() { decide.Ask(decide.NewRequest("s"), "", decide.Noul("q")) },
 		"duplicate": func() {
-			r := sod.NewRequest("s")
-			sod.Ask(r, "k", sod.Noul("q"))
-			sod.Ask(r, "k", sod.Noul("q"))
+			r := decide.NewRequest("s")
+			decide.Ask(r, "k", decide.Noul("q"))
+			decide.Ask(r, "k", decide.Noul("q"))
 		},
 	}
 	for name, f := range cases {
@@ -354,8 +354,8 @@ func TestAskPanics(t *testing.T) {
 			f()
 		}()
 	}
-	var r sod.Request // zero value: Ask allocates Questions
-	sod.Ask(&r, "k", sod.Noul("q"))
+	var r decide.Request // zero value: Ask allocates Questions
+	decide.Ask(&r, "k", decide.Noul("q"))
 	if len(r.Questions) != 1 {
 		t.Fatal("Ask on zero Request")
 	}

@@ -4,7 +4,7 @@ import (
 	"iter"
 	"slices"
 
-	"github.com/deepnoodle-ai/sod"
+	"github.com/deepnoodle-ai/decide"
 )
 
 // Picker holds a fixed, ordered candidate list and the option keys derived
@@ -67,25 +67,25 @@ func New[T any](items []T, opts ...Option) (*Picker[T], error) {
 	}, nil
 }
 
-// Question builds a new *sod.ChoiceQuestion on each call: one option
+// Question builds a new *decide.ChoiceQuestion on each call: one option
 // per item in item order, then the abstain option last. Extra is nil.
 // Mutating the returned question's fields or Criteria slice does not affect
 // the Picker; description values themselves (a map returned by Describe,
 // say) are shared, not deep-copied.
-func (p *Picker[T]) Question(instructions any) *sod.ChoiceQuestion {
-	opts := make([]sod.ChoiceOption, 0, len(p.keys)+1)
+func (p *Picker[T]) Question(instructions any) *decide.ChoiceQuestion {
+	opts := make([]decide.ChoiceOption, 0, len(p.keys)+1)
 	for i, k := range p.keys {
-		opts = append(opts, sod.ChoiceOption{Key: k, Description: p.descs[i]})
+		opts = append(opts, decide.ChoiceOption{Key: k, Description: p.descs[i]})
 	}
-	opts = append(opts, sod.ChoiceOption{Key: p.abstainKey, Description: p.abstainDesc})
-	return sod.Choice(instructions, opts...)
+	opts = append(opts, decide.ChoiceOption{Key: p.abstainKey, Description: p.abstainDesc})
+	return decide.Choice(instructions, opts...)
 }
 
-// Ask is sod.Ask(req, key, p.Question(instructions)) plus a handle that
+// Ask is decide.Ask(req, key, p.Question(instructions)) plus a handle that
 // maps the answer back to an item. It panics under the same conditions as
-// sod.Ask: nil request, empty key, or a key already present.
-func (p *Picker[T]) Ask(req *sod.Request, key string, instructions any) Handle[T] {
-	return Handle[T]{h: sod.Ask(req, key, p.Question(instructions)), p: p}
+// decide.Ask: nil request, empty key, or a key already present.
+func (p *Picker[T]) Ask(req *decide.Request, key string, instructions any) Handle[T] {
+	return Handle[T]{h: decide.Ask(req, key, p.Question(instructions)), p: p}
 }
 
 // Len returns the number of candidates, excluding abstain.

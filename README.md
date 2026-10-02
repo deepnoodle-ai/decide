@@ -1,23 +1,61 @@
-# Sod
+# Decide
 
 Go tools for System One Decisions.
 
-- Module: `github.com/deepnoodle-ai/sod`
-- Root package: `sod`
+- Module: `github.com/deepnoodle-ai/decide`
+- Root package: `decide`
 
 Requires Go 1.27 or later.
+
+## Evaluate or pick
+
+Ask one typed question with `Eval`:
+
+```go
+e, err := decide.Eval(ctx, client, ticket,
+    decide.Noul("Is this about billing?"))
+if err != nil {
+    return err
+}
+fmt.Println(e.Answer.Noul, e.Response.Model)
+```
+
+Select an original value with `Pick`:
+
+```go
+d, err := decide.Pick(ctx, client, ticket, "Choose a queue.",
+    []decide.Candidate[string]{
+        {Item: "billing", Description: "Payments and invoices"},
+        {Item: "engineering", Description: "Product defects"},
+    })
+if err != nil {
+    return err
+}
+if d.Picked {
+    fmt.Println(d.Item, d.Index, d.Answer.Probabilities)
+}
+```
+
+`Pick` returns a `Decision[T]`. It offers abstention and accepts at most 254
+candidates. Empty candidates abstain locally. `Eval` returns an
+`Evaluation[A]` with the inferred answer type. Both always validate the full
+response and preserve its model, usage, request ID, and diagnostics.
+Consistency-only failures retain the answer or item together with an error;
+structural failures retain evidence without a selection. Neither operation
+applies an action threshold. Use the request API below for multiple questions
+or the experimental picker for reusable candidates and configurable keys.
 
 ## Client
 
 Set `TYPESAFE_API_KEY` and create a client:
 
 ```go
-client, err := sod.NewClient()
+client, err := decide.NewClient()
 if err != nil {
 	return err
 }
-req := sod.NewRequest("I was charged twice. Please help.")
-billing := sod.Ask(req, "billing", sod.Noul("Is this about billing?"))
+req := decide.NewRequest("I was charged twice. Please help.")
+billing := decide.Ask(req, "billing", decide.Noul("Is this about billing?"))
 resp, err := client.SystemOne(ctx, req)
 if err != nil {
 	return err
@@ -29,7 +67,7 @@ if err != nil {
 fmt.Println(resp.Model, answer.Noul)
 ```
 
-Import `github.com/deepnoodle-ai/sod`. Requests support Noul, Choice, and
+Import `github.com/deepnoodle-ai/decide`. Requests support Noul, Choice, and
 Score questions with typed answers. The client validates answers against
 their questions and retries transient failures with backoff. Model names
 are strings; responses expose the resolved model and request ID.
@@ -38,7 +76,7 @@ Client options configure authentication, base URL, model, logging, retry
 behavior, and transport. Environment defaults use `TYPESAFE_API_KEY`,
 `TYPESAFE_BASE_URL`, `TYPESAFE_DEFAULT_MODEL`, and `TYPESAFE_LOG_LEVEL`.
 
-The `github.com/deepnoodle-ai/sod/sodtest` package supplies a fake HTTP
+The `github.com/deepnoodle-ai/decide/decidetest` package supplies a fake HTTP
 server, answer fixtures, request recording, and queued failures for tests.
 
 ## Experimental packages
@@ -62,7 +100,7 @@ Clef during client construction. The resulting client uses the same
 requests, questions, typed handles, validation, and retry settings:
 
 ```go
-import "github.com/deepnoodle-ai/sod/x/backend"
+import "github.com/deepnoodle-ai/decide/x/backend"
 
 client, err := backend.NewClient(backend.Config{
 	Provider:  backend.Cloudflare,
@@ -86,17 +124,17 @@ Change the configuration to switch services:
 `backend.NewClient` reads no environment variables itself. Applications
 choose where to obtain configuration, as the example does with `os.Getenv`.
 An existing `TYPESAFE_*` environment cannot affect this constructor.
-`sod.NewClient()` retains its existing TypeSafe environment defaults.
+`decide.NewClient()` retains its existing TypeSafe environment defaults.
 
 Set connection settings through `backend.Config`. Pass shared client options
-such as `sod.WithMaxRetries`, `sod.WithAttemptTimeout`, and `sod.WithLogger`
-to `backend.NewClient`. `sod.WithRequestModel("clef-flash")` can select the
+such as `decide.WithMaxRetries`, `decide.WithAttemptTimeout`, and `decide.WithLogger`
+to `backend.NewClient`. `decide.WithRequestModel("clef-flash")` can select the
 other Cloudflare model for a single request.
 
 The experimental `x/cloudflare` package also exposes `NewTransport` for
-use with `sod.WithTransport` and an explicit `sod.WithModel`. It handles the
+use with `decide.WithTransport` and an explicit `decide.WithModel`. It handles the
 Workers AI account-scoped routes, response envelope, and provider errors.
-HTTP failures expose `*sod.APIError` through `errors.As` and existing error
+HTTP failures expose `*decide.APIError` through `errors.As` and existing error
 sentinels. `cloudflare.Error` retains the full provider error array.
 `Response.Raw` holds the redacted envelope, and `Response.Header` retains
 headers such as `CF-Ray`. Malformed and non-JSON response bodies are
@@ -119,8 +157,8 @@ img, err := cloudflare.NewImage("image/png", pngBytes)
 if err != nil {
 	return err
 }
-req := sod.NewRequest("Review the attached receipt.")
-receipt := sod.Ask(req, "receipt", sod.Noul("Is a receipt visible?"))
+req := decide.NewRequest("Review the attached receipt.")
+receipt := decide.Ask(req, "receipt", decide.Noul("Is a receipt visible?"))
 if err := cloudflare.SetImages(req, img); err != nil {
 	return err
 }

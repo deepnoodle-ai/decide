@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/deepnoodle-ai/sod/x/pick"
+	"github.com/deepnoodle-ai/decide/x/pick"
 )
 
 type email string

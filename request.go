@@ -1,4 +1,4 @@
-package sod
+package decide
 
 import (
 	"encoding/json"
@@ -59,7 +59,7 @@ func (r *Request) MarshalJSON() ([]byte, error) {
 	q := newObjectWriter()
 	for _, k := range slices.Sorted(maps.Keys(r.Questions)) {
 		if r.Questions[k] == nil {
-			return nil, fmt.Errorf("sod: question %q is nil", k)
+			return nil, fmt.Errorf("decide: question %q is nil", k)
 		}
 		q.field(k, r.Questions[k])
 	}
@@ -79,7 +79,7 @@ func (r *Request) MarshalJSON() ([]byte, error) {
 func (r *Request) UnmarshalJSON(data []byte) error {
 	m, err := decodeObject(data)
 	if err != nil {
-		return fmt.Errorf("sod: decode request: %w", err)
+		return fmt.Errorf("decide: decode request: %w", err)
 	}
 	*r = Request{Questions: make(map[string]Question), Extra: extraFrom(m, "state", "model", "questions")}
 	if raw, ok := m["state"]; ok && !isNull(raw) {
@@ -92,18 +92,18 @@ func (r *Request) UnmarshalJSON(data []byte) error {
 	}
 	if raw, ok := m["model"]; ok && !isNull(raw) {
 		if err := json.Unmarshal(raw, &r.Model); err != nil {
-			return fmt.Errorf("sod: decode request model: %w", err)
+			return fmt.Errorf("decide: decode request model: %w", err)
 		}
 	}
 	if raw, ok := m["questions"]; ok && !isNull(raw) {
 		qs, err := decodeObject(raw)
 		if err != nil {
-			return fmt.Errorf("sod: decode request questions: %w", err)
+			return fmt.Errorf("decide: decode request questions: %w", err)
 		}
 		for k, qraw := range qs {
 			q, err := DecodeQuestion(qraw)
 			if err != nil {
-				return fmt.Errorf("sod: question %q: %w", k, err)
+				return fmt.Errorf("decide: question %q: %w", k, err)
 			}
 			r.Questions[k] = q
 		}
@@ -305,7 +305,7 @@ func (u Usage) MarshalJSON() ([]byte, error) {
 func (u *Usage) UnmarshalJSON(data []byte) error {
 	m, err := decodeObject(data)
 	if err != nil {
-		return fmt.Errorf("sod: decode usage: %w", err)
+		return fmt.Errorf("decide: decode usage: %w", err)
 	}
 	v := Usage{}
 	for k, raw := range m {
@@ -369,7 +369,7 @@ func (r *Response) UnmarshalJSON(data []byte) error {
 func DecodeResponse(data []byte, req *Request) (*Response, error) {
 	m, err := decodeObject(data)
 	if err != nil {
-		return nil, fmt.Errorf("sod: decode response: %w", err)
+		return nil, fmt.Errorf("decide: decode response: %w", err)
 	}
 	r := &Response{Answers: make(map[string]Answer)}
 	for k, v := range m {
@@ -397,7 +397,7 @@ func DecodeResponse(data []byte, req *Request) (*Response, error) {
 	if raw, ok := m["answers"]; ok && !isNull(raw) {
 		as, err := decodeObject(raw)
 		if err != nil {
-			return nil, fmt.Errorf("sod: decode response answers: %w", err)
+			return nil, fmt.Errorf("decide: decode response answers: %w", err)
 		}
 		for k, araw := range as {
 			var q Question
@@ -426,7 +426,7 @@ func (r *Response) MarshalJSON() ([]byte, error) {
 	a := newObjectWriter()
 	for _, k := range slices.Sorted(maps.Keys(r.Answers)) {
 		if r.Answers[k] == nil {
-			return nil, fmt.Errorf("sod: answer %q is nil", k)
+			return nil, fmt.Errorf("decide: answer %q is nil", k)
 		}
 		a.field(k, r.Answers[k])
 	}

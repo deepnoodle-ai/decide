@@ -15,8 +15,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/x/cloudflare"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/x/cloudflare"
 )
 
 func pngData() []byte {
@@ -69,7 +69,7 @@ func TestImagesWireAndOwnership(t *testing.T) {
 	images[0].Base64 = "changed"
 	before, _ := json.Marshal(req)
 	client, _ := newClient(t, func(w http.ResponseWriter, r *http.Request) {
-		var got sod.Request
+		var got decide.Request
 		_ = json.NewDecoder(r.Body).Decode(&got)
 		raw, _ := json.Marshal(got.Extra["images"])
 		var wire []cloudflare.Image
@@ -90,7 +90,7 @@ func TestImagesWireAndOwnership(t *testing.T) {
 	req.Extra["images"] = []string{"data:image/png;base64," + img.Base64}
 	// This handler expects objects, so use a second server for data URLs.
 	client, _ = newClient(t, func(w http.ResponseWriter, r *http.Request) {
-		var got sod.Request
+		var got decide.Request
 		_ = json.NewDecoder(r.Body).Decode(&got)
 		writeEnvelope(w, &got)
 	})
@@ -125,7 +125,7 @@ func TestImageFormatsAndPixelLimits(t *testing.T) {
 		{"image/webp", webpHeader("VP8 ", 4001, 4000)},
 		{"image/png", make([]byte, (4<<20)+1)},
 	} {
-		if _, err := cloudflare.NewImage(tc.mime, tc.data); !errors.Is(err, sod.ErrInvalidRequest) {
+		if _, err := cloudflare.NewImage(tc.mime, tc.data); !errors.Is(err, decide.ErrInvalidRequest) {
 			t.Errorf("accepted invalid %s image, err = %v", tc.mime, err)
 		}
 	}
@@ -136,14 +136,14 @@ func TestImageCountAndByteLimits(t *testing.T) {
 	req := noulRequest()
 	req.Extra = map[string]any{"preserve": true}
 	before, _ := json.Marshal(req)
-	if err := cloudflare.SetImages(req, img, img, img, img, img); !errors.Is(err, sod.ErrInvalidRequest) {
+	if err := cloudflare.SetImages(req, img, img, img, img, img); !errors.Is(err, decide.ErrInvalidRequest) {
 		t.Fatalf("image count accepted: %v", err)
 	}
 	after, _ := json.Marshal(req)
 	if !bytes.Equal(before, after) {
 		t.Error("SetImages mutated request on failure")
 	}
-	if err := cloudflare.SetImages(nil, img); !errors.Is(err, sod.ErrInvalidRequest) {
+	if err := cloudflare.SetImages(nil, img); !errors.Is(err, decide.ErrInvalidRequest) {
 		t.Errorf("nil request: %v", err)
 	}
 	// A supported header with padding exercises byte limits without encoding
@@ -153,24 +153,24 @@ func TestImageCountAndByteLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := cloudflare.SetImages(req, large, large, large); !errors.Is(err, sod.ErrInvalidRequest) {
+	if err := cloudflare.SetImages(req, large, large, large); !errors.Is(err, decide.ErrInvalidRequest) {
 		t.Fatalf("combined byte limit accepted: %v", err)
 	}
 	bad := cloudflare.Image{ContentType: "image/png", Base64: "bad base64!"}
-	if err := cloudflare.SetImages(req, bad); !errors.Is(err, sod.ErrInvalidRequest) {
+	if err := cloudflare.SetImages(req, bad); !errors.Is(err, decide.ErrInvalidRequest) {
 		t.Fatalf("invalid base64 accepted: %v", err)
 	}
 	if err := cloudflare.SetImages(req); err != nil {
 		t.Fatalf("empty array rejected: %v", err)
 	}
 	client, _ := newClient(t, func(w http.ResponseWriter, r *http.Request) {
-		var got sod.Request
+		var got decide.Request
 		_ = json.NewDecoder(r.Body).Decode(&got)
 		writeEnvelope(w, &got)
 	})
 	for _, value := range []any{nil, "not-array", []any{nil}, []any{map[string]any{"content_type": "image/png"}}, []string{"data:image/png;base64,!"}} {
 		req.Extra["images"] = value
-		if _, err := client.SystemOne(context.Background(), req); !errors.Is(err, sod.ErrInvalidRequest) {
+		if _, err := client.SystemOne(context.Background(), req); !errors.Is(err, decide.ErrInvalidRequest) {
 			t.Errorf("invalid image shape accepted: %T %v", value, err)
 		}
 	}
@@ -179,7 +179,7 @@ func TestImageCountAndByteLimits(t *testing.T) {
 		t.Fatal(err)
 	}
 	req.State = strings.Repeat("a", 13<<20)
-	if _, err := client.SystemOne(context.Background(), req); !errors.Is(err, sod.ErrInvalidRequest) {
+	if _, err := client.SystemOne(context.Background(), req); !errors.Is(err, decide.ErrInvalidRequest) {
 		t.Fatalf("whole-request limit accepted: %v", err)
 	}
 }
@@ -188,7 +188,7 @@ func TestWebPUntrustedChunkLengths(t *testing.T) {
 	for _, size := range []uint32{0xffffffff, 0x80000000, 1000} {
 		data := webpHeader("VP8X", 1, 1)
 		binary.LittleEndian.PutUint32(data[16:20], size)
-		if _, err := cloudflare.NewImage("image/webp", data); !errors.Is(err, sod.ErrInvalidRequest) {
+		if _, err := cloudflare.NewImage("image/webp", data); !errors.Is(err, decide.ErrInvalidRequest) {
 			t.Fatalf("untrusted chunk size %d accepted: %v", size, err)
 		}
 	}
@@ -201,8 +201,8 @@ func ExampleSetImages() {
 	if err != nil {
 		panic(err)
 	}
-	req := sod.NewRequest("Does this image contain a receipt?")
-	sod.Ask(req, "receipt", sod.Noul("Is a receipt visible?"))
+	req := decide.NewRequest("Does this image contain a receipt?")
+	decide.Ask(req, "receipt", decide.Noul("Is a receipt visible?"))
 	if err := cloudflare.SetImages(req, img); err != nil {
 		panic(err)
 	}

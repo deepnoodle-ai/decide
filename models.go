@@ -1,4 +1,4 @@
-package sod
+package decide
 
 import (
 	"context"
@@ -48,7 +48,7 @@ func (m *Model) UnmarshalJSON(data []byte) error {
 		"release_date": &v.ReleaseDate,
 	})
 	if err != nil {
-		return fmt.Errorf("sod: decode model: %w", err)
+		return fmt.Errorf("decide: decode model: %w", err)
 	}
 	v.Extra = extra
 	*m = v
@@ -73,7 +73,7 @@ func (l *ModelList) UnmarshalJSON(data []byte) error {
 	var v ModelList
 	_, extra, err := decodeFields(data, map[string]any{"models": &v.Models})
 	if err != nil {
-		return fmt.Errorf("sod: decode model list: %w", err)
+		return fmt.Errorf("decide: decode model list: %w", err)
 	}
 	if v.Models == nil {
 		v.Models = []Model{}
@@ -106,7 +106,7 @@ func (s *ModelsService) List(ctx context.Context) (*ModelList, error) {
 				slog.Duration("duration", d),
 			}
 			attrs = append(attrs, outcomeAttrs(err, requestID)...)
-			c.logger.LogAttrs(ctx, slog.LevelDebug, "sod request", attrs...)
+			c.logger.LogAttrs(ctx, slog.LevelDebug, "decide request", attrs...)
 		})
 	if err != nil {
 		return nil, err

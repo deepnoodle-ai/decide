@@ -1,4 +1,4 @@
-package sodtest
+package decidetest
 
 import (
 	"embed"
@@ -8,20 +8,20 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/deepnoodle-ai/sod"
+	"github.com/deepnoodle-ai/decide"
 )
 
 // NoulAnswer returns a noul answer with P(yes) = p.
-func NoulAnswer(p float64) *sod.NoulAnswer {
-	return &sod.NoulAnswer{Noul: p}
+func NoulAnswer(p float64) *decide.NoulAnswer {
+	return &decide.NoulAnswer{Noul: p}
 }
 
 // ChoiceAnswer sets Choice to the argmax (first key in sorted order on ties)
 // and Confidence by Confidence(probs). Taking only the distribution means a
 // fixture cannot be self-inconsistent; build a struct literal to test that.
-func ChoiceAnswer(probs map[string]float64) *sod.ChoiceAnswer {
+func ChoiceAnswer(probs map[string]float64) *decide.ChoiceAnswer {
 	keys := slices.Sorted(maps.Keys(probs))
-	a := &sod.ChoiceAnswer{Probabilities: make(map[string]float64, len(probs))}
+	a := &decide.ChoiceAnswer{Probabilities: make(map[string]float64, len(probs))}
 	ps := make([]float64, 0, len(keys))
 	for _, k := range keys {
 		p := probs[k]
@@ -37,9 +37,9 @@ func ChoiceAnswer(probs map[string]float64) *sod.ChoiceAnswer {
 
 // ChoiceFor is ChoiceAnswer with probabilities given in q's option order.
 // It panics if len(probs) != len(q.Criteria).
-func ChoiceFor(q *sod.ChoiceQuestion, probs ...float64) *sod.ChoiceAnswer {
+func ChoiceFor(q *decide.ChoiceQuestion, probs ...float64) *decide.ChoiceAnswer {
 	if len(probs) != len(q.Criteria) {
-		panic("sodtest: ChoiceFor needs one probability per option")
+		panic("decidetest: ChoiceFor needs one probability per option")
 	}
 	m := make(map[string]float64, len(probs))
 	for i, o := range q.Criteria {
@@ -50,11 +50,11 @@ func ChoiceFor(q *sod.ChoiceQuestion, probs ...float64) *sod.ChoiceAnswer {
 
 // ScoreAnswer builds legend and string-keyed probabilities from levels and
 // probs (same length or it panics), Score = sum(i*p_i), Confidence as above.
-func ScoreAnswer(levels []any, probs ...float64) *sod.ScoreAnswer {
+func ScoreAnswer(levels []any, probs ...float64) *decide.ScoreAnswer {
 	if len(levels) != len(probs) {
-		panic("sodtest: ScoreAnswer needs one probability per level")
+		panic("decidetest: ScoreAnswer needs one probability per level")
 	}
-	a := &sod.ScoreAnswer{
+	a := &decide.ScoreAnswer{
 		Legend:        make(map[string]any, len(levels)),
 		Probabilities: make(map[string]float64, len(probs)),
 		Confidence:    Confidence(probs),
@@ -104,7 +104,7 @@ func ReadFile(tb testing.TB, name string) []byte {
 	tb.Helper()
 	b, err := Testdata.ReadFile(path.Join("testdata", name))
 	if err != nil {
-		tb.Fatalf("sodtest: %v", err)
+		tb.Fatalf("decidetest: %v", err)
 	}
 	return b
 }

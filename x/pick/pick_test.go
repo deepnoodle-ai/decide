@@ -8,8 +8,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/x/pick"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/x/pick"
 )
 
 func items(n int) []string {
@@ -126,8 +126,8 @@ func TestQuestion(t *testing.T) {
 		want := mustJSON(t, p.Question("Q?"))
 		q := p.Question("Q?")
 		q.Instructions = "changed"
-		q.Criteria[0] = sod.ChoiceOption{Key: "zzz", Description: "x"}
-		q.Criteria = append(q.Criteria[:1], sod.Option("extra"))
+		q.Criteria[0] = decide.ChoiceOption{Key: "zzz", Description: "x"}
+		q.Criteria = append(q.Criteria[:1], decide.Option("extra"))
 		q.Extra = map[string]any{"k": 1}
 		if got := mustJSON(t, p.Question("Q?")); got != want {
 			t.Errorf("got  %s\nwant %s", got, want)
@@ -160,16 +160,16 @@ func TestAskPanics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dup := sod.NewRequest("s")
+	dup := decide.NewRequest("s")
 	p.Ask(dup, "k", "Q?")
 	tests := []struct {
 		name string
-		req  *sod.Request
+		req  *decide.Request
 		key  string
 	}{
 		{"duplicate request key", dup, "k"},
 		{"nil request", nil, "k"},
-		{"empty key", sod.NewRequest("s"), ""},
+		{"empty key", decide.NewRequest("s"), ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -182,7 +182,7 @@ func TestAskPanics(t *testing.T) {
 		})
 	}
 	t.Run("handle key and question", func(t *testing.T) {
-		req := sod.NewRequest("s")
+		req := decide.NewRequest("s")
 		h := p.Ask(req, "which", "Which one?")
 		if h.Key() != "which" {
 			t.Errorf("Key = %q", h.Key())
@@ -210,7 +210,7 @@ func TestConcurrentUse(t *testing.T) {
 				}
 				q.Criteria[0].Key = "mutated"
 				key := p.Keys()[i]
-				a := &sod.ChoiceAnswer{Choice: key, Probabilities: map[string]float64{key: 0.9, "none": 0.1}}
+				a := &decide.ChoiceAnswer{Choice: key, Probabilities: map[string]float64{key: 0.9, "none": 0.1}}
 				r, err := p.Read(a)
 				if err != nil || r.Index != i {
 					t.Errorf("goroutine %d: Read = %+v, %v", g, r, err)

@@ -17,14 +17,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/sodtest"
-	"github.com/deepnoodle-ai/sod/x/cloudflare"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/decidetest"
+	"github.com/deepnoodle-ai/decide/x/cloudflare"
 )
 
 const token = "test-cloudflare-token-00000000"
 
-func newClient(t *testing.T, handler http.HandlerFunc, opts ...sod.ClientOption) (*sod.Client, *cloudflare.Transport) {
+func newClient(t *testing.T, handler http.HandlerFunc, opts ...decide.ClientOption) (*decide.Client, *cloudflare.Transport) {
 	t.Helper()
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
@@ -32,28 +32,28 @@ func newClient(t *testing.T, handler http.HandlerFunc, opts ...sod.ClientOption)
 	if err != nil {
 		t.Fatal(err)
 	}
-	all := []sod.ClientOption{sod.WithoutEnvironment(), sod.WithTransport(transport), sod.WithModel("clef"), sod.WithRetryBackoff(0, 0)}
-	client, err := sod.NewClient(append(all, opts...)...)
+	all := []decide.ClientOption{decide.WithoutEnvironment(), decide.WithTransport(transport), decide.WithModel("clef"), decide.WithRetryBackoff(0, 0)}
+	client, err := decide.NewClient(append(all, opts...)...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	return client, transport
 }
 
-func noulRequest() *sod.Request {
-	req := sod.NewRequest(map[string]any{"ticket": "Checkout is down."})
-	sod.Ask(req, "urgent", sod.Noul("Is this urgent?"))
+func noulRequest() *decide.Request {
+	req := decide.NewRequest(map[string]any{"ticket": "Checkout is down."})
+	decide.Ask(req, "urgent", decide.Noul("Is this urgent?"))
 	return req
 }
 
-func writeEnvelope(w http.ResponseWriter, req *sod.Request) {
+func writeEnvelope(w http.ResponseWriter, req *decide.Request) {
 	w.Header().Set("CF-Ray", "ray-123")
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"success": true, "errors": []any{}, "messages": []any{"provider message"},
 		"trace": "extra-metadata", "result": map[string]any{
-			"model": req.Model + "-resolved", "answers": map[string]sod.Answer{"urgent": sodtest.NoulAnswer(0.93)},
-			"usage": sod.Usage{InputTokens: 42, OutputTokens: 0}, "provider_field": 17,
+			"model": req.Model + "-resolved", "answers": map[string]decide.Answer{"urgent": decidetest.NoulAnswer(0.93)},
+			"usage": decide.Usage{InputTokens: 42, OutputTokens: 0}, "provider_field": 17,
 		},
 	})
 }
@@ -70,7 +70,7 @@ func TestRoutesAndAnswers(t *testing.T) {
 					t.Error("missing authorization or content type")
 				}
 				body, _ = io.ReadAll(r.Body)
-				var req sod.Request
+				var req decide.Request
 				if err := json.Unmarshal(body, &req); err != nil {
 					t.Error(err)
 				}
@@ -79,17 +79,17 @@ func TestRoutesAndAnswers(t *testing.T) {
 				}
 				_ = json.NewEncoder(w).Encode(map[string]any{
 					"success": true, "errors": []any{}, "messages": []any{}, "provider_metadata": 8,
-					"result": map[string]any{"model": model + "-resolved", "answers": map[string]sod.Answer{
-						"urgent":   sodtest.NoulAnswer(0.9234567890123456),
-						"team":     &sod.ChoiceAnswer{Choice: "technical", Probabilities: map[string]float64{"billing": 0.1234567890123456, "technical": 0.8765432109876544}, Confidence: 0.63},
-						"severity": &sod.ScoreAnswer{Score: 1.45, Legend: map[string]any{"0": "minor", "1": "major", "2": "critical"}, Probabilities: map[string]float64{"0": 0.1, "1": 0.35, "2": 0.55}, Confidence: 0.23},
+					"result": map[string]any{"model": model + "-resolved", "answers": map[string]decide.Answer{
+						"urgent":   decidetest.NoulAnswer(0.9234567890123456),
+						"team":     &decide.ChoiceAnswer{Choice: "technical", Probabilities: map[string]float64{"billing": 0.1234567890123456, "technical": 0.8765432109876544}, Confidence: 0.63},
+						"severity": &decide.ScoreAnswer{Score: 1.45, Legend: map[string]any{"0": "minor", "1": "major", "2": "critical"}, Probabilities: map[string]float64{"0": 0.1, "1": 0.35, "2": 0.55}, Confidence: 0.23},
 					}, "usage": map[string]any{"input_tokens": 42, "output_tokens": 0, "cached_tokens": 9}, "future": true},
 				})
 			})
-			req := sod.NewRequest("Checkout is down.", sod.WithRequestModel(model), sod.WithRequestExtra("custom", 12))
-			noul := sod.Ask(req, "urgent", sod.Noul("Urgent?"))
-			choice := sod.Ask(req, "team", sod.Choice("Which team?", sod.Option("technical"), sod.Option("billing")))
-			score := sod.Ask(req, "severity", sod.Score("Severity?", "minor", "major", "critical"))
+			req := decide.NewRequest("Checkout is down.", decide.WithRequestModel(model), decide.WithRequestExtra("custom", 12))
+			noul := decide.Ask(req, "urgent", decide.Noul("Urgent?"))
+			choice := decide.Ask(req, "team", decide.Choice("Which team?", decide.Option("technical"), decide.Option("billing")))
+			score := decide.Ask(req, "severity", decide.Score("Severity?", "minor", "major", "critical"))
 			before, _ := json.Marshal(req)
 			resp, err := client.SystemOne(context.Background(), req)
 			if err != nil {
@@ -131,7 +131,7 @@ func TestMalformedEnvelopes(t *testing.T) {
 				_, _ = io.WriteString(w, body)
 			})
 			_, err := client.SystemOne(context.Background(), noulRequest())
-			if !errors.Is(err, sod.ErrDecode) || attempts.Load() != 1 {
+			if !errors.Is(err, decide.ErrDecode) || attempts.Load() != 1 {
 				t.Fatalf("err = %v; attempts = %d", err, attempts.Load())
 			}
 		})
@@ -143,9 +143,9 @@ func TestInvalidAnswersRemainPartial(t *testing.T) {
 		_, _ = io.WriteString(w, `{"success":true,"result":{"model":"clef","answers":{"urgent":{"type":"noul"},"good":{"type":"noul","noul":0.8}},"usage":{"input_tokens":1,"output_tokens":0}}}`)
 	})
 	req := noulRequest()
-	good := sod.Ask(req, "good", sod.Noul("Good?"))
+	good := decide.Ask(req, "good", decide.Noul("Good?"))
 	resp, err := client.SystemOne(context.Background(), req)
-	if !errors.Is(err, sod.ErrInvalidAnswer) || resp == nil || resp.Invalid["urgent"] == nil {
+	if !errors.Is(err, decide.ErrInvalidAnswer) || resp == nil || resp.Invalid["urgent"] == nil {
 		t.Fatalf("resp = %+v; err = %v", resp, err)
 	}
 	if answer, err := good.From(resp); err != nil || answer.Noul != 0.8 {
@@ -160,9 +160,9 @@ func TestErrorsAndRetries(t *testing.T) {
 		want   error
 		calls  int32
 	}{
-		{400, 5007, nil, 1}, {401, 1000, sod.ErrAuth, 1}, {403, 5018, sod.ErrAuth, 1},
-		{408, 3007, nil, 3}, {422, 5004, sod.ErrValidation, 1},
-		{429, 3040, sod.ErrRateLimited, 3}, {503, 9000, sod.ErrServer, 3},
+		{400, 5007, nil, 1}, {401, 1000, decide.ErrAuth, 1}, {403, 5018, decide.ErrAuth, 1},
+		{408, 3007, nil, 3}, {422, 5004, decide.ErrValidation, 1},
+		{429, 3040, decide.ErrRateLimited, 3}, {503, 9000, decide.ErrServer, 3},
 	} {
 		t.Run(fmt.Sprint(tc.status), func(t *testing.T) {
 			var attempts atomic.Int32
@@ -173,7 +173,7 @@ func TestErrorsAndRetries(t *testing.T) {
 				_, _ = fmt.Fprintf(w, `{"success":false,"errors":[{"code":%d,"message":"first"},{"code":12,"message":"second"}]}`, tc.code)
 			})
 			_, err := client.SystemOne(context.Background(), noulRequest())
-			var ae *sod.APIError
+			var ae *decide.APIError
 			var ce *cloudflare.Error
 			if !errors.As(err, &ae) || !errors.As(err, &ce) || ae.StatusCode != tc.status || ae.Type != fmt.Sprint(tc.code) || ae.RetryAfter != time.Millisecond || len(ce.Errors) != 2 {
 				t.Fatalf("error metadata: %v %#v", err, ae)
@@ -197,7 +197,7 @@ func TestUnsuccessful2xxIsNotRetried(t *testing.T) {
 		})
 		_, err := client.SystemOne(context.Background(), noulRequest())
 		var ce *cloudflare.Error
-		var ae *sod.APIError
+		var ae *decide.APIError
 		if !errors.As(err, &ce) || ce.StatusCode != 200 || errors.As(err, &ae) || attempts.Load() != 1 {
 			t.Fatalf("2xx failure misrepresented: %v", err)
 		}
@@ -212,7 +212,7 @@ func TestRetryThenSuccessAndCancellation(t *testing.T) {
 			_, _ = io.WriteString(w, `{"success":false,"errors":[{"code":3040,"message":"busy"}]}`)
 			return
 		}
-		var req sod.Request
+		var req decide.Request
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		writeEnvelope(w, &req)
 	})
@@ -229,7 +229,7 @@ func TestRetryThenSuccessAndCancellation(t *testing.T) {
 		_, _ = io.Copy(io.Discard, r.Body)
 		close(started)
 		<-r.Context().Done()
-	}, sod.WithMaxRetries(0))
+	}, decide.WithMaxRetries(0))
 	ctx, cancel = context.WithCancel(context.Background())
 	go func() { <-started; cancel() }()
 	if _, err := client.SystemOne(ctx, noulRequest()); !errors.Is(err, context.Canceled) {
@@ -245,27 +245,27 @@ func TestNoNetworkForUnsupportedAndInvalidRequests(t *testing.T) {
 	}
 	cases := []struct {
 		name   string
-		mutate func(*sod.Request)
+		mutate func(*decide.Request)
 		want   error
 	}{
-		{"model", func(r *sod.Request) { r.Model = "../clef" }, sod.ErrInvalidRequest},
-		{"scalar state", func(r *sod.Request) { r.State = 17 }, sod.ErrInvalidRequest},
-		{"question ID", func(r *sod.Request) { r.Questions["bad/key"] = sod.Noul("Q?") }, sod.ErrInvalidRequest},
-		{"long ID", func(r *sod.Request) { r.Questions[strings.Repeat("a", 101)] = sod.Noul("Q?") }, sod.ErrInvalidRequest},
-		{"many questions", func(r *sod.Request) {
+		{"model", func(r *decide.Request) { r.Model = "../clef" }, decide.ErrInvalidRequest},
+		{"scalar state", func(r *decide.Request) { r.State = 17 }, decide.ErrInvalidRequest},
+		{"question ID", func(r *decide.Request) { r.Questions["bad/key"] = decide.Noul("Q?") }, decide.ErrInvalidRequest},
+		{"long ID", func(r *decide.Request) { r.Questions[strings.Repeat("a", 101)] = decide.Noul("Q?") }, decide.ErrInvalidRequest},
+		{"many questions", func(r *decide.Request) {
 			for i := range 65 {
-				r.Questions[fmt.Sprint(i)] = sod.Noul("Q?")
+				r.Questions[fmt.Sprint(i)] = decide.Noul("Q?")
 			}
-		}, sod.ErrInvalidRequest},
-		{"blank instructions", func(r *sod.Request) { r.Questions["urgent"] = sod.Noul(" ") }, sod.ErrInvalidRequest},
-		{"one choice", func(r *sod.Request) { r.Questions["urgent"] = sod.Choice("Q?", sod.Option("only")) }, sod.ErrInvalidRequest},
-		{"many levels", func(r *sod.Request) { r.Questions["urgent"] = sod.Score("Q?", make([]any, 11)...) }, sod.ErrInvalidRequest},
-		{"unknown type", func(r *sod.Request) {
-			r.Questions["urgent"] = &sod.RawQuestion{Type: "future", JSON: json.RawMessage(`{"type":"future","instructions":"Q?"}`)}
+		}, decide.ErrInvalidRequest},
+		{"blank instructions", func(r *decide.Request) { r.Questions["urgent"] = decide.Noul(" ") }, decide.ErrInvalidRequest},
+		{"one choice", func(r *decide.Request) { r.Questions["urgent"] = decide.Choice("Q?", decide.Option("only")) }, decide.ErrInvalidRequest},
+		{"many levels", func(r *decide.Request) { r.Questions["urgent"] = decide.Score("Q?", make([]any, 11)...) }, decide.ErrInvalidRequest},
+		{"unknown type", func(r *decide.Request) {
+			r.Questions["urgent"] = &decide.RawQuestion{Type: "future", JSON: json.RawMessage(`{"type":"future","instructions":"Q?"}`)}
 		}, errors.ErrUnsupported},
-		{"video", func(r *sod.Request) { r.Extra = map[string]any{"videos": []any{}} }, errors.ErrUnsupported},
-		{"URL image", func(r *sod.Request) { r.Extra = map[string]any{"images": []string{"https://example.com/pic.png"}} }, sod.ErrInvalidRequest},
-		{"large request", func(r *sod.Request) { r.State = strings.Repeat("a", 13<<20) }, sod.ErrInvalidRequest},
+		{"video", func(r *decide.Request) { r.Extra = map[string]any{"videos": []any{}} }, errors.ErrUnsupported},
+		{"URL image", func(r *decide.Request) { r.Extra = map[string]any{"images": []string{"https://example.com/pic.png"}} }, decide.ErrInvalidRequest},
+		{"large request", func(r *decide.Request) { r.State = strings.Repeat("a", 13<<20) }, decide.ErrInvalidRequest},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -276,7 +276,7 @@ func TestNoNetworkForUnsupportedAndInvalidRequests(t *testing.T) {
 			}
 		})
 	}
-	if _, err := transport.SystemOne(context.Background(), nil); !errors.Is(err, sod.ErrInvalidRequest) {
+	if _, err := transport.SystemOne(context.Background(), nil); !errors.Is(err, decide.ErrInvalidRequest) {
 		t.Fatalf("direct nil request: %v", err)
 	}
 	if attempts.Load() != 0 {
@@ -286,7 +286,7 @@ func TestNoNetworkForUnsupportedAndInvalidRequests(t *testing.T) {
 
 func TestConcurrency(t *testing.T) {
 	client, _ := newClient(t, func(w http.ResponseWriter, r *http.Request) {
-		var req sod.Request
+		var req decide.Request
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		writeEnvelope(w, &req)
 	})
@@ -319,7 +319,7 @@ func TestRedaction(t *testing.T) {
 			} else {
 				_, _ = fmt.Fprintf(w, `{"success":false,"errors":[{"code":1,"message":%q}]}`, token)
 			}
-		}, sod.WithLogger(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))), sod.WithLogBodies(true))
+		}, decide.WithLogger(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))), decide.WithLogBodies(true))
 		resp, err := client.SystemOne(context.Background(), noulRequest())
 		printed := fmt.Sprintf("%v %+v %#v %v", *transport, transport, transport, cloudflare.Config{APIToken: token})
 		if resp != nil {
@@ -352,7 +352,7 @@ func TestConfigValidation(t *testing.T) {
 
 func TestMissingTokenGuidance(t *testing.T) {
 	_, err := cloudflare.NewTransport(cloudflare.Config{AccountID: "account"})
-	if !errors.Is(err, sod.ErrNoAPIKey) {
+	if !errors.Is(err, decide.ErrNoAPIKey) {
 		t.Fatalf("missing credential sentinel lost: %v", err)
 	}
 	message := err.Error()
@@ -373,13 +373,13 @@ func TestAlternateJSONEscapesAreRedacted(t *testing.T) {
 			} else {
 				_, _ = fmt.Fprintf(w, `{"success":false,"errors":[{"code":1,"message":"%s"}]}`, escaped)
 			}
-		}, sod.WithLogger(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))), sod.WithLogBodies(true))
+		}, decide.WithLogger(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))), decide.WithLogBodies(true))
 		resp, err := client.SystemOne(context.Background(), noulRequest())
 		if status == 200 {
 			if err != nil {
 				t.Fatal(err)
 			}
-			na := resp.Answers["urgent"].(*sod.NoulAnswer)
+			na := resp.Answers["urgent"].(*decide.NoulAnswer)
 			if na.Noul != 0.9234567890123456 || resp.Usage.InputTokens != 123456789 ||
 				!bytes.Contains(resp.Raw, []byte("0.9234567890123456")) || !bytes.Contains(resp.Raw, []byte("123456789")) {
 				t.Fatal("redaction altered numbers")
@@ -388,7 +388,7 @@ func TestAlternateJSONEscapesAreRedacted(t *testing.T) {
 				t.Fatal("escaped token survived in successful response")
 			}
 		} else {
-			var ae *sod.APIError
+			var ae *decide.APIError
 			if !errors.As(err, &ae) || strings.Contains(err.Error()+ae.Message+string(ae.Body), token) || bytes.Contains(ae.Body, []byte(escaped)) {
 				t.Fatal("escaped token survived in provider error")
 			}
@@ -405,9 +405,9 @@ func TestRedactionMatchesResponseDecoder(t *testing.T) {
 		client, _ := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(400)
 			_, _ = fmt.Fprintf(w, `{"success":false,%s"errors":[{"code":1,"message":"\u0074%s"}]}`, prefix, token[1:])
-		}, sod.WithLogger(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))), sod.WithLogBodies(true))
+		}, decide.WithLogger(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))), decide.WithLogBodies(true))
 		_, err := client.SystemOne(context.Background(), noulRequest())
-		var ae *sod.APIError
+		var ae *decide.APIError
 		if !errors.As(err, &ae) || strings.Contains(err.Error()+ae.Message+string(ae.Body)+logs.String(), token) {
 			t.Fatal("decoder mismatch exposed credential")
 		}
@@ -433,9 +433,9 @@ func TestMalformedResponseBodiesAreSuppressed(t *testing.T) {
 			client, _ := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
 				_, _ = io.WriteString(w, tc.body)
-			}, sod.WithLogger(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))), sod.WithLogBodies(true))
+			}, decide.WithLogger(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))), decide.WithLogBodies(true))
 			_, err := client.SystemOne(context.Background(), noulRequest())
-			var ae *sod.APIError
+			var ae *decide.APIError
 			var ce *cloudflare.Error
 			if !errors.As(err, &ae) || !errors.As(err, &ce) || ae.StatusCode != http.StatusBadRequest {
 				t.Fatalf("HTTP error classification lost: %v", err)
@@ -453,17 +453,17 @@ func TestMalformedResponseBodiesAreSuppressed(t *testing.T) {
 }
 
 // External question implementations with a supported wire type work without
-// registration. The adapter must not restrict requests to concrete sod types.
-type externalNoul struct{ *sod.NoulQuestion }
+// registration. The adapter must not restrict requests to concrete decide types.
+type externalNoul struct{ *decide.NoulQuestion }
 
 func TestExternalQuestion(t *testing.T) {
 	client, _ := newClient(t, func(w http.ResponseWriter, r *http.Request) {
-		var req sod.Request
+		var req decide.Request
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		writeEnvelope(w, &req)
 	})
-	req := sod.NewRequest([]any{"ticket", map[string]any{"outage": true}})
-	handle := sod.Ask(req, "urgent", &externalNoul{sod.Noul(map[string]any{"question": "Urgent?"})})
+	req := decide.NewRequest([]any{"ticket", map[string]any{"outage": true}})
+	handle := decide.Ask(req, "urgent", &externalNoul{decide.Noul(map[string]any{"question": "Urgent?"})})
 	resp, err := client.SystemOne(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
@@ -484,7 +484,7 @@ func TestResponseBoundAndBodyTimeout(t *testing.T) {
 			}
 		}
 	})
-	if _, err := client.SystemOne(context.Background(), noulRequest()); !errors.Is(err, sod.ErrDecode) || attempts.Load() != 1 {
+	if _, err := client.SystemOne(context.Background(), noulRequest()); !errors.Is(err, decide.ErrDecode) || attempts.Load() != 1 {
 		t.Fatalf("response limit failed: %v, attempts %d", err, attempts.Load())
 	}
 	client, _ = newClient(t, func(w http.ResponseWriter, r *http.Request) {
@@ -492,7 +492,7 @@ func TestResponseBoundAndBodyTimeout(t *testing.T) {
 		_, _ = io.WriteString(w, `{"success":true,`)
 		w.(http.Flusher).Flush()
 		<-r.Context().Done()
-	}, sod.WithMaxRetries(0), sod.WithAttemptTimeout(20*time.Millisecond))
+	}, decide.WithMaxRetries(0), decide.WithAttemptTimeout(20*time.Millisecond))
 	if _, err := client.SystemOne(context.Background(), noulRequest()); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("timeout did not cover body reading: %v", err)
 	}

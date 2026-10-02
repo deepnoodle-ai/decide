@@ -11,8 +11,8 @@ import (
 	"log"
 	"regexp"
 
-	"github.com/deepnoodle-ai/sod"
-	"github.com/deepnoodle-ai/sod/x/pick"
+	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/x/pick"
 )
 
 const email = `From: Dana Whit <dana.whit@acme-corp.com>
@@ -26,7 +26,7 @@ personal address instead. Thanks, Dana.`
 var emailRE = regexp.MustCompile(`[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}`)
 
 func main() {
-	client, err := sod.NewClient()
+	client, err := decide.NewClient()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	req := sod.NewRequest(email)
+	req := decide.NewRequest(email)
 	receipt := addresses.Ask(req, "receipt",
 		"Which email address does the sender want their receipt sent to?")
 

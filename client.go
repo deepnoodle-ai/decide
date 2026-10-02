@@ -1,4 +1,4 @@
-package sod
+package decide
 
 import (
 	"cmp"
@@ -85,7 +85,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 
 	if cfg.transSet {
 		if cfg.apiKey != nil || cfg.baseURL != nil || cfg.httpClient != nil || cfg.userAgent != nil {
-			return nil, errors.New("sod: WithTransport cannot be combined with WithAPIKey, WithBaseURL, WithHTTPClient, or WithUserAgent")
+			return nil, errors.New("decide: WithTransport cannot be combined with WithAPIKey, WithBaseURL, WithHTTPClient, or WithUserAgent")
 		}
 		c.transport = cfg.transport
 		return c, nil
@@ -103,7 +103,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	if cfg.baseURL != nil {
 		tc.BaseURL = *cfg.baseURL
 		if tc.BaseURL == "" {
-			return nil, errors.New("sod: WithBaseURL with empty URL")
+			return nil, errors.New("decide: WithBaseURL with empty URL")
 		}
 	} else {
 		tc.BaseURL = env("TYPESAFE_BASE_URL")
@@ -134,14 +134,14 @@ func loggerForLevel(v string) (*slog.Logger, error) {
 	case "error":
 		level = slog.LevelError
 	default:
-		return nil, fmt.Errorf("sod: TYPESAFE_LOG_LEVEL %q must be debug, info, warn, error, or off", v)
+		return nil, fmt.Errorf("decide: TYPESAFE_LOG_LEVEL %q must be debug, info, warn, error, or off", v)
 	}
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})), nil
 }
 
 // String describes the client. It never includes the API key.
 func (c *Client) String() string {
-	return fmt.Sprintf("sod.Client{model: %s, transport: %s, max_retries: %d, attempt_timeout: %s, validate: %t}",
+	return fmt.Sprintf("decide.Client{model: %s, transport: %s, max_retries: %d, attempt_timeout: %s, validate: %t}",
 		c.model, describeTransport(c.transport), c.maxRetries, c.attemptTimeout, c.validate)
 }
 
@@ -276,7 +276,7 @@ func (c *Client) logSystemOne(ctx context.Context, r *Request, reqBody []byte, a
 	if c.logBodies {
 		attrs = append(attrs, slog.String("request_body", string(reqBody)), slog.String("response_body", string(respBody)))
 	}
-	c.logger.LogAttrs(ctx, slog.LevelDebug, "sod request", attrs...)
+	c.logger.LogAttrs(ctx, slog.LevelDebug, "decide request", attrs...)
 }
 
 // outcomeAttrs returns status, request_id, and error for one attempt, each
