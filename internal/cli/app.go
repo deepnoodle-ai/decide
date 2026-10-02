@@ -1,12 +1,15 @@
+// Package cli implements the experimental dataset command-line interface.
 package cli
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/deepnoodle-ai/decide"
+	wonton "github.com/deepnoodle-ai/wonton/cli"
 )
 
 type App struct {
@@ -25,37 +28,94 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	if a.Err == nil {
 		a.Err = os.Stderr
 	}
-	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
-		fmt.Fprint(a.Out, helpText)
-		return 0
-	}
 	if ctx.Err() != nil {
 		return 130
 	}
-	switch args[0] {
-	case "plan", "run":
-		return a.runDataset(ctx, args[0], args[1:])
-	case "sources":
-		return a.runSources(ctx, args[1:])
-	case "skills", "patterns":
-		return a.runLibrary(ctx, args[0], args[1:])
-	case "runs":
-		return a.runRuns(ctx, args[1:])
-	case "judge", "grep", "label", "score", "check":
-		return a.runBasic(ctx, args[0], args[1:])
-	case "pick":
-		return a.runPick(ctx, args[1:])
-	case "join":
-		return a.runJoin(ctx, args[1:])
-	case "rank":
-		return a.runRank(ctx, args[1:])
-	case "pack":
-		return a.runPack(ctx, args[1:])
-	case "gate":
-		return a.runGate(ctx, args[1:])
-	case "eval":
-		return a.runEval(ctx, args[1:])
-	default:
-		return a.fail(fmt.Errorf("unknown command %q", args[0]))
+	framework := a.commands()
+	if err := framework.ExecuteContext(ctx, normalizeColorArgs(args)); err != nil {
+		if wonton.IsHelpRequested(err) {
+			return 0
+		}
+		if ctx.Err() != nil {
+			return 130
+		}
+		var commandError *wonton.ExitError
+		if errors.As(err, &commandError) {
+			return wonton.GetExitCode(err)
+		}
+		return a.fail(err)
 	}
+	return 0
+}
+
+func (a *App) commands() *wonton.App {
+	app := wonton.New("decide").Description("A little judgment, a lot of evidence.").Long(helpText).
+		SetStdin(a.In).SetStdout(a.Out).SetStderr(a.Err).ForceInteractive(false).
+		SetColorEnabled(newResultPrinter(a.Out, "auto", false).color)
+	for _, entry := range []struct{ name, description string }{
+		{"run", "Show each item's decisions and save the run"},
+		{"plan", "Preview inputs and questions without model calls"},
+	} {
+		binding := a.datasetCommand(entry.name)
+		binding.attach(app.Command(entry.name).Description(entry.description).
+			Args("skill-or-source?...").Long("Usage: decide " + entry.name + " SKILL SOURCES... [flags]\nUse --skill NAME or --pattern NAME to choose the judgment with a flag.\nFiles, directories, URLs, and '-' for stdin can be mixed."))
+	}
+	sources := app.Group("sources").Description("Select and preview files, URLs, images, and JSONL")
+	for _, op := range []string{"list", "preview"} {
+		binding := a.sourcesCommand(op)
+		binding.attach(sources.Command(op).Description(map[string]string{"list": "List selected sources", "preview": "Preview five selected items"}[op]).Args("sources?..."))
+	}
+	for _, kind := range []string{"skills", "patterns"} {
+		group := app.Group(kind).Description(map[string]string{"skills": "Reusable judgments", "patterns": "Advanced: compose judgments for run --pattern"}[kind])
+		ops := []string{"list", "show"}
+		if kind == "skills" {
+			ops = append(ops, "new", "edit", "validate", "test")
+		}
+		for _, op := range ops {
+			binding := a.libraryCommand(kind, op)
+			command := group.Command(op).Description(op + " " + kind)
+			if op == "list" {
+				command.Args()
+			} else {
+				command.Args("name")
+			}
+			binding.attach(command)
+		}
+		a.libraryCommand(kind, "list").attachGroup(group)
+	}
+	runs := app.Group("runs").Description("Read and manage saved runs")
+	for _, op := range []string{"list", "view", "show", "watch", "resume", "export"} {
+		binding := a.runsCommand(op)
+		command := runs.Command(op).Description(map[string]string{"list": "List saved runs", "view": "Read saved decisions without model calls", "show": "Show status and counts", "watch": "Watch run status", "resume": "Continue an interrupted run", "export": "Export full JSONL evidence"}[op])
+		if op == "list" {
+			command.Args()
+		} else {
+			command.Args("run-id")
+		}
+		binding.attach(command)
+	}
+	a.runsCommand("list").attachGroup(runs)
+	return app
+}
+
+// Wonton reserves bare --color as a toggle. Keep Decide's three-way option
+// by passing it to Wonton in the unambiguous --color=MODE form.
+func normalizeColorArgs(args []string) []string {
+	normalized := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			return append(normalized, args[i:]...)
+		}
+		if arg == "--color" {
+			value := ""
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				i++
+				value = args[i]
+			}
+			arg += "=" + value
+		}
+		normalized = append(normalized, arg)
+	}
+	return normalized
 }

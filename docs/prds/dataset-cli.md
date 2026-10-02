@@ -10,7 +10,8 @@ Developers use decision models on code trees, JSON exports, and image collection
 The existing CLI accepts JSONL and text lines. Users must prepare those inputs,
 write questions, manage evidence files, and recover interrupted work themselves.
 The approved direction adds source selection, reusable skills and patterns,
-durable runs, and readable saved results. Interactive interfaces are deferred. Existing pipelines remain usable.
+durable runs, and readable saved results. Interactive interfaces are deferred. The initial CLI has one execution path:
+`run`, with skills defining questions and patterns defining composition.
 
 ## Concepts
 
@@ -56,7 +57,7 @@ previews the selected items and prepared state without model calls.
 - A stopped or canceled run can resume without repeating successful results.
 - Failed and uncertain attempts remain distinct; retrying uncertain work is explicit.
 - Run listings, summaries, watching, and export also support scripts.
-- Existing `typesafe_cli: 1` files remain readable and inspectable.
+- Exported `decide_run: 1` result JSONL remains readable.
 
 ## Decisions
 
@@ -73,3 +74,7 @@ Remote registries, implicit crawling or pagination, video input, arbitrary workf
 programs, and dollar budgets are outside this proposal. File-level assessment is
 not represented as whole-application architectural evidence. User-supplied
 thresholds and source transformations remain explicit.
+
+The implementation uses Wonton throughout: `cli` for every command and its help,
+`env` for connection defaults, and `tui` for inline answer highlighting. The
+full-screen workbench remains deferred.

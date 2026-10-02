@@ -53,7 +53,7 @@ func TestDecisionColorsAreExplicitAndDoNotChangeData(t *testing.T) {
 	if err := newResultPrinter(&colored, "always", false).result(decisionFixture()); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(colored.String(), "\x1b[1mcmd/decide/main.go") || !strings.Contains(colored.String(), "\x1b[36m31% yes") || !strings.Contains(colored.String(), "\x1b[2mmaintainability") {
+	if !strings.Contains(colored.String(), "\x1b[0;1mcmd/decide/main.go") || !strings.Contains(colored.String(), "\x1b[0;36m31% yes") || !strings.Contains(colored.String(), "\x1b[0;2mmaintainability") {
 		t.Fatalf("missing visual hierarchy: %q", colored.String())
 	}
 	t.Setenv("NO_COLOR", "1")

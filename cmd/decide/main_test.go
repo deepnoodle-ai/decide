@@ -17,11 +17,7 @@ func TestInterruptExitsWithStdinPipeHeldOpen(t *testing.T) {
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v %s", err, output)
 	}
-	questions := filepath.Join(dir, "questions.json")
-	if err := os.WriteFile(questions, []byte(`{"match":{"type":"noul","instructions":"Match?"}}`), 0600); err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command(binary, "judge", "--questions", questions, "--chunk-size", "1")
+	cmd := exec.Command(binary, "plan", "relevance", "-", "--format", "jsonl")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		t.Fatal(err)
@@ -40,9 +36,9 @@ func TestInterruptExitsWithStdinPipeHeldOpen(t *testing.T) {
 			_ = cmd.Wait()
 		}
 	})
-	// A local invalid-state record produces one line without API access. Its
+	// An offline plan produces one line without API access. Its
 	// output confirms signal setup completed; stdin stays open after this line.
-	if _, err = stdin.Write([]byte("123\n")); err != nil {
+	if _, err = stdin.Write([]byte("\"a useful record\"\n")); err != nil {
 		t.Fatal(err)
 	}
 	ready := make(chan error, 1)

@@ -30,7 +30,7 @@ decide runs export RUN_ID > results.jsonl
 
 Run IDs and explicit run-directory paths work. `runs view` uses the same readable,
 colored decision format as `run`, without credentials or provider calls. It also
-accepts exported result JSONL and legacy `typesafe_cli: 1` evidence files.
+accepts exported result JSONL.
 Use `--jsonl` to read full machine evidence. Viewing never resubmits work.
 
 ## One source or all these sources
@@ -207,8 +207,8 @@ Pattern manifests use version 1 and a `type`:
 | `rank` | `run`, Noul `answer`, optional `max_records`; offline sorting |
 | `rank-pack` | Rank fields plus positive `budget_bytes`; select whole strings |
 
-For saved-evidence patterns, set `run` to an existing run, exported JSONL, or old
-`typesafe_cli: 1` evidence file. Those operations use no model credentials.
+For saved-evidence patterns, set `run` to an existing run or exported result JSONL.
+Those operations use no model credentials.
 Collection patterns have explicit item bounds (`--max-records`, default 10,000)
 and byte bounds (`--max-collection-bytes`, default 64 MiB).
 Funnel stage limits rank survivors globally, also requiring bounded collection.
@@ -217,7 +217,8 @@ Dropped items remain exported outcomes, distinct from failures.
 Heads asks selector and branches together. Branch questions must be independently
 answerable from the same original state; a branch cannot read its selector's answer.
 Use a later funnel stage for dependent work. Example thresholds are illustrative,
-not recommended cutoffs. Measure policies with the existing `eval` commands.
+not recommended cutoffs. Measure policies on representative labeled datasets;
+the Go [`patterns/calibrate`](../patterns/calibrate) package supports calibration.
 
 ## Keep a run you can reopen
 
@@ -272,8 +273,7 @@ keeping per-item decisions readable in the terminal. Filenames are bold, labels
 muted, and decision values cyan in terminals. Automatic color respects `NO_COLOR`
 and `TERM=dumb`; pipes are plain text. `--color always|never|auto` overrides color
 selection. Color distinguishes values from labels; it does not classify risk or
-apply action thresholds. `plan` and the original pipeline commands
-retain their machine-readable output.
+apply action thresholds. `plan` emits prepared inputs as JSONL.
 
 ```sh
 decide run builtin/relevance passages.jsonl                 # per-item decisions
@@ -308,7 +308,18 @@ defaults (`TYPESAFE_DEFAULT_MODEL`, `TYPESAFE_BASE_URL`) apply only to TypeSafe.
 Credentials are resolved when executing and are never configuration fields or CLI
 flags. `DECIDE_HOME` defaults to `XDG_CONFIG_HOME/decide` or `~/.config/decide`.
 
-The original eleven pipeline commands and their `typesafe_cli: 1` envelopes remain
-supported. `decide runs view old.jsonl` reads saved evidence. Collection patterns revalidate
-questions and answers before applying policies. See [CLI pipelines](cli.md)
-and [recipes](cli-recipes.md) for one-off judgments and offline calibration.
+Skills supply questions and patterns supply composition. All execution uses
+`run`; there are no separate judgment, filtering, ranking, or calibration commands.
+Collection patterns revalidate questions and answers before applying policies.
+
+## Terminal and configuration
+
+All commands use Wonton's CLI framework. Help is available at every level:
+`decide --help`, `decide runs --help`, and `decide runs view --help`.
+Unknown commands suggest nearby names. Source options can appear before or after
+file operands; repeat `--include`, `--exclude`, and `--param` to add values.
+Use `--` before filenames that begin with a dash.
+
+Wonton's env package loads connection defaults; explicit flags take precedence.
+Wonton's TUI styles provide inline highlighting for readable decisions. Commands
+stay direct and never open a full-screen workbench or prompt for missing options.

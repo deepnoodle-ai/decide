@@ -390,25 +390,6 @@ func TestCredentialEndpointsRejectedBeforeArtifacts(t *testing.T) {
 	}
 }
 
-func TestLegacyEvidenceFidelityAndMalformedRecords(t *testing.T) {
-	valid := `{"typesafe_cli":1,"id":"r1","data":"hello","runs":[{"name":"judge","command":"judge","state":"hello","questions":{"yes":{"type":"noul","instructions":"Good?"}},"response":{"answers":{"yes":{"type":"noul","noul":0.9}}},"invalid":{"yes":{"kind":"invalid_answer","message":"original diagnostic"}}}]}`
-	file := filepath.Join(t.TempDir(), "legacy.jsonl")
-	os.WriteFile(file, []byte(valid+"\n"), 0600)
-	var out []Result
-	if e := ReadEvidence(file, "", func(r Result) error { out = append(out, r); return nil }); e != nil {
-		t.Fatal(e)
-	}
-	if len(out) != 1 || len(out[0].Stages[0].Invalid) != 1 {
-		t.Fatalf("%+v", out)
-	}
-	for _, bad := range []string{`{"typesafe_cli":2,"id":"r1","data":1,"runs":[]}`, `{"typesafe_cli":1,"id":"r1","data":1,"runs":[{"name":"a","command":"judge"},{"name":"a","command":"judge"}]}`, `{"typesafe_cli":1,"id":"r1","data":1,"runs":[{"name":"a"}]}`, `{"typesafe_cli":1,"id":"r1","id":"shadow","data":1,"runs":[]}`} {
-		os.WriteFile(file, []byte(bad+"\n"), 0600)
-		if e := ReadEvidence(file, "", func(Result) error { return nil }); e == nil {
-			t.Fatalf("accepted %s", bad)
-		}
-	}
-}
-
 func TestUnknownArtifactVersionRejected(t *testing.T) {
 	o := testOptions(t)
 	o.NewClient = serverClient(t, func(w http.ResponseWriter, r *http.Request) { okay(w) })

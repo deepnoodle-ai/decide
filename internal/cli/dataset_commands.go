@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -17,18 +16,13 @@ import (
 	"github.com/deepnoodle-ai/decide/internal/catalog"
 	"github.com/deepnoodle-ai/decide/internal/dataset"
 	"github.com/deepnoodle-ai/decide/internal/jobs"
+	"github.com/deepnoodle-ai/wonton/env"
 	"golang.org/x/term"
 )
 
-type repeated []string
-
-func (r *repeated) String() string { return strings.Join(*r, ", ") }
-
-func (r *repeated) Set(v string) error { *r = append(*r, v); return nil }
-
-func bindSources(fs *flag.FlagSet, o *dataset.Options) {
-	fs.Var((*repeated)(&o.Include), "include", "file glob relative to each source root (repeatable)")
-	fs.Var((*repeated)(&o.Exclude), "exclude", "excluded file glob; exclusions win (repeatable)")
+func bindSources(fs *commandBinding, o *dataset.Options) {
+	fs.StringsVar(&o.Include, "include", "file glob relative to each source root (repeatable)")
+	fs.StringsVar(&o.Exclude, "exclude", "excluded file glob; exclusions win (repeatable)")
 	fs.StringVar(&o.Format, "format", o.Format, "auto, json, jsonl, text, lines, or image")
 	fs.StringVar(&o.Items, "items", o.Items, "JSON pointer to array; empty string expands root array")
 	fs.StringVar(&o.State, "state", o.State, "JSON pointer selecting model state")
@@ -43,11 +37,11 @@ func bindSources(fs *flag.FlagSet, o *dataset.Options) {
 	fs.Int64Var(&o.MaxSourceBytes, "max-source-bytes", o.MaxSourceBytes, "maximum bytes read from one source")
 }
 
-func bindExecution(fs *flag.FlagSet, o *jobs.Options, params *repeated) {
+func bindExecution(fs *commandBinding, o *jobs.Options, params *[]string) {
 	bindSources(fs, &o.Sources)
 	fs.StringVar(&o.Skill, "skill", o.Skill, "reusable skill name (alternative to skill operand)")
 	fs.StringVar(&o.Pattern, "pattern", o.Pattern, "configured pattern name or JSON file")
-	fs.Var(params, "param", "typed skill parameter NAME=VALUE (repeatable)")
+	fs.StringsVar(params, "param", "typed skill parameter NAME=VALUE (repeatable)")
 	fs.StringVar(&o.Provider, "provider", o.Provider, "typesafe or cloudflare")
 	fs.StringVar(&o.Model, "model", o.Model, "exact model ID; otherwise provider default")
 	fs.StringVar(&o.Profile, "profile", o.Profile, "named connection profile in settings.json")
@@ -71,70 +65,29 @@ func bindExecution(fs *flag.FlagSet, o *jobs.Options, params *repeated) {
 	fs.StringVar(&o.Progress, "progress", "auto", "stderr summaries: auto, plain, or none")
 }
 
-// parseOperands retains flag package validation while allowing normal CLI
-// spelling: skill/source operands followed by options. Values never use a shell.
-func parseOperands(fs *flag.FlagSet, args []string) ([]string, error) {
-	var flags, operands []string
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "--" {
-			operands = append(operands, args[i+1:]...)
-			break
-		}
-		if arg == "-" || !strings.HasPrefix(arg, "-") {
-			operands = append(operands, arg)
-			continue
-		}
-		name := strings.TrimLeft(arg, "-")
-		name, _, inline := strings.Cut(name, "=")
-		f := fs.Lookup(name)
-		flags = append(flags, arg)
-		if f == nil {
-			if name == "h" || name == "help" {
-				continue
-			}
-			continue
-		}
-		isBool := false
-		if b, ok := f.Value.(interface{ IsBoolFlag() bool }); ok {
-			isBool = b.IsBoolFlag()
-		}
-		if !inline && !isBool {
-			if i+1 >= len(args) {
-				return nil, fmt.Errorf("--%s needs a value", name)
-			}
-			i++
-			flags = append(flags, args[i])
-		}
-	}
-	usage := fs.Usage
-	fs.Usage = func() {}
-	err := fs.Parse(flags)
-	fs.Usage = usage
-	if err != nil {
-		if errors.Is(err, flag.ErrHelp) && usage != nil {
-			usage()
-		}
-		return nil, err
-	}
-	return operands, nil
+func markSourceFlags(fs *commandBinding, o *dataset.Options) {
+	o.ItemsSet = fs.context.IsSet("items")
 }
 
-func markSourceFlags(fs *flag.FlagSet, o *dataset.Options) {
-	fs.Visit(func(f *flag.Flag) {
-		if f.Name == "items" {
-			o.ItemsSet = true
-		}
-	})
+type environment struct {
+	Provider            string `env:"DECIDE_PROVIDER"`
+	Model               string `env:"DECIDE_MODEL"`
+	Profile             string `env:"DECIDE_PROFILE"`
+	RunDir              string `env:"DECIDE_RUNS_DIR"`
+	Config              string `env:"DECIDE_CONFIG"`
+	TypeSafeModel       string `env:"TYPESAFE_DEFAULT_MODEL"`
+	TypeSafeBaseURL     string `env:"TYPESAFE_BASE_URL"`
+	CloudflareBaseURL   string `env:"CLOUDFLARE_BASE_URL"`
+	CloudflareAccountID string `env:"CLOUDFLARE_ACCOUNT_ID"`
 }
 
 func envOptions() jobs.Options {
+	// String-only configuration has no conversions or required credentials.
+	config, _ := env.Parse[environment]()
 	o := jobs.DefaultOptions()
-	o.Provider = os.Getenv("DECIDE_PROVIDER")
-	o.Model = os.Getenv("DECIDE_MODEL")
-	o.Profile = os.Getenv("DECIDE_PROFILE")
-	if d := os.Getenv("DECIDE_RUNS_DIR"); d != "" {
-		o.RunDir = d
+	o.Provider, o.Model, o.Profile = config.Provider, config.Model, config.Profile
+	if config.RunDir != "" {
+		o.RunDir = config.RunDir
 	}
 	return o
 }
@@ -150,8 +103,12 @@ type settingsFile struct {
 }
 
 func resolveConnection(o *jobs.Options) error {
+	config, err := env.Parse[environment]()
+	if err != nil {
+		return err
+	}
 	if o.Profile != "" {
-		path := os.Getenv("DECIDE_CONFIG")
+		path := config.Config
 		if path == "" {
 			path = filepath.Join(catalog.Home(), "settings.json")
 		}
@@ -185,17 +142,17 @@ func resolveConnection(o *jobs.Options) error {
 	}
 	if o.Provider == "typesafe" {
 		if o.Model == "" {
-			o.Model = os.Getenv("TYPESAFE_DEFAULT_MODEL")
+			o.Model = config.TypeSafeModel
 		}
 		if o.BaseURL == "" {
-			o.BaseURL = os.Getenv("TYPESAFE_BASE_URL")
+			o.BaseURL = config.TypeSafeBaseURL
 		}
 	} else if o.Provider == "cloudflare" {
 		if o.BaseURL == "" {
-			o.BaseURL = os.Getenv("CLOUDFLARE_BASE_URL")
+			o.BaseURL = config.CloudflareBaseURL
 		}
 		if o.AccountID == "" {
-			o.AccountID = os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+			o.AccountID = config.CloudflareAccountID
 		}
 	} else {
 		return fmt.Errorf("provider %q must be typesafe or cloudflare", o.Provider)
@@ -203,57 +160,50 @@ func resolveConnection(o *jobs.Options) error {
 	return nil
 }
 
-func (a *App) datasetOptions(command string, args []string) (jobs.Options, int, bool) {
+func (a *App) datasetCommand(command string) *commandBinding {
 	o := envOptions()
 	fs := a.flags(command)
-	var params repeated
+	var params []string
 	bindExecution(fs, &o, &params)
-	operands, e := parseOperands(fs, args)
-	if e != nil {
-		if errors.Is(e, flag.ErrHelp) {
-			return o, 0, false
+	return fs.run(func(ctx context.Context, operands []string) int {
+		markSourceFlags(fs, &o.Sources)
+		if o.Skill == "" && o.Pattern == "" {
+			if len(operands) == 0 {
+				return a.fail(errors.New("choose a skill: decide skills list; then decide " + command + " SKILL SOURCES..."))
+			}
+			o.Skill = operands[0]
+			operands = operands[1:]
 		}
-		return o, a.fail(e), false
-	}
-	markSourceFlags(fs, &o.Sources)
-	if o.Skill == "" && o.Pattern == "" {
-		if len(operands) == 0 {
-			return o, a.fail(errors.New("choose a skill: decide skills list; then decide " + command + " SKILL SOURCES...")), false
+		o.Sources.Sources = operands
+		if o.Progress != "auto" && o.Progress != "plain" && o.Progress != "none" {
+			return a.fail(errors.New("progress must be auto, plain, or none"))
 		}
-		o.Skill = operands[0]
-		operands = operands[1:]
-	}
-	o.Sources.Sources = operands
-	if o.Progress != "auto" && o.Progress != "plain" && o.Progress != "none" {
-		return o, a.fail(errors.New("progress must be auto, plain, or none")), false
-	}
-	if o.Color != "auto" && o.Color != "always" && o.Color != "never" {
-		return o, a.fail(errors.New("color must be auto, always, or never")), false
-	}
-	if o.JSONL && o.Details {
-		return o, a.fail(errors.New("choose --details or --jsonl, not both")), false
-	}
-	o.Params, e = catalog.ParameterValues(params)
-	if e == nil {
-		e = resolveConnection(&o)
-	}
-	if e != nil {
-		return o, a.fail(e), false
-	}
-	if len(operands) == 0 && o.Sources.Manifest == "" {
-		if f, ok := a.In.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
-			return o, a.fail(errors.New("choose files, a directory, a URL, or '-' for stdin")), false
+		if o.Color != "auto" && o.Color != "always" && o.Color != "never" {
+			return a.fail(errors.New("color must be auto, always, or never"))
 		}
-	}
-	o.NewClient = a.NewClient
-	return o, 0, true
+		if o.JSONL && o.Details {
+			return a.fail(errors.New("choose --details or --jsonl, not both"))
+		}
+		var e error
+		o.Params, e = catalog.ParameterValues(params)
+		if e == nil {
+			e = resolveConnection(&o)
+		}
+		if e != nil {
+			return a.fail(e)
+		}
+		if len(operands) == 0 && o.Sources.Manifest == "" {
+			if f, ok := a.In.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
+				return a.fail(errors.New("choose files, a directory, a URL, or '-' for stdin"))
+			}
+		}
+		o.NewClient = a.NewClient
+		return a.executeDataset(ctx, command, o)
+
+	})
 }
 
-func (a *App) runDataset(ctx context.Context, command string, args []string) int {
-	o, status, ok := a.datasetOptions(command, args)
-	if !ok {
-		return status
-	}
+func (a *App) executeDataset(ctx context.Context, command string, o jobs.Options) int {
 	if command == "plan" {
 		summary, e := jobs.Plan(ctx, o, a.In, func(p jobs.Prepared) error { return writeJSON(a.Out, p) })
 		if e != nil {
@@ -312,224 +262,199 @@ func (a *App) runDataset(ctx context.Context, command string, args []string) int
 	return 0
 }
 
-func (a *App) runSources(ctx context.Context, args []string) int {
-	if len(args) == 0 {
-		return a.fail(errors.New("sources requires list or preview"))
-	}
-	op := args[0]
-	if op == "--help" || op == "-h" {
-		fmt.Fprintln(a.Out, "Usage: decide sources list|preview SOURCES... [options]\nFiles, directories, URLs, or '-' for stdin. Preview defaults to five items.")
-		return 0
-	}
-	if op != "list" && op != "preview" {
-		return a.fail(fmt.Errorf("unknown sources command %q", op))
-	}
+func (a *App) sourcesCommand(op string) *commandBinding {
 	o := dataset.DefaultOptions()
 	if op == "preview" {
 		o.Limit = 5
 	}
 	fs := a.flags("sources " + op)
 	bindSources(fs, &o)
-	operands, e := parseOperands(fs, args[1:])
-	if e != nil {
-		if errors.Is(e, flag.ErrHelp) {
-			return 0
+	return fs.run(func(ctx context.Context, operands []string) int {
+		var e error
+		markSourceFlags(fs, &o)
+		o.Sources = operands
+		if len(operands) == 0 && o.Manifest == "" {
+			if f, ok := a.In.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
+				return a.fail(errors.New("sources requires a path, URL, or '-' for stdin"))
+			}
 		}
-		return a.fail(e)
-	}
-	markSourceFlags(fs, &o)
-	o.Sources = operands
-	if len(operands) == 0 && o.Manifest == "" {
-		if f, ok := a.In.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
-			return a.fail(errors.New("sources requires a path, URL, or '-' for stdin"))
-		}
-	}
-	e = dataset.Walk(ctx, o, a.In, func(item dataset.Item) error {
-		if op == "list" {
+		e = dataset.Walk(ctx, o, a.In, func(item dataset.Item) error {
+			if op == "list" {
+				return writeJSON(a.Out, struct {
+					ID     string         `json:"id"`
+					Source dataset.Source `json:"source"`
+				}{item.ID, item.Source})
+			}
 			return writeJSON(a.Out, struct {
-				ID     string         `json:"id"`
-				Source dataset.Source `json:"source"`
-			}{item.ID, item.Source})
-		}
-		return writeJSON(a.Out, struct {
-			ID     string          `json:"id"`
-			Source dataset.Source  `json:"source"`
-			Data   json.RawMessage `json:"data"`
-			Images int             `json:"images,omitempty"`
-		}{item.ID, item.Source, item.Data, len(item.Images)})
-	})
-	if e != nil {
-		return a.offlineFailure(e)
-	}
-	return 0
-}
-
-func (a *App) runLibrary(ctx context.Context, kind string, args []string) int {
-	if len(args) == 0 {
-		args = []string{"list"}
-	}
-	op := args[0]
-	if op == "--help" || op == "-h" {
-		fmt.Fprintf(a.Out, "Usage: decide %s list|show NAME [--json]\n", kind)
-		if kind == "skills" {
-			fmt.Fprintln(a.Out, "       decide skills new NAME [--from builtin/code-risk]\n       decide skills edit|validate|test NAME [--live]\nMake a little judgment your own. Built-in skills are read-only.")
+				ID     string          `json:"id"`
+				Source dataset.Source  `json:"source"`
+				Data   json.RawMessage `json:"data"`
+				Images int             `json:"images,omitempty"`
+			}{item.ID, item.Source, item.Data, len(item.Images)})
+		})
+		if e != nil {
+			return a.offlineFailure(e)
 		}
 		return 0
-	}
+	})
+}
+
+func (a *App) libraryCommand(kind, op string) *commandBinding {
 	fs := a.flags(kind + " " + op)
 	asJSON := fs.Bool("json", false, "machine-readable library metadata")
-	from := fs.String("from", "", "copy a skill as the starting point")
-	live := fs.Bool("live", false, "qualify examples with actual model calls")
-	operands, e := parseOperands(fs, args[1:])
-	if e != nil {
-		if errors.Is(e, flag.ErrHelp) {
-			return 0
-		}
-		return a.fail(e)
+	from, live := new(string), new(bool)
+	if kind == "skills" && op == "new" {
+		fs.StringVar(from, "from", "", "copy a skill as the starting point")
 	}
-	if op == "list" {
-		if len(operands) > 0 {
-			return a.fail(errors.New("list takes no operands"))
-		}
-		if kind == "skills" {
-			items, e := catalog.ListSkills()
+	if kind == "skills" && op == "test" {
+		fs.BoolVar(live, "live", false, "qualify examples with actual model calls")
+	}
+	return fs.run(func(ctx context.Context, operands []string) int {
+		var e error
+		if op == "list" {
+			if len(operands) > 0 {
+				return a.fail(errors.New("list takes no operands"))
+			}
+			if kind == "skills" {
+				items, e := catalog.ListSkills()
+				if e != nil {
+					return a.fail(e)
+				}
+				if *asJSON {
+					return a.offlineFailure(writeJSON(a.Out, items))
+				}
+				fmt.Fprint(a.Out, "Your judgment shelf\n\n")
+				for _, s := range items {
+					fmt.Fprintf(a.Out, "  %-28s %s\n", s.Name, s.Description)
+				}
+				fmt.Fprintln(a.Out, "\nTry: decide run code-risk . --include '**/*.go'")
+				return 0
+			}
+			items, e := catalog.ListPatterns()
 			if e != nil {
 				return a.fail(e)
 			}
 			if *asJSON {
 				return a.offlineFailure(writeJSON(a.Out, items))
 			}
-			fmt.Fprint(a.Out, "Your judgment shelf\n\n")
-			for _, s := range items {
-				fmt.Fprintf(a.Out, "  %-28s %s\n", s.Name, s.Description)
+			fmt.Fprint(a.Out, "Ways to put judgments to work\n\n")
+			for _, p := range items {
+				fmt.Fprintf(a.Out, "  %-28s %s\n", p.Name, p.Description)
 			}
-			fmt.Fprintln(a.Out, "\nTry: decide run code-risk . --include '**/*.go'")
+			fmt.Fprintln(a.Out, "\nShow a pattern, save its JSON, then run --pattern FILE.")
 			return 0
 		}
-		items, e := catalog.ListPatterns()
+		if len(operands) != 1 {
+			return a.fail(fmt.Errorf("%s %s requires one name", kind, op))
+		}
+		name := operands[0]
+		if kind == "patterns" {
+			if op != "show" {
+				return a.fail(fmt.Errorf("patterns supports list and show"))
+			}
+			p, e := catalog.LoadPattern(name)
+			if e != nil {
+				return a.fail(e)
+			}
+			return a.offlineFailure(writePrettyJSON(a.Out, p))
+		}
+		if op == "new" {
+			p, e := catalog.CreateSkill(name, *from)
+			if e != nil {
+				return a.fail(e)
+			}
+			fmt.Fprintf(a.Out, "A fresh judgment, ready to shape: %s\nTry: decide skills edit %s\n", p, name)
+			return 0
+		}
+		if op == "edit" {
+			p, e := catalog.SkillPath(name)
+			if e != nil {
+				return a.fail(e)
+			}
+			editor := os.Getenv("VISUAL")
+			if editor == "" {
+				editor = os.Getenv("EDITOR")
+			}
+			if editor == "" {
+				return a.fail(fmt.Errorf("set VISUAL or EDITOR, or edit %s directly", p))
+			}
+			cmd := exec.CommandContext(ctx, "sh", "-c", editor+` "$1"`, "decide-editor", p)
+			cmd.Stdin = a.In
+			cmd.Stdout = a.Out
+			cmd.Stderr = a.Err
+			if e := cmd.Run(); e != nil {
+				return a.fail(e)
+			}
+			if _, e := catalog.LoadSkill(p); e != nil {
+				return a.fail(e)
+			}
+			fmt.Fprintln(a.Out, "Saved and validated. Ready for a sample.")
+			return 0
+		}
+		s, e := catalog.LoadSkill(name)
 		if e != nil {
 			return a.fail(e)
 		}
-		if *asJSON {
-			return a.offlineFailure(writeJSON(a.Out, items))
-		}
-		fmt.Fprint(a.Out, "Ways to put judgments to work\n\n")
-		for _, p := range items {
-			fmt.Fprintf(a.Out, "  %-28s %s\n", p.Name, p.Description)
-		}
-		fmt.Fprintln(a.Out, "\nShow a pattern, save its JSON, then run --pattern FILE.")
-		return 0
-	}
-	if len(operands) != 1 {
-		return a.fail(fmt.Errorf("%s %s requires one name", kind, op))
-	}
-	name := operands[0]
-	if kind == "patterns" {
-		if op != "show" {
-			return a.fail(fmt.Errorf("patterns supports list and show"))
-		}
-		p, e := catalog.LoadPattern(name)
-		if e != nil {
-			return a.fail(e)
-		}
-		return a.offlineFailure(writePrettyJSON(a.Out, p))
-	}
-	if op == "new" {
-		p, e := catalog.CreateSkill(name, *from)
-		if e != nil {
-			return a.fail(e)
-		}
-		fmt.Fprintf(a.Out, "A fresh judgment, ready to shape: %s\nTry: decide skills edit %s\n", p, name)
-		return 0
-	}
-	if op == "edit" {
-		p, e := catalog.SkillPath(name)
-		if e != nil {
-			return a.fail(e)
-		}
-		editor := os.Getenv("VISUAL")
-		if editor == "" {
-			editor = os.Getenv("EDITOR")
-		}
-		if editor == "" {
-			return a.fail(fmt.Errorf("set VISUAL or EDITOR, or edit %s directly", p))
-		}
-		cmd := exec.CommandContext(ctx, "sh", "-c", editor+` "$1"`, "decide-editor", p)
-		cmd.Stdin = a.In
-		cmd.Stdout = a.Out
-		cmd.Stderr = a.Err
-		if e := cmd.Run(); e != nil {
-			return a.fail(e)
-		}
-		if _, e := catalog.LoadSkill(p); e != nil {
-			return a.fail(e)
-		}
-		fmt.Fprintln(a.Out, "Saved and validated. Ready for a sample.")
-		return 0
-	}
-	s, e := catalog.LoadSkill(name)
-	if e != nil {
-		return a.fail(e)
-	}
-	switch op {
-	case "show":
-		if *asJSON {
-			return a.offlineFailure(writePrettyJSON(a.Out, s))
-		}
-		fmt.Fprintf(a.Out, "%s\n%s\n\n", s.Name, s.Description)
-		fmt.Fprint(a.Out, s.Documentation)
-		fmt.Fprintf(a.Out, "\nInputs: %s\n", strings.Join(s.Inputs, ", "))
-		for n, p := range s.Parameters {
-			fmt.Fprintf(a.Out, "Parameter %s (%s): %s; default %s\n", n, p.Type, p.Description, catalog.FormatParameter(p))
-		}
-		return 0
-	case "validate":
-		fmt.Fprintf(a.Out, "%s is ready: %d typed questions, %d examples.\n", name, len(s.Questions), len(s.Examples))
-		return 0
-	case "test":
-		resolved, e := catalog.ResolveParameters(s, nil)
-		if e != nil {
-			return a.fail(e)
-		}
-		if _, e = catalog.Questions(resolved); e != nil {
-			return a.fail(e)
-		}
-		if *live && len(s.Examples) == 0 {
-			return a.fail(errors.New("this skill has no examples; choose image sources with run"))
-		}
-		var input strings.Builder
-		for _, ex := range s.Examples {
-			input.Write(ex)
-			input.WriteByte('\n')
-		}
-		o := envOptions()
-		o.Skill = name
-		o.Sources.Sources = []string{"-"}
-		o.Sources.Format = "jsonl"
-		o.NewClient = a.NewClient
-		if !*live {
-			if len(s.Examples) > 0 {
-				if _, e := jobs.Plan(ctx, o, strings.NewReader(input.String()), nil); e != nil {
-					return a.offlineFailure(e)
+		switch op {
+		case "show":
+			if *asJSON {
+				return a.offlineFailure(writePrettyJSON(a.Out, s))
+			}
+			fmt.Fprintf(a.Out, "%s\n%s\n\n", s.Name, s.Description)
+			fmt.Fprint(a.Out, s.Documentation)
+			fmt.Fprintf(a.Out, "\nInputs: %s\n", strings.Join(s.Inputs, ", "))
+			for n, p := range s.Parameters {
+				fmt.Fprintf(a.Out, "Parameter %s (%s): %s; default %s\n", n, p.Type, p.Description, catalog.FormatParameter(p))
+			}
+			return 0
+		case "validate":
+			fmt.Fprintf(a.Out, "%s is ready: %d typed questions, %d examples.\n", name, len(s.Questions), len(s.Examples))
+			return 0
+		case "test":
+			resolved, e := catalog.ResolveParameters(s, nil)
+			if e != nil {
+				return a.fail(e)
+			}
+			if _, e = catalog.Questions(resolved); e != nil {
+				return a.fail(e)
+			}
+			if *live && len(s.Examples) == 0 {
+				return a.fail(errors.New("this skill has no examples; choose image sources with run"))
+			}
+			var input strings.Builder
+			for _, ex := range s.Examples {
+				input.Write(ex)
+				input.WriteByte('\n')
+			}
+			o := envOptions()
+			o.Skill = name
+			o.Sources.Sources = []string{"-"}
+			o.Sources.Format = "jsonl"
+			o.NewClient = a.NewClient
+			if !*live {
+				if len(s.Examples) > 0 {
+					if _, e := jobs.Plan(ctx, o, strings.NewReader(input.String()), nil); e != nil {
+						return a.offlineFailure(e)
+					}
 				}
+				fmt.Fprintf(a.Out, "%s: definitions and %d examples validated offline. No model calls.\n", name, len(s.Examples))
+				return 0
 			}
-			fmt.Fprintf(a.Out, "%s: definitions and %d examples validated offline. No model calls.\n", name, len(s.Examples))
+			if e := resolveConnection(&o); e != nil {
+				return a.fail(e)
+			}
+			summary, e := jobs.Run(ctx, o, strings.NewReader(input.String()), func(r jobs.Result) error { return writeJSON(a.Out, r) })
+			if e != nil {
+				return a.offlineFailure(e)
+			}
+			if summary.Failed > 0 || summary.Uncertain > 0 {
+				return 2
+			}
 			return 0
+		default:
+			return a.fail(fmt.Errorf("unknown skills command %q", op))
 		}
-		if e := resolveConnection(&o); e != nil {
-			return a.fail(e)
-		}
-		summary, e := jobs.Run(ctx, o, strings.NewReader(input.String()), func(r jobs.Result) error { return writeJSON(a.Out, r) })
-		if e != nil {
-			return a.offlineFailure(e)
-		}
-		if summary.Failed > 0 || summary.Uncertain > 0 {
-			return 2
-		}
-		return 0
-	default:
-		return a.fail(fmt.Errorf("unknown skills command %q", op))
-	}
+	})
 }
 
 func writePrettyJSON(w io.Writer, v any) error {
@@ -541,15 +466,7 @@ func writePrettyJSON(w io.Writer, v any) error {
 	return err
 }
 
-func (a *App) runRuns(ctx context.Context, args []string) int {
-	if len(args) == 0 {
-		args = []string{"list"}
-	}
-	op := args[0]
-	if op == "--help" || op == "-h" {
-		fmt.Fprintln(a.Out, "Usage: decide runs list|view|show|watch|resume|export [ID] [options]\nView saved decisions without making model calls.")
-		return 0
-	}
+func (a *App) runsCommand(op string) *commandBinding {
 	o := envOptions()
 	fs := a.flags("runs " + op)
 	var asJSON, retryFailed, retryUncertain bool
@@ -569,138 +486,132 @@ func (a *App) runRuns(ctx context.Context, args []string) int {
 		}
 	case "export":
 		fs.StringVar(&o.Output, "output", "", "export to a new file")
-	default:
-		return a.fail(fmt.Errorf("unknown runs command %q", op))
 	}
-	operands, e := parseOperands(fs, args[1:])
-	if e != nil {
-		if errors.Is(e, flag.ErrHelp) {
-			return 0
-		}
-		return a.fail(e)
-	}
-	if op == "list" {
-		if len(operands) > 0 {
-			return a.fail(errors.New("runs list takes no ID"))
-		}
-		items, e := jobs.List(o.RunDir)
-		if e != nil {
-			return a.fail(e)
-		}
-		if asJSON {
-			return a.offlineFailure(writeJSON(a.Out, items))
-		}
-		if len(items) == 0 {
-			fmt.Fprintln(a.Out, "No saved runs yet. Try: decide run builtin/code-risk . --include '**/*.go' --sample 5")
-			return 0
-		}
-		for _, s := range items {
-			fmt.Fprintf(a.Out, "%-30s %-12s %5d complete %4d failed  %s\n", s.ID, s.Status, s.Completed, s.Failed, s.Skill)
-		}
-		return 0
-	}
-	if len(operands) != 1 {
-		return a.fail(fmt.Errorf("runs %s requires one run ID or path", op))
-	}
-	id := operands[0]
-	switch op {
-	case "view":
-		if o.Color != "auto" && o.Color != "always" && o.Color != "never" {
-			return a.fail(errors.New("color must be auto, always, or never"))
-		}
-		if o.JSONL && o.Details {
-			return a.fail(errors.New("choose --details or --jsonl, not both"))
-		}
-		printer := newResultPrinter(a.Out, o.Color, o.Details)
-		err := jobs.ReadEvidence(id, o.RunDir, func(r jobs.Result) error {
-			if err := ctx.Err(); err != nil {
-				return err
+	return fs.run(func(ctx context.Context, operands []string) int {
+		if op == "list" {
+			if len(operands) > 0 {
+				return a.fail(errors.New("runs list takes no ID"))
 			}
-			if o.JSONL {
-				return writeJSON(a.Out, r)
-			}
-			return printer.result(r)
-		})
-		if err != nil {
-			return a.offlineFailure(err)
-		}
-		if !o.JSONL {
-			if sum, err := jobs.Show(id, o.RunDir); err == nil {
-				return a.offlineFailure(printer.summary(sum))
-			}
-		}
-		return 0
-	case "show", "watch":
-		for {
-			s, e := jobs.Show(id, o.RunDir)
+			items, e := jobs.List(o.RunDir)
 			if e != nil {
 				return a.fail(e)
 			}
 			if asJSON {
-				if e := writeJSON(a.Out, s); e != nil {
-					return a.fail(e)
-				}
-			} else {
-				fmt.Fprintf(a.Out, "%s · %s · %d/%d complete · %d failed · %d uncertain · %d requests\n", s.ID, s.Status, s.Completed, s.Items, s.Failed, s.Uncertain, s.Requests)
+				return a.offlineFailure(writeJSON(a.Out, items))
 			}
-			if op == "show" || (s.Status != "preparing" && s.Status != "prepared" && s.Status != "running") {
+			if len(items) == 0 {
+				fmt.Fprintln(a.Out, "No saved runs yet. Try: decide run builtin/code-risk . --include '**/*.go' --sample 5")
 				return 0
 			}
-			select {
-			case <-ctx.Done():
-				return 130
-			case <-time.After(time.Second):
+			for _, s := range items {
+				fmt.Fprintf(a.Out, "%-30s %-12s %5d complete %4d failed  %s\n", s.ID, s.Status, s.Completed, s.Failed, s.Skill)
 			}
+			return 0
 		}
-	case "export":
-		w := a.Out
-		if o.Output != "" {
-			f, e := os.OpenFile(o.Output, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-			if e != nil {
-				return a.fail(e)
+		if len(operands) != 1 {
+			return a.fail(fmt.Errorf("runs %s requires one run ID or path", op))
+		}
+		id := operands[0]
+		switch op {
+		case "view":
+			if o.Color != "auto" && o.Color != "always" && o.Color != "never" {
+				return a.fail(errors.New("color must be auto, always, or never"))
 			}
-			defer f.Close()
-			w = f
-		}
-		return a.offlineFailure(jobs.Export(id, o.RunDir, w))
-	case "resume":
-		if o.Color != "auto" && o.Color != "always" && o.Color != "never" {
-			return a.fail(errors.New("color must be auto, always, or never"))
-		}
-		if o.JSONL && o.Details {
-			return a.fail(errors.New("choose --details or --jsonl, not both"))
-		}
-		printer := newResultPrinter(a.Out, o.Color, o.Details)
-		o.NewClient = a.NewClient // Only explicitly supplied execution overrides are forwarded.
-		visited := map[string]bool{}
-		fs.Visit(func(f *flag.Flag) { visited[f.Name] = true })
-		if !visited["workers"] {
-			o.Workers = 0
-		}
-		if !visited["max-requests"] {
-			o.MaxRequests = 0
-		}
-		s, e := jobs.Resume(ctx, id, o, retryFailed, retryUncertain, func(r jobs.Result) error {
+			if o.JSONL && o.Details {
+				return a.fail(errors.New("choose --details or --jsonl, not both"))
+			}
+			printer := newResultPrinter(a.Out, o.Color, o.Details)
+			err := jobs.ReadEvidence(id, o.RunDir, func(r jobs.Result) error {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				if o.JSONL {
+					return writeJSON(a.Out, r)
+				}
+				return printer.result(r)
+			})
+			if err != nil {
+				return a.offlineFailure(err)
+			}
+			if !o.JSONL {
+				if sum, err := jobs.Show(id, o.RunDir); err == nil {
+					return a.offlineFailure(printer.summary(sum))
+				}
+			}
+			return 0
+		case "show", "watch":
+			for {
+				s, e := jobs.Show(id, o.RunDir)
+				if e != nil {
+					return a.fail(e)
+				}
+				if asJSON {
+					if e := writeJSON(a.Out, s); e != nil {
+						return a.fail(e)
+					}
+				} else {
+					fmt.Fprintf(a.Out, "%s · %s · %d/%d complete · %d failed · %d uncertain · %d requests\n", s.ID, s.Status, s.Completed, s.Items, s.Failed, s.Uncertain, s.Requests)
+				}
+				if op == "show" || (s.Status != "preparing" && s.Status != "prepared" && s.Status != "running") {
+					return 0
+				}
+				select {
+				case <-ctx.Done():
+					return 130
+				case <-time.After(time.Second):
+				}
+			}
+		case "export":
+			w := a.Out
+			if o.Output != "" {
+				f, e := os.OpenFile(o.Output, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+				if e != nil {
+					return a.fail(e)
+				}
+				defer f.Close()
+				w = f
+			}
+			return a.offlineFailure(jobs.Export(id, o.RunDir, w))
+		case "resume":
+			if o.Color != "auto" && o.Color != "always" && o.Color != "never" {
+				return a.fail(errors.New("color must be auto, always, or never"))
+			}
+			if o.JSONL && o.Details {
+				return a.fail(errors.New("choose --details or --jsonl, not both"))
+			}
+			printer := newResultPrinter(a.Out, o.Color, o.Details)
+			o.NewClient = a.NewClient // Only explicitly supplied execution overrides are forwarded.
+			visited := map[string]bool{}
+			for _, flag := range fs.flags {
+				visited[flag.GetName()] = fs.context.IsSet(flag.GetName())
+			}
+			if !visited["workers"] {
+				o.Workers = 0
+			}
+			if !visited["max-requests"] {
+				o.MaxRequests = 0
+			}
+			s, e := jobs.Resume(ctx, id, o, retryFailed, retryUncertain, func(r jobs.Result) error {
+				if o.JSONL {
+					return writeJSON(a.Out, r)
+				}
+				return printer.result(r)
+			})
 			if o.JSONL {
-				return writeJSON(a.Out, r)
+				fmt.Fprintf(a.Err, "Run %s: %s · %d complete · %d failed · %d uncertain\n", s.ID, s.Status, s.Completed, s.Failed, s.Uncertain)
+			} else if s.ID != "" {
+				if err := printer.summary(s); err != nil {
+					return a.fail(err)
+				}
 			}
-			return printer.result(r)
-		})
-		if o.JSONL {
-			fmt.Fprintf(a.Err, "Run %s: %s · %d complete · %d failed · %d uncertain\n", s.ID, s.Status, s.Completed, s.Failed, s.Uncertain)
-		} else if s.ID != "" {
-			if err := printer.summary(s); err != nil {
-				return a.fail(err)
+			if e != nil {
+				return a.offlineFailure(e)
 			}
+			if s.Failed > 0 || s.Uncertain > 0 || s.Status != "complete" {
+				return 2
+			}
+			return 0
 		}
-		if e != nil {
-			return a.offlineFailure(e)
-		}
-		if s.Failed > 0 || s.Uncertain > 0 || s.Status != "complete" {
-			return 2
-		}
-		return 0
-	default:
 		return a.fail(fmt.Errorf("unknown runs command %q", op))
-	}
+	})
 }

@@ -12,6 +12,7 @@ import (
 	"unicode"
 
 	"github.com/deepnoodle-ai/decide/internal/jobs"
+	"github.com/deepnoodle-ai/wonton/tui"
 	"golang.org/x/term"
 )
 
@@ -29,11 +30,18 @@ func newResultPrinter(out io.Writer, color string, details bool) resultPrinter {
 	return resultPrinter{out: out, color: enabled, details: details}
 }
 
-func (p resultPrinter) style(code, text string) string {
+var (
+	titleStyle = tui.NewStyle().WithBold()
+	labelStyle = tui.NewStyle().WithDim()
+	errorStyle = tui.NewStyle().WithForeground(tui.ColorRed)
+	valueStyle = tui.NewStyle().WithForeground(tui.ColorCyan)
+)
+
+func (p resultPrinter) style(style tui.Style, text string) string {
 	if !p.color {
 		return text
 	}
-	return "\x1b[" + code + "m" + text + "\x1b[0m"
+	return style.Apply(text)
 }
 
 func readable(text string) string {
@@ -46,7 +54,7 @@ func readable(text string) string {
 }
 
 func (p resultPrinter) summary(s jobs.Summary) error {
-	_, err := fmt.Fprintf(p.out, "%s  %d complete · %d failed · %d dropped · %d uncertain · %d requests\n%s %s\n%s decide runs view %s\n", p.style("1", "Run "+s.ID+": "+s.Status), s.Completed, s.Failed, s.Dropped, s.Uncertain, s.Requests, p.style("2", "Saved evidence:"), readable(s.Path), p.style("2", "View decisions:"), s.ID)
+	_, err := fmt.Fprintf(p.out, "%s  %d complete · %d failed · %d dropped · %d uncertain · %d requests\n%s %s\n%s decide runs view %s\n", p.style(titleStyle, "Run "+s.ID+": "+s.Status), s.Completed, s.Failed, s.Dropped, s.Uncertain, s.Requests, p.style(labelStyle, "Saved evidence:"), readable(s.Path), p.style(labelStyle, "View decisions:"), s.ID)
 	return err
 }
 
@@ -62,9 +70,9 @@ func (p resultPrinter) result(r jobs.Result) error {
 		name += fmt.Sprintf(":%d", r.Source.Line)
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s  %s\n", p.style("1", readable(name)), p.style("2", readable(r.Status)))
+	fmt.Fprintf(&b, "%s  %s\n", p.style(titleStyle, readable(name)), p.style(labelStyle, readable(r.Status)))
 	if r.Error != "" {
-		fmt.Fprintf(&b, "  %s\n", p.style("31", readable(r.Error)))
+		fmt.Fprintf(&b, "  %s\n", p.style(errorStyle, readable(r.Error)))
 	}
 	for _, stage := range r.Stages {
 		var response struct {
@@ -79,7 +87,7 @@ func (p resultPrinter) result(r jobs.Result) error {
 		}
 		sort.Strings(keys)
 		if len(r.Stages) > 1 {
-			fmt.Fprintf(&b, "  %s\n", p.style("2", readable(stage.Name)))
+			fmt.Fprintf(&b, "  %s\n", p.style(labelStyle, readable(stage.Name)))
 		}
 		for _, key := range keys {
 			var a struct {
@@ -121,12 +129,12 @@ func (p resultPrinter) result(r jobs.Result) error {
 					value += fmt.Sprintf(" · %.0f%% probability", probability*100)
 				}
 			}
-			fmt.Fprintf(&b, "  %s  %s\n", p.style("2", fmt.Sprintf("%-*s", width, readable(key))), p.style("36", value))
+			fmt.Fprintf(&b, "  %s  %s\n", p.style(labelStyle, fmt.Sprintf("%-*s", width, readable(key))), p.style(valueStyle, value))
 			if !p.details {
 				continue
 			}
 			if a.Confidence != nil {
-				fmt.Fprintf(&b, "    %s %.0f%%\n", p.style("2", "Confidence:"), *a.Confidence*100)
+				fmt.Fprintf(&b, "    %s %.0f%%\n", p.style(labelStyle, "Confidence:"), *a.Confidence*100)
 			}
 			levels := make([]string, 0, len(a.Probabilities))
 			for level := range a.Probabilities {
@@ -149,11 +157,11 @@ func (p resultPrinter) result(r jobs.Result) error {
 				}
 				probability := a.Probabilities[level]
 				filled := max(0, min(10, int(math.Round(probability*10))))
-				fmt.Fprintf(&b, "    %s %s  %s\n", p.style("36", fmt.Sprintf("%3.0f%%", probability*100)), p.style("36", strings.Repeat("█", filled))+p.style("2", strings.Repeat("░", 10-filled)), label)
+				fmt.Fprintf(&b, "    %s %s  %s\n", p.style(valueStyle, fmt.Sprintf("%3.0f%%", probability*100)), p.style(valueStyle, strings.Repeat("█", filled))+p.style(labelStyle, strings.Repeat("░", 10-filled)), label)
 			}
 		}
 		if len(response.Answers) == 0 && len(stage.Result) > 0 {
-			fmt.Fprintf(&b, "  %s  %s\n", p.style("2", readable(stage.Name)), p.style("36", shortResult(stage.Result)))
+			fmt.Fprintf(&b, "  %s  %s\n", p.style(labelStyle, readable(stage.Name)), p.style(valueStyle, shortResult(stage.Result)))
 		}
 	}
 	b.WriteByte('\n')

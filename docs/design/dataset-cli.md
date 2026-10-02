@@ -56,10 +56,21 @@ admission and writes its started record before dispatch. The runner owns retries
 and disables hidden client retries. Uncertain transport failures are not silently
 repeated. Collection patterns have explicit collection limits. Limits and partial completion
 are visible in the run summary. Run artifacts retain source identity and request
-evidence. Existing saved envelopes keep their discriminator and remain readable.
+evidence. Exported run results retain the `decide_run: 1` discriminator.
 
 ## Commands
 
+The entire command tree uses `wonton/cli`: command groups, typed flags,
+repeatable filters, argument validation, help, and typo suggestions. A small
+binding helper assigns Wonton's parsed values to execution options; it does not
+parse arguments. `wonton/env` loads typed connection defaults and profile paths.
+`wonton/tui` styles render filenames, labels, errors, and decision values inline.
+There is no full-screen interface. The root SDK remains standard-library-only.
+
+
+The CLI has one judgment workflow: `run`. There are no separate primitive
+judgment commands or compatibility routes.
+Skills supply reusable questions; patterns compose them through `run --pattern`.
 Commands never launch a screen or ask a question. The starting workflow is
 `run SKILL SOURCES...`, `runs list`, and `runs view ID`. `runs view` streams saved
 results through the same typed answer formatter as live execution. It never
@@ -90,7 +101,7 @@ shows each newly completed item’s decisions. The behavior is explicit and inde
 `skills` and `patterns` list/show accept JSON output; skill new/edit/validate/test
 operate on local bundles. Tests are offline unless `--live` is supplied.
 `runs` list/view/show/watch/export/resume use recorded IDs or explicit artifact paths.
-`runs view` accepts run directories, result JSONL, and legacy envelopes.
+`runs view` accepts run directories and exported result JSONL.
 Flags override DECIDE environment defaults and profiles; recorded settings win
 on resume. Provider-specific credentials are never flags.
 
