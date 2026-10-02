@@ -120,7 +120,7 @@ func resolveSources(opts Options) ([]configuredSource, error) {
 		out = append(out, configuredSource{path, opts})
 	}
 	if opts.Manifest != "" {
-		f, err := os.Open(opts.Manifest)
+		f, err := openRegularFile(opts.Manifest)
 		if err != nil {
 			return nil, err
 		}

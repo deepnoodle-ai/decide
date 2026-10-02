@@ -45,4 +45,15 @@ func TestSourcesListSkipsFIFOAndRejectsDirectFIFO(t *testing.T) {
 			t.Fatal("sources list blocked on a FIFO")
 		}
 	}
+	a, _, diagnostics := coreApp(t, "", nil)
+	done := make(chan int, 1)
+	go func() { done <- a.Run(t.Context(), []string{"sources", "list", "--sources", fifo}) }()
+	select {
+	case code := <-done:
+		if code != 2 || !strings.Contains(diagnostics.String(), "not a regular file") {
+			t.Fatalf("FIFO manifest: code=%d diagnostics=%s", code, diagnostics)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("sources list blocked on a FIFO manifest")
+	}
 }
