@@ -9,7 +9,8 @@ The CLI is experimental. Commands and file formats may change before v1.
 ## Install and try it
 
 ```sh
-go install github.com/deepnoodle-ai/decide/cmd/decide@latest
+brew install deepnoodle-ai/tap/decide
+# or: go install github.com/deepnoodle-ai/decide/cmd/decide@latest
 export TYPESAFE_API_KEY=...   # or use Clef; see Providers below
 
 echo "The new release fixed everything I cared about" | decide run sentiment
@@ -25,6 +26,10 @@ stdin:1  The new release fixed everything I cared about
 Saved as run 20261002-153012-a1b2
 See these results again with: decide runs view 20261002-153012-a1b2
 ```
+
+Each [release](https://github.com/deepnoodle-ai/decide/releases) also has
+binaries for Linux, macOS, and Windows, with a `checksums.txt` file.
+`decide --version` prints the version you have.
 
 ## Three ideas
 

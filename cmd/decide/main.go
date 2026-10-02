@@ -7,9 +7,14 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"runtime/debug"
 
 	"github.com/deepnoodle-ai/decide/internal/cli"
 )
+
+// version is set when a release is built, with
+// -ldflags "-X main.version=v1.2.3".
+var version string
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -20,5 +25,17 @@ func main() {
 		<-ctx.Done()
 		stop()
 	}()
-	os.Exit((&cli.App{}).Run(ctx, os.Args[1:]))
+	os.Exit((&cli.App{Version: versionOf()}).Run(ctx, os.Args[1:]))
+}
+
+// versionOf returns the release version, the module version of a binary
+// built with go install, or "dev".
+func versionOf() string {
+	if version != "" {
+		return version
+	}
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return info.Main.Version
+	}
+	return "dev"
 }

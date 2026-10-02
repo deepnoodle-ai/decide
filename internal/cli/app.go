@@ -23,6 +23,9 @@ type App struct {
 	// NewClient connects to a provider. It defaults to reading credentials
 	// from the environment; tests replace it with a fake server.
 	NewClient func(provider, model string) (*decide.Client, error)
+
+	// Version is printed by "decide --version".
+	Version string
 }
 
 const overview = `Decide asks typed questions about your data and saves every answer.
@@ -57,6 +60,9 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		Long(overview).
 		SetStdin(a.Stdin).SetStdout(a.Stdout).SetStderr(a.Stderr).
 		ForceInteractive(false)
+	if a.Version != "" {
+		app.Version(a.Version)
+	}
 	a.addRun(app)
 	a.addTemplates(app)
 	a.addRuns(app)

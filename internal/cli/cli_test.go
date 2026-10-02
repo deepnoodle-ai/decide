@@ -81,6 +81,14 @@ func TestOverview(t *testing.T) {
 	contains(t, out.stdout, "Examples:", "--dry-run", "--param")
 }
 
+func TestVersion(t *testing.T) {
+	var stdout bytes.Buffer
+	app := &App{Stdin: strings.NewReader(""), Stdout: &stdout, Stderr: &stdout, Version: "v1.2.3"}
+	if code := app.Run(context.Background(), []string{"--version"}); code != 0 || strings.TrimSpace(stdout.String()) != "v1.2.3" {
+		t.Fatalf("exit %d, output %q", code, stdout.String())
+	}
+}
+
 func TestTemplates(t *testing.T) {
 	h := setup(t)
 	out := h.run("", "templates")

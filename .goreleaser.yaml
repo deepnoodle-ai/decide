@@ -1,0 +1,51 @@
+version: 2
+
+project_name: decide
+
+builds:
+  - main: ./cmd/decide
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{ .Tag }}
+
+archives:
+  # No version in the names, so CI can always download
+  # releases/latest/download/decide_linux_amd64.tar.gz.
+  - name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [LICENSE, README.md]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: github-native
+
+release:
+  prerelease: auto
+
+brews:
+  - repository:
+      owner: deepnoodle-ai
+      name: homebrew-tap
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: https://github.com/deepnoodle-ai/decide
+    description: Ask typed questions about your data and get answers with probabilities
+    license: Apache-2.0
+    commit_author:
+      name: github-actions[bot]
+      email: github-actions[bot]@users.noreply.github.com
+    commit_msg_template: Update decide to {{ .Tag }}
+    skip_upload: auto
+    install: |
+      bin.install "decide"
+    test: |
+      assert_match version.to_s, shell_output("#{bin}/decide --version")

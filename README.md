@@ -26,8 +26,11 @@ under Apache 2.0.
 ## Try it
 
 ```sh
-go install github.com/deepnoodle-ai/decide/cmd/decide@latest
+brew install deepnoodle-ai/tap/decide
 ```
+
+Or `go install github.com/deepnoodle-ai/decide/cmd/decide@latest`, or
+download a binary from the [releases](https://github.com/deepnoodle-ai/decide/releases).
 
 **With Jev,** the default, set your TypeSafe API key:
 
@@ -69,7 +72,8 @@ Saved as run 20261002-153012-a1b2
 See these results again with: decide runs view 20261002-153012-a1b2
 ```
 
-Requires Go 1.27 or later. Run `decide` on its own for a tour.
+Building from source requires Go 1.27 or later. Run `decide` on its own for
+a tour.
 
 ## What you can ask
 
