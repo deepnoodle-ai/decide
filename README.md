@@ -73,7 +73,7 @@ Requires Go 1.27 or later. Run `decide` on its own for a tour.
 
 ## What you can ask
 
-Decide comes with eight templates. A template is a named set of questions.
+Decide comes with nine templates. A template is a named set of questions.
 
 | Template | Asks about each item |
 | --- | --- |
@@ -84,6 +84,7 @@ Decide comes with eight templates. A template is a named set of questions.
 | `code-risk` | Could it cause security or data problems, and how maintainable is it? |
 | `prompt-injection` | Does it try to take over an AI agent that reads it? |
 | `task-readiness` | Is this issue ready to hand to a coding agent, and how large is it? |
+| `pr-description` | Do this pull request's title and description meet your guidelines? |
 | `receipt-quality` | Does this image show a readable receipt? Runs on Clef. |
 
 ```sh
@@ -94,6 +95,7 @@ decide run code-risk src --fail-on flagged   # exit code 2 if anything is flagge
 git diff main | decide run code-risk --each function   # judge each changed function
 git diff main | decide run prompt-injection            # hidden instructions for AI agents
 gh issue list --json number,title,body | decide run task-readiness
+gh pr view 42 --json number,title,body | decide run pr-description --fail-on flagged
 ```
 
 Decide reads JSONL, JSON, CSV, text, Markdown, source code, diffs, and images,

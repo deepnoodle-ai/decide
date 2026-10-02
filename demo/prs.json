@@ -1,0 +1,27 @@
+[
+  {
+    "number": 201,
+    "title": "Reject refunds larger than the payment",
+    "body": "Fixes #101. `Refunds.Apply` stopped checking the payment amount in the refactor, so a 5000 cent refund against a 1000 cent payment went through.\n\n`Apply` now returns `ErrTooLarge` and writes nothing when the amount is more than the payment.\n\n## Testing\n\nAdded cases to `billing/refund_test.go` for a refund under, equal to, and over the payment. `go test ./...` passes."
+  },
+  {
+    "number": 202,
+    "title": "fix stuff",
+    "body": "see slack"
+  },
+  {
+    "number": 203,
+    "title": "Format negative amounts with a minus sign",
+    "body": "`billing.Format(-150)` returned `$-1.-50`, which showed up on credit notes. It now returns `-$1.50`.\n\nCloses #103."
+  },
+  {
+    "number": 204,
+    "title": "WIP",
+    "body": "## Summary\n\n<!-- Describe your change and link the issue it fixes. -->\n\n## Testing\n\n- [ ] Unit tests\n- [ ] Tried it locally"
+  },
+  {
+    "number": 205,
+    "title": "Fixed the bug where webhook deliveries that failed were never retried and customers missed order updates",
+    "body": "Closes #105. Order webhooks were sent once, so a short outage on the customer's side meant a missed order update.\n\n`webhooks.Deliver` now retries a failed delivery up to 3 times, after 1s, 5s, and 30s, then marks it failed.\n\nTested with a fake server that fails twice and then succeeds, in `webhooks/deliver_test.go`."
+  }
+]

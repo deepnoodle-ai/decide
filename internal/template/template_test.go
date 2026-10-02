@@ -28,7 +28,7 @@ func TestBuiltinsAreValid(t *testing.T) {
 			t.Errorf("%s: location %q, docs %d bytes", s.Name, s.Location, len(s.Docs))
 		}
 	}
-	if got := strings.Join(names, ","); got != "code-risk,prompt-injection,receipt-quality,relevance,sentiment,task-readiness,ticket-routing,triage" {
+	if got := strings.Join(names, ","); got != "code-risk,pr-description,prompt-injection,receipt-quality,relevance,sentiment,task-readiness,ticket-routing,triage" {
 		t.Fatalf("builtins = %s", got)
 	}
 }
@@ -75,7 +75,7 @@ func TestBrokenTemplateDoesNotHideOthers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(all) != 8 || len(broken) != 1 || !strings.Contains(broken[0].Error(), "template.json:3:3") {
+	if len(all) != 9 || len(broken) != 1 || !strings.Contains(broken[0].Error(), "template.json:3:3") {
 		t.Fatalf("List = %d templates, broken %v", len(all), broken)
 	}
 }

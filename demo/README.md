@@ -9,6 +9,7 @@ templates or to record a demo.
 | `repo/` | `shop` with the change applied |
 | `change.diff` | The change: a cleanup, a dropped refund check, SQL built from input, a new rule in `AGENTS.md`, and a doc that hides instructions for AI agents |
 | `issues.json` | Six issues, as `gh issue list --json number,title,body` prints them: two ready, three vague or too large, and one that hides instructions for AI agents |
+| `prs.json` | Five pull requests, as `gh pr list --json number,title,body` prints them: one complete, and four with a vague title, no reason, no testing notes, or a title that breaks the guidelines |
 | `setup.sh` | Creates a git repository with the change uncommitted, so `git diff` works |
 
 ## Try it
@@ -33,6 +34,7 @@ Then go back to the root of this repository and judge the issues:
 cd -
 decide run task-readiness demo/issues.json    # flags the vague and large issues
 decide run prompt-injection demo/issues.json  # flags issue 105
+decide run pr-description demo/prs.json       # flags all but pull request 201
 ```
 
 Without git, run the same templates on `change.diff` from inside `repo/`:

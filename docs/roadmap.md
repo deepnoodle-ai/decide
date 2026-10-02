@@ -8,6 +8,8 @@ off, or remove them, as they land.
 - [x] **Templates.** Rename "skills" to "templates" (#30).
 - [x] **`prompt-injection` and `task-readiness`.** Two built-in templates,
       with a demo repository and issues that have planted problems.
+- [x] **`pr-description`.** Check pull request titles and descriptions
+      against a team's guidelines, with demo pull requests.
 - [ ] **More code templates.** `breaking-change`, `secrets`, `sql-injection`,
       and `commit-messages`, each with planted problems in the demo.
 - [ ] **`decide eval`.** Measure a template on labeled examples: agreement
