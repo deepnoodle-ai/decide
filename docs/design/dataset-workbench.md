@@ -41,11 +41,21 @@ content digests. Append-only attempt and result records permit recovery after
 an interruption. Persisted successful results are not resubmitted. A submitted
 request with no recorded response is uncertain, not automatically safe to retry.
 Credentials are resolved at execution and never saved in artifacts.
+Preparation completes its disk snapshot before any model request. Cancellation
+during preparation marks the run `preparation-incomplete`; execution resume must
+reject that status with a missing-input explanation. Restart preparation from
+the original sources instead. Normal runs snapshot every prepared item, including
+original data and prepared state; reference mode verifies local source digests
+on resume, while copy mode does not require the original source.
 
 Concurrency, prefetch, rate, byte limits, timeout, retries, and request ceilings
 bound resource use. Counts include retries and composition stages. Results are
 written as they complete by default; ordered output remains available and bounded.
-Collection patterns have explicit collection limits. Limits and partial completion
+Ordered output reads durable result files in input order instead of accumulating
+an unbounded reorder buffer. Each actual provider attempt acquires request-budget
+admission and writes its started record before dispatch. The runner owns retries
+and disables hidden client retries. Uncertain transport failures are not silently
+repeated. Collection patterns have explicit collection limits. Limits and partial completion
 are visible in the run summary. Run artifacts retain source identity and request
 evidence. Existing saved envelopes keep their discriminator and remain readable.
 
@@ -61,6 +71,34 @@ block the event loop. Exiting cancels work and leaves its artifact resumable.
 Batch commands never launch a screen or ask a question. Help is grouped around
 sources, judgments, execution, and evidence. Friendly copy lives in interactive
 guidance and success summaries; error messages stay specific and factual.
+
+## Executable contracts
+
+Skills use version 1 manifests with `name`, `description`, `inputs`, `parameters`,
+`questions`, `state` (`value` or `file`), optional `policy`, and optional `pattern`.
+Parameters have `type`, `default`, and `required`; declared `{{name}}` placeholders
+are substituted within JSON values. Pattern manifests use version 1 and `type`:
+`map` has `skill`; `heads` has a Choice `selector` and `branches` mapping option
+keys to skill names; `funnel` has ordered `stages` with names, skills, optional
+models, answer keys, thresholds, and limits; `gate` has `policy` and source `run`;
+`rank` has source `run` and `answer`; `rank-pack` adds `budget_bytes`.
+An item dropped by screening remains an exported outcome. Failed answers never
+become a successful drop. Collection patterns validate saved questions and answers.
+
+`plan`, `run`, `sources list`, and `sources preview` share source arguments and
+flags. `plan` and `run` additionally accept a skill operand or `--pattern` and
+typed `--param` values. Execution flags select provider, model, profile, workers,
+rate, timeout, retries, request ceilings, snapshot policy, and artifact directory.
+`plan` emits prepared-item JSONL; `run` emits result JSONL and a stderr summary.
+`skills` and `patterns` list/show accept JSON output; skill new/edit/validate/test
+operate on local bundles. Tests are offline unless `--live` is supplied.
+`runs` list/show/watch/export/resume use recorded IDs or explicit artifact paths.
+`inspect` accepts run artifacts or old envelopes; `explore` accepts sources and
+initial skill selection. Flags override DECIDE environment defaults and profiles;
+recorded settings win on resume. Provider-specific credentials are never flags.
+Workbench sample and full-dataset actions are distinct. Sample comparison uses
+the same prepared sample. Configuration export records source selection and
+parameters so the experiment can be reproduced from a batch command.
 
 ## Tradeoffs and rollout
 
