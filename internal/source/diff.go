@@ -517,8 +517,8 @@ func (w *walker) addedLines(f *diffFile) error {
 }
 
 // local finds a file that a diff names, in the working directory or at the
-// root of its git repository. The path comes from the diff, so it must stay
-// inside them, and a symbolic link is not followed.
+// root of its git repository. The path comes from the diff, so the file it
+// leads to, after following any symbolic links, must be inside them.
 func (w *walker) local(name string) (string, bool) {
 	rel := path.Clean(name)
 	if rel == "" || rel == "." || path.IsAbs(rel) || filepath.IsAbs(filepath.FromSlash(rel)) || rel == ".." || strings.HasPrefix(rel, "../") {
@@ -528,12 +528,25 @@ func (w *walker) local(name string) (string, bool) {
 		if dir == "" {
 			continue
 		}
-		p := filepath.Join(dir, filepath.FromSlash(rel))
-		if info, err := os.Lstat(p); err == nil && info.Mode().IsRegular() {
-			return p, true
+		root, err := filepath.EvalSymlinks(dir)
+		if err != nil {
+			continue
+		}
+		real, err := filepath.EvalSymlinks(filepath.Join(dir, filepath.FromSlash(rel)))
+		if err != nil || !within(root, real) {
+			continue
+		}
+		if info, err := os.Stat(real); err == nil && info.Mode().IsRegular() {
+			return real, true
 		}
 	}
 	return "", false
+}
+
+// within reports whether path p is inside folder dir.
+func within(dir, p string) bool {
+	rel, err := filepath.Rel(dir, p)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 
 // repoRoot finds the top of the git repository holding the working
