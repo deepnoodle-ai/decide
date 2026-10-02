@@ -27,13 +27,13 @@ type App struct {
 
 const overview = `Decide asks typed questions about your data and saves every answer.
 
-A skill is a set of questions, like "Is this file risky?" or "Which queue
-should this ticket go to?". Run a skill on files, folders, JSON, or text, and
-Decide shows each answer with its probability.
+A template is a set of questions, like "Is this file risky?" or "Which
+queue should this ticket go to?". Run a template on files, folders, JSON, or
+text, and Decide shows each answer with its probability.
 
 Get started:
-  decide skills                       see the built-in skills
-  decide run sentiment reviews.txt    run a skill on each line of a file
+  decide templates                    see the built-in templates
+  decide run sentiment reviews.txt    run a template on each line of a file
   decide runs view                    look at your latest results
 
 Set TYPESAFE_API_KEY before your first run.`
@@ -58,7 +58,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		SetStdin(a.Stdin).SetStdout(a.Stdout).SetStderr(a.Stderr).
 		ForceInteractive(false)
 	a.addRun(app)
-	a.addSkills(app)
+	a.addTemplates(app)
 	a.addRuns(app)
 
 	err := app.ExecuteContext(ctx, args)

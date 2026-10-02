@@ -28,10 +28,10 @@ See these results again with: decide runs view 20261002-153012-a1b2
 
 ## Three ideas
 
-- A **skill** is a set of questions, such as "Is this file risky?" or "Which
-  queue does this ticket belong to?". `decide skills` lists them.
-- `decide run SKILL DATA` asks the skill's questions about each **item** in
-  your data.
+- A **template** is a set of questions, such as "Is this file risky?" or "Which
+  queue does this ticket belong to?". `decide templates` lists them.
+- `decide run TEMPLATE DATA` asks the template's questions about each
+  **item** in your data.
 - Every run is saved. `decide runs` lists past runs, and `decide runs view`
   shows the latest results again without calling the model.
 
@@ -45,7 +45,7 @@ Each question has one of three types, and its answer has a probability:
 | `choice` | which one of several options fits | `queue  billing  91%` |
 | `score` | where something falls on a scale | `maintainability  ━━━━━━━━────  2.7 of 4  Clear responsibilities…` |
 
-Some skills flag the answers that need attention, such as a file that is
+Some templates flag the answers that need attention, such as a file that is
 probably risky. A flagged answer is red and marked with `!`, an answer
 close to being flagged is yellow, and the others are green. The summary
 lists the flagged items:
@@ -59,7 +59,7 @@ marker/app.py
 Flagged: marker/Makefile, marker/app.py
 ```
 
-Other skills look for matches instead, such as the items relevant to your
+Other templates look for matches instead, such as the items relevant to your
 question. A match is bold green and marked with `●`, the other answers are
 dim, and the summary lists the matches:
 
@@ -71,9 +71,9 @@ notes.txt:12  Annual plans are now 20% cheaper than monthly ones
 Matched: notes.txt:12, notes.txt:15, notes.txt:22, notes.txt:28
 ```
 
-`decide skills show SKILL` says when each question is flagged or matched. A
-yes-or-no answer between 40% and 60% is yellow in every skill: the model is
-unsure.
+`decide templates show TEMPLATE` says when each question is flagged or
+matched. A yes-or-no answer between 40% and 60% is yellow in every template:
+the model is unsure.
 
 Add `--details` to see the full probability of every option and the
 model's confidence. Add `--json` to get one JSON line per item instead.
@@ -87,7 +87,7 @@ Your data decides what one item is:
 | JSONL, JSON, or CSV | each record: a line, an element of an array, or a row named by the header |
 | a `.txt` file, or piped text | each line |
 | any other text file, such as Markdown or code | the whole file, sent with its path |
-| images, for an image skill such as `receipt-quality` | each image |
+| images, for an image template such as `receipt-quality` | each image |
 
 Choose another unit with `--each`:
 
@@ -106,7 +106,7 @@ decide run code-risk src --each function                           # which funct
 ```
 
 The model sees each section or paragraph with the headings above it. A
-Markdown file's headings and code blocks are not paragraphs. Some skills
+Markdown file's headings and code blocks are not paragraphs. Some templates
 choose a unit for you: `code-risk` reads whole files.
 
 With `--each function`, each function, method, and constructor is an item,
@@ -174,7 +174,7 @@ output keeps the whole record as `input`.
 
 ## Parameters
 
-Some skills have parameters, written `{{name}}` in their questions. Set
+Some templates have parameters, written `{{name}}` in their questions. Set
 them with `--param` (or `-p`):
 
 ```sh
@@ -182,7 +182,8 @@ decide run relevance notes.txt -p question="pricing"
 decide run code-risk src -p focus="SQL injection"
 ```
 
-`decide skills show SKILL` lists a skill's parameters and their defaults.
+`decide templates show TEMPLATE` lists a template's parameters and their
+defaults.
 
 ## Saved runs
 
@@ -198,21 +199,21 @@ If you stop a run with Ctrl-C, or some items fail, `decide runs resume`
 asks about the remaining items using the saved inputs and questions. It
 never repeats an item that already has an answer.
 
-Runs are saved in `~/.decide/runs`. Set `DECIDE_HOME` to keep skills and
+Runs are saved in `~/.decide/runs`. Set `DECIDE_HOME` to keep templates and
 runs somewhere else.
 
-## Write your own skill
+## Write your own template
 
 ```sh
-decide skills new my-routing --from ticket-routing
+decide templates new my-routing --from ticket-routing
 ```
 
-This creates `~/.decide/skills/my-routing/skill.json`. Add `--project`
-to create it in `.decide/skills` in the current folder instead, so you can
-commit it and share it with your team. Project skills take precedence over
-your own, which take precedence over the built-in skills.
+This creates `~/.decide/templates/my-routing/template.json`. Add `--project`
+to create it in `.decide/templates` in the current folder instead, so you can
+commit it and share it with your team. Project templates take precedence over
+your own, which take precedence over the built-in templates.
 
-A skill looks like this:
+A template looks like this:
 
 ```json
 {
@@ -239,7 +240,7 @@ A skill looks like this:
 }
 ```
 
-A skill reads text unless it says `"input": "image"`. Add `"each": "file"`
+A template reads text unless it says `"input": "image"`. Add `"each": "file"`
 (or `section`, `paragraph`, `function`, or `line`) to choose the unit its
 questions are written for; `--each` still overrides it.
 
@@ -283,20 +284,20 @@ looking for, such as the items relevant to a topic:
 ```
 
 Write instructions about one item at a time, and treat the item as
-evidence rather than instructions. An optional `SKILL.md` next to
-`skill.json` holds notes that `decide skills show` prints.
+evidence rather than instructions. An optional `README.md` next to
+`template.json` holds notes that `decide templates show` prints.
 
-Check your skill as you go:
+Check your template as you go:
 
 ```sh
-decide skills show my-routing
+decide templates show my-routing
 decide run my-routing tickets.jsonl --dry-run
 ```
 
 ## Providers
 
 Decide runs on two decision models, through the same commands and
-skills:
+templates:
 
 - **Jev** by [TypeSafe](https://docs.typesafe.ai/introduction), the
   default, with the `jev-latest` model:
@@ -306,7 +307,7 @@ skills:
   ```
 
 - **Clef** by [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/models/clef/),
-  with the `clef` model, or `clef-flash` for lower latency. Image skills
+  with the `clef` model, or `clef-flash` for lower latency. Image templates
   always use Clef.
 
   ```sh

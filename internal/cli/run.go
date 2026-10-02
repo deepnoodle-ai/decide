@@ -15,20 +15,20 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/internal/runs"
-	"github.com/deepnoodle-ai/decide/internal/skill"
 	"github.com/deepnoodle-ai/decide/internal/source"
+	"github.com/deepnoodle-ai/decide/internal/template"
 	"github.com/deepnoodle-ai/wonton/cli"
 	"github.com/deepnoodle-ai/wonton/humanize"
 )
 
-const runHelp = `Run a skill: ask its questions about each item in your data, show the
+const runHelp = `Run a template: ask its questions about each item in your data, show the
 answers, and save them as a run.
 
 What counts as an item depends on your data:
   JSONL, JSON, CSV     each record
   .txt files, stdin    each line
   other files          the whole file
-  images               each image, for image skills
+  images               each image, for image templates
 
 Choose another unit with --each file, line, paragraph, section, or
 function. A section is the text under a Markdown heading. A function is a
@@ -50,15 +50,15 @@ Examples:
 
 func (a *App) addRun(app *cli.App) {
 	app.Command("run").
-		Description("Run a skill on your data").
+		Description("Run a template on your data").
 		Long(runHelp).
-		AddArg(&cli.Arg{Name: "skill", Description: "The skill to run; see them with: decide skills"}).
+		AddArg(&cli.Arg{Name: "template", Description: "The template to run; see them with: decide templates"}).
 		AddArg(&cli.Arg{Name: "data", Description: "Files and folders to read (default: stdin)", Variadic: true}).
 		Flags(
 			cli.Strings("include", "i").Help("Only read files that match this pattern, like '*.go' (repeatable)"),
 			cli.Strings("exclude", "x").Help("Skip files that match this pattern (repeatable)"),
-			cli.Strings("param", "p").Help("Set a skill parameter, as name=value (repeatable)"),
-			cli.String("each").Enum(skill.Units...).Help("What one item is: file, line, paragraph, section, or function (default: depends on the data)"),
+			cli.Strings("param", "p").Help("Set a template parameter, as name=value (repeatable)"),
+			cli.String("each").Enum(template.Units...).Help("What one item is: file, line, paragraph, section, or function (default: depends on the data)"),
 			cli.String("field").Help("Ask about one field of each JSON record, like body or ticket.body"),
 			cli.String("items").Help("Where the records are inside a JSON file, like data.tickets"),
 			cli.Int("limit", "n").Help("Stop after this many items"),
@@ -77,10 +77,10 @@ func (a *App) addRun(app *cli.App) {
 
 func (a *App) run(c *cli.Context) error {
 	if c.NArg() == 0 {
-		return cli.Error("Which skill should decide run?").
-			Hint("See the skills with: decide skills\nThen run one, like: decide run sentiment reviews.txt")
+		return cli.Error("Which template should decide run?").
+			Hint("See the templates with: decide templates\nThen run one, like: decide run sentiment reviews.txt")
 	}
-	s, err := loadSkill(c.Arg(0))
+	s, err := loadTemplate(c.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (a *App) run(c *cli.Context) error {
 				s.Name, exampleData(s), s.Name))
 	}
 	each := c.String("each")
-	if each != "" && s.Input == skill.Image {
+	if each != "" && s.Input == template.Image {
 		return cli.Errorf("%s reads one image at a time, so --each does not apply", s.Name)
 	}
 	if each == "" {
@@ -136,11 +136,11 @@ func (a *App) run(c *cli.Context) error {
 	provider := c.String("provider")
 	if provider == "" {
 		provider = "typesafe"
-		if s.Input == skill.Image {
+		if s.Input == template.Image {
 			provider = "cloudflare"
 		}
 	}
-	if s.Input == skill.Image && provider != "cloudflare" {
+	if s.Input == template.Image && provider != "cloudflare" {
 		return cli.Errorf("%s reads images, which need the cloudflare provider", s.Name).
 			Hint("Run it with --provider cloudflare")
 	}
@@ -153,7 +153,7 @@ func (a *App) run(c *cli.Context) error {
 		return err
 	}
 
-	run, err := runs.Create(&runs.Run{Skill: resolved, Params: values, Provider: provider, Model: model, Sources: displayPaths(paths)})
+	run, err := runs.Create(&runs.Run{Template: resolved, Params: values, Provider: provider, Model: model, Sources: displayPaths(paths)})
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,7 @@ func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, work
 	if err != nil {
 		return err
 	}
-	out := newCollector(marksOf(run.Skill), saved, itemWriter(c, run.Skill))
+	out := newCollector(marksOf(run.Template), saved, itemWriter(c, run.Template))
 	start := time.Now()
 	err = run.Execute(c.Context(), client, workers, out.add)
 	elapsed := time.Since(start)
@@ -255,7 +255,7 @@ func credentialHint(provider string) string {
 }
 
 // itemWriter prints items as text, or as JSON lines with --json.
-func itemWriter(c *cli.Context, s *skill.Skill) func(item) error {
+func itemWriter(c *cli.Context, s *template.Template) func(item) error {
 	if c.Bool("json") {
 		enc := json.NewEncoder(c.Stdout())
 		return func(it item) error { return enc.Encode(it.json()) }
@@ -268,7 +268,7 @@ func itemWriter(c *cli.Context, s *skill.Skill) func(item) error {
 // not nil, with every answered item.
 func progress(run *runs.Run, each func(item)) (answered, failures, total int) {
 	results, _ := run.Results()
-	for _, it := range group(results, marksOf(run.Skill)) {
+	for _, it := range group(results, marksOf(run.Template)) {
 		if it.Status != "complete" {
 			failures++
 			continue
@@ -286,7 +286,7 @@ func progress(run *runs.Run, each func(item)) (answered, failures, total int) {
 }
 
 func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) {
-	m := marksOf(run.Skill)
+	m := marksOf(run.Template)
 	var flaggedItems, matchedItems []string
 	answered, failures, total := progress(run, func(it item) {
 		if m.has(it.Result, flagged) {
@@ -348,7 +348,7 @@ func list(w io.Writer, label string, sources []string) {
 	fmt.Fprintf(w, "%s %s\n", dim(label), text)
 }
 
-func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source.Options) error {
+func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts source.Options) error {
 	if c.Bool("json") {
 		enc := json.NewEncoder(c.Stdout())
 		return source.Walk(c.Context(), paths, c.Stdin(), opts, func(it source.Item) error { return enc.Encode(it) })
@@ -409,7 +409,7 @@ func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source
 	return nil
 }
 
-func nothingFound(s *skill.Skill, paths []string, opts source.Options) error {
+func nothingFound(s *template.Template, paths []string, opts source.Options) error {
 	where := "the input"
 	if len(paths) > 0 {
 		where = strings.Join(paths, ", ")
@@ -418,21 +418,21 @@ func nothingFound(s *skill.Skill, paths []string, opts source.Options) error {
 	switch {
 	case len(opts.Include) > 0:
 		return err.Hint("No files matched --include " + strings.Join(opts.Include, ", ") + ". Patterns like '*.go' match at any depth.")
-	case s.Input == skill.Image:
-		return err.Hint("Image skills read PNG, JPEG, and WebP files.")
+	case s.Input == template.Image:
+		return err.Hint("Image templates read PNG, JPEG, and WebP files.")
 	}
 	return err
 }
 
-func loadSkill(name string) (*skill.Skill, error) {
-	s, err := skill.Load(name)
-	var nf *skill.NotFoundError
+func loadTemplate(name string) (*template.Template, error) {
+	s, err := template.Load(name)
+	var nf *template.NotFoundError
 	if errors.As(err, &nf) {
-		e := cli.Errorf("There is no skill named %q", name)
+		e := cli.Errorf("There is no template named %q", name)
 		if _, statErr := os.Stat(name); statErr == nil {
-			return nil, e.Hint("Put the skill name first, then your data: decide run SKILL " + name)
+			return nil, e.Hint("Put the template name first, then your data: decide run TEMPLATE " + name)
 		}
-		return nil, e.Hint("See the skills with: decide skills")
+		return nil, e.Hint("See the templates with: decide templates")
 	}
 	return s, err
 }
@@ -451,26 +451,26 @@ func parseParams(args []string) (map[string]string, error) {
 }
 
 func paramError(err error) error {
-	var pe *skill.ParamError
+	var pe *template.ParamError
 	if !errors.As(err, &pe) {
 		return err
 	}
 	if pe.Missing != "" {
-		p := pe.Skill.Parameters[pe.Missing]
+		p := pe.Template.Parameters[pe.Missing]
 		hint := fmt.Sprintf("Set it with: --param %s=\"...\"", pe.Missing)
 		if p.Description != "" {
 			hint = p.Description + ".\n" + hint
 		}
 		return cli.Error(pe.Msg).Hint(hint)
 	}
-	names := pe.Skill.ParameterNames()
+	names := pe.Template.ParameterNames()
 	if len(names) == 0 {
-		return cli.Error(pe.Msg).Hint(pe.Skill.Name + " has no parameters.")
+		return cli.Error(pe.Msg).Hint(pe.Template.Name + " has no parameters.")
 	}
 	return cli.Error(pe.Msg).Hint("Its parameters are: " + strings.Join(names, ", "))
 }
 
-// count says how many items there are, in the skill's terms.
+// count says how many items there are, in the template's terms.
 // tally counts the items a walk finds, by unit, and the requests they
 // take.
 type tally struct {
@@ -485,7 +485,7 @@ func newTally() *tally { return &tally{units: map[string]int{}} }
 func (t *tally) add(it source.Item) {
 	t.units[it.Unit]++
 	t.requests += max(len(it.Parts), 1)
-	if it.Unit == skill.EachFile && source.Language(it.Label) != "" {
+	if it.Unit == template.EachFile && source.Language(it.Label) != "" {
 		t.code++
 	}
 	if len(it.Parts) > 0 {
@@ -503,11 +503,11 @@ func (t *tally) items() int {
 
 // unitNames lists units in the order a tally names them.
 var unitNames = [][3]string{
-	{skill.EachFile, "file", "files"},
-	{skill.EachFunction, "function", "functions"},
-	{skill.EachSection, "section", "sections"},
-	{skill.EachParagraph, "paragraph", "paragraphs"},
-	{skill.EachLine, "line", "lines"},
+	{template.EachFile, "file", "files"},
+	{template.EachFunction, "function", "functions"},
+	{template.EachSection, "section", "sections"},
+	{template.EachParagraph, "paragraph", "paragraphs"},
+	{template.EachLine, "line", "lines"},
 	{source.UnitRecord, "record", "records"},
 	{source.UnitImage, "image", "images"},
 }
@@ -533,31 +533,31 @@ func (t *tally) String() string {
 
 // eachHint points out --each when the data chose the unit, so splitting
 // a file or not is never a surprise. For code, it points out --each
-// function even when the skill chose whole files.
-func eachHint(t *tally, chosen bool, skillEach string, paths []string) string {
+// function even when the template chose whole files.
+func eachHint(t *tally, chosen bool, templateEach string, paths []string) string {
 	if chosen || len(paths) == 0 || slices.Equal(paths, []string{"-"}) {
 		return ""
 	}
 	switch {
-	case t.code > 0 && t.code*2 >= t.units[skill.EachFile]:
+	case t.code > 0 && t.code*2 >= t.units[template.EachFile]:
 		return "Each file is one item. To judge each function instead, add --each function."
-	case skillEach != "":
+	case templateEach != "":
 		return ""
-	case t.units[skill.EachFile] > 0:
+	case t.units[template.EachFile] > 0:
 		return "Each file is one item. To judge each section or paragraph instead, add --each section or --each paragraph."
-	case t.units[skill.EachLine] > 0:
+	case t.units[template.EachLine] > 0:
 		return "Each line is one item. To judge each file as a whole instead, add --each file."
 	}
 	return ""
 }
 
-func exampleData(s *skill.Skill) string {
+func exampleData(s *template.Template) string {
 	switch {
 	case s == nil:
 		return "data.jsonl"
-	case s.Input == skill.Image:
+	case s.Input == template.Image:
 		return "photos"
-	case s.Each == skill.EachFile:
+	case s.Each == template.EachFile:
 		return "src"
 	}
 	return "data.jsonl"

@@ -15,7 +15,7 @@ repository. Before v1, fixes go into main and the next tagged release.
 Examples of what we want to hear about:
 
 - Credentials appearing in errors, logs, saved runs, or output.
-- File names, data, or skill files that can send escape sequences to the
+- File names, data, or template files that can send escape sequences to the
   terminal.
 - Reading or writing files the command was not asked to touch.
 - Answers accepted without being validated against their questions.

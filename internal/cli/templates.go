@@ -6,43 +6,43 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/deepnoodle-ai/decide/internal/skill"
+	"github.com/deepnoodle-ai/decide/internal/template"
 	"github.com/deepnoodle-ai/wonton/cli"
 )
 
-func (a *App) addSkills(app *cli.App) {
-	g := app.Group("skills").
-		Alias("skill").
-		Description("List, explain, and create skills").
-		Run(a.skillsList)
+func (a *App) addTemplates(app *cli.App) {
+	g := app.Group("templates").
+		Alias("template").
+		Description("List, explain, and create templates").
+		Run(a.templatesList)
 	g.Command("list").
-		Description("List the skills you can run").
-		Run(a.skillsList)
+		Description("List the templates you can run").
+		Run(a.templatesList)
 	g.Command("show").
-		Description("Explain what a skill asks and how to run it").
-		AddArg(&cli.Arg{Name: "skill", Description: "The skill to explain, like sentiment", Required: true}).
-		Run(a.skillsShow)
+		Description("Explain what a template asks and how to run it").
+		AddArg(&cli.Arg{Name: "template", Description: "The template to explain, like sentiment", Required: true}).
+		Run(a.templatesShow)
 	g.Command("new").
-		Description("Create your own skill").
-		Long(`Create a skill in ~/.decide/skills/NAME, ready to edit.
+		Description("Create your own template").
+		Long(`Create a template in ~/.decide/templates/NAME, ready to edit.
 
-A skill is a skill.json file with a name, a description, an input type
+A template is a template.json file with a name, a description, an input type
 (file, record, or image), and one or more questions. Start from scratch or
-copy an existing skill with --from.
+copy an existing template with --from.
 
 Examples:
-  decide skills new my-routing --from ticket-routing
-  decide skills new my-skill --project`).
-		AddArg(&cli.Arg{Name: "name", Description: "A name for the new skill, like my-triage", Required: true}).
+  decide templates new my-routing --from ticket-routing
+  decide templates new my-template --project`).
+		AddArg(&cli.Arg{Name: "name", Description: "A name for the new template, like my-triage", Required: true}).
 		Flags(
-			cli.String("from").Help("Start from a copy of this skill"),
-			cli.Bool("project").Help("Save it in this folder's .decide/skills, to share with your team"),
+			cli.String("from").Help("Start from a copy of this template"),
+			cli.Bool("project").Help("Save it in this folder's .decide/templates, to share with your team"),
 		).
-		Run(a.skillsNew)
+		Run(a.templatesNew)
 }
 
-func (a *App) skillsList(c *cli.Context) error {
-	all, broken, err := skill.List()
+func (a *App) templatesList(c *cli.Context) error {
+	all, broken, err := template.List()
 	if err != nil {
 		return err
 	}
@@ -51,25 +51,25 @@ func (a *App) skillsList(c *cli.Context) error {
 		width = max(width, len(s.Name))
 	}
 	w := c.Stdout()
-	fmt.Fprintf(w, "%s\n\n", bold("Skills"))
+	fmt.Fprintf(w, "%s\n\n", bold("Templates"))
 	for _, s := range all {
 		where := ""
-		if s.Location != skill.BuiltIn {
+		if s.Location != template.BuiltIn {
 			where = "  " + dim("("+s.Location+")")
 		}
 		fmt.Fprintf(w, "  %-*s  %s%s\n", width, s.Name, clean(s.Description), where)
 	}
 	for _, err := range broken {
-		fmt.Fprintf(c.Stderr(), "\n%s\n", failed("Could not load a skill: "+clean(err.Error())))
+		fmt.Fprintf(c.Stderr(), "\n%s\n", failed("Could not load a template: "+clean(err.Error())))
 	}
-	fmt.Fprintf(w, "\n%s  decide skills show sentiment\n", dim("Learn about one:"))
+	fmt.Fprintf(w, "\n%s  decide templates show sentiment\n", dim("Learn about one:"))
 	fmt.Fprintf(w, "%s          echo \"I love it\" | decide run sentiment\n", dim("Try one:"))
-	fmt.Fprintf(w, "%s         decide skills new NAME\n", dim("Make one:"))
+	fmt.Fprintf(w, "%s         decide templates new NAME\n", dim("Make one:"))
 	return nil
 }
 
-func (a *App) skillsShow(c *cli.Context) error {
-	original, err := loadSkill(c.Arg(0))
+func (a *App) templatesShow(c *cli.Context) error {
+	original, err := loadTemplate(c.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (a *App) skillsShow(c *cli.Context) error {
 		fmt.Fprintf(w, "\n  %s  %s\n", value(clean(q.Key)), dim("answered "+describe(q.Raw)))
 		fmt.Fprint(w, wrap(clean(fmt.Sprint(body.Instructions)), 72, "    "))
 		var levels []any
-		var options skill.Questions // a choice's options, in order
+		var options template.Questions // a choice's options, in order
 		switch {
 		case json.Unmarshal(body.Criteria, &levels) == nil:
 			for i, l := range levels {
@@ -140,19 +140,19 @@ func (a *App) skillsShow(c *cli.Context) error {
 
 	fmt.Fprintf(w, "\n%s\n", bold("Run it"))
 	fmt.Fprintf(w, "  decide run %s %s%s\n", s.Name, exampleData(s), exampleParams(s))
-	if s.Location == skill.BuiltIn {
+	if s.Location == template.BuiltIn {
 		fmt.Fprintf(w, "\n%s\n", bold("Make your own version"))
-		fmt.Fprintf(w, "  decide skills new my-%s --from %s\n", s.Name, s.Name)
+		fmt.Fprintf(w, "  decide templates new my-%s --from %s\n", s.Name, s.Name)
 	} else {
-		fmt.Fprintf(w, "\n%s\n  %s\n", bold("Edit it"), clean(filepath.Join(s.Dir, "skill.json")))
+		fmt.Fprintf(w, "\n%s\n  %s\n", bold("Edit it"), clean(filepath.Join(s.Dir, "template.json")))
 	}
 	return nil
 }
 
-// reads says what a skill reads and what one item is.
-func reads(s *skill.Skill) string {
+// reads says what a template reads and what one item is.
+func reads(s *template.Template) string {
 	switch {
-	case s.Input == skill.Image:
+	case s.Input == template.Image:
 		return "images, one item per PNG, JPEG, or WebP file"
 	case s.Each != "":
 		return fmt.Sprintf("text, one item per %s (change it with --each)", s.Each)
@@ -160,17 +160,17 @@ func reads(s *skill.Skill) string {
 	return "text, one item per record of JSONL, JSON, or CSV, per line of .txt or stdin, and per file otherwise (change it with --each)"
 }
 
-func where(s *skill.Skill) string {
+func where(s *template.Template) string {
 	switch s.Location {
-	case skill.BuiltIn:
+	case template.BuiltIn:
 		return "built-in"
-	case skill.User:
-		return "your skill"
+	case template.User:
+		return "your template"
 	}
-	return "project skill"
+	return "project template"
 }
 
-func exampleParams(s *skill.Skill) string {
+func exampleParams(s *template.Template) string {
 	var b strings.Builder
 	for _, name := range s.ParameterNames() {
 		if s.Parameters[name].Default == "" {
@@ -180,23 +180,23 @@ func exampleParams(s *skill.Skill) string {
 	return b.String()
 }
 
-func (a *App) skillsNew(c *cli.Context) error {
+func (a *App) templatesNew(c *cli.Context) error {
 	name := c.Arg(0)
-	var from *skill.Skill
+	var from *template.Template
 	if src := c.String("from"); src != "" {
 		var err error
-		if from, err = loadSkill(src); err != nil {
+		if from, err = loadTemplate(src); err != nil {
 			return err
 		}
 	}
-	path, err := skill.Create(name, from, c.Bool("project"))
+	path, err := template.Create(name, from, c.Bool("project"))
 	if err != nil {
 		return err
 	}
 	w := c.Stdout()
 	fmt.Fprintf(w, "%s %s\n\n", good("Created"), path)
 	fmt.Fprintf(w, "Edit it to describe your questions, then check it with:\n")
-	fmt.Fprintf(w, "  decide skills show %s\n", name)
+	fmt.Fprintf(w, "  decide templates show %s\n", name)
 	fmt.Fprintf(w, "  decide run %s %s --dry-run\n", name, exampleData(from))
 	return nil
 }

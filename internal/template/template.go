@@ -1,10 +1,11 @@
-// Package skill loads skills: named sets of typed questions that the decide
-// command asks about every item in a dataset.
+// Package template loads templates: named sets of typed questions that the
+// decide command asks about every item in a dataset.
 //
-// A skill is a directory containing skill.json and an optional SKILL.md.
-// Skills are found, in order, in .decide/skills in the working directory,
-// in DECIDE_HOME/skills, and among the built-in skills. The first match wins.
-package skill
+// A template is a directory containing template.json and an optional
+// README.md. Templates are found, in order, in .decide/templates in the
+// working directory, in DECIDE_HOME/templates, and among the built-in
+// templates. The first match wins.
+package template
 
 import (
 	"bytes"
@@ -23,7 +24,7 @@ import (
 	"github.com/deepnoodle-ai/decide"
 )
 
-// Input says what kind of content a skill reads.
+// Input says what kind of content a template reads.
 type Input string
 
 const (
@@ -34,7 +35,7 @@ const (
 )
 
 // Units say how much of a text file is one item. The run's --each flag
-// chooses one, then the skill's Each, and otherwise the data does: a
+// chooses one, then the template's Each, and otherwise the data does: a
 // dataset (JSONL, a JSON array, or CSV) has one item per record, a .txt
 // file or piped text one per line, and any other file is one item.
 const (
@@ -45,18 +46,18 @@ const (
 	EachFunction  = "function"
 )
 
-// Units lists the values of --each and of a skill's each.
+// Units lists the values of --each and of a template's each.
 var Units = []string{EachFile, EachLine, EachParagraph, EachSection, EachFunction}
 
-// Where a skill was found.
+// Where a template was found.
 const (
 	BuiltIn = "built-in"
 	Project = "project"
 	User    = "user"
 )
 
-// Skill is a named set of questions.
-type Skill struct {
+// Template is a named set of questions.
+type Template struct {
 	Name        string               `json:"name"`
 	Description string               `json:"description"`
 	Input       Input                `json:"input,omitempty"`
@@ -66,9 +67,9 @@ type Skill struct {
 	Flags       map[string]Flag      `json:"flags,omitempty"`   // answers that need attention, by question
 	Matches     map[string]Match     `json:"matches,omitempty"` // answers the user is looking for, by question
 
-	Docs     string `json:"-"` // contents of SKILL.md
+	Docs     string `json:"-"` // contents of README.md
 	Location string `json:"-"` // BuiltIn, Project, or User
-	Dir      string `json:"-"` // directory on disk; empty for built-in skills
+	Dir      string `json:"-"` // directory on disk; empty for built-in templates
 }
 
 // Parameter is a value substituted for {{name}} in question text. A
@@ -78,7 +79,7 @@ type Parameter struct {
 	Default     string `json:"default,omitempty"`
 }
 
-// Question is one named question, kept in the order the skill defines it.
+// Question is one named question, kept in the order the template defines it.
 type Question struct {
 	Key string
 	Raw json.RawMessage
@@ -126,7 +127,7 @@ func (qs Questions) MarshalJSON() ([]byte, error) {
 //go:embed builtin
 var builtins embed.FS
 
-// Home is the directory for the user's skills and runs: DECIDE_HOME, or
+// Home is the directory for the user's templates and runs: DECIDE_HOME, or
 // ~/.decide by default.
 func Home() string {
 	if dir := os.Getenv("DECIDE_HOME"); dir != "" {
@@ -139,21 +140,22 @@ func Home() string {
 	return filepath.Join(home, ".decide")
 }
 
-// ProjectDir is where project skills live, relative to the working directory.
-const ProjectDir = ".decide/skills"
+// ProjectDir is where project templates live, relative to the working
+// directory.
+const ProjectDir = ".decide/templates"
 
-// UserDir is where the user's own skills live.
-func UserDir() string { return filepath.Join(Home(), "skills") }
+// UserDir is where the user's own templates live.
+func UserDir() string { return filepath.Join(Home(), "templates") }
 
-// Load finds a skill by name, or reads it from a path to a skill directory
-// or skill.json file.
-func Load(name string) (*Skill, error) {
+// Load finds a template by name, or reads it from a path to a template
+// directory or template.json file.
+func Load(name string) (*Template, error) {
 	if strings.ContainsAny(name, `/\`) || strings.HasSuffix(name, ".json") {
 		dir := name
 		if strings.HasSuffix(name, ".json") {
 			dir = filepath.Dir(name)
 		}
-		if _, err := os.Stat(filepath.Join(dir, "skill.json")); err != nil {
+		if _, err := os.Stat(filepath.Join(dir, "template.json")); err != nil {
 			return nil, &NotFoundError{Name: name}
 		}
 		return loadDir(dir, Project)
@@ -163,23 +165,23 @@ func Load(name string) (*Skill, error) {
 	}
 	for _, loc := range []struct{ dir, where string }{{ProjectDir, Project}, {UserDir(), User}} {
 		dir := filepath.Join(loc.dir, name)
-		if _, err := os.Stat(filepath.Join(dir, "skill.json")); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, "template.json")); err == nil {
 			return loadDir(dir, loc.where)
 		}
 	}
-	if _, err := fs.Stat(builtins, "builtin/"+name+"/skill.json"); err == nil {
+	if _, err := fs.Stat(builtins, "builtin/"+name+"/template.json"); err == nil {
 		return loadBuiltin(name)
 	}
 	return nil, &NotFoundError{Name: name}
 }
 
-// NotFoundError reports a skill name that matches no skill.
+// NotFoundError reports a template name that matches no template.
 type NotFoundError struct{ Name string }
 
-func (e *NotFoundError) Error() string { return fmt.Sprintf("no skill named %q", e.Name) }
+func (e *NotFoundError) Error() string { return fmt.Sprintf("no template named %q", e.Name) }
 
-func loadDir(dir, where string) (*Skill, error) {
-	path := filepath.Join(dir, "skill.json")
+func loadDir(dir, where string) (*Template, error) {
+	path := filepath.Join(dir, "template.json")
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -188,15 +190,15 @@ func loadDir(dir, where string) (*Skill, error) {
 	if err != nil {
 		return nil, err
 	}
-	if docs, err := os.ReadFile(filepath.Join(dir, "SKILL.md")); err == nil {
+	if docs, err := os.ReadFile(filepath.Join(dir, "README.md")); err == nil {
 		s.Docs = string(docs)
 	}
 	s.Location, s.Dir = where, dir
 	return s, nil
 }
 
-func loadBuiltin(name string) (*Skill, error) {
-	data, err := builtins.ReadFile("builtin/" + name + "/skill.json")
+func loadBuiltin(name string) (*Template, error) {
+	data, err := builtins.ReadFile("builtin/" + name + "/template.json")
 	if err != nil {
 		return nil, err
 	}
@@ -204,14 +206,14 @@ func loadBuiltin(name string) (*Skill, error) {
 	if err != nil {
 		return nil, err
 	}
-	docs, _ := builtins.ReadFile("builtin/" + name + "/SKILL.md")
+	docs, _ := builtins.ReadFile("builtin/" + name + "/README.md")
 	s.Docs = string(docs)
 	s.Location = BuiltIn
 	return s, nil
 }
 
-func parse(data []byte, origin string) (*Skill, error) {
-	var s Skill
+func parse(data []byte, origin string) (*Template, error) {
+	var s Template
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&s); err != nil {
@@ -235,7 +237,7 @@ func parse(data []byte, origin string) (*Skill, error) {
 // Normalize fills in the default input and reads the input values of
 // earlier versions: "file" is text read one file at a time, and "record"
 // is text.
-func (s *Skill) Normalize() {
+func (s *Template) Normalize() {
 	switch s.Input {
 	case "", "record":
 		s.Input = Text
@@ -255,13 +257,13 @@ func position(data []byte, offset int64) string {
 	return fmt.Sprintf(":%d:%d", line, col)
 }
 
-// List returns every available skill, sorted by name, and an error for
-// each skill that could not be loaded. A project or user skill hides a
-// skill of the same name further down the search order.
-func List() ([]*Skill, []error, error) {
+// List returns every available template, sorted by name, and an error for
+// each template that could not be loaded. A project or user template hides a
+// template of the same name further down the search order.
+func List() ([]*Template, []error, error) {
 	var broken []error
 	seen := map[string]bool{}
-	var out []*Skill
+	var out []*Template
 	for _, loc := range []struct{ dir, where string }{{ProjectDir, Project}, {UserDir(), User}} {
 		entries, err := os.ReadDir(loc.dir)
 		if err != nil && !errors.Is(err, fs.ErrNotExist) {
@@ -272,7 +274,7 @@ func List() ([]*Skill, []error, error) {
 			if !e.IsDir() || seen[e.Name()] {
 				continue
 			}
-			if _, err := os.Stat(filepath.Join(dir, "skill.json")); err != nil {
+			if _, err := os.Stat(filepath.Join(dir, "template.json")); err != nil {
 				continue
 			}
 			seen[e.Name()] = true
@@ -295,7 +297,7 @@ func List() ([]*Skill, []error, error) {
 		}
 		out = append(out, s)
 	}
-	slices.SortFunc(out, func(a, b *Skill) int { return strings.Compare(a.Name, b.Name) })
+	slices.SortFunc(out, func(a, b *Template) int { return strings.Compare(a.Name, b.Name) })
 	return out, broken, nil
 }
 
@@ -310,9 +312,9 @@ func hasControl(s string) bool {
 	return strings.ContainsFunc(s, unicode.IsControl)
 }
 
-// Validate checks that the skill is complete and that every question is a
+// Validate checks that the template is complete and that every question is a
 // valid yes/no (noul), choice, or score question.
-func (s *Skill) Validate() error {
+func (s *Template) Validate() error {
 	if !validName(s.Name) {
 		return fmt.Errorf("name %q must use lowercase letters, numbers, hyphens, or underscores", s.Name)
 	}
@@ -326,7 +328,7 @@ func (s *Skill) Validate() error {
 		}
 	case Image:
 		if s.Each != "" {
-			return errors.New("an image skill reads one image at a time, so it has no each")
+			return errors.New("an image template reads one image at a time, so it has no each")
 		}
 	default:
 		return fmt.Errorf(`input %q must be "text" or "image"`, s.Input)
@@ -372,10 +374,10 @@ func (s *Skill) Validate() error {
 	return s.checkFlags(questions)
 }
 
-// With returns a copy of the skill with {{name}} placeholders replaced by
+// With returns a copy of the template with {{name}} placeholders replaced by
 // values. Missing values fall back to parameter defaults; placeholders with
 // neither are left in place.
-func (s *Skill) With(values map[string]string) *Skill {
+func (s *Template) With(values map[string]string) *Template {
 	out := *s
 	out.Questions = make(Questions, len(s.Questions))
 	for i, q := range s.Questions {
@@ -404,15 +406,15 @@ func substitute(raw json.RawMessage, params map[string]Parameter, values map[str
 
 // Resolve applies parameter values given on the command line. Every
 // parameter must have a value or a default.
-func (s *Skill) Resolve(values map[string]string) (*Skill, error) {
+func (s *Template) Resolve(values map[string]string) (*Template, error) {
 	for name := range values {
 		if _, ok := s.Parameters[name]; !ok {
-			return nil, &ParamError{Skill: s, Msg: fmt.Sprintf("%s has no parameter named %q", s.Name, name)}
+			return nil, &ParamError{Template: s, Msg: fmt.Sprintf("%s has no parameter named %q", s.Name, name)}
 		}
 	}
 	for _, name := range s.ParameterNames() {
 		if _, ok := values[name]; !ok && s.Parameters[name].Default == "" {
-			return nil, &ParamError{Skill: s, Missing: name, Msg: fmt.Sprintf("%s needs a value for %q", s.Name, name)}
+			return nil, &ParamError{Template: s, Missing: name, Msg: fmt.Sprintf("%s needs a value for %q", s.Name, name)}
 		}
 	}
 	return s.With(values), nil
@@ -420,15 +422,15 @@ func (s *Skill) Resolve(values map[string]string) (*Skill, error) {
 
 // ParamError reports a missing or unknown parameter.
 type ParamError struct {
-	Skill   *Skill
-	Missing string
-	Msg     string
+	Template *Template
+	Missing  string
+	Msg      string
 }
 
 func (e *ParamError) Error() string { return e.Msg }
 
 // ParameterNames returns parameter names in sorted order.
-func (s *Skill) ParameterNames() []string {
+func (s *Template) ParameterNames() []string {
 	names := make([]string, 0, len(s.Parameters))
 	for name := range s.Parameters {
 		names = append(names, name)
@@ -437,8 +439,8 @@ func (s *Skill) ParameterNames() []string {
 	return names
 }
 
-// Decode converts the skill's questions to typed questions.
-func (s *Skill) Decode() (map[string]decide.Question, error) {
+// Decode converts the template's questions to typed questions.
+func (s *Template) Decode() (map[string]decide.Question, error) {
 	out := make(map[string]decide.Question, len(s.Questions))
 	for _, q := range s.Questions {
 		var fields map[string]json.RawMessage
@@ -467,10 +469,10 @@ func (s *Skill) Decode() (map[string]decide.Question, error) {
 	return out, nil
 }
 
-// Template is the starting point for a new skill.
-const Template = `{
+// starter is the starting point for a new template.
+const starter = `{
   "name": %q,
-  "description": "Describe what this skill decides about each item.",
+  "description": "Describe what this template decides about each item.",
   "questions": {
     "relevant": {
       "type": "noul",
@@ -480,11 +482,11 @@ const Template = `{
 }
 `
 
-// Create writes a new skill to DECIDE_HOME/skills, or to the project's
-// .decide/skills when project is true. It copies from when it is not nil.
-func Create(name string, from *Skill, project bool) (string, error) {
+// Create writes a new template to DECIDE_HOME/templates, or to the project's
+// .decide/templates when project is true. It copies from when it is not nil.
+func Create(name string, from *Template, project bool) (string, error) {
 	if !validName(name) {
-		return "", fmt.Errorf("%q is not a valid skill name; use lowercase letters, numbers, hyphens, or underscores", name)
+		return "", fmt.Errorf("%q is not a valid template name; use lowercase letters, numbers, hyphens, or underscores", name)
 	}
 	root := UserDir()
 	if project {
@@ -494,7 +496,7 @@ func Create(name string, from *Skill, project bool) (string, error) {
 	if _, err := os.Stat(dir); err == nil {
 		return "", fmt.Errorf("%s already exists", dir)
 	}
-	data := []byte(fmt.Sprintf(Template, name))
+	data := []byte(fmt.Sprintf(starter, name))
 	if from != nil {
 		c := *from
 		c.Name = name
@@ -510,12 +512,12 @@ func Create(name string, from *Skill, project bool) (string, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
-	path := filepath.Join(dir, "skill.json")
+	path := filepath.Join(dir, "template.json")
 	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return "", err
 	}
 	if from != nil && from.Docs != "" {
-		if err := os.WriteFile(filepath.Join(dir, "SKILL.md"), []byte(from.Docs), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte(from.Docs), 0o644); err != nil {
 			return "", err
 		}
 	}

@@ -49,14 +49,14 @@ func (a *App) runsList(c *cli.Context) error {
 		fmt.Fprintln(w, "  echo \"I love it\" | decide run sentiment")
 		return nil
 	}
-	skillWidth := len("SKILL")
+	templateWidth := len("TEMPLATE")
 	for _, r := range all {
-		skillWidth = max(skillWidth, len(r.Skill.Name))
+		templateWidth = max(templateWidth, len(r.Template.Name))
 	}
 	idWidth := len(all[0].ID)
-	fmt.Fprintln(w, dim(fmt.Sprintf("%-*s  %-*s  %-22s  %s", idWidth, "RUN", skillWidth, "SKILL", "RESULT", "STARTED")))
+	fmt.Fprintln(w, dim(fmt.Sprintf("%-*s  %-*s  %-22s  %s", idWidth, "RUN", templateWidth, "TEMPLATE", "RESULT", "STARTED")))
 	for _, r := range all {
-		fmt.Fprintf(w, "%-*s  %-*s  %s  %s\n", idWidth, r.ID, skillWidth, r.Skill.Name,
+		fmt.Fprintf(w, "%-*s  %-*s  %s  %s\n", idWidth, r.ID, templateWidth, r.Template.Name,
 			pad(outcome(r), 22), dim(humanize.Time(r.Created)))
 	}
 	fmt.Fprintf(w, "\n%s decide runs view RUN\n", dim("See results:"))
@@ -134,10 +134,10 @@ func (a *App) runsView(c *cli.Context) error {
 	}
 	if !c.Bool("json") {
 		fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Run %s · %s on %s · %s",
-			r.ID, r.Skill.Name, clean(strings.Join(r.Sources, ", ")), humanize.Time(r.Created))))
+			r.ID, r.Template.Name, clean(strings.Join(r.Sources, ", ")), humanize.Time(r.Created))))
 	}
-	write := itemWriter(c, r.Skill)
-	for _, it := range group(results, marksOf(r.Skill)) {
+	write := itemWriter(c, r.Template)
+	for _, it := range group(results, marksOf(r.Template)) {
 		if err := write(it); err != nil {
 			return err
 		}

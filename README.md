@@ -73,9 +73,9 @@ Requires Go 1.27 or later. Run `decide` on its own for a tour.
 
 ## What you can ask
 
-Decide comes with six skills. A skill is a named set of questions.
+Decide comes with six templates. A template is a named set of questions.
 
-| Skill | Asks about each item |
+| Template | Asks about each item |
 | --- | --- |
 | `sentiment` | Is it positive, negative, or neutral? |
 | `triage` | Is this support request urgent, and how severe is its impact? |
@@ -92,7 +92,7 @@ decide runs view --json > results.jsonl
 
 Decide reads JSONL, JSON, CSV, text, Markdown, source code, and images,
 flags answers that need attention, and resumes stopped runs. You can write
-your own skill in a few lines of JSON with `decide skills new`. The
+your own template in a few lines of JSON with `decide templates new`. The
 [CLI guide](docs/cli.md) covers it all.
 
 ## Use it from Go

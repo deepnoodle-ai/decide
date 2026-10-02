@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/deepnoodle-ai/decide/internal/skill"
+	"github.com/deepnoodle-ai/decide/internal/template"
 )
 
 // units lists what a scanner found as "name start-end", with the lead
@@ -263,11 +263,11 @@ class Store:
 		"lib/broken.ts": "function f() {\n",
 		"README.md":     "# Readme\n",
 	})
-	items, warnings := walk(t, []string{"."}, "", Options{Input: skill.Text, Each: skill.EachFunction})
+	items, warnings := walk(t, []string{"."}, "", Options{Input: template.Text, Each: template.EachFunction})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"app.py#L6", "lib/broken.ts", "lib/util.go#L3"}) {
 		t.Fatalf("labels = %v", got)
 	}
-	if items[0].Unit != skill.EachFunction || string(items[0].Value) != `"Store.save"` || items[1].Unit != skill.EachFile {
+	if items[0].Unit != template.EachFunction || string(items[0].Value) != `"Store.save"` || items[1].Unit != template.EachFile {
 		t.Fatalf("items = %+v", items)
 	}
 	var s partState
@@ -290,7 +290,7 @@ class Store:
 		"lib/consts.go": "lib/consts.go has no functions; use --each file",
 		"-":             "--each function reads source files, not stdin",
 	} {
-		err := Walk(context.Background(), []string{path}, strings.NewReader("x"), Options{Input: skill.Text, Each: skill.EachFunction}, func(Item) error { return nil })
+		err := Walk(context.Background(), []string{path}, strings.NewReader("x"), Options{Input: template.Text, Each: template.EachFunction}, func(Item) error { return nil })
 		if err == nil || err.Error() != msg {
 			t.Errorf("%s: err = %v", path, err)
 		}
@@ -302,7 +302,7 @@ func TestLargeFunctionsHaveParts(t *testing.T) {
 	MaxItemBytes = StateRoom + 85
 	src := "package a\n\nimport \"os\"\n\nfunc Big() {\n\ta := 1\n\tb := 2\n\n\tc := 3\n\td := 4\n\n\tos.Exit(a + b + c + d)\n}\n"
 	tree(t, map[string]string{"a.go": src})
-	items, _ := walk(t, []string{"a.go"}, "", Options{Input: skill.Text, Each: skill.EachFunction})
+	items, _ := walk(t, []string{"a.go"}, "", Options{Input: template.Text, Each: template.EachFunction})
 	if len(items) != 1 || items[0].State != nil || len(items[0].Parts) < 2 {
 		t.Fatalf("items = %+v", items)
 	}
@@ -326,7 +326,7 @@ func TestLargeCodeFilesBreakBetweenFunctions(t *testing.T) {
 	MaxItemBytes = StateRoom + len("a.py") + 80
 	src := "def one():\n    return 1\n\n\ndef two():\n    x = 2\n    return x\n\n\ndef three():\n    return 3\n"
 	tree(t, map[string]string{"a.py": src})
-	items, _ := walk(t, []string{"a.py"}, "", Options{Input: skill.Text})
+	items, _ := walk(t, []string{"a.py"}, "", Options{Input: template.Text})
 	var got []string
 	for _, p := range items[0].Parts {
 		var s partState

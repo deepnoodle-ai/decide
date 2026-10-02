@@ -30,8 +30,8 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/cloudflare"
-	"github.com/deepnoodle-ai/decide/internal/skill"
 	"github.com/deepnoodle-ai/decide/internal/source"
+	"github.com/deepnoodle-ai/decide/internal/template"
 )
 
 // Status values.
@@ -42,21 +42,21 @@ const (
 	Interrupted = "interrupted" // stopped before every item was tried
 )
 
-// Run describes one evaluation of a dataset with a skill.
+// Run describes one evaluation of a dataset with a template.
 type Run struct {
-	ID       string            `json:"id"`
-	Skill    *skill.Skill      `json:"skill"` // with parameters applied
-	Params   map[string]string `json:"params,omitempty"`
-	Provider string            `json:"provider"`
-	Model    string            `json:"model"`
-	Sources  []string          `json:"sources"`
-	Created  time.Time         `json:"created"`
-	Updated  time.Time         `json:"updated"`
-	Status   string            `json:"status"`
-	Total    int               `json:"total"` // requests: one per item, or one per part of a large item
-	Items    int               `json:"items,omitempty"`
-	Complete int               `json:"complete"`
-	Failed   int               `json:"failed"`
+	ID       string             `json:"id"`
+	Template *template.Template `json:"template"` // with parameters applied
+	Params   map[string]string  `json:"params,omitempty"`
+	Provider string             `json:"provider"`
+	Model    string             `json:"model"`
+	Sources  []string           `json:"sources"`
+	Created  time.Time          `json:"created"`
+	Updated  time.Time          `json:"updated"`
+	Status   string             `json:"status"`
+	Total    int                `json:"total"` // requests: one per item, or one per part of a large item
+	Items    int                `json:"items,omitempty"`
+	Complete int                `json:"complete"`
+	Failed   int                `json:"failed"`
 
 	Dir string `json:"-"`
 
@@ -96,7 +96,7 @@ type input struct {
 }
 
 // Root is the directory that holds all runs.
-func Root() string { return filepath.Join(skill.Home(), "runs") }
+func Root() string { return filepath.Join(template.Home(), "runs") }
 
 // Create starts a new run. Add its items with Add, then call Ready.
 func Create(r *Run) (*Run, error) {
@@ -237,9 +237,10 @@ func load(dir string) (*Run, error) {
 		return nil, fmt.Errorf("%s: %w", dir, err)
 	}
 	r.Dir = dir
-	if r.Skill != nil {
-		r.Skill.Normalize() // runs saved before input was "text" or "image"
+	if r.Template == nil {
+		return nil, fmt.Errorf("%s was saved by an older version of decide; delete it", dir)
 	}
+	r.Template.Normalize() // runs saved before input was "text" or "image"
 	if r.Status != Running || !r.Active() {
 		r.settle()
 	}
@@ -366,7 +367,7 @@ func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, f
 		return err
 	}
 	defer unlock()
-	questions, err := r.Skill.Decode()
+	questions, err := r.Template.Decode()
 	if err != nil {
 		return err
 	}

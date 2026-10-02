@@ -76,40 +76,40 @@ func TestOverview(t *testing.T) {
 	if out.code != 0 {
 		t.Fatalf("exit %d", out.code)
 	}
-	contains(t, out.stdout, "Get started", "decide skills", "TYPESAFE_API_KEY")
+	contains(t, out.stdout, "Get started", "decide templates", "TYPESAFE_API_KEY")
 	out = h.run("", "run", "--help")
 	contains(t, out.stdout, "Examples:", "--dry-run", "--param")
 }
 
-func TestSkills(t *testing.T) {
+func TestTemplates(t *testing.T) {
 	h := setup(t)
-	out := h.run("", "skills")
-	contains(t, out.stdout, "code-risk", "sentiment", "ticket-routing", "decide skills show")
+	out := h.run("", "templates")
+	contains(t, out.stdout, "code-risk", "sentiment", "ticket-routing", "decide templates show")
 
-	out = h.run("", "skills", "show", "relevance")
+	out = h.run("", "templates", "show", "relevance")
 	contains(t, out.stdout, "Is this item relevant to this topic or question: {{question}}", "matches when yes is 60% or more likely", "required", `decide run relevance data.jsonl -p question="..."`)
 
-	out = h.run("", "skills", "new", "my-triage", "--from", "ticket-routing")
+	out = h.run("", "templates", "new", "my-triage", "--from", "ticket-routing")
 	if out.code != 0 {
 		t.Fatalf("new: exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stdout, "Created", "my-triage/skill.json", "decide run my-triage data.jsonl --dry-run")
-	out = h.run("", "skills")
+	contains(t, out.stdout, "Created", "my-triage/template.json", "decide run my-triage data.jsonl --dry-run")
+	out = h.run("", "templates")
 	contains(t, out.stdout, "my-triage", "(user)")
 
-	out = h.run("", "skills", "show", "code-risk")
+	out = h.run("", "templates", "show", "code-risk")
 	contains(t, out.stdout, "Does this code or configuration", "flagged when", "the score is 1.5 or lower", "yes is 60% or more likely")
 
-	h.write(".decide/skills/broken/skill.json", `{"name": "broken",}`)
-	out = h.run("", "skills")
+	h.write(".decide/templates/broken/template.json", `{"name": "broken",}`)
+	out = h.run("", "templates")
 	contains(t, out.stdout, "sentiment")
-	contains(t, out.stderr, "Could not load a skill", "skill.json:1:")
+	contains(t, out.stderr, "Could not load a template", "template.json:1:")
 
-	out = h.run("", "skills", "show", "nope")
+	out = h.run("", "templates", "show", "nope")
 	if out.code != 1 {
 		t.Fatalf("show nope: exit %d", out.code)
 	}
-	contains(t, out.stderr, `There is no skill named "nope"`, "decide skills")
+	contains(t, out.stderr, `There is no template named "nope"`, "decide templates")
 }
 
 func TestRunFromStdinAndView(t *testing.T) {
@@ -213,9 +213,9 @@ func TestHelpfulErrors(t *testing.T) {
 		args  []string
 		wants []string
 	}{
-		{"no skill", []string{"run"}, []string{"Which skill", "decide skills"}},
-		{"data first", []string{"run", "notes.txt"}, []string{`no skill named "notes.txt"`, "decide run SKILL notes.txt"}},
-		{"folder first", []string{"run", "./"}, []string{`no skill named "./"`, "decide run SKILL ./"}},
+		{"no template", []string{"run"}, []string{"Which template", "decide templates"}},
+		{"data first", []string{"run", "notes.txt"}, []string{`no template named "notes.txt"`, "decide run TEMPLATE notes.txt"}},
+		{"folder first", []string{"run", "./"}, []string{`no template named "./"`, "decide run TEMPLATE ./"}},
 		{"missing parameter", []string{"run", "relevance", "notes.txt"}, []string{`needs a value for "question"`, `--param question="..."`}},
 		{"unknown parameter", []string{"run", "sentiment", "notes.txt", "-p", "x=1"}, []string{"no parameter", "has no parameters"}},
 		{"bad parameter", []string{"run", "relevance", "notes.txt", "-p", "question"}, []string{"name=value"}},
@@ -272,7 +272,7 @@ func TestFlaggedAnswers(t *testing.T) {
 	out = h.run("", "run", "code-risk", "src")
 	contains(t, out.stdout, "  risk             no            90%\n")
 
-	// Skills without flags do not mention them.
+	// Templates without flags do not mention them.
 	out = h.run("ok\n", "run", "relevance", "-p", "question=x")
 	if strings.Contains(out.stderr, "flagged") {
 		t.Fatalf("relevance has no flags:\n%s", out.stderr)
@@ -374,7 +374,7 @@ func TestEachHintsAndErrors(t *testing.T) {
 	}
 	out = h.run("", "run", "receipt-quality", "docs", "--each", "file")
 	if out.code == 0 || !strings.Contains(out.stderr, "--each does not apply") {
-		t.Fatalf("image skill with --each: %d %s", out.code, out.stderr)
+		t.Fatalf("image template with --each: %d %s", out.code, out.stderr)
 	}
 }
 
@@ -479,11 +479,11 @@ func TestLargeRecordsAreJudgedInParts(t *testing.T) {
 	contains(t, out.stderr, "✓ 2 answered  ● 1 matched")
 }
 
-func TestSkillAndFileTextCannotControlTheTerminal(t *testing.T) {
+func TestTemplateAndFileTextCannotControlTheTerminal(t *testing.T) {
 	h := setup(t)
-	h.write(".decide/skills/odd/skill.json", `{
+	h.write(".decide/templates/odd/template.json", `{
   "name": "odd",
-  "description": "Odd \u001b[31mskill",
+  "description": "Odd \u001b[31mtemplate",
   "parameters": {"p": {"description": "A \u001b[2J parameter", "default": "x\u001b[0m"}},
   "questions": {
     "tone": {
@@ -495,12 +495,12 @@ func TestSkillAndFileTextCannotControlTheTerminal(t *testing.T) {
   },
   "flags": {"tone": "calm >= 60%"}
 }`)
-	h.write(".decide/skills/odd/SKILL.md", "Notes \x1b[31mhere\n")
+	h.write(".decide/templates/odd/README.md", "Notes \x1b[31mhere\n")
 	h.write("in/a\x1b[31m.txt", "hello")
 	h.write("in/b\x1b[31m.bin", "\x00\x01\x02binary")
 	for _, args := range [][]string{
-		{"skills"},
-		{"skills", "show", "odd"},
+		{"templates"},
+		{"templates", "show", "odd"},
 		{"run", "odd", "in", "--dry-run"},
 	} {
 		out := h.run("", args...)
@@ -512,17 +512,17 @@ func TestSkillAndFileTextCannotControlTheTerminal(t *testing.T) {
 		}
 	}
 
-	h.write(".decide/skills/bad/skill.json", `{"name": "bad", "description": "Bad",
+	h.write(".decide/templates/bad/template.json", `{"name": "bad", "description": "Bad",
   "questions": {"q\u001b[31m": {"type": "noul", "instructions": "?"}}}`)
-	h.write(".decide/skills/broken\x1b[31m/skill.json", `{`)
+	h.write(".decide/templates/broken\x1b[31m/template.json", `{`)
 	h.write("bad/x\x1b]0;title\x07.jsonl", "{\"a\":1}\nnot json\n")
 	for _, c := range []struct {
 		args []string
 		want string
 	}{
-		{[]string{"skills"}, "control characters"},
-		{[]string{"skills", "show", "bad"}, "control characters"},
-		{[]string{"skills"}, "broken"},
+		{[]string{"templates"}, "control characters"},
+		{[]string{"templates", "show", "bad"}, "control characters"},
+		{[]string{"templates"}, "broken"},
 		{[]string{"run", "odd", "bad", "--dry-run"}, "not valid JSON"},
 	} {
 		out := h.run("", c.args...)

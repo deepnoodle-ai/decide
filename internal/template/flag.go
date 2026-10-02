@@ -1,4 +1,4 @@
-package skill
+package template
 
 import (
 	"bytes"
@@ -22,7 +22,7 @@ const DefaultFlagAt = 0.6
 // a comparison such as "<= 1.5" for a score question. A question is flagged
 // when any of its conditions holds.
 //
-// In skill.json a flag is a string, or a list of strings.
+// In template.json a flag is a string, or a list of strings.
 type Flag []string
 
 // Match marks the answers to a question that someone is looking for. It is
@@ -79,7 +79,7 @@ func marshalMark(conds []string) ([]byte, error) {
 	}
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
-	enc.SetEscapeHTML(false) // keep "<= 1.5" readable in copied skills
+	enc.SetEscapeHTML(false) // keep "<= 1.5" readable in copied templates
 	if err := enc.Encode(v); err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func parseCondition(s, typ string, k mark) (Condition, error) {
 }
 
 // checkFlags validates each flag and match against the question it names.
-func (s *Skill) checkFlags(questions map[string]decide.Question) error {
+func (s *Template) checkFlags(questions map[string]decide.Question) error {
 	if err := checkMarks("flags", s.Flags, flagMark, questions); err != nil {
 		return err
 	}

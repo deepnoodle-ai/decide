@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/deepnoodle-ai/decide/internal/skill"
+	"github.com/deepnoodle-ai/decide/internal/template"
 )
 
 // tree creates files under a temporary directory and changes into it.
@@ -60,7 +60,7 @@ func states(items []Item) []string {
 	return out
 }
 
-func TestFileSkillWalksDirectories(t *testing.T) {
+func TestFileTemplateWalksDirectories(t *testing.T) {
 	tree(t, map[string]string{
 		".git/config":        "x",
 		".gitignore":         "vendor/\n*.log\n",
@@ -75,7 +75,7 @@ func TestFileSkillWalksDirectories(t *testing.T) {
 		"pkg/generated.go":   "package pkg",
 		"pkg/util/notes.txt": "notes",
 	})
-	items, warnings := walk(t, []string{"."}, "", Options{Input: skill.Text, Each: skill.EachFile})
+	items, warnings := walk(t, []string{"."}, "", Options{Input: template.Text, Each: template.EachFile})
 	want := []string{"README.md", "main.go", "main_test.go", "pkg/util/notes.txt", "pkg/util/util.go"}
 	if got := labels(items); !reflect.DeepEqual(got, want) {
 		t.Fatalf("labels = %v, want %v", got, want)
@@ -89,11 +89,11 @@ func TestFileSkillWalksDirectories(t *testing.T) {
 		t.Fatalf("state = %v", state)
 	}
 
-	items, _ = walk(t, []string{"."}, "", Options{Input: skill.Text, Each: skill.EachFile, Include: []string{"*.go"}, Exclude: []string{"*_test.go"}})
+	items, _ = walk(t, []string{"."}, "", Options{Input: template.Text, Each: template.EachFile, Include: []string{"*.go"}, Exclude: []string{"*_test.go"}})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"main.go", "pkg/util/util.go"}) {
 		t.Fatalf("filtered labels = %v", got)
 	}
-	items, _ = walk(t, []string{"pkg"}, "", Options{Input: skill.Text, Each: skill.EachFile, Include: []string{"util/*.go"}})
+	items, _ = walk(t, []string{"pkg"}, "", Options{Input: template.Text, Each: template.EachFile, Include: []string{"util/*.go"}})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"pkg/util/util.go"}) {
 		t.Fatalf("subdirectory labels = %v", got)
 	}
@@ -102,13 +102,13 @@ func TestFileSkillWalksDirectories(t *testing.T) {
 func TestNamedFilesAreNotSkippedSilently(t *testing.T) {
 	tree(t, map[string]string{"blob.bin": "a\x00b", "photo.txt": "text"})
 	for _, tc := range []struct {
-		input skill.Input
+		input template.Input
 		path  string
 		want  string
 	}{
-		{skill.Text, "blob.bin", "binary file"},
-		{skill.Image, "photo.txt", "not an image"},
-		{skill.Text, "missing.go", "does not exist"},
+		{template.Text, "blob.bin", "binary file"},
+		{template.Image, "photo.txt", "not an image"},
+		{template.Text, "missing.go", "does not exist"},
 	} {
 		err := Walk(context.Background(), []string{tc.path}, nil, Options{Input: tc.input}, func(Item) error { return nil })
 		if err == nil || !strings.Contains(err.Error(), tc.want) {
@@ -124,7 +124,7 @@ func TestRecords(t *testing.T) {
 		"array.json":    `["x","y"]`,
 		"notes.txt":     "first\n\nsecond\n",
 	})
-	items, _ := walk(t, []string{"tickets.jsonl", "array.json", "notes.txt"}, "", Options{Input: skill.Text})
+	items, _ := walk(t, []string{"tickets.jsonl", "array.json", "notes.txt"}, "", Options{Input: template.Text})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"tickets.jsonl:1", "tickets.jsonl:3", "array.json[0]", "array.json[1]", "notes.txt:1", "notes.txt:3"}) {
 		t.Fatalf("labels = %v", got)
 	}
@@ -132,19 +132,19 @@ func TestRecords(t *testing.T) {
 		t.Fatalf("states = %v", got)
 	}
 
-	items, _ = walk(t, []string{"export.json"}, "", Options{Input: skill.Text, Items: "data.tickets", Field: "body"})
+	items, _ = walk(t, []string{"export.json"}, "", Options{Input: template.Text, Items: "data.tickets", Field: "body"})
 	if got := states(items); !reflect.DeepEqual(got, []string{`"a"`, `"b"`}) {
 		t.Fatalf("items/field states = %v", got)
 	}
 	if string(items[0].Value) != `{"body":"a"}` {
 		t.Fatalf("value = %s", items[0].Value)
 	}
-	items, _ = walk(t, []string{"export.json"}, "", Options{Input: skill.Text, Items: "/data/tickets", Field: "/body"})
+	items, _ = walk(t, []string{"export.json"}, "", Options{Input: template.Text, Items: "/data/tickets", Field: "/body"})
 	if len(items) != 2 {
 		t.Fatalf("JSON Pointer paths found %d items", len(items))
 	}
 
-	err := Walk(context.Background(), []string{"tickets.jsonl"}, nil, Options{Input: skill.Text, Field: "title"}, func(Item) error { return nil })
+	err := Walk(context.Background(), []string{"tickets.jsonl"}, nil, Options{Input: template.Text, Field: "title"}, func(Item) error { return nil })
 	if err == nil || !strings.Contains(err.Error(), `no field "title" (found: body, id)`) {
 		t.Fatalf("missing field: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestStdinFormats(t *testing.T) {
 		{"bracketed text", "[INFO] started\n[WARN] disk full\n", []string{`"[INFO] started"`, `"[WARN] disk full"`}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			items, warnings := walk(t, nil, tc.input, Options{Input: skill.Text})
+			items, warnings := walk(t, nil, tc.input, Options{Input: template.Text})
 			if got := states(items); !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("states = %v, want %v", got, tc.want)
 			}
@@ -170,7 +170,7 @@ func TestStdinFormats(t *testing.T) {
 			}
 		})
 	}
-	items, _ := walk(t, []string{"-"}, "package main", Options{Input: skill.Text, Each: skill.EachFile})
+	items, _ := walk(t, []string{"-"}, "package main", Options{Input: template.Text, Each: template.EachFile})
 	if len(items) != 1 || items[0].Label != "stdin" {
 		t.Fatalf("file from stdin = %v", labels(items))
 	}
@@ -179,7 +179,7 @@ func TestStdinFormats(t *testing.T) {
 func TestImages(t *testing.T) {
 	png := "\x89PNG\r\n\x1a\n" + strings.Repeat("\x00", 16)
 	tree(t, map[string]string{"a.png": png, "b.txt": "text", "c.jpg": "not really"})
-	items, warnings := walk(t, []string{"."}, "", Options{Input: skill.Image})
+	items, warnings := walk(t, []string{"."}, "", Options{Input: template.Image})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"a.png"}) {
 		t.Fatalf("labels = %v", got)
 	}
@@ -196,12 +196,12 @@ func TestLimitAndSample(t *testing.T) {
 	for i := range 100 {
 		input.WriteString(strings.Repeat("x", i+1) + "\n")
 	}
-	items, _ := walk(t, nil, input.String(), Options{Input: skill.Text, Limit: 3})
+	items, _ := walk(t, nil, input.String(), Options{Input: template.Text, Limit: 3})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"stdin:1", "stdin:2", "stdin:3"}) {
 		t.Fatalf("limit = %v", got)
 	}
-	first, _ := walk(t, nil, input.String(), Options{Input: skill.Text, Sample: 5})
-	again, _ := walk(t, nil, input.String(), Options{Input: skill.Text, Sample: 5})
+	first, _ := walk(t, nil, input.String(), Options{Input: template.Text, Sample: 5})
+	again, _ := walk(t, nil, input.String(), Options{Input: template.Text, Sample: 5})
 	if len(first) != 5 || !reflect.DeepEqual(labels(first), labels(again)) {
 		t.Fatalf("samples = %v and %v", labels(first), labels(again))
 	}
@@ -224,7 +224,7 @@ func TestLabelsOutsideWorkingDirectory(t *testing.T) {
 	}
 	tree(t, map[string]string{"main.go": "package main"})
 	paths := []string{outside, filepath.Join(outside, "app.py"), "main.go"}
-	items, _ := walk(t, paths, "", Options{Input: skill.Text, Each: skill.EachFile})
+	items, _ := walk(t, paths, "", Options{Input: template.Text, Each: template.EachFile})
 	want := []string{"marker/app.py", "marker/pkg/util.py", "app.py", "main.go"}
 	if got := labels(items); !reflect.DeepEqual(got, want) {
 		t.Fatalf("labels = %v, want %v", got, want)
@@ -250,7 +250,7 @@ func TestLabelsTellOutsideFoldersApart(t *testing.T) {
 		t.Skip("symlinks unavailable:", err)
 	}
 	paths := []string{filepath.Join(outside, "a/src"), filepath.Join(outside, "b/src"), "link.py"}
-	items, _ := walk(t, paths, "", Options{Input: skill.Text, Each: skill.EachFile})
+	items, _ := walk(t, paths, "", Options{Input: template.Text, Each: template.EachFile})
 	want := []string{"a/src/x.py", "b/src/x.py", "link.py"}
 	if got := labels(items); !reflect.DeepEqual(got, want) {
 		t.Fatalf("labels = %v, want %v", got, want)
@@ -266,7 +266,7 @@ func TestDefaultUnits(t *testing.T) {
 		"t.jsonl":     `{"a":1}` + "\n",
 		"export.json": `[1]`,
 	})
-	items, _ := walk(t, []string{"."}, "", Options{Input: skill.Text})
+	items, _ := walk(t, []string{"."}, "", Options{Input: template.Text})
 	var got []string
 	for _, it := range items {
 		got = append(got, it.Label+" "+it.Unit)
@@ -279,15 +279,15 @@ func TestDefaultUnits(t *testing.T) {
 		t.Fatalf("csv record = %s", items[0].State)
 	}
 	// --each file reads datasets whole; --each line splits documents.
-	items, _ = walk(t, []string{"t.jsonl", "guide.md"}, "", Options{Input: skill.Text, Each: skill.EachFile})
+	items, _ = walk(t, []string{"t.jsonl", "guide.md"}, "", Options{Input: template.Text, Each: template.EachFile})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"t.jsonl", "guide.md"}) {
 		t.Fatalf("--each file = %v", got)
 	}
-	items, _ = walk(t, []string{"guide.md"}, "", Options{Input: skill.Text, Each: skill.EachLine})
+	items, _ = walk(t, []string{"guide.md"}, "", Options{Input: template.Text, Each: template.EachLine})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"guide.md:1", "guide.md:3"}) {
 		t.Fatalf("--each line = %v", got)
 	}
-	items, _ = walk(t, []string{"data.csv"}, "", Options{Input: skill.Text, Field: "body"})
+	items, _ = walk(t, []string{"data.csv"}, "", Options{Input: template.Text, Field: "body"})
 	if got := states(items); !reflect.DeepEqual(got, []string{`"a, b"`, `"c"`}) {
 		t.Fatalf("csv --field = %v", got)
 	}
@@ -295,7 +295,7 @@ func TestDefaultUnits(t *testing.T) {
 
 func TestCSVRowsMustMatchTheHeader(t *testing.T) {
 	tree(t, map[string]string{"bad.csv": "a,b\n1\n"})
-	err := Walk(context.Background(), []string{"bad.csv"}, nil, Options{Input: skill.Text}, func(Item) error { return nil })
+	err := Walk(context.Background(), []string{"bad.csv"}, nil, Options{Input: template.Text}, func(Item) error { return nil })
 	if err == nil || !strings.Contains(err.Error(), "bad.csv:2 has 1 fields, but the header has 2") {
 		t.Fatalf("err = %v", err)
 	}
@@ -336,7 +336,7 @@ func TestMarkdownParagraphs(t *testing.T) {
 		"***\n" +
 		"Last line\r\n"
 	tree(t, map[string]string{"CHANGELOG.md": doc})
-	items, _ := walk(t, []string{"CHANGELOG.md"}, "", Options{Input: skill.Text, Each: skill.EachParagraph})
+	items, _ := walk(t, []string{"CHANGELOG.md"}, "", Options{Input: template.Text, Each: template.EachParagraph})
 	wantLabels := []string{"CHANGELOG.md:6", "CHANGELOG.md:11", "CHANGELOG.md:13", "CHANGELOG.md:21", "CHANGELOG.md:38", "CHANGELOG.md:41"}
 	if got := labels(items); !reflect.DeepEqual(got, wantLabels) {
 		t.Fatalf("labels = %v, want %v", got, wantLabels)
@@ -356,7 +356,7 @@ func TestMarkdownParagraphs(t *testing.T) {
 
 func TestFrontMatterNeedsAClosingLine(t *testing.T) {
 	tree(t, map[string]string{"a.md": "---\nNot front matter.\n"})
-	items, _ := walk(t, []string{"a.md"}, "", Options{Input: skill.Text, Each: skill.EachParagraph})
+	items, _ := walk(t, []string{"a.md"}, "", Options{Input: template.Text, Each: template.EachParagraph})
 	if got := texts(t, items); !reflect.DeepEqual(got, []string{"Not front matter."}) {
 		t.Fatalf("paragraphs = %q", got)
 	}
@@ -369,7 +369,7 @@ func TestMarkdownSections(t *testing.T) {
 		"## Install\n\nAgain.\n\n" +
 		"### Café & Bar!\n\nText.\n"
 	tree(t, map[string]string{"guide.md": doc})
-	items, _ := walk(t, []string{"guide.md"}, "", Options{Input: skill.Text, Each: skill.EachSection})
+	items, _ := walk(t, []string{"guide.md"}, "", Options{Input: template.Text, Each: template.EachSection})
 	want := []string{"guide.md:1", "guide.md#install", "guide.md#install-1", "guide.md#café--bar"}
 	if got := labels(items); !reflect.DeepEqual(got, want) {
 		t.Fatalf("labels = %v, want %v", got, want)
@@ -390,11 +390,11 @@ func TestMarkdownSections(t *testing.T) {
 
 func TestSectionsNeedHeadings(t *testing.T) {
 	tree(t, map[string]string{"app.py": "x = 1\n", "docs/a.md": "# A\n\nText.\n", "docs/b.md": "No headings.\n"})
-	err := Walk(context.Background(), []string{"app.py"}, nil, Options{Input: skill.Text, Each: skill.EachSection}, func(Item) error { return nil })
+	err := Walk(context.Background(), []string{"app.py"}, nil, Options{Input: template.Text, Each: template.EachSection}, func(Item) error { return nil })
 	if err == nil || !strings.Contains(err.Error(), "app.py is not Markdown, so it has no sections") {
 		t.Fatalf("err = %v", err)
 	}
-	items, warnings := walk(t, []string{"docs"}, "", Options{Input: skill.Text, Each: skill.EachSection})
+	items, warnings := walk(t, []string{"docs"}, "", Options{Input: template.Text, Each: template.EachSection})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"docs/a.md#a", "docs/b.md"}) {
 		t.Fatalf("labels = %v", got)
 	}
@@ -408,7 +408,7 @@ func TestLargeItemsHaveParts(t *testing.T) {
 	MaxItemBytes = StateRoom + len("big.md") + 70
 	doc := "# A\n\nfirst paragraph here\n\n## B\n\nsecond paragraph here\n\n" + strings.Repeat("x", 90) + "\n"
 	tree(t, map[string]string{"big.md": doc, "small.md": "# A\n\nfits\n"})
-	items, _ := walk(t, []string{"big.md", "small.md"}, "", Options{Input: skill.Text})
+	items, _ := walk(t, []string{"big.md", "small.md"}, "", Options{Input: template.Text})
 	if len(items) != 2 || len(items[1].Parts) != 0 || items[1].State == nil {
 		t.Fatalf("items = %+v", items)
 	}
@@ -432,7 +432,7 @@ func TestLargeItemsHaveParts(t *testing.T) {
 }
 
 func TestStdinByParagraph(t *testing.T) {
-	items, _ := walk(t, nil, "one\ntwo\n\nthree\n", Options{Input: skill.Text, Each: skill.EachParagraph})
+	items, _ := walk(t, nil, "one\ntwo\n\nthree\n", Options{Input: template.Text, Each: template.EachParagraph})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"stdin:1", "stdin:4"}) {
 		t.Fatalf("labels = %v", got)
 	}
@@ -442,7 +442,7 @@ func TestPartsFitOnceEncoded(t *testing.T) {
 	defer func(n int) { MaxItemBytes = n }(MaxItemBytes)
 	MaxItemBytes = StateRoom + len("page.html") + 100
 	tree(t, map[string]string{"page.html": strings.Repeat("<p>a & b</p>\n", 40)})
-	items, _ := walk(t, []string{"page.html"}, "", Options{Input: skill.Text})
+	items, _ := walk(t, []string{"page.html"}, "", Options{Input: template.Text})
 	if len(items) != 1 || len(items[0].Parts) < 2 {
 		t.Fatalf("items = %+v", items)
 	}
@@ -474,7 +474,7 @@ func TestLargeRecordsHaveParts(t *testing.T) {
 		"t.jsonl":  `{"id":1,"body":"` + strings.Repeat("line of text\\n", 12) + `"}` + "\n" + `{"id":2,"body":"short"}` + "\n",
 		"rows.csv": "id,body\n1,\"" + long + "\"\n",
 	})
-	items, _ := walk(t, []string{"t.jsonl", "rows.csv"}, "", Options{Input: skill.Text, Field: "body"})
+	items, _ := walk(t, []string{"t.jsonl", "rows.csv"}, "", Options{Input: template.Text, Field: "body"})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"t.jsonl:1", "t.jsonl:2", "rows.csv:2"}) {
 		t.Fatalf("labels = %v", got)
 	}
