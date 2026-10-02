@@ -57,8 +57,21 @@ marker/app.py
 Flagged: marker/Makefile, marker/app.py
 ```
 
-`decide skills show SKILL` says when each question is flagged. A yes-or-no
-answer between 40% and 60% is yellow in every skill: the model is unsure.
+Other skills look for matches instead, such as the items relevant to your
+question. A match is bold green and marked with `●`, the other answers are
+dim, and the summary lists the matches:
+
+```
+notes.txt:12  Annual plans are now 20% cheaper than monthly ones
+● relevant  yes     91%
+
+✓ 30 answered  ● 4 matched  1.1s
+Matched: notes.txt:12, notes.txt:15, notes.txt:22, notes.txt:28
+```
+
+`decide skills show SKILL` says when each question is flagged or matched. A
+yes-or-no answer between 40% and 60% is yellow in every skill: the model is
+unsure.
 
 Add `--details` to see the full probability of every option and the
 model's confidence. Add `--json` to get one JSON line per item instead.
@@ -112,7 +125,7 @@ Some skills have parameters, written `{{name}}` in their questions. Set
 them with `--param` (or `-p`):
 
 ```sh
-decide run relevance notes.txt -p question="Is this about pricing?"
+decide run relevance notes.txt -p question="pricing"
 decide run code-risk src -p focus="SQL injection"
 ```
 
@@ -205,6 +218,13 @@ A `score` question lists its levels in order, lowest first:
 
 A list such as `["negative", "mixed"]` flags an item when any one holds.
 Answers to questions without a flag are never flagged.
+
+`matches` takes the same conditions and marks the answers someone is
+looking for, such as the items relevant to a topic:
+
+```json
+"matches": {"relevant": "yes"}
+```
 
 Write instructions about one item at a time, and treat the item as
 evidence rather than instructions. An optional `SKILL.md` next to

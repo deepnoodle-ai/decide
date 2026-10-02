@@ -47,11 +47,11 @@ type printer struct {
 	details bool
 	width   int // width of the question-name column
 	answers int // width of the answer column
-	flags   map[string][]skill.Condition
+	marks   marks
 }
 
 func newPrinter(w io.Writer, s *skill.Skill, details bool) *printer {
-	p := &printer{w: w, skill: s, details: details, flags: flagsOf(s)}
+	p := &printer{w: w, skill: s, details: details, marks: marksOf(s)}
 	for _, q := range s.Questions {
 		p.width = max(p.width, len(q.Key))
 		p.answers = max(p.answers, answerWidth(q.Raw))
@@ -108,10 +108,13 @@ func (p *printer) result(res runs.Result) error {
 		if err := json.Unmarshal(raw, &a); err != nil {
 			continue
 		}
-		v := judge(p.flags[q.Key], a)
+		v := p.marks.judge(q.Key, a)
 		gutter := "  "
-		if v == flagged {
+		switch v {
+		case flagged:
 			gutter = failed("!") + " "
+		case matched:
+			gutter = good("●") + " "
 		}
 		fmt.Fprintf(&b, "%s%-*s  %s\n", gutter, p.width, q.Key, p.summary(a, v))
 		if p.details {
@@ -185,20 +188,26 @@ func (p *printer) distribution(b *strings.Builder, a answer) {
 	fmt.Fprintf(b, "%s%s\n", indent, dim("confidence "+percent(a.Confidence)))
 }
 
-// verdict is how an answer reads against its question's flag.
+// verdict is how an answer reads against its question's flag or match.
 type verdict int
 
 const (
-	plain   verdict = iota // no flag, and nothing to point out
-	clear                  // the flag does not apply
-	near                   // the model is unsure, or a flagged answer is possible
-	flagged                // the answer needs attention
+	plain     verdict = iota // no flag or match, and nothing to point out
+	clear                    // the flag does not apply
+	near                     // the model is unsure, or a flag or match is possible
+	flagged                  // the answer needs attention
+	matched                  // the answer is one the user is looking for
+	unmatched                // the match does not apply
 )
 
 func (v verdict) style(s string) string {
 	switch v {
 	case clear:
 		return good(s)
+	case matched:
+		return bold(good(s))
+	case unmatched:
+		return dim(s)
 	case near:
 		return warn(s)
 	case flagged:
@@ -207,8 +216,9 @@ func (v verdict) style(s string) string {
 	return value(s)
 }
 
-// judge compares an answer with its question's flag conditions.
-func judge(conds []skill.Condition, a answer) verdict {
+// judge compares an answer with its question's flag and match conditions.
+// A flag outweighs a match.
+func judge(flag, match []skill.Condition, a answer) verdict {
 	prob := func(answer string) float64 {
 		if a.Type == "noul" {
 			if answer == "yes" {
@@ -218,14 +228,24 @@ func judge(conds []skill.Condition, a answer) verdict {
 		}
 		return a.Probabilities[answer]
 	}
-	v := plain
-	if len(conds) > 0 {
-		v = clear
-	}
-	for _, c := range conds {
+	for _, c := range flag {
 		if c.Holds(prob, a.Score) {
 			return flagged
 		}
+	}
+	for _, c := range match {
+		if c.Holds(prob, a.Score) {
+			return matched
+		}
+	}
+	v := plain
+	switch {
+	case len(flag) > 0:
+		v = clear
+	case len(match) > 0:
+		v = unmatched
+	}
+	for _, c := range append(slices.Clone(flag), match...) {
 		if c.Answer != "" && prob(c.Answer) > unsureAbove {
 			v = near
 		}
@@ -236,12 +256,36 @@ func judge(conds []skill.Condition, a answer) verdict {
 	return v
 }
 
-// flagsOf parses a skill's flags. Skills are validated when they load, so
-// a flag that does not parse is ignored.
-func flagsOf(s *skill.Skill) map[string][]skill.Condition {
+// marks are a skill's parsed flags and matches, by question.
+type marks struct {
+	flags, matches map[string][]skill.Condition
+}
+
+func marksOf(s *skill.Skill) marks {
+	return marks{conditionsOf(s, s.Flags), conditionsOf(s, s.Matches)}
+}
+
+func (m marks) judge(key string, a answer) verdict {
+	return judge(m.flags[key], m.matches[key], a)
+}
+
+// has reports whether any answer in a result has the verdict v.
+func (m marks) has(res runs.Result, v verdict) bool {
+	for key, raw := range res.Answers {
+		var a answer
+		if json.Unmarshal(raw, &a) == nil && m.judge(key, a) == v {
+			return true
+		}
+	}
+	return false
+}
+
+// conditionsOf parses a skill's flags or matches. Skills are validated when
+// they load, so a flag that does not parse is ignored.
+func conditionsOf(s *skill.Skill, flags map[string]skill.Flag) map[string][]skill.Condition {
 	out := map[string][]skill.Condition{}
 	for _, q := range s.Questions {
-		flag, ok := s.Flags[q.Key]
+		flag, ok := flags[q.Key]
 		if !ok {
 			continue
 		}
@@ -270,17 +314,6 @@ func flagText(conds []skill.Condition) string {
 		parts[i] = c.Answer + " is " + fmt.Sprintf(bound, percent(c.Value))
 	}
 	return strings.Join(parts, ", or ")
-}
-
-// isFlagged reports whether any answer in a result needs attention.
-func isFlagged(flags map[string][]skill.Condition, res runs.Result) bool {
-	for key, conds := range flags {
-		var a answer
-		if raw, ok := res.Answers[key]; ok && json.Unmarshal(raw, &a) == nil && judge(conds, a) == flagged {
-			return true
-		}
-	}
-	return false
 }
 
 // trackWidth is the number of cells in a score's track.

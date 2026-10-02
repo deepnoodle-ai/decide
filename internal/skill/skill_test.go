@@ -120,7 +120,7 @@ func TestResolveParameters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := string(r.Questions[0].Raw); !strings.Contains(got, `Is this item relevant to: Is it \"urgent\"??`) {
+	if got := string(r.Questions[0].Raw); !strings.Contains(got, `relevant to this topic or question: Is it \"urgent\"?"`) {
 		t.Fatalf("substituted question = %s", got)
 	}
 	if _, err := r.Decode(); err != nil {

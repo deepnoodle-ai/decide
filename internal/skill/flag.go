@@ -17,7 +17,8 @@ import (
 // not say. It sits above the 40–60% band where the model is unsure.
 const DefaultFlagAt = 0.6
 
-// Flag marks the answers to a question that need attention. Each condition
+// Flag marks the answers to a question that need attention, or, in a
+// skill's matches, the answers the user is looking for. Each condition
 // is a string: "yes" or "no" for a noul question, an option name for a
 // choice question, either one followed by a threshold such as ">= 80%", or
 // a comparison such as "<= 1.5" for a score question. A question is flagged
@@ -145,12 +146,19 @@ func parseCondition(s, typ string) (Condition, error) {
 	return c, nil
 }
 
-// checkFlags validates each flag against the question it names.
+// checkFlags validates each flag and match against the question it names.
 func (s *Skill) checkFlags(questions map[string]decide.Question) error {
-	for key, flag := range s.Flags {
+	if err := checkMarks("flags", s.Flags, questions); err != nil {
+		return err
+	}
+	return checkMarks("matches", s.Matches, questions)
+}
+
+func checkMarks(field string, marks map[string]Flag, questions map[string]decide.Question) error {
+	for key, flag := range marks {
 		q, ok := questions[key]
 		if !ok {
-			return fmt.Errorf("flags names %q, which is not a question", key)
+			return fmt.Errorf("%s names %q, which is not a question", field, key)
 		}
 		conds, err := flag.Conditions(q.QuestionType())
 		if err != nil {
