@@ -30,6 +30,4 @@
 //
 // A consistency failure from the client (decide.ErrInconsistentAnswer) is
 // Failed by default; pass [AcceptInconsistent] to read such answers anyway.
-//
-// Design: https://github.com/deepnoodle-ai/decide/blob/main/docs/prds/decision-tools.md
 package gate
