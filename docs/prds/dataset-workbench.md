@@ -1,6 +1,7 @@
 # Apply reusable judgments to datasets
 
 Status: Approved
+Implementation PR: [#18](https://github.com/deepnoodle-ai/decide/pull/18)
 Updated: 2026-10-01
 
 ## Problem and context
