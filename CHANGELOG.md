@@ -6,6 +6,11 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+### Changed
+
+- **Results fit the terminal.** In a terminal, a long score description or
+  preview ends with `…` instead of wrapping. Piped output is unchanged.
+
 ## [0.1.0] - 2026-10-02
 
 The first release. Decide asks typed questions about your data and gives

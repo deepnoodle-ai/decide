@@ -47,6 +47,7 @@ type printer struct {
 	details  bool
 	width    int // width of the question-name column
 	answers  int // width of the answer column
+	cols     int // terminal width, or 0 to print lines whole
 	marks    marks
 }
 
@@ -94,7 +95,11 @@ func (p *printer) item(it item) error {
 	res := it.Result
 	var b strings.Builder
 	b.WriteString(bold(clean(res.Source)))
-	if preview := previewOf(res.Input, 72-len(res.Source)); preview != "" {
+	room := 72
+	if p.cols > 0 {
+		room = min(room, p.cols-2)
+	}
+	if preview := previewOf(res.Input, room-len([]rune(clean(res.Source)))); preview != "" {
 		b.WriteString("  " + dim(preview))
 	}
 	if it.parts > 0 {
@@ -160,6 +165,15 @@ func (p *printer) summary(a answer, v verdict) string {
 		return value("(answer type " + clean(a.Type) + ")")
 	}
 	s := pad(ans, p.answers) + "  " + figure
+	if p.cols > 0 && note != "" {
+		// The gutter, key, answer, and figure come first.
+		room := p.cols - (2 + p.width + 2 + p.answers + 2 + len([]rune(stripANSI(figure))) + 2)
+		if room < 12 {
+			note = ""
+		} else {
+			note = truncate(note, room)
+		}
+	}
 	if note != "" {
 		s += "  " + dim(note)
 	}
