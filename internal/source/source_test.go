@@ -391,21 +391,21 @@ func TestMarkdownSections(t *testing.T) {
 func TestSectionsNeedHeadings(t *testing.T) {
 	tree(t, map[string]string{"app.py": "x = 1\n", "docs/a.md": "# A\n\nText.\n", "docs/b.md": "No headings.\n"})
 	err := Walk(context.Background(), []string{"app.py"}, nil, Options{Input: skill.Text, Each: skill.EachSection}, func(Item) error { return nil })
-	if err == nil || !strings.Contains(err.Error(), "app.py has no headings") {
+	if err == nil || !strings.Contains(err.Error(), "app.py is not Markdown, so it has no sections") {
 		t.Fatalf("err = %v", err)
 	}
 	items, warnings := walk(t, []string{"docs"}, "", Options{Input: skill.Text, Each: skill.EachSection})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"docs/a.md#a", "docs/b.md"}) {
 		t.Fatalf("labels = %v", got)
 	}
-	if len(warnings) != 1 || warnings[0] != "1 file has no headings, so it was judged whole" {
+	if len(warnings) != 1 || warnings[0] != "1 file has no Markdown headings, so it was judged whole" {
 		t.Fatalf("warnings = %v", warnings)
 	}
 }
 
 func TestLargeItemsHaveParts(t *testing.T) {
 	defer func(n int) { MaxItemBytes = n }(MaxItemBytes)
-	MaxItemBytes = 40
+	MaxItemBytes = StateRoom + len("big.md") + 70
 	doc := "# A\n\nfirst paragraph here\n\n## B\n\nsecond paragraph here\n\n" + strings.Repeat("x", 90) + "\n"
 	tree(t, map[string]string{"big.md": doc, "small.md": "# A\n\nfits\n"})
 	items, _ := walk(t, []string{"big.md", "small.md"}, "", Options{Input: skill.Text})
@@ -422,7 +422,7 @@ func TestLargeItemsHaveParts(t *testing.T) {
 		got = append(got, fmt.Sprintf("%s|%s|%s|%d", s.Lines, s.Part, s.Section, len(s.Content)))
 	}
 	// Parts break between blocks, and the long line is cut into pieces.
-	want := []string{"1-6|1 of 5|A|31", "7-8|2 of 5|A › B|21", "9|3 of 5|A › B|40", "9|4 of 5|A › B|40", "9|5 of 5|A › B|10"}
+	want := []string{"1-8|1 of 3|A|54", "9|2 of 3|A › B|70", "9|3 of 3|A › B|20"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("parts = %v, want %v", got, want)
 	}
@@ -435,5 +435,33 @@ func TestStdinByParagraph(t *testing.T) {
 	items, _ := walk(t, nil, "one\ntwo\n\nthree\n", Options{Input: skill.Text, Each: skill.EachParagraph})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"stdin:1", "stdin:4"}) {
 		t.Fatalf("labels = %v", got)
+	}
+}
+
+func TestPartsFitOnceEncoded(t *testing.T) {
+	defer func(n int) { MaxItemBytes = n }(MaxItemBytes)
+	MaxItemBytes = StateRoom + len("page.html") + 100
+	tree(t, map[string]string{"page.html": strings.Repeat("<p>a & b</p>\n", 40)})
+	items, _ := walk(t, []string{"page.html"}, "", Options{Input: skill.Text})
+	if len(items) != 1 || len(items[0].Parts) < 2 {
+		t.Fatalf("items = %+v", items)
+	}
+	for _, p := range items[0].Parts {
+		var s struct{ Content string }
+		json.Unmarshal(p.State, &s)
+		if jsonSize(s.Content) > 100 {
+			t.Fatalf("part %s is %d bytes encoded", p.Lines, jsonSize(s.Content))
+		}
+	}
+}
+
+func TestRepeatedAnchorsStayUnique(t *testing.T) {
+	seen := map[string]int{}
+	var got []string
+	for _, title := range []string{"Intro", "Intro", "Intro", "Intro 1"} {
+		got = append(got, slug(title, seen))
+	}
+	if want := []string{"intro", "intro-1", "intro-2", "intro-1-1"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("slugs = %v, want %v", got, want)
 	}
 }

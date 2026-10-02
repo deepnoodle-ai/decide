@@ -282,12 +282,12 @@ func slug(title string, seen map[string]int) string {
 			b.WriteByte('-')
 		}
 	}
-	s := b.String()
-	n := seen[s]
-	seen[s]++
-	if n > 0 {
-		s += "-" + strconv.Itoa(n)
+	base := b.String()
+	s := base
+	for n := 1; seen[s] > 0; n++ {
+		s = base + "-" + strconv.Itoa(n) // "intro-1" may itself be a heading
 	}
+	seen[s]++
 	return s
 }
 
@@ -349,9 +349,25 @@ func plainStructure(lines []string) structure {
 	return s
 }
 
-// split cuts lines start to end into parts of at most budget bytes. It
-// breaks where the structure allows when it can, then between lines, and
-// cuts a line only when one line is over the budget.
+// jsonSize is the size of s inside a JSON string as the client sends it,
+// with quotes, backslashes, control characters, and <, >, and & escaped.
+func jsonSize(s string) int {
+	n := len(s)
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case c == '"' || c == '\\' || c == '\n' || c == '\r' || c == '\t':
+			n++
+		case c < 0x20 || c == '<' || c == '>' || c == '&':
+			n += 5
+		}
+	}
+	return n
+}
+
+// split cuts lines start to end into parts whose text is at most budget
+// bytes once encoded as JSON. It breaks where the structure allows when it
+// can, then between lines, and cuts a line only when one line is over the
+// budget.
 func split(lines []string, start, end int, st structure, budget int) []piece {
 	breaks, section := st.breaks, st.section
 
@@ -359,7 +375,7 @@ func split(lines []string, start, end int, st structure, budget int) []piece {
 	type segment struct{ start, end, size int }
 	var segs []segment
 	for i := start; i <= end; i++ {
-		size := len(lines[i-1]) + 1
+		size := jsonSize(lines[i-1]) + 2 // and its \n
 		if len(segs) == 0 || breaks[i] {
 			segs = append(segs, segment{i, i, size})
 			continue
@@ -389,7 +405,7 @@ func split(lines []string, start, end int, st structure, budget int) []piece {
 		// A segment over the budget is cut between lines, and a line over
 		// the budget into pieces.
 		for i := s.start; i <= s.end; i++ {
-			size := len(lines[i-1]) + 1
+			size := jsonSize(lines[i-1]) + 2
 			if cur != nil && cur.size+size <= budget {
 				cur.end, cur.size = i, cur.size+size
 				continue
@@ -408,18 +424,18 @@ func split(lines []string, start, end int, st structure, budget int) []piece {
 	return out
 }
 
-// chunks cuts a long line into pieces of at most n bytes, between runes.
+// chunks cuts a long line into pieces of at most n bytes once encoded as
+// JSON, between runes.
 func chunks(s string, n int) []string {
 	var out []string
-	for len(s) > n {
-		cut := n
-		for cut > 0 && !utf8RuneStart(s[cut]) {
-			cut--
+	start, size := 0, 0
+	for i, r := range s {
+		rs := jsonSize(string(r))
+		if size+rs > n && i > start {
+			out = append(out, s[start:i])
+			start, size = i, 0
 		}
-		out = append(out, s[:cut])
-		s = s[cut:]
+		size += rs
 	}
-	return append(out, s)
+	return append(out, s[start:])
 }
-
-func utf8RuneStart(b byte) bool { return b&0xC0 != 0x80 }

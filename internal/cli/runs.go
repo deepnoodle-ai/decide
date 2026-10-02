@@ -65,15 +65,19 @@ func (a *App) runsList(c *cli.Context) error {
 
 // outcome describes how far a run got, in a few words.
 func outcome(r *runs.Run) string {
+	answered, failures, total := r.Complete, r.Failed, r.Total
+	if r.Items > 0 && r.Items != r.Total { // some items were judged in parts
+		answered, failures, total = progress(r, nil)
+	}
 	switch r.Status {
 	case runs.Complete:
-		return good(fmt.Sprintf("%d answered", r.Complete))
+		return good(fmt.Sprintf("%d answered", answered))
 	case runs.Partial:
-		return failed(fmt.Sprintf("%d of %d failed", r.Failed, r.Total))
+		return failed(fmt.Sprintf("%d of %d failed", failures, total))
 	case runs.Running:
-		return value(fmt.Sprintf("running %d/%d", r.Complete+r.Failed, r.Total))
+		return value(fmt.Sprintf("running %d/%d", answered+failures, total))
 	}
-	return fmt.Sprintf("stopped at %d/%d", r.Complete+r.Failed, r.Total)
+	return fmt.Sprintf("stopped at %d/%d", answered+failures, total)
 }
 
 // pad pads styled text to a visible width.
@@ -132,18 +136,9 @@ func (a *App) runsView(c *cli.Context) error {
 		fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Run %s · %s on %s · %s",
 			r.ID, r.Skill.Name, strings.Join(r.Sources, ", "), humanize.Time(r.Created))))
 	}
-	if c.Bool("json") {
-		write := resultWriter(c, r.Skill, nil)
-		for _, res := range results {
-			if err := write(res); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	p := newPrinter(c.Stdout(), r.Skill, c.Bool("details"), nil)
-	for _, it := range group(results, p.marks) {
-		if err := p.item(it); err != nil {
+	write := itemWriter(c, r.Skill)
+	for _, it := range group(results, marksOf(r.Skill)) {
+		if err := write(it); err != nil {
 			return err
 		}
 	}

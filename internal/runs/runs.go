@@ -396,8 +396,9 @@ func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, f
 		mu       sync.Mutex
 		fatal    error
 		lastErr  string // the error of the latest failures in a row
-		streak   int
-		order    []int // indexes sent to workers and not yet passed to fn
+		streak   int    // items, not parts, that failed in a row
+		lastItem = -1   // the item of the latest failure
+		order    []int  // indexes sent to workers and not yet passed to fn
 		waiting  = map[int]Result{}
 		fnFailed bool
 	)
@@ -451,13 +452,22 @@ func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, f
 			waiting[res.Index] = res
 			err = flush(false)
 		}
+		item := res.Index // the index of the item's first part
+		if res.Part != nil {
+			item -= res.Part.N - 1
+		}
 		switch {
 		case res.Status == "complete":
 			streak = 0
+		case item == lastItem:
+			// Another part of an item that already failed.
 		case res.Error == lastErr:
 			streak++
 		default:
 			lastErr, streak = res.Error, 1
+		}
+		if res.Status != "complete" {
+			lastItem = item
 		}
 		if err == nil && streak >= RepeatLimit {
 			err = &RepeatedError{Err: lastErr, Count: streak}

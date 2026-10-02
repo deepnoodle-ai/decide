@@ -193,10 +193,13 @@ func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, work
 	if err != nil {
 		return err
 	}
-	out := resultWriter(c, run.Skill, saved)
+	out := newCollector(marksOf(run.Skill), saved, itemWriter(c, run.Skill))
 	start := time.Now()
-	err = run.Execute(c.Context(), client, workers, out)
+	err = run.Execute(c.Context(), client, workers, out.add)
 	elapsed := time.Since(start)
+	if ferr := out.finish(); ferr != nil && err == nil {
+		err = ferr
+	}
 	var fatal *runs.FatalError
 	if errors.As(err, &fatal) {
 		return cli.Errorf("The %s provider rejected the request: %s", run.Provider, friendlyError(fatal.Error())).
@@ -248,38 +251,48 @@ func credentialHint(provider string) string {
 	return "Check that TYPESAFE_API_KEY holds a valid key."
 }
 
-// resultWriter prints results as text, or as JSON lines with --json.
-// saved holds the run's results from before, for combining parts.
-func resultWriter(c *cli.Context, s *skill.Skill, saved []runs.Result) func(runs.Result) error {
+// itemWriter prints items as text, or as JSON lines with --json.
+func itemWriter(c *cli.Context, s *skill.Skill) func(item) error {
 	if c.Bool("json") {
 		enc := json.NewEncoder(c.Stdout())
-		return func(r runs.Result) error { return enc.Encode(r) }
+		return func(it item) error { return enc.Encode(it.json()) }
 	}
-	return newPrinter(c.Stdout(), s, c.Bool("details"), saved).result
+	return newPrinter(c.Stdout(), s, c.Bool("details")).item
 }
 
-func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) {
-	m := marksOf(run.Skill)
+// progress counts a run's items, rather than its requests: how many were
+// answered, how many failed, and how many there are. It calls each, when
+// not nil, with every answered item.
+func progress(run *runs.Run, each func(item)) (answered, failures, total int) {
 	results, _ := run.Results()
-	var answered, failures int
-	var flaggedItems, matchedItems []string
-	for _, it := range group(results, m) {
+	for _, it := range group(results, marksOf(run.Skill)) {
 		if it.Status != "complete" {
 			failures++
 			continue
 		}
 		answered++
+		if each != nil {
+			each(it)
+		}
+	}
+	total = run.Items
+	if total == 0 {
+		total = run.Total // a run saved before items were counted
+	}
+	return answered, failures, total
+}
+
+func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) {
+	m := marksOf(run.Skill)
+	var flaggedItems, matchedItems []string
+	answered, failures, total := progress(run, func(it item) {
 		if m.has(it.Result, flagged) {
 			flaggedItems = append(flaggedItems, clean(it.Source))
 		}
 		if m.has(it.Result, matched) {
 			matchedItems = append(matchedItems, clean(it.Source))
 		}
-	}
-	total := run.Items
-	if total == 0 {
-		total = run.Total // a run saved before items were counted
-	}
+	})
 	parts := []string{good(fmt.Sprintf("✓ %d answered", answered))}
 	if failures > 0 {
 		parts = append(parts, failed(fmt.Sprintf("✗ %d failed", failures)))

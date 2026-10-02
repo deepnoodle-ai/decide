@@ -121,3 +121,22 @@ func TestCombineParts(t *testing.T) {
 		t.Fatalf("item = %+v", it)
 	}
 }
+
+func TestCollectorShowsFailedItemsWhenStopped(t *testing.T) {
+	var got []item
+	c := newCollector(marks{}, nil, func(it item) error {
+		got = append(got, it)
+		return nil
+	})
+	c.add(runs.Result{Index: 0, Source: "a.md", Status: "failed", Error: "HTTP 413",
+		Part: &runs.Part{N: 1, Of: 3, Lines: "1-9"}})
+	c.add(runs.Result{Index: 3, Source: "b.md", Status: "complete",
+		Part: &runs.Part{N: 1, Of: 2, Lines: "1-5"}})
+	if len(got) != 0 {
+		t.Fatalf("emitted before the items were whole: %+v", got)
+	}
+	c.finish()
+	if len(got) != 1 || got[0].Source != "a.md" || got[0].Status != "failed" || got[0].Error != "part 1 of 3 (lines 1-9): HTTP 413" {
+		t.Fatalf("finish emitted %+v", got)
+	}
+}

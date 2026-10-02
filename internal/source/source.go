@@ -141,7 +141,7 @@ func Walk(ctx context.Context, paths []string, stdin io.Reader, opts Options, fn
 		}
 	}
 	if w.whole > 0 {
-		opts.Warn(fmt.Sprintf("%d %s no headings, so %s judged whole",
+		opts.Warn(fmt.Sprintf("%d %s no Markdown headings, so %s judged whole",
 			w.whole, plural(w.whole, "file has", "files have"), plural(w.whole, "it was", "each was")))
 	}
 	// Report sampled items in input order.
@@ -452,7 +452,11 @@ func (w *walker) text(label, data string, md bool, each string, explicit bool) e
 		}
 		if !md || !hasHeadings(lines) {
 			if explicit && label != "stdin" {
-				return fmt.Errorf("%s has no headings to divide it into sections; use --each paragraph or --each file", label)
+				why := "has no headings to divide it into sections"
+				if !md {
+					why = "is not Markdown, so it has no sections"
+				}
+				return fmt.Errorf("%s %s; use --each paragraph or --each file", label, why)
 			}
 			w.whole++
 			break
@@ -469,18 +473,38 @@ func (w *walker) text(label, data string, md bool, each string, explicit bool) e
 		return nil
 	}
 	// The whole file.
-	if len(data) <= MaxItemBytes {
-		state, _ := json.Marshal(map[string]string{"path": label, "language": lang, "content": data})
+	text := strings.Join(lines, "\n")
+	budget := budget(label)
+	if jsonSize(text) <= budget {
+		state, _ := json.Marshal(map[string]string{"path": label, "language": lang, "content": text})
 		return w.emit(Item{Label: label, Unit: skill.EachFile, State: state})
 	}
 	it := Item{Label: label, Unit: skill.EachFile}
-	parts := split(lines, 1, len(lines), structureOf(lines, md), MaxItemBytes)
+	parts := split(lines, 1, len(lines), structureOf(lines, md), budget)
 	for i, p := range parts {
 		state, _ := json.Marshal(partState{Path: label, Language: lang, Section: p.section, Lines: p.lines(),
 			Part: fmt.Sprintf("%d of %d", i+1, len(parts)), Content: p.text})
 		it.Parts = append(it.Parts, Part{Lines: p.lines(), State: state})
 	}
 	return w.emit(it)
+}
+
+// StateRoom is room left in each request for the rest of an item's state:
+// its section, line numbers, and field names.
+const StateRoom = 1024
+
+// budget is how much text, encoded as JSON, one request can hold for the
+// file at path.
+func budget(path string) int {
+	return max(MaxItemBytes-StateRoom-jsonSize(path), 16)
+}
+
+// preview is the start of a long text, for an item stored in parts.
+func preview(text string) string {
+	if r := []rune(text); len(r) > 200 {
+		return string(r[:200]) + "…"
+	}
+	return text
 }
 
 func structureOf(lines []string, md bool) structure {
@@ -515,12 +539,16 @@ func (w *walker) piece(label, unit, path string, p piece, lines []string, md boo
 	if unit == skill.EachSection && p.section != "" {
 		value, _ = json.Marshal(p.section) // "Install › macOS" says more than "#macos"
 	}
-	if len(p.text) <= MaxItemBytes {
+	budget := budget(path)
+	if jsonSize(p.text) <= budget {
 		state, _ := json.Marshal(partState{Path: path, Section: p.section, Content: p.text})
 		return w.emit(Item{Label: label, Unit: unit, Value: value, State: state})
 	}
+	if unit != skill.EachSection || p.section == "" {
+		value, _ = json.Marshal(preview(p.text)) // each part's result keeps a copy
+	}
 	it := Item{Label: label, Unit: unit, Value: value}
-	parts := split(lines, p.start, p.end, structureOf(lines, md), MaxItemBytes)
+	parts := split(lines, p.start, p.end, structureOf(lines, md), budget)
 	for i, part := range parts {
 		section := part.section
 		if section == "" {

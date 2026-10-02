@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -19,9 +20,9 @@ type item struct {
 	where       map[string]string // for each question, the lines of the part that decided it
 }
 
-// group collects results into items. The parts of an item are consecutive
-// and are combined once all of them are present; an item still missing a
-// part is left out.
+// group collects saved results into items. The parts of an item are
+// consecutive. An item missing a part is left out, unless a part it has
+// failed: then the item failed.
 func group(results []runs.Result, m marks) []item {
 	var out []item
 	for i := 0; i < len(results); i++ {
@@ -30,17 +31,126 @@ func group(results []runs.Result, m marks) []item {
 			out = append(out, item{Result: res})
 			continue
 		}
-		first := res.Index - (res.Part.N - 1)
+		first := firstPart(res)
 		parts := []runs.Result{}
-		for ; i < len(results) && results[i].Part != nil && results[i].Index-(results[i].Part.N-1) == first; i++ {
+		for ; i < len(results) && results[i].Part != nil && firstPart(results[i]) == first; i++ {
 			parts = append(parts, results[i])
 		}
 		i--
 		if len(parts) == res.Part.Of {
 			out = append(out, combine(parts, m))
+		} else if it, ok := failure(parts); ok {
+			out = append(out, it)
 		}
 	}
 	return out
+}
+
+// firstPart is the index of the first part of a result's item.
+func firstPart(res runs.Result) int {
+	if res.Part == nil {
+		return res.Index
+	}
+	return res.Index - (res.Part.N - 1)
+}
+
+// collector turns results into items as they arrive. A part waits until
+// every part of its item is in, including parts answered before a run
+// was resumed, and then the item is emitted as one.
+type collector struct {
+	marks marks
+	saved map[int]runs.Result // complete results from before this execution
+	parts map[int]runs.Result // parts that arrived, until their item is whole
+	emit  func(item) error
+}
+
+func newCollector(m marks, saved []runs.Result, emit func(item) error) *collector {
+	c := &collector{marks: m, saved: map[int]runs.Result{}, parts: map[int]runs.Result{}, emit: emit}
+	for _, res := range saved {
+		if res.Status == "complete" {
+			c.saved[res.Index] = res
+		}
+	}
+	return c
+}
+
+func (c *collector) add(res runs.Result) error {
+	if res.Part == nil {
+		return c.emit(item{Result: res})
+	}
+	c.parts[res.Index] = res
+	first := firstPart(res)
+	parts := make([]runs.Result, res.Part.Of)
+	for i := range parts {
+		r, ok := c.parts[first+i]
+		if !ok {
+			if r, ok = c.saved[first+i]; !ok {
+				return nil
+			}
+		}
+		parts[i] = r
+	}
+	for i := range parts {
+		delete(c.parts, first+i)
+	}
+	return c.emit(combine(parts, c.marks))
+}
+
+// finish emits the items still waiting for a part that have a failed
+// part, so a run that stopped early still shows what failed.
+func (c *collector) finish() error {
+	byItem := map[int][]runs.Result{}
+	var firsts []int
+	for _, res := range c.parts {
+		f := firstPart(res)
+		if byItem[f] == nil {
+			firsts = append(firsts, f)
+		}
+		byItem[f] = append(byItem[f], res)
+	}
+	slices.Sort(firsts)
+	for _, f := range firsts {
+		parts := byItem[f]
+		slices.SortFunc(parts, func(a, b runs.Result) int { return a.Index - b.Index })
+		if it, ok := failure(parts); ok {
+			if err := c.emit(it); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// failure returns the failed item of some parts of an item, if any part
+// failed.
+func failure(parts []runs.Result) (item, bool) {
+	for _, p := range parts {
+		if p.Status != "complete" {
+			it := item{parts: p.Part.Of}
+			it.Index, it.Source, it.Input, it.Status = firstPart(p), p.Source, p.Input, "failed"
+			it.Model, it.RequestID = p.Model, p.RequestID
+			it.Error = fmt.Sprintf("part %d of %d (lines %s): %s", p.Part.N, p.Part.Of, p.Part.Lines, friendlyError(p.Error))
+			return it, true
+		}
+	}
+	return item{}, false
+}
+
+// jsonItem is an item as --json prints it: one line per item, with the
+// parts it was judged in, and the lines of the part that decided each
+// answer.
+type jsonItem struct {
+	runs.Result
+	Parts int               `json:"parts,omitempty"`
+	Lines map[string]string `json:"lines,omitempty"`
+}
+
+func (it item) json() jsonItem {
+	j := jsonItem{Result: it.Result, Parts: it.parts}
+	if len(it.where) > 0 {
+		j.Lines = it.where
+	}
+	return j
 }
 
 // combine makes one result from the results for an item's parts. A
@@ -49,17 +159,13 @@ func group(results []runs.Result, m marks) []item {
 // match takes the part closest to matching. Other answers are averaged,
 // weighted by the number of lines in each part.
 func combine(parts []runs.Result, m marks) item {
+	if it, ok := failure(parts); ok {
+		return it
+	}
 	first := parts[0]
 	it := item{parts: len(parts), where: map[string]string{}}
 	it.Index, it.Source, it.Input, it.Status = first.Index, first.Source, first.Input, "complete"
 	it.Model, it.RequestID = first.Model, first.RequestID
-	for _, p := range parts {
-		if p.Status != "complete" {
-			it.Status = "failed"
-			it.Error = fmt.Sprintf("part %d of %d (lines %s): %s", p.Part.N, p.Part.Of, p.Part.Lines, friendlyError(p.Error))
-			return it
-		}
-	}
 	it.Answers = map[string]json.RawMessage{}
 	for key := range first.Answers {
 		answers := make([]answer, 0, len(parts))

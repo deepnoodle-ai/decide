@@ -48,20 +48,10 @@ type printer struct {
 	width   int // width of the question-name column
 	answers int // width of the answer column
 	marks   marks
-	saved   map[int]runs.Result // complete results from before this execution
-	parts   map[int]runs.Result // parts of large items, until every part is in
 }
 
-// newPrinter prints results. saved holds the run's earlier results, so a
-// resumed run can combine a new part with the parts answered before.
-func newPrinter(w io.Writer, s *skill.Skill, details bool, saved []runs.Result) *printer {
-	p := &printer{w: w, skill: s, details: details, marks: marksOf(s),
-		saved: map[int]runs.Result{}, parts: map[int]runs.Result{}}
-	for _, res := range saved {
-		if res.Status == "complete" {
-			p.saved[res.Index] = res
-		}
-	}
+func newPrinter(w io.Writer, s *skill.Skill, details bool) *printer {
+	p := &printer{w: w, skill: s, details: details, marks: marksOf(s)}
 	for _, q := range s.Questions {
 		p.width = max(p.width, len(q.Key))
 		p.answers = max(p.answers, answerWidth(q.Raw))
@@ -97,30 +87,6 @@ func answerWidth(raw json.RawMessage) int {
 		return min(w, 24)
 	}
 	return len("unsure")
-}
-
-// result prints a result as it arrives. The part of a large item waits
-// until every part is in, then the item prints as one.
-func (p *printer) result(res runs.Result) error {
-	if res.Part == nil {
-		return p.item(item{Result: res})
-	}
-	p.parts[res.Index] = res
-	first := res.Index - (res.Part.N - 1)
-	parts := make([]runs.Result, res.Part.Of)
-	for i := range parts {
-		r, ok := p.parts[first+i]
-		if !ok {
-			if r, ok = p.saved[first+i]; !ok {
-				return nil
-			}
-		}
-		parts[i] = r
-	}
-	for i := range parts {
-		delete(p.parts, first+i)
-	}
-	return p.item(combine(parts, p.marks))
 }
 
 // item prints one item's answers.

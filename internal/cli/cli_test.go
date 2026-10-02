@@ -319,7 +319,7 @@ func partsServer(h *harness) {
 func TestLargeFilesAreJudgedInParts(t *testing.T) {
 	h := setup(t)
 	defer func(n int) { source.MaxItemBytes = n }(source.MaxItemBytes)
-	source.MaxItemBytes = 20
+	source.MaxItemBytes = source.StateRoom + len("src/a.go") + 20
 	h.write("src/a.go", "package a\n\nfunc risky() {}\n\nfunc fine() {}\n")
 	partsServer(h)
 
@@ -343,7 +343,7 @@ func TestLargeFilesAreJudgedInParts(t *testing.T) {
 func TestResumeCombinesNewAndSavedParts(t *testing.T) {
 	h := setup(t)
 	defer func(n int) { source.MaxItemBytes = n }(source.MaxItemBytes)
-	source.MaxItemBytes = 20
+	source.MaxItemBytes = source.StateRoom + len("src/a.go") + 20
 	h.write("src/a.go", "package a\n\nfunc risky() {}\n\nfunc fine() {}\n")
 	partsServer(h)
 	h.server.FailNext(422)
@@ -376,4 +376,54 @@ func TestEachHintsAndErrors(t *testing.T) {
 	if out.code == 0 || !strings.Contains(out.stderr, "--each does not apply") {
 		t.Fatalf("image skill with --each: %d %s", out.code, out.stderr)
 	}
+}
+
+func TestPartsCountAsOneItem(t *testing.T) {
+	h := setup(t)
+	defer func(n int) { source.MaxItemBytes = n }(source.MaxItemBytes)
+	source.MaxItemBytes = source.StateRoom + len("src/a.go") + 20
+	h.write("src/a.go", "package a\n\nfunc risky() {}\n\nfunc fine() {}\n")
+	partsServer(h)
+
+	// --json prints one line per item.
+	out := h.run("", "run", "code-risk", "src", "--json")
+	if strings.Count(out.stdout, "\n") != 1 {
+		t.Fatalf("--json printed %d lines:\n%s", strings.Count(out.stdout, "\n"), out.stdout)
+	}
+	var it struct {
+		Source string
+		Parts  int
+		Lines  map[string]string
+		Part   any
+	}
+	if err := json.Unmarshal([]byte(out.stdout), &it); err != nil {
+		t.Fatal(err)
+	}
+	if it.Source != "src/a.go" || it.Parts != 3 || it.Lines["risk"] != "3-4" || it.Part != nil {
+		t.Fatalf("item = %+v", it)
+	}
+	out = h.run("", "runs", "view", "--json")
+	if strings.Count(out.stdout, "\n") != 1 {
+		t.Fatalf("runs view --json printed:\n%s", out.stdout)
+	}
+	// runs list counts items, as the run's summary does.
+	out = h.run("", "runs")
+	contains(t, out.stdout, "1 answered")
+}
+
+func TestFailedPartsDoNotStopTheRun(t *testing.T) {
+	h := setup(t)
+	defer func(n int) { source.MaxItemBytes = n }(source.MaxItemBytes)
+	source.MaxItemBytes = source.StateRoom + len("src/a.go") + 20
+	h.write("src/a.go", strings.Repeat("func f() {}\n\n", 6))
+	h.write("src/b.go", "package b\n")
+	for range 6 {
+		h.server.FailNext(422)
+	}
+	out := h.run("", "run", "code-risk", "src", "--workers", "1")
+	if out.code != 1 || strings.Contains(out.stderr, "Stopped because") {
+		t.Fatalf("exit %d:\n%s", out.code, out.stderr)
+	}
+	contains(t, out.stdout, "✗ part 1 of 6 (lines 1-2)", "src/b.go")
+	contains(t, out.stderr, "✓ 1 answered  ✗ 1 failed")
 }
