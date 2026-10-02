@@ -393,13 +393,13 @@ func TestPartsCountAsOneItem(t *testing.T) {
 	var it struct {
 		Source string
 		Parts  int
-		Lines  map[string]string
+		Where  map[string]string
 		Part   any
 	}
 	if err := json.Unmarshal([]byte(out.stdout), &it); err != nil {
 		t.Fatal(err)
 	}
-	if it.Source != "src/a.go" || it.Parts != 3 || it.Lines["risk"] != "3-4" || it.Part != nil {
+	if it.Source != "src/a.go" || it.Parts != 3 || it.Where["risk"] != "lines 3-4" || it.Part != nil {
 		t.Fatalf("item = %+v", it)
 	}
 	out = h.run("", "runs", "view", "--json")
@@ -426,4 +426,40 @@ func TestFailedPartsDoNotStopTheRun(t *testing.T) {
 	}
 	contains(t, out.stdout, "✗ part 1 of 6 (lines 1-2)", "src/b.go")
 	contains(t, out.stderr, "✓ 1 answered  ✗ 1 failed")
+}
+
+func TestLargeRecordsAreJudgedInParts(t *testing.T) {
+	h := setup(t)
+	defer func(n int) { source.MaxItemBytes = n }(source.MaxItemBytes)
+	source.MaxItemBytes = source.StateRoom + len("t.jsonl:1") + 40
+	h.write("t.jsonl", `{"body":"hay hay hay\nhay hay hay\nthe needle\nhay hay hay"}`+"\n"+`{"body":"hay"}`+"\n")
+	h.server.Respond(func(req *decide.Request) (*decide.Response, error) {
+		state, _ := json.Marshal(req.State)
+		p := 0.1
+		if strings.Contains(string(state), "needle") {
+			p = 0.9
+		}
+		return &decide.Response{Answers: map[string]decide.Answer{"relevant": decidetest.NoulAnswer(p)}}, nil
+	})
+	h.server.FailNext(422)
+	out := h.run("", "run", "relevance", "t.jsonl", "--field", "body", "-p", "question=needles", "--workers", "1")
+	contains(t, out.stdout, "✗ part 1 of 2: ")
+	contains(t, out.stderr, "Running relevance on 2 records (1 judged in parts, 3 requests)", "✓ 1 answered  ✗ 1 failed")
+
+	out = h.run("", "runs", "resume", "--json")
+	if out.code != 0 || strings.Count(out.stdout, "\n") != 1 {
+		t.Fatalf("resume: exit %d:\n%s%s", out.code, out.stdout, out.stderr)
+	}
+	var it struct {
+		Source string
+		Parts  int
+		Where  map[string]string
+	}
+	json.Unmarshal([]byte(out.stdout), &it)
+	if it.Source != "t.jsonl:1" || it.Parts != 2 || it.Where["relevant"] != "part 1 of 2" {
+		t.Fatalf("item = %+v", it)
+	}
+	out = h.run("", "runs", "view")
+	contains(t, out.stdout, "t.jsonl:1  {\"body\":\"hay hay hay\\nhay", "judged in 2 parts\n● relevant  yes     90%  part 1 of 2\n")
+	contains(t, out.stderr, "✓ 2 answered  ● 1 matched")
 }

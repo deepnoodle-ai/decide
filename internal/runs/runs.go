@@ -79,9 +79,10 @@ type Result struct {
 // Part says which part of an item a result is for. The parts of an item
 // have consecutive indexes.
 type Part struct {
-	N     int    `json:"n"`     // from 1
-	Of    int    `json:"of"`    // how many parts the item has
-	Lines string `json:"lines"` // the item's lines in this part, such as "120-260"
+	N     int    `json:"n"`               // from 1
+	Of    int    `json:"of"`              // how many parts the item has
+	Lines string `json:"lines,omitempty"` // the file's lines in this part, such as "120-260"; empty for a record
+	Size  int    `json:"size,omitempty"`  // the size of its text
 }
 
 type input struct {
@@ -128,7 +129,7 @@ func (r *Run) Add(it source.Item) error {
 	}
 	for i, p := range it.Parts {
 		in := input{Index: r.Total, Source: it.Label, Value: it.Value, State: p.State,
-			Part: &Part{N: i + 1, Of: len(it.Parts), Lines: p.Lines}}
+			Part: &Part{N: i + 1, Of: len(it.Parts), Lines: p.Lines, Size: p.Size}}
 		if err := r.add(in, it); err != nil {
 			return err
 		}

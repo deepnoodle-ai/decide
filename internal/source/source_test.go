@@ -465,3 +465,43 @@ func TestRepeatedAnchorsStayUnique(t *testing.T) {
 		t.Fatalf("slugs = %v, want %v", got, want)
 	}
 }
+
+func TestLargeRecordsHaveParts(t *testing.T) {
+	defer func(n int) { MaxItemBytes = n }(MaxItemBytes)
+	MaxItemBytes = StateRoom + len("t.jsonl:1") + 60
+	long := strings.Repeat("word <b> ", 20)
+	tree(t, map[string]string{
+		"t.jsonl":  `{"id":1,"body":"` + strings.Repeat("line of text\\n", 12) + `"}` + "\n" + `{"id":2,"body":"short"}` + "\n",
+		"rows.csv": "id,body\n1,\"" + long + "\"\n",
+	})
+	items, _ := walk(t, []string{"t.jsonl", "rows.csv"}, "", Options{Input: skill.Text, Field: "body"})
+	if got := labels(items); !reflect.DeepEqual(got, []string{"t.jsonl:1", "t.jsonl:2", "rows.csv:2"}) {
+		t.Fatalf("labels = %v", got)
+	}
+	if len(items[1].Parts) != 0 || string(items[1].State) != `"short"` {
+		t.Fatalf("small record = %+v", items[1])
+	}
+	for _, it := range []Item{items[0], items[2]} {
+		if len(it.Parts) < 2 || it.State != nil {
+			t.Fatalf("%s: %d parts", it.Label, len(it.Parts))
+		}
+		var text strings.Builder
+		for i, p := range it.Parts {
+			var s struct{ Path, Part, Content string }
+			json.Unmarshal(p.State, &s)
+			if s.Path != it.Label || s.Part != fmt.Sprintf("%d of %d", i+1, len(it.Parts)) || p.Lines != "" || p.Size != len(s.Content) {
+				t.Fatalf("%s part %d = %+v, %+v", it.Label, i, s, p)
+			}
+			if jsonSize(s.Content) > budget(it.Label) {
+				t.Fatalf("%s part %d is %d bytes encoded", it.Label, i, jsonSize(s.Content))
+			}
+			text.WriteString(s.Content)
+		}
+		if !strings.Contains(text.String(), "line of text") && !strings.Contains(text.String(), "word <b>") {
+			t.Fatalf("%s parts lost the text: %q", it.Label, text.String())
+		}
+	}
+	if len(items[2].Value) > 300 {
+		t.Fatalf("a record in parts keeps %d bytes in each part", len(items[2].Value))
+	}
+}

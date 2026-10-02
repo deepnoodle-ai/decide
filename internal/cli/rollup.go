@@ -17,7 +17,7 @@ import (
 type item struct {
 	runs.Result                   // the combined result, without a Part
 	parts       int               // how many parts it was judged in; 0 when whole
-	where       map[string]string // for each question, the lines of the part that decided it
+	where       map[string]string // for each question, the part that decided it, such as "lines 3-9"
 }
 
 // group collects saved results into items. The parts of an item are
@@ -129,7 +129,10 @@ func failure(parts []runs.Result) (item, bool) {
 			it := item{parts: p.Part.Of}
 			it.Index, it.Source, it.Input, it.Status = firstPart(p), p.Source, p.Input, "failed"
 			it.Model, it.RequestID = p.Model, p.RequestID
-			it.Error = fmt.Sprintf("part %d of %d (lines %s): %s", p.Part.N, p.Part.Of, p.Part.Lines, friendlyError(p.Error))
+			it.Error = fmt.Sprintf("part %d of %d: %s", p.Part.N, p.Part.Of, friendlyError(p.Error))
+			if p.Part.Lines != "" {
+				it.Error = fmt.Sprintf("part %d of %d (lines %s): %s", p.Part.N, p.Part.Of, p.Part.Lines, friendlyError(p.Error))
+			}
 			return it, true
 		}
 	}
@@ -137,27 +140,36 @@ func failure(parts []runs.Result) (item, bool) {
 }
 
 // jsonItem is an item as --json prints it: one line per item, with the
-// parts it was judged in, and the lines of the part that decided each
-// answer.
+// parts it was judged in, and the part that decided each flagged or
+// matched answer.
 type jsonItem struct {
 	runs.Result
 	Parts int               `json:"parts,omitempty"`
-	Lines map[string]string `json:"lines,omitempty"`
+	Where map[string]string `json:"where,omitempty"`
 }
 
 func (it item) json() jsonItem {
 	j := jsonItem{Result: it.Result, Parts: it.parts}
 	if len(it.where) > 0 {
-		j.Lines = it.where
+		j.Where = it.where
 	}
 	return j
+}
+
+// partName names a part for people: by its lines in a file, or by its
+// number in a record.
+func partName(p *runs.Part) string {
+	if p.Lines != "" {
+		return "lines " + p.Lines
+	}
+	return fmt.Sprintf("part %d of %d", p.N, p.Of)
 }
 
 // combine makes one result from the results for an item's parts. A
 // question with a flag takes the answer of the part closest to being
 // flagged, so an item is flagged when any part is; a question with a
 // match takes the part closest to matching. Other answers are averaged,
-// weighted by the number of lines in each part.
+// weighted by the size of each part.
 func combine(parts []runs.Result, m marks) item {
 	if it, ok := failure(parts); ok {
 		return it
@@ -174,7 +186,7 @@ func combine(parts []runs.Result, m marks) item {
 			var a answer
 			if raw, ok := p.Answers[key]; ok && json.Unmarshal(raw, &a) == nil {
 				answers = append(answers, a)
-				weights = append(weights, float64(lineCount(p.Part.Lines)))
+				weights = append(weights, weight(p.Part))
 			}
 		}
 		if len(answers) < len(parts) {
@@ -193,7 +205,7 @@ func combine(parts []runs.Result, m marks) item {
 				}
 			}
 			a = answers[best]
-			it.where[key] = parts[best].Part.Lines
+			it.where[key] = partName(parts[best].Part)
 		} else {
 			a = average(answers, weights)
 		}
@@ -262,6 +274,15 @@ func average(answers []answer, weights []float64) answer {
 		}
 	}
 	return out
+}
+
+// weight is how much a part counts in an average: its size, or for a run
+// saved before sizes were, its number of lines.
+func weight(p *runs.Part) float64 {
+	if p.Size > 0 {
+		return float64(p.Size)
+	}
+	return float64(lineCount(p.Lines))
 }
 
 // lineCount counts the lines in a range such as "120-260" or "7".

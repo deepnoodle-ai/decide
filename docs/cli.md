@@ -115,9 +115,13 @@ src/server.go  judged in 3 parts
 ! risk             yes           88%  lines 412-655
 ```
 
+A record too long for one request, such as a CSV row with a long field,
+is judged in parts the same way, and the answer names the part, such as
+`part 2 of 3`.
+
 With `--json`, such an item is still one line, with `parts` set to the
-number of parts and `lines` giving, for each flagged or matched question,
-the lines of the part that decided it.
+number of parts and `where` giving, for each flagged or matched question,
+the part that decided it, such as `"lines 412-655"`.
 
 Items are named by their path from the current folder, or, for a folder
 outside it, from that folder's name, such as `marker/app.py`. The model sees

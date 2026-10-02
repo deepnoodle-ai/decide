@@ -114,7 +114,7 @@ func TestCombineParts(t *testing.T) {
 		t.Fatalf("clarity = %+v", a)
 	}
 	// A flagged question takes the part closest to its flag.
-	if a := get("low"); a.Score != 0 || it.where["low"] != "31-40" || it.where["mood"] != "" {
+	if a := get("low"); a.Score != 0 || it.where["low"] != "lines 31-40" || it.where["mood"] != "" {
 		t.Fatalf("low = %+v, where = %v", a, it.where)
 	}
 	if it.parts != 2 || it.Source != "big.md" || it.Part != nil {

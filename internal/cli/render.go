@@ -122,8 +122,8 @@ func (p *printer) item(it item) error {
 			gutter = good("●") + " "
 		}
 		line := p.summary(a, v)
-		if lines := it.where[q.Key]; lines != "" {
-			line += "  " + dim("lines "+lines)
+		if w := it.where[q.Key]; w != "" {
+			line += "  " + dim(w)
 		}
 		fmt.Fprintf(&b, "%s%-*s  %s\n", gutter, p.width, q.Key, line)
 		if p.details {

@@ -83,7 +83,8 @@ type Item struct {
 
 // Part is one piece of an item too large to send whole.
 type Part struct {
-	Lines string          `json:"lines"` // the item's lines in this part, such as "120-260"
+	Lines string          `json:"lines,omitempty"` // the file's lines in this part, such as "120-260"; empty for a record
+	Size  int             `json:"size"`            // the size of its text, for weighting answers
 	State json.RawMessage `json:"state"`
 }
 
@@ -484,7 +485,7 @@ func (w *walker) text(label, data string, md bool, each string, explicit bool) e
 	for i, p := range parts {
 		state, _ := json.Marshal(partState{Path: label, Language: lang, Section: p.section, Lines: p.lines(),
 			Part: fmt.Sprintf("%d of %d", i+1, len(parts)), Content: p.text})
-		it.Parts = append(it.Parts, Part{Lines: p.lines(), State: state})
+		it.Parts = append(it.Parts, Part{Lines: p.lines(), Size: len(p.text), State: state})
 	}
 	return w.emit(it)
 }
@@ -556,7 +557,7 @@ func (w *walker) piece(label, unit, path string, p piece, lines []string, md boo
 		}
 		state, _ := json.Marshal(partState{Path: path, Section: section, Lines: part.lines(),
 			Part: fmt.Sprintf("%d of %d", i+1, len(parts)), Content: part.text})
-		it.Parts = append(it.Parts, Part{Lines: part.lines(), State: state})
+		it.Parts = append(it.Parts, Part{Lines: part.lines(), Size: len(part.text), State: state})
 	}
 	return w.emit(it)
 }
@@ -789,7 +790,39 @@ func (w *walker) record(value json.RawMessage, label, unit string) error {
 			return fmt.Errorf("--field %s in %s: %w", w.opts.Field, label, err)
 		}
 	}
-	return w.emit(Item{Label: label, Unit: unit, Value: value, State: state})
+	budget := budget(label)
+	if encodedSize(state) <= budget {
+		return w.emit(Item{Label: label, Unit: unit, Value: value, State: state})
+	}
+	// Too large to send whole: cut the record's text, or its JSON laid out
+	// one member per line, between lines.
+	var text string
+	if json.Unmarshal(state, &text) != nil {
+		var b bytes.Buffer
+		json.Indent(&b, state, "", "  ")
+		text = b.String()
+	}
+	lines := strings.Split(text, "\n")
+	pieces := split(lines, 1, len(lines), plainStructure(lines), budget)
+	preview, _ := json.Marshal(preview(string(value))) // each part's result keeps a copy
+	it := Item{Label: label, Unit: unit, Value: preview}
+	for i, p := range pieces {
+		s, _ := json.Marshal(partState{Path: label, Part: fmt.Sprintf("%d of %d", i+1, len(pieces)), Content: p.text})
+		it.Parts = append(it.Parts, Part{Size: len(p.text), State: s})
+	}
+	return w.emit(it)
+}
+
+// encodedSize is the size of JSON as the client sends it, which escapes
+// <, >, and & in strings.
+func encodedSize(raw json.RawMessage) int {
+	n := len(raw)
+	for _, c := range raw {
+		if c == '<' || c == '>' || c == '&' {
+			n += 5
+		}
+	}
+	return n
 }
 
 // Lookup finds a value by a dotted path such as "ticket.body" or "items.0".
