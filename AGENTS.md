@@ -54,7 +54,8 @@ update it when an item lands or changes. Keep reviews out of the repository.
 - Use small commits with factual messages, such as `fix(cli): ...`.
 - Have the change reviewed independently before opening the pull request.
 - Merge, release, or change the repository's settings only when a
-  maintainer says to.
+  maintainer says to. [docs/releasing.md](docs/releasing.md) tells how to
+  release.
 
 ## Checks
 
