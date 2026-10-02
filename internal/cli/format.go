@@ -342,19 +342,21 @@ func (o *githubOutput) item(it item) error {
 	if it.Status != "complete" {
 		return nil
 	}
-	level, mark := "warning", flagged
-	if !o.marks.has(it.Result, flagged) {
-		if !o.marks.has(it.Result, matched) {
-			return nil
-		}
-		level, mark = "notice", matched
-	}
-	word := "flagged"
-	if mark == matched {
-		word = "matched"
-	}
-	if o.failOn == word {
-		level = "error" // the item fails the job, so say so
+	isFlagged, isMatched := o.marks.has(it.Result, flagged), o.marks.has(it.Result, matched)
+	var level, word string
+	var mark verdict
+	switch {
+	case o.failOn == "flagged" && isFlagged, o.failOn == "matched" && isMatched:
+		// The item fails the job, so say so, and name the answers that
+		// fail it, even when the item is both flagged and matched.
+		level, word = "error", o.failOn
+		mark = map[string]verdict{"flagged": flagged, "matched": matched}[word]
+	case isFlagged:
+		level, word, mark = "warning", "flagged", flagged
+	case isMatched:
+		level, word, mark = "notice", "matched", matched
+	default:
+		return nil
 	}
 	var keys, names, lines []string
 	for _, q := range o.template.Questions {

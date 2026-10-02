@@ -245,3 +245,31 @@ func TestReportWithNothingToJudge(t *testing.T) {
 	report, _ := os.ReadFile(summary)
 	contains(t, string(report), "Nothing for code-risk to judge")
 }
+
+func TestGitHubAnnotationOfAnItemBothFlaggedAndMatched(t *testing.T) {
+	h := setup(t)
+	h.write(".decide/templates/both/template.json", `{
+  "name": "both",
+  "description": "Flags one answer and matches another.",
+  "questions": {
+    "risky": {"type": "noul", "instructions": "Is it risky?"},
+    "wanted": {"type": "noul", "instructions": "Is it wanted?"}
+  },
+  "flags": {"risky": "yes"},
+  "matches": {"wanted": "yes"}
+}`)
+	h.server.Answer("risky", decidetest.NoulAnswer(0.9))
+	h.server.Answer("wanted", decidetest.NoulAnswer(0.9))
+
+	// --fail-on matched fails the job on the match, so the annotation is
+	// an error that names the matched answer.
+	out := h.run("x\n", "run", "both", "--format", "github", "--fail-on", "matched")
+	if out.code != 2 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stdout, "::error title=both matched wanted::", "● wanted: yes 90%25")
+
+	// Without --fail-on, the flag wins, as a warning.
+	out = h.run("x\n", "run", "both", "--format", "github")
+	contains(t, out.stdout, "::warning title=both flagged risky::", "! risky: yes 90%25")
+}
