@@ -26,6 +26,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -169,16 +170,42 @@ func (w *walker) path(p string) error {
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("%s is not a regular file", p)
 		}
-		return w.file(p, filepath.ToSlash(filepath.Clean(p)), true)
+		return w.file(p, base(p), true)
 	}
 	rules, err := ancestorRules(p)
 	if err != nil {
 		return err
 	}
-	return w.dir(p, p, rules)
+	return w.dir(base(p), p, p, rules)
 }
 
-func (w *walker) dir(root, dir string, rules []rule) error {
+// base is how labels name a path argument: relative to the working
+// directory when it is inside it, and otherwise by its last element, so a
+// folder outside the project shows as "marker/app.py". Labels are also
+// sent to the model, so they never reveal the home directory.
+func base(p string) string {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return filepath.ToSlash(filepath.Clean(p))
+	}
+	if real, err := filepath.EvalSymlinks(abs); err == nil {
+		abs = real
+	}
+	if wd, err := os.Getwd(); err == nil {
+		if real, err := filepath.EvalSymlinks(wd); err == nil {
+			wd = real
+		}
+		if rel, err := filepath.Rel(wd, abs); err == nil {
+			if rel = filepath.ToSlash(rel); rel != ".." && !strings.HasPrefix(rel, "../") {
+				return rel
+			}
+		}
+	}
+	return filepath.ToSlash(filepath.Base(abs))
+}
+
+// dir walks a directory. prefix is the label of the path argument root.
+func (w *walker) dir(prefix, root, dir string, rules []rule) error {
 	local, err := dirRules(dir)
 	if err != nil {
 		return err
@@ -203,7 +230,7 @@ func (w *walker) dir(root, dir string, rules []rule) error {
 			continue
 		}
 		if e.IsDir() {
-			if err := w.dir(root, full, rules); err != nil {
+			if err := w.dir(prefix, root, full, rules); err != nil {
 				return err
 			}
 			continue
@@ -211,10 +238,7 @@ func (w *walker) dir(root, dir string, rules []rule) error {
 		if !e.Type().IsRegular() || (len(w.opts.Include) > 0 && !match(w.opts.Include, rel)) {
 			continue
 		}
-		label := filepath.ToSlash(filepath.Join(root, rel))
-		if root == "." {
-			label = rel
-		}
+		label := path.Join(prefix, rel)
 		if err := w.file(full, label, false); err != nil {
 			return err
 		}
