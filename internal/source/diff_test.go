@@ -525,3 +525,41 @@ func TestDiffPathsStayInside(t *testing.T) {
 		t.Errorf("warnings = %q", warnings)
 	}
 }
+
+func TestDiffFunctionsStayInside(t *testing.T) {
+	tree(t, map[string]string{
+		"outside/secret.go": "package s\n\nfunc Key() string {\n\treturn \"hunter2\"\n}\n",
+		"repo/.git/HEAD":    "ref: refs/heads/main\n",
+	})
+	if err := os.Symlink("../outside", "repo/link"); err != nil {
+		t.Skip("symbolic links:", err)
+	}
+	t.Chdir("repo")
+	// The diff matches the outside file, through a link in a parent folder.
+	in := "diff --git a/link/secret.go b/link/secret.go\n--- a/link/secret.go\n+++ b/link/secret.go\n@@ -3 +3 @@\n-func Old() string {\n+func Key() string {\n"
+	items, warnings := walk(t, nil, in, Options{Each: template.EachFunction})
+	for _, s := range diffStates(t, items) {
+		if strings.Contains(s.Diff, "hunter2") {
+			t.Fatalf("read a file outside the repository: %+v", s)
+		}
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "not on disk") {
+		t.Errorf("warnings = %q", warnings)
+	}
+}
+
+func TestEveryHunkMustMatch(t *testing.T) {
+	tree(t, map[string]string{"abc.go": ac})
+	// The second hunk matches abc.go; the first, removed lines alone, could
+	// sit anywhere, so the file is judged by hunk.
+	in := "diff --git a/abc.go b/abc.go\n--- a/abc.go\n+++ b/abc.go\n@@ -2,0 +1,0 @@\n-var gone = 1\n@@ -6 +5 @@\n-func D() {}\n+func C() {}\n"
+	items, warnings := walk(t, nil, in, Options{Each: template.EachFunction})
+	for _, it := range items {
+		if it.Unit != template.EachHunk {
+			t.Errorf("%s: unit %q, want hunk", it.Label, it.Unit)
+		}
+	}
+	if len(items) != 2 || len(warnings) != 1 || !strings.Contains(warnings[0], "not on disk") {
+		t.Errorf("items = %q, warnings = %q", labels(items), warnings)
+	}
+}
