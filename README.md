@@ -95,7 +95,7 @@ decide run code-risk src --fail-on flagged   # exit code 2 if anything is flagge
 git diff main | decide run code-risk --each function   # judge each changed function
 git diff main | decide run prompt-injection            # hidden instructions for AI agents
 gh issue list --json number,title,body | decide run task-readiness
-gh pr view 42 --json title,body | decide run pr-description --fail-on flagged
+gh pr view 42 --json number,title,body | decide run pr-description --fail-on flagged
 ```
 
 Decide reads JSONL, JSON, CSV, text, Markdown, source code, diffs, and images,
