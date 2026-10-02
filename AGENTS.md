@@ -12,8 +12,8 @@ Guidance for coding agents and people working in this repository. See
 - `patterns/<name>`: decisions built from answers, such as gate and rank.
   Each one has a runnable program in `examples/<name>`.
 - `cmd/decide` and `internal/`: the CLI. `internal/cli` handles commands
-  and output, `internal/template` templates, `internal/source` reading data into
-  items, and `internal/runs` saved runs.
+  and output, `internal/template` templates, `internal/source` reading
+  data into items, and `internal/runs` saved runs.
 
 Before v1, any API may change. The CLI is experimental.
 
