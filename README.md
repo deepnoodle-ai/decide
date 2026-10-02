@@ -11,8 +11,8 @@ Use it as a command-line tool or as a Go library.
 
 Decide runs on **decision models**, which are built to answer typed
 questions rather than to generate text. TypeSafe calls them System One
-models. Decide supports Jev and Clef through one API, so you can switch
-between them without changing anything else:
+models. Decide supports Jev and Clef with the same commands and the same
+Go code, so you can switch between them without changing anything else:
 
 | | [Jev](https://docs.typesafe.ai/introduction) by TypeSafe | [Clef](https://developers.cloudflare.com/workers-ai/models/clef/) by Cloudflare |
 | --- | --- | --- |
