@@ -8,15 +8,15 @@ import (
 	"testing"
 
 	"github.com/deepnoodle-ai/decide/internal/runs"
-	"github.com/deepnoodle-ai/decide/internal/skill"
+	"github.com/deepnoodle-ai/decide/internal/template"
 	"github.com/deepnoodle-ai/wonton/color"
 )
 
 func TestJudge(t *testing.T) {
-	yes := []skill.Condition{{Answer: "yes", Op: ">=", Value: 0.6}}
-	strict := []skill.Condition{{Answer: "yes", Op: ">=", Value: 0.8}}
-	negative := []skill.Condition{{Answer: "negative", Op: ">=", Value: 0.6}}
-	low := []skill.Condition{{Op: "<=", Value: 1.5}}
+	yes := []template.Condition{{Answer: "yes", Op: ">=", Value: 0.6}}
+	strict := []template.Condition{{Answer: "yes", Op: ">=", Value: 0.8}}
+	negative := []template.Condition{{Answer: "negative", Op: ">=", Value: 0.6}}
+	low := []template.Condition{{Op: "<=", Value: 1.5}}
 	noul := func(p float64) answer { return answer{Type: "noul", Noul: p} }
 	choice := func(neg float64) answer {
 		return answer{Type: "choice", Probabilities: map[string]float64{"negative": neg, "positive": 1 - neg}}
@@ -24,10 +24,10 @@ func TestJudge(t *testing.T) {
 	score := func(s float64) answer { return answer{Type: "score", Score: s} }
 	for _, tc := range []struct {
 		name  string
-		conds []skill.Condition
+		conds []template.Condition
 		a     answer
 		want  verdict
-		match []skill.Condition
+		match []template.Condition
 	}{
 		{"no flag, sure", nil, noul(0.9), plain, nil},
 		{"no flag, unsure", nil, noul(0.5), near, nil},
@@ -38,7 +38,7 @@ func TestJudge(t *testing.T) {
 		{"clear when no", yes, noul(0.1), clear, nil},
 		{"custom threshold not met", strict, noul(0.7), near, nil},
 		{"custom threshold met", strict, noul(0.8), flagged, nil},
-		{"flag on no", []skill.Condition{{Answer: "no", Op: ">=", Value: 0.6}}, noul(0.2), flagged, nil},
+		{"flag on no", []template.Condition{{Answer: "no", Op: ">=", Value: 0.6}}, noul(0.2), flagged, nil},
 		{"choice flagged", negative, choice(0.7), flagged, nil},
 		{"choice close", negative, choice(0.45), near, nil},
 		{"choice clear", negative, choice(0.1), clear, nil},
@@ -48,7 +48,7 @@ func TestJudge(t *testing.T) {
 		{"possible match", nil, noul(0.45), near, yes},
 		{"no match", nil, noul(0.2), unmatched, yes},
 		{"flag outweighs match", yes, noul(0.9), flagged, yes},
-		{"clear with a match elsewhere", low, score(3), clear, []skill.Condition{{Op: ">=", Value: 3.5}}},
+		{"clear with a match elsewhere", low, score(3), clear, []template.Condition{{Op: ">=", Value: 3.5}}},
 	} {
 		if got := judge(tc.conds, tc.match, tc.a); got != tc.want {
 			t.Errorf("%s: judge = %d, want %d", tc.name, got, tc.want)
@@ -99,8 +99,8 @@ func TestCombineParts(t *testing.T) {
 		part(2, "31-40", map[string]answer{"mood": mood(0.1), "clarity": score(1, 0, 0), "low": score(1, 0, 0)}),
 	}
 	m := marks{
-		flags:   map[string][]skill.Condition{"low": {{Op: "<=", Value: 0.5}}},
-		matches: map[string][]skill.Condition{},
+		flags:   map[string][]template.Condition{"low": {{Op: "<=", Value: 0.5}}},
+		matches: map[string][]template.Condition{},
 	}
 	it := combine(parts, m)
 	get := func(key string) answer {
@@ -147,7 +147,7 @@ func TestPrinterRemovesControlCharacters(t *testing.T) {
 	defer func(on bool) { color.Enabled = on }(color.Enabled)
 	color.Enabled = false
 	const esc = "\x1b[31m"
-	s := &skill.Skill{Questions: skill.Questions{
+	s := &template.Template{Questions: template.Questions{
 		{Key: "tone" + esc, Raw: json.RawMessage(`{"type":"choice","criteria":["calm","angry"]}`)},
 		{Key: "odd", Raw: json.RawMessage(`{"type":"noul"}`)},
 	}}

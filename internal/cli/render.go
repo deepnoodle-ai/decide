@@ -11,7 +11,7 @@ import (
 	"unicode"
 
 	"github.com/deepnoodle-ai/decide/internal/runs"
-	"github.com/deepnoodle-ai/decide/internal/skill"
+	"github.com/deepnoodle-ai/decide/internal/template"
 	"github.com/deepnoodle-ai/wonton/color"
 )
 
@@ -42,16 +42,16 @@ type answer struct {
 
 // printer writes results for people to read.
 type printer struct {
-	w       io.Writer
-	skill   *skill.Skill
-	details bool
-	width   int // width of the question-name column
-	answers int // width of the answer column
-	marks   marks
+	w        io.Writer
+	template *template.Template
+	details  bool
+	width    int // width of the question-name column
+	answers  int // width of the answer column
+	marks    marks
 }
 
-func newPrinter(w io.Writer, s *skill.Skill, details bool) *printer {
-	p := &printer{w: w, skill: s, details: details, marks: marksOf(s)}
+func newPrinter(w io.Writer, s *template.Template, details bool) *printer {
+	p := &printer{w: w, template: s, details: details, marks: marksOf(s)}
 	for _, q := range s.Questions {
 		p.width = max(p.width, len(q.Key))
 		p.answers = max(p.answers, answerWidth(q.Raw))
@@ -71,7 +71,7 @@ func answerWidth(raw json.RawMessage) int {
 	case "score":
 		return trackWidth
 	case "choice":
-		var opts skill.Questions
+		var opts template.Questions
 		w := 0
 		if json.Unmarshal(q.Criteria, &opts) == nil {
 			for _, o := range opts {
@@ -104,7 +104,7 @@ func (p *printer) item(it item) error {
 	if res.Status != "complete" {
 		fmt.Fprintf(&b, "  %s\n", failed("✗ "+friendlyError(res.Error)))
 	}
-	for _, q := range p.skill.Questions {
+	for _, q := range p.template.Questions {
 		raw, ok := res.Answers[q.Key]
 		if !ok {
 			continue
@@ -227,7 +227,7 @@ func (v verdict) style(s string) string {
 
 // judge compares an answer with its question's flag and match conditions.
 // A flag outweighs a match.
-func judge(flag, match []skill.Condition, a answer) verdict {
+func judge(flag, match []template.Condition, a answer) verdict {
 	prob := probOf(a)
 	for _, c := range flag {
 		if c.Holds(prob, a.Score) {
@@ -271,12 +271,12 @@ func probOf(a answer) func(string) float64 {
 	}
 }
 
-// marks are a skill's parsed flags and matches, by question.
+// marks are a template's parsed flags and matches, by question.
 type marks struct {
-	flags, matches map[string][]skill.Condition
+	flags, matches map[string][]template.Condition
 }
 
-func marksOf(s *skill.Skill) marks {
+func marksOf(s *template.Template) marks {
 	return marks{conditionsOf(s, s.Flags), conditionsOf(s, s.Matches)}
 }
 
@@ -295,12 +295,12 @@ func (m marks) has(res runs.Result, v verdict) bool {
 	return false
 }
 
-// conditionsOf parses a skill's flags or matches. Skills are validated when
-// they load, so a flag that does not parse is ignored.
+// conditionsOf parses a template's flags or matches. Templates are validated
+// when they load, so a flag that does not parse is ignored.
 func conditionsOf[F interface {
-	Conditions(typ string) ([]skill.Condition, error)
-}](s *skill.Skill, flags map[string]F) map[string][]skill.Condition {
-	out := map[string][]skill.Condition{}
+	Conditions(typ string) ([]template.Condition, error)
+}](s *template.Template, flags map[string]F) map[string][]template.Condition {
+	out := map[string][]template.Condition{}
 	for _, q := range s.Questions {
 		flag, ok := flags[q.Key]
 		if !ok {
@@ -319,7 +319,7 @@ func conditionsOf[F interface {
 
 // flagText describes flag conditions in words, like "yes is 60% or more
 // likely" or "the score is 1.5 or lower".
-func flagText(conds []skill.Condition) string {
+func flagText(conds []template.Condition) string {
 	parts := make([]string, len(conds))
 	for i, c := range conds {
 		if c.Answer == "" {
@@ -443,7 +443,7 @@ func describe(raw json.RawMessage) string {
 	case "noul":
 		return "yes or no"
 	case "choice":
-		var opts skill.Questions
+		var opts template.Questions
 		if json.Unmarshal(q.Criteria, &opts) == nil {
 			keys := make([]string, len(opts))
 			for i, o := range opts {

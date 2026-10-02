@@ -1,4 +1,4 @@
-package skill
+package template
 
 import (
 	"bytes"
@@ -9,14 +9,14 @@ import (
 	"testing"
 )
 
-const flagSkill = `{"name":"x","description":"d","input":"record","questions":{
+const flagTemplate = `{"name":"x","description":"d","input":"record","questions":{
 	"risky": {"type":"noul","instructions":"?"},
 	"mood": {"type":"choice","instructions":"?","criteria":{"good":"g","bad":"b","mixed":"m","very bad":"v"}},
 	"clarity": {"type":"score","instructions":"?","criteria":["a","b","c","d","e"]}},
 	"flags": %s}`
 
 func TestFlagsParse(t *testing.T) {
-	s, err := parse([]byte(strings.Replace(flagSkill, "%s",
+	s, err := parse([]byte(strings.Replace(flagTemplate, "%s",
 		`{"risky": "yes >= 80%", "mood": ["bad", "mixed > 50%", "very bad", "very bad>=90%"], "clarity": "<= 1.5"}`, 1)), "test")
 	if err != nil {
 		t.Fatal(err)
@@ -61,7 +61,7 @@ func TestFlagsExplainProblems(t *testing.T) {
 		`{"risky": 1}`:             "a flag must be a string",
 		`{"risky": []}`:            "flag is empty",
 	} {
-		_, err := parse([]byte(strings.Replace(flagSkill, "%s", flags, 1)), "test")
+		_, err := parse([]byte(strings.Replace(flagTemplate, "%s", flags, 1)), "test")
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("flags %s: %v, want %q", flags, err, want)
 		}
@@ -69,7 +69,7 @@ func TestFlagsExplainProblems(t *testing.T) {
 }
 
 func TestMatchesExplainProblems(t *testing.T) {
-	matchSkill := strings.Replace(flagSkill, `"flags": %s`, `"matches": %s`, 1)
+	matchTemplate := strings.Replace(flagTemplate, `"flags": %s`, `"matches": %s`, 1)
 	for matches, want := range map[string]string{
 		`{"nope": "yes"}`:          `matches names "nope", which is not a question`,
 		`{"risky": "maybe"}`:       `a yes-or-no question is matched with "yes" or "no", not "maybe"`,
@@ -81,7 +81,7 @@ func TestMatchesExplainProblems(t *testing.T) {
 		`{"risky": 1}`:             "a match must be a string",
 		`{"risky": []}`:            "match is empty",
 	} {
-		_, err := parse([]byte(strings.Replace(matchSkill, "%s", matches, 1)), "test")
+		_, err := parse([]byte(strings.Replace(matchTemplate, "%s", matches, 1)), "test")
 		if err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("matches %s: %v, want %q", matches, err, want)
 		}
@@ -112,7 +112,7 @@ func TestCopyKeepsFlags(t *testing.T) {
 	if _, err := Create("mine", from, true); err != nil {
 		t.Fatal(err)
 	}
-	data, _ := os.ReadFile(filepath.Join(ProjectDir, "mine", "skill.json"))
+	data, _ := os.ReadFile(filepath.Join(ProjectDir, "mine", "template.json"))
 	if !strings.Contains(string(data), `"maintainability": "<= 1.5"`) {
 		t.Fatalf("copy lost its flags:\n%s", data)
 	}

@@ -1,4 +1,4 @@
-package skill
+package template
 
 import (
 	"errors"
@@ -44,9 +44,9 @@ func TestQuestionOrderIsPreserved(t *testing.T) {
 	}
 }
 
-func TestProjectSkillHidesBuiltin(t *testing.T) {
+func TestProjectTemplateHidesBuiltin(t *testing.T) {
 	isolate(t)
-	writeSkill(t, filepath.Join(ProjectDir, "sentiment"), `{
+	writeTemplate(t, filepath.Join(ProjectDir, "sentiment"), `{
 		"name": "sentiment", "description": "Ours.", "input": "record",
 		"questions": {"happy": {"type": "noul", "instructions": "Happy?"}}}`)
 	s, err := Load("sentiment")
@@ -54,7 +54,7 @@ func TestProjectSkillHidesBuiltin(t *testing.T) {
 		t.Fatal(err)
 	}
 	if s.Location != Project || s.Description != "Ours." {
-		t.Fatalf("loaded %s skill %q", s.Location, s.Description)
+		t.Fatalf("loaded %s template %q", s.Location, s.Description)
 	}
 	all, _, _ := List()
 	count := 0
@@ -68,15 +68,15 @@ func TestProjectSkillHidesBuiltin(t *testing.T) {
 	}
 }
 
-func TestBrokenSkillDoesNotHideOthers(t *testing.T) {
+func TestBrokenTemplateDoesNotHideOthers(t *testing.T) {
 	isolate(t)
-	writeSkill(t, filepath.Join(UserDir(), "broken"), "{\n  \"name\": \"broken\"\n  \"input\": \"record\"\n}")
+	writeTemplate(t, filepath.Join(UserDir(), "broken"), "{\n  \"name\": \"broken\"\n  \"input\": \"record\"\n}")
 	all, broken, err := List()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(all) != 6 || len(broken) != 1 || !strings.Contains(broken[0].Error(), "skill.json:3:3") {
-		t.Fatalf("List = %d skills, broken %v", len(all), broken)
+	if len(all) != 6 || len(broken) != 1 || !strings.Contains(broken[0].Error(), "template.json:3:3") {
+		t.Fatalf("List = %d templates, broken %v", len(all), broken)
 	}
 }
 
@@ -144,14 +144,14 @@ func TestCreate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := filepath.Join(UserDir(), "mine", "skill.json"); path != want {
+	if want := filepath.Join(UserDir(), "mine", "template.json"); path != want {
 		t.Fatalf("path = %s, want %s", path, want)
 	}
 	if s, err := Load("mine"); err != nil || s.Location != User {
 		t.Fatalf("Load(mine) = %v, %v", s, err)
 	}
 	if _, err := Create("mine", nil, false); err == nil {
-		t.Fatal("Create overwrote an existing skill")
+		t.Fatal("Create overwrote an existing template")
 	}
 
 	from, _ := Load("ticket-routing")
@@ -165,18 +165,18 @@ func TestCreate(t *testing.T) {
 	if s.Location != Project || s.Docs != from.Docs || string(s.Questions[0].Raw) == "" {
 		t.Fatalf("copy = %+v", s)
 	}
-	data, _ := os.ReadFile(filepath.Join(ProjectDir, "my-triage", "skill.json"))
+	data, _ := os.ReadFile(filepath.Join(ProjectDir, "my-triage", "template.json"))
 	if strings.Index(string(data), "billing") > strings.Index(string(data), "other") {
 		t.Fatal("copy reordered choice options")
 	}
 }
 
-func writeSkill(t *testing.T, dir, body string) {
+func writeTemplate(t *testing.T, dir, body string) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "skill.json"), []byte(body), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "template.json"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }

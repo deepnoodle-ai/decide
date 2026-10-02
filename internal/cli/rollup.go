@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/deepnoodle-ai/decide/internal/runs"
-	"github.com/deepnoodle-ai/decide/internal/skill"
+	"github.com/deepnoodle-ai/decide/internal/template"
 )
 
 // item is one item's outcome: its result, or the results for the parts of
@@ -219,7 +219,7 @@ func combine(parts []runs.Result, m marks) item {
 // strength is how close an answer comes to meeting any of the conditions:
 // the probability of the answer named, or how far the score lies in the
 // direction of the comparison.
-func strength(conds []skill.Condition, a answer) float64 {
+func strength(conds []template.Condition, a answer) float64 {
 	prob := probOf(a)
 	s := math.Inf(-1)
 	for _, c := range conds {

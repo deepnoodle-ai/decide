@@ -1,5 +1,5 @@
 // Package source reads files, directories, and stdin as a stream of items
-// for a skill to evaluate.
+// for a template to evaluate.
 //
 // What counts as one item depends on the unit (Options.Each) and the data:
 //
@@ -14,7 +14,7 @@
 //     Languages is one item per function or method. Other files are
 //     skipped. A file whose structure the scanner cannot follow is one
 //     item.
-//   - An image skill has one item per image file.
+//   - An image template has one item per image file.
 //
 // An item too large to send whole is cut into parts, which the caller
 // judges separately and combines. A source file is cut between its
@@ -22,7 +22,7 @@
 //
 // Directory walks skip hidden files and folders (such as .git and .env),
 // files ignored by .gitignore or .decideignore, symbolic links, and files a
-// skill cannot read, such as binary files for a file skill. Files named
+// template cannot read, such as binary files for a file template. Files named
 // directly are always read.
 package source
 
@@ -48,7 +48,7 @@ import (
 	"github.com/bmatcuk/doublestar/v4"
 	ignore "github.com/sabhiram/go-gitignore"
 
-	"github.com/deepnoodle-ai/decide/internal/skill"
+	"github.com/deepnoodle-ai/decide/internal/template"
 )
 
 // Size limits. Larger files are skipped with a warning.
@@ -65,7 +65,7 @@ var MaxItemBytes = 64 << 10
 
 // Options selects and shapes items.
 type Options struct {
-	Input   skill.Input
+	Input   template.Input
 	Each    string   // the unit: "file", "line", "paragraph", "section", "function", or "" for the default
 	Include []string // globs relative to each directory argument
 	Exclude []string
@@ -371,7 +371,7 @@ func match(globs []string, rel string) bool {
 }
 
 // file reads one file. explicit is true when the user named the file, in
-// which case files the skill cannot read are errors instead of skips.
+// which case files the template cannot read are errors instead of skips.
 func (w *walker) file(path, label string, explicit bool) error {
 	skip := func(format string, args ...any) error {
 		msg := fmt.Sprintf(format, args...)
@@ -385,10 +385,10 @@ func (w *walker) file(path, label string, explicit bool) error {
 	if err != nil {
 		return err
 	}
-	if w.opts.Input == skill.Image {
+	if w.opts.Input == template.Image {
 		if !isImageName(path) {
 			if explicit {
-				return fmt.Errorf("%s is not an image; this skill reads PNG, JPEG, or WebP files", label)
+				return fmt.Errorf("%s is not an image; this template reads PNG, JPEG, or WebP files", label)
 			}
 			return nil
 		}
@@ -406,7 +406,7 @@ func (w *walker) file(path, label string, explicit bool) error {
 		state, _ := json.Marshal(map[string]any{"path": label, "content_type": ctype})
 		return w.emit(Item{Label: label, Unit: UnitImage, State: state, Image: &ImageData{ContentType: ctype, Data: data}})
 	}
-	if w.opts.Each == skill.EachFunction {
+	if w.opts.Each == template.EachFunction {
 		lang := languageOf(path)
 		if lang == nil {
 			if explicit {
@@ -430,9 +430,9 @@ func (w *walker) file(path, label string, explicit bool) error {
 	f := formatOf(path)
 	each := w.opts.Each
 	if each == "" && f == lines {
-		each = skill.EachLine
+		each = template.EachLine
 	}
-	if f.dataset() && each != skill.EachFile || each == skill.EachLine {
+	if f.dataset() && each != template.EachFile || each == template.EachLine {
 		if info.Size() > MaxJSONBytes {
 			return skip("%s (larger than 64 MiB)", label)
 		}
@@ -477,19 +477,19 @@ func (w *walker) text(label, data string, md bool, each string, explicit bool) e
 	}
 	var pieces []piece
 	switch each {
-	case skill.EachParagraph:
+	case template.EachParagraph:
 		if md {
 			pieces = markdownParagraphs(lines)
 		} else {
 			pieces = plainParagraphs(lines)
 		}
 		for _, p := range pieces {
-			if err := w.piece(label+":"+strconv.Itoa(p.start), skill.EachParagraph, label, p, lines, md); err != nil {
+			if err := w.piece(label+":"+strconv.Itoa(p.start), template.EachParagraph, label, p, lines, md); err != nil {
 				return err
 			}
 		}
 		return nil
-	case skill.EachSection:
+	case template.EachSection:
 		if md {
 			pieces = markdownSections(lines)
 		}
@@ -509,7 +509,7 @@ func (w *walker) text(label, data string, md bool, each string, explicit bool) e
 			if p.anchor != "" {
 				l = label + "#" + p.anchor
 			}
-			if err := w.piece(l, skill.EachSection, label, p, lines, md); err != nil {
+			if err := w.piece(l, template.EachSection, label, p, lines, md); err != nil {
 				return err
 			}
 		}
@@ -520,9 +520,9 @@ func (w *walker) text(label, data string, md bool, each string, explicit bool) e
 	budget := budget(label)
 	if jsonSize(text) <= budget {
 		state, _ := json.Marshal(map[string]string{"path": label, "language": lang, "content": text})
-		return w.emit(Item{Label: label, Unit: skill.EachFile, State: state})
+		return w.emit(Item{Label: label, Unit: template.EachFile, State: state})
 	}
-	it := Item{Label: label, Unit: skill.EachFile}
+	it := Item{Label: label, Unit: template.EachFile}
 	parts := split(lines, 1, len(lines), structureOf(label, lines, md), budget)
 	for i, p := range parts {
 		state, _ := json.Marshal(partState{Path: label, Language: lang, Section: p.section, Lines: p.lines(),
@@ -572,7 +572,7 @@ func (w *walker) functions(label, data string, lang *language, explicit bool) er
 	c, err := lang.find(data)
 	if err != nil {
 		w.lost = append(w.lost, label)
-		return w.text(label, data, false, skill.EachFile, explicit)
+		return w.text(label, data, false, template.EachFile, explicit)
 	}
 	if len(c.fns) == 0 {
 		if explicit {
@@ -586,7 +586,7 @@ func (w *walker) functions(label, data string, lang *language, explicit bool) er
 		context := c.context(lines, f)
 		text := span(lines, f.lead, f.end)
 		value, _ := json.Marshal(f.name)
-		it := Item{Label: fmt.Sprintf("%s#L%d", label, f.start), Unit: skill.EachFunction, Value: value}
+		it := Item{Label: fmt.Sprintf("%s#L%d", label, f.start), Unit: template.EachFunction, Value: value}
 		budget := max(budget(label)-jsonSize(context)-jsonSize(f.name), 16)
 		if jsonSize(text) <= budget {
 			it.State, _ = json.Marshal(partState{Path: label, Language: ext, Function: f.name,
@@ -638,7 +638,7 @@ type partState struct {
 // piece emits a paragraph or section, cut into parts when it is too large.
 func (w *walker) piece(label, unit, path string, p piece, lines []string, md bool) error {
 	value, _ := json.Marshal(p.text)
-	if unit == skill.EachSection && p.section != "" {
+	if unit == template.EachSection && p.section != "" {
 		value, _ = json.Marshal(p.section) // "Install › macOS" says more than "#macos"
 	}
 	budget := budget(path)
@@ -646,7 +646,7 @@ func (w *walker) piece(label, unit, path string, p piece, lines []string, md boo
 		state, _ := json.Marshal(partState{Path: path, Section: p.section, Content: p.text})
 		return w.emit(Item{Label: label, Unit: unit, Value: value, State: state})
 	}
-	if unit != skill.EachSection || p.section == "" {
+	if unit != template.EachSection || p.section == "" {
 		value, _ = json.Marshal(preview(p.text)) // each part's result keeps a copy
 	}
 	it := Item{Label: label, Unit: unit, Value: value}
@@ -674,14 +674,14 @@ func (w *walker) stdinItems() error {
 	if w.stdin == nil {
 		return errors.New("no input on stdin")
 	}
-	if w.opts.Input == skill.Image {
-		return errors.New("image skills read image files, not stdin")
+	if w.opts.Input == template.Image {
+		return errors.New("image templates read image files, not stdin")
 	}
 	br := bufio.NewReader(w.stdin)
 	switch w.opts.Each {
-	case skill.EachFunction:
+	case template.EachFunction:
 		return errors.New("--each function reads source files, not stdin")
-	case skill.EachFile, skill.EachParagraph, skill.EachSection:
+	case template.EachFile, template.EachParagraph, template.EachSection:
 		data, err := io.ReadAll(io.LimitReader(br, MaxFileBytes+1))
 		if err != nil {
 			return err
@@ -693,7 +693,7 @@ func (w *walker) stdinItems() error {
 			return errors.New("stdin is not text")
 		}
 		return w.text("stdin", string(data), true, w.opts.Each, true)
-	case skill.EachLine:
+	case template.EachLine:
 		return w.records(br, "stdin", lines)
 	}
 	return w.records(br, "stdin", sniff(br))
@@ -774,7 +774,7 @@ func (w *walker) records(r io.Reader, label string, f format) error {
 	}
 	unit := UnitRecord
 	if f == lines {
-		unit = skill.EachLine
+		unit = template.EachLine
 	}
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 64<<10), MaxFileBytes)

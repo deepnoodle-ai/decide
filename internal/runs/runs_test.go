@@ -14,23 +14,23 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/decidetest"
-	"github.com/deepnoodle-ai/decide/internal/skill"
 	"github.com/deepnoodle-ai/decide/internal/source"
+	"github.com/deepnoodle-ai/decide/internal/template"
 )
 
 func newRun(t *testing.T, texts ...string) *Run {
 	t.Helper()
 	t.Setenv("DECIDE_HOME", t.TempDir())
 	t.Chdir(t.TempDir())
-	s, err := skill.Load("sentiment")
+	s, err := template.Load("sentiment")
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := Create(&Run{Skill: s, Provider: "typesafe", Model: "jev-latest", Sources: []string{"stdin"}})
+	r, err := Create(&Run{Template: s, Provider: "typesafe", Model: "jev-latest", Sources: []string{"stdin"}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = source.Walk(context.Background(), nil, strings.NewReader(strings.Join(texts, "\n")), source.Options{Input: skill.Text}, r.Add)
+	err = source.Walk(context.Background(), nil, strings.NewReader(strings.Join(texts, "\n")), source.Options{Input: template.Text}, r.Add)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -233,8 +233,8 @@ func TestRepeatedFailuresStopTheRun(t *testing.T) {
 
 func TestUnfinishedRunsAreHidden(t *testing.T) {
 	t.Setenv("DECIDE_HOME", t.TempDir())
-	s, _ := skill.Load("sentiment")
-	r, err := Create(&Run{Skill: s})
+	s, _ := template.Load("sentiment")
+	r, err := Create(&Run{Template: s})
 	if err != nil {
 		t.Fatal(err)
 	}

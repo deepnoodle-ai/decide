@@ -12,7 +12,7 @@ Guidance for coding agents and people working in this repository. See
 - `patterns/<name>`: decisions built from answers, such as gate and rank.
   Each one has a runnable program in `examples/<name>`.
 - `cmd/decide` and `internal/`: the CLI. `internal/cli` handles commands
-  and output, `internal/skill` skills, `internal/source` reading data into
+  and output, `internal/template` templates, `internal/source` reading data into
   items, and `internal/runs` saved runs.
 
 Before v1, any API may change. The CLI is experimental.
@@ -34,7 +34,7 @@ Before v1, any API may change. The CLI is experimental.
 
 - Write for someone using it for the first time: few flags, plain words,
   and an example of what to run next. Build with Wonton.
-- File names, data, skill files, and provider errors are untrusted. Pass
+- File names, data, template files, and provider errors are untrusted. Pass
   them through `clean` or `printable` before printing text, and leave
   `--json` output unchanged.
 

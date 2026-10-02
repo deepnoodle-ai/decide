@@ -60,7 +60,7 @@ We don't accept pull requests that read as unreviewed agent output.
   belong to the caller, not the root package.
 - The CLI is for newcomers. Prefer plain words, good defaults, and fewer
   flags over more options.
-- Text from files, data, skills, or providers is untrusted. Clean it before
+- Text from files, data, templates, or providers is untrusted. Clean it before
   it reaches the terminal.
 - Don't claim speed, accuracy, or safety in docs or comments without a
   linked measurement.
@@ -70,7 +70,7 @@ We don't accept pull requests that read as unreviewed agent output.
 ## Commits
 
 Keep commits small and buildable, with messages such as
-`fix(cli): keep ANSI codes out of warnings` or `feat(skill): add a summary
+`fix(cli): keep ANSI codes out of warnings` or `feat(template): add a summary
 question type`.
 
 ## Security
