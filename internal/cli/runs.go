@@ -22,7 +22,8 @@ func (a *App) addRuns(app *cli.App) {
 		AddArg(runArg).
 		Flags(
 			cli.Bool("details", "d").Help("Show the probability of every option"),
-			cli.Bool("json").Help("Print results as JSON lines"),
+			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
+			cli.String("format", "f").Enum(formats...).Help(formatHelp),
 		).
 		Run(a.runsView)
 	g.Command("resume").
@@ -30,7 +31,8 @@ func (a *App) addRuns(app *cli.App) {
 		AddArg(runArg).
 		Flags(
 			cli.Bool("details", "d").Help("Show the probability of every option"),
-			cli.Bool("json").Help("Print results as JSON lines"),
+			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
+			cli.String("format", "f").Enum(formats...).Help(formatHelp),
 			cli.Int("workers").Default(4).Help("How many requests to send at once"),
 			cli.String("fail-on").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
 		).
@@ -122,8 +124,9 @@ func openRun(c *cli.Context) (*runs.Run, error) {
 }
 
 func (a *App) runsView(c *cli.Context) error {
-	if c.Bool("json") && c.Bool("details") {
-		return cli.Error("Use --json or --details, not both")
+	format, err := formatOf(c)
+	if err != nil {
+		return err
 	}
 	r, err := openRun(c)
 	if err != nil {
@@ -133,25 +136,29 @@ func (a *App) runsView(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	if !c.Bool("json") {
+	if format != "json" {
 		fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Run %s · %s on %s · %s",
 			r.ID, r.Template.Name, clean(strings.Join(r.Sources, ", ")), humanize.Time(r.Created))))
 	}
-	write := itemWriter(c, r.Template)
+	w := newOutput(c, format, r.Template, "")
 	for _, it := range group(results, marksOf(r.Template)) {
-		if err := write(it); err != nil {
+		if err := w.item(it); err != nil {
 			return err
 		}
 	}
-	if !c.Bool("json") {
+	if err := w.finish(r); err != nil {
+		return err
+	}
+	if format != "json" {
 		summarize(c.Stderr(), r, 0)
 	}
 	return nil
 }
 
 func (a *App) runsResume(c *cli.Context) error {
-	if c.Bool("json") && c.Bool("details") {
-		return cli.Error("Use --json or --details, not both")
+	format, err := formatOf(c)
+	if err != nil {
+		return err
 	}
 	if c.Int("workers") < 1 {
 		return cli.Error("--workers must be at least 1")
@@ -178,5 +185,5 @@ func (a *App) runsResume(c *cli.Context) error {
 	}
 	fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Resuming run %s: %s left · %s %s",
 		r.ID, humanize.PluralWord(r.Pending(), "request", "requests"), r.Provider, r.Model)))
-	return a.execute(c, r, client, c.Int("workers"), failOn)
+	return a.execute(c, r, client, c.Int("workers"), format, failOn)
 }

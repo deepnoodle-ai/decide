@@ -76,7 +76,8 @@ matched. A yes-or-no answer between 40% and 60% is yellow in every template:
 the model is unsure.
 
 Add `--details` to see the full probability of every option and the
-model's confidence. Add `--json` to get one JSON line per item instead.
+model's confidence. Add `--json` to get one JSON line per item instead, or
+choose another [output format](#output-formats).
 
 ## What counts as an item
 
@@ -396,6 +397,43 @@ decide run sentiment notes.txt --model my-model
 Choose for one run with `--provider typesafe|cloudflare` and `--model NAME`,
 or for every run with `DECIDE_PROVIDER` and `DECIDE_MODEL`. `--workers` sets how many
 requests run at once (default 4).
+
+## Output formats
+
+`--format` chooses how `run`, `runs view`, and `runs resume` print results
+on stdout. The summary still goes to stderr.
+
+| `--format` | Prints |
+| --- | --- |
+| `text` (the default) | answers for people to read, as shown above |
+| `json` | one JSON line per item, with every probability; `--json` is short for this |
+| `csv` | one row per item, for a spreadsheet |
+| `md` | a Markdown report, for a pull request comment |
+| `github` | an annotation for each flagged or matched item, for GitHub Actions |
+
+```sh
+decide runs view --format csv > results.csv
+git diff main | decide run code-risk --each function --format md > report.md
+```
+
+A CSV row has the item's `source` and `status`, whether it was `flagged`
+or `matched`, a column for each question, and any `error`. A yes-or-no
+question's column holds the probability of yes, a score question's the
+score, and a choice question's the choice, followed by its probability in
+a column such as `queue_probability`. A cell that starts with `=`, `+`, `-`,
+or `@` starts with `'`, so a spreadsheet does not read it as a formula.
+
+The Markdown report lists flagged, matched, and failed items first, and
+collapses the rest. Each table shows up to 100 items.
+
+With `--format github`, each flagged item becomes a warning on its file
+and line, which GitHub shows on the pull request's changes, and each
+matched item becomes a notice. With `--fail-on flagged`, flagged items are
+errors instead, since they fail the job. Run decide from the top of the
+repository so the files' paths match. In a GitHub Actions job, decide also
+adds the Markdown report to the job's summary page. GitHub shows only the
+first few annotations of each type for a step, so the summary is where to
+see them all. [Recipes](recipes.md) has workflows to copy.
 
 ## Exit codes
 
