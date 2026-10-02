@@ -422,7 +422,7 @@ func TestLargeItemsHaveParts(t *testing.T) {
 		got = append(got, fmt.Sprintf("%s|%s|%s|%d", s.Lines, s.Part, s.Section, len(s.Content)))
 	}
 	// Parts break between blocks, and the long line is cut into pieces.
-	want := []string{"1-8|1 of 3|A|54", "9|2 of 3|A › B|70", "9|3 of 3|A › B|20"}
+	want := []string{"1-7|1 of 3|A|54", "9|2 of 3|A › B|70", "9|3 of 3|A › B|20"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("parts = %v, want %v", got, want)
 	}

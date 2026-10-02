@@ -30,15 +30,18 @@ What counts as an item depends on your data:
   other files          the whole file
   images               each image, for image skills
 
-Choose another unit with --each file, line, paragraph, or section. A
-section is the text under a Markdown heading. An item too long to judge
-whole is judged in parts, and the parts' answers are combined.
+Choose another unit with --each file, line, paragraph, section, or
+function. A section is the text under a Markdown heading. A function is a
+function or method in Go, Python, JavaScript, TypeScript, or Java code. An
+item too long to judge whole is judged in parts, and the parts' answers
+are combined.
 
 Folders are read recursively and skip files listed in .gitignore. With no
 files named, decide reads from stdin.
 
 Examples:
   decide run code-risk src --include '*.go' --limit 5
+  decide run code-risk src --each function
   decide run relevance docs -p question="pricing"
   decide run relevance CHANGELOG.md --each section -p question="tool calling"
   decide run ticket-routing tickets.jsonl --field body
@@ -55,7 +58,7 @@ func (a *App) addRun(app *cli.App) {
 			cli.Strings("include", "i").Help("Only read files that match this pattern, like '*.go' (repeatable)"),
 			cli.Strings("exclude", "x").Help("Skip files that match this pattern (repeatable)"),
 			cli.Strings("param", "p").Help("Set a skill parameter, as name=value (repeatable)"),
-			cli.String("each").Enum(skill.Units...).Help("What one item is: file, line, paragraph, or section (default: depends on the data)"),
+			cli.String("each").Enum(skill.Units...).Help("What one item is: file, line, paragraph, section, or function (default: depends on the data)"),
 			cli.String("field").Help("Ask about one field of each JSON record, like body or ticket.body"),
 			cli.String("items").Help("Where the records are inside a JSON file, like data.tickets"),
 			cli.Int("limit", "n").Help("Stop after this many items"),
@@ -180,7 +183,7 @@ func (a *App) run(c *cli.Context) error {
 		return err
 	}
 	fmt.Fprintf(c.Stderr(), "%s\n", dim(fmt.Sprintf("Running %s on %s · %s %s", s.Name, found, provider, model)))
-	if hint := eachHint(found, c.String("each") != "" || s.Each != "", paths); hint != "" {
+	if hint := eachHint(found, c.String("each") != "", paths); hint != "" {
 		fmt.Fprintln(c.Stderr(), dim(hint))
 	}
 	fmt.Fprintln(c.Stderr())
@@ -383,7 +386,7 @@ func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source
 	if total > shown {
 		fmt.Fprintf(w, "  %s\n", dim(fmt.Sprintf("… and %d more", total-shown)))
 	}
-	if hint := eachHint(found, c.String("each") != "" || s.Each != "", paths); hint != "" {
+	if hint := eachHint(found, c.String("each") != "", paths); hint != "" {
 		fmt.Fprintf(w, "\n%s\n", dim(hint))
 	}
 	fmt.Fprintf(w, "\nand ask each one:\n\n")
@@ -474,6 +477,7 @@ type tally struct {
 	units    map[string]int
 	inParts  int // items too large to judge whole
 	requests int
+	code     int // whole files in a language whose functions can be found
 }
 
 func newTally() *tally { return &tally{units: map[string]int{}} }
@@ -481,6 +485,9 @@ func newTally() *tally { return &tally{units: map[string]int{}} }
 func (t *tally) add(it source.Item) {
 	t.units[it.Unit]++
 	t.requests += max(len(it.Parts), 1)
+	if it.Unit == skill.EachFile && source.Language(it.Label) != "" {
+		t.code++
+	}
 	if len(it.Parts) > 0 {
 		t.inParts++
 	}
@@ -497,6 +504,7 @@ func (t *tally) items() int {
 // unitNames lists units in the order a tally names them.
 var unitNames = [][3]string{
 	{skill.EachFile, "file", "files"},
+	{skill.EachFunction, "function", "functions"},
 	{skill.EachSection, "section", "sections"},
 	{skill.EachParagraph, "paragraph", "paragraphs"},
 	{skill.EachLine, "line", "lines"},
@@ -523,13 +531,15 @@ func (t *tally) String() string {
 	return s
 }
 
-// eachHint points out --each when the data chose the unit, so splitting
+// eachHint points out --each when the run did not choose the unit, so splitting
 // a file or not is never a surprise.
 func eachHint(t *tally, chosen bool, paths []string) string {
 	if chosen || len(paths) == 0 || slices.Equal(paths, []string{"-"}) {
 		return ""
 	}
 	switch {
+	case t.code > 0 && t.code*2 >= t.units[skill.EachFile]:
+		return "Each file is one item. To judge each function instead, add --each function."
 	case t.units[skill.EachFile] > 0:
 		return "Each file is one item. To judge each section or paragraph instead, add --each section or --each paragraph."
 	case t.units[skill.EachLine] > 0:

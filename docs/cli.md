@@ -94,19 +94,33 @@ Choose another unit with `--each`:
 | `file` | the whole file, even a dataset | `notes.txt` |
 | `section` | the text under each Markdown heading | `README.md#install` |
 | `paragraph` | each paragraph or list item | `CHANGELOG.md:13` |
+| `function` | each function or method in Go, Python, JavaScript, TypeScript, or Java | `models.py#L88  User.save` |
 | `line` | each line | `notes.txt:4` |
 
 ```sh
 decide run relevance docs -p question="pricing"                    # which docs?
 decide run relevance docs --each section -p question="pricing"     # which sections?
+decide run code-risk src --each function                           # which functions?
 ```
 
 The model sees each section or paragraph with the headings above it. A
 Markdown file's headings and code blocks are not paragraphs. Some skills
 choose a unit for you: `code-risk` reads whole files.
 
+With `--each function`, each function, method, and constructor is an item,
+named by its line and its name, such as `User.save`. The model sees it with
+the comments right above it, the file's imports, and the line that starts
+its class. In JavaScript and TypeScript, a top-level statement that holds a
+function, such as `app.get("/users", ...)`, is an item, and each test in a
+`describe` block is an item, such as `parser › it "reads a header"`. Code
+outside functions, such as constants, is not judged. Files in other
+languages are skipped. When decide cannot follow a file's structure, the
+whole file is one item, with a warning.
+
 An item too long to judge in one request, about 64 KB of text, is judged
-in parts, and the parts' answers are combined into one. An item is flagged
+in parts, and the parts' answers are combined into one. A source file is
+cut between its functions, and a function too long for one request is cut
+at blank lines. An item is flagged
 when any part is, and the answer shows the lines of that part. Answers
 without a flag or match are averaged across the parts:
 
@@ -224,8 +238,8 @@ A skill looks like this:
 ```
 
 A skill reads text unless it says `"input": "image"`. Add `"each": "file"`
-(or `section`, `paragraph`, or `line`) to choose the unit its questions are
-written for; `--each` still overrides it.
+(or `section`, `paragraph`, `function`, or `line`) to choose the unit its
+questions are written for; `--each` still overrides it.
 
 A `score` question lists its levels in order, lowest first:
 
