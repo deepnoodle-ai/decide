@@ -10,7 +10,10 @@
   "questions": {
     "relevant": {
       "type": "noul",
-      "instructions": "Is this item relevant to: {{question}}?"
+      "instructions": "Is this item relevant to this topic or question: {{question}}"
     }
+  },
+  "matches": {
+    "relevant": "yes"
   }
 }

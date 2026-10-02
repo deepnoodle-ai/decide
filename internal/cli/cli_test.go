@@ -86,7 +86,7 @@ func TestSkills(t *testing.T) {
 	contains(t, out.stdout, "code-risk", "sentiment", "ticket-routing", "decide skills show")
 
 	out = h.run("", "skills", "show", "relevance")
-	contains(t, out.stdout, "Is this item relevant to: {{question}}?", "required", `decide run relevance data.jsonl -p question="..."`)
+	contains(t, out.stdout, "Is this item relevant to this topic or question: {{question}}", "matches when yes is 60% or more likely", "required", `decide run relevance data.jsonl -p question="..."`)
 
 	out = h.run("", "skills", "new", "triage", "--from", "ticket-routing")
 	if out.code != 0 {
@@ -275,5 +275,25 @@ func TestFlaggedAnswers(t *testing.T) {
 	out = h.run("ok\n", "run", "relevance", "-p", "question=x")
 	if strings.Contains(out.stderr, "flagged") {
 		t.Fatalf("relevance has no flags:\n%s", out.stderr)
+	}
+}
+
+func TestMatchedAnswers(t *testing.T) {
+	h := setup(t)
+	h.write("notes.txt", "about tools\nabout pricing\n")
+	h.server.Answer("relevant", decidetest.NoulAnswer(0.9))
+	out := h.run("", "run", "relevance", "notes.txt", "-p", "question=tools")
+	if out.code != 0 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stdout, "notes.txt:1  about tools\n● relevant  yes     90%\n")
+	contains(t, out.stderr, "● 2 matched", "Matched: notes.txt:1, notes.txt:2")
+
+	h.server.Answer("relevant", decidetest.NoulAnswer(0.1))
+	out = h.run("", "run", "relevance", "notes.txt", "-p", "question=tools")
+	contains(t, out.stdout, "  relevant  no      90%\n")
+	contains(t, out.stderr, "no matches")
+	if strings.Contains(out.stderr, "Matched:") {
+		t.Fatalf("listed matches without any:\n%s", out.stderr)
 	}
 }

@@ -35,7 +35,7 @@ files named, decide reads from stdin.
 Examples:
   decide run code-risk src --include '*.go' --limit 5
   decide run ticket-routing tickets.jsonl --field body
-  decide run relevance notes.txt -p question="Is this about pricing?"
+  decide run relevance notes.txt -p question="pricing"
   echo "This is great" | decide run sentiment
   decide run code-risk . --dry-run`
 
@@ -239,12 +239,20 @@ func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) {
 	if left := run.Total - run.Complete - run.Failed; left > 0 {
 		parts = append(parts, fmt.Sprintf("%d left", left))
 	}
-	flagged := flaggedSources(run)
-	if flagged != nil && run.Complete > 0 {
-		if len(flagged) == 0 {
+	m := marksOf(run.Skill)
+	flaggedItems, matchedItems := sources(run, m, flagged), sources(run, m, matched)
+	if len(m.flags) > 0 && run.Complete > 0 {
+		if len(flaggedItems) == 0 {
 			parts = append(parts, good("nothing flagged"))
 		} else {
-			parts = append(parts, failed(fmt.Sprintf("! %d flagged", len(flagged))))
+			parts = append(parts, failed(fmt.Sprintf("! %d flagged", len(flaggedItems))))
+		}
+	}
+	if len(m.matches) > 0 && run.Complete > 0 {
+		if len(matchedItems) == 0 {
+			parts = append(parts, "no matches")
+		} else {
+			parts = append(parts, bold(good(fmt.Sprintf("● %d matched", len(matchedItems)))))
 		}
 	}
 	line := strings.Join(parts, "  ")
@@ -252,14 +260,8 @@ func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) {
 		line += "  " + dim(humanize.DurationShort(elapsed.Round(100*time.Millisecond)))
 	}
 	fmt.Fprintln(w, line)
-	if len(flagged) > 0 {
-		const shown = 5
-		list := strings.Join(flagged[:min(len(flagged), shown)], ", ")
-		if len(flagged) > shown {
-			list += fmt.Sprintf(", and %d more", len(flagged)-shown)
-		}
-		fmt.Fprintf(w, "%s %s\n", dim("Flagged:"), list)
-	}
+	list(w, "Flagged:", flaggedItems)
+	list(w, "Matched:", matchedItems)
 	fmt.Fprintf(w, "%s %s\n", dim("Saved as run"), run.ID)
 	switch run.Status {
 	case runs.Interrupted:
@@ -271,20 +273,32 @@ func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) {
 	}
 }
 
-// flaggedSources lists the items with an answer that needs attention, or
-// returns nil when the skill has no flags.
-func flaggedSources(run *runs.Run) []string {
-	flags := flagsOf(run.Skill)
-	if len(flags) == 0 {
+// list prints the first few sources after a label, such as "Flagged:".
+func list(w io.Writer, label string, sources []string) {
+	if len(sources) == 0 {
+		return
+	}
+	const shown = 5
+	text := strings.Join(sources[:min(len(sources), shown)], ", ")
+	if len(sources) > shown {
+		text += fmt.Sprintf(", and %d more", len(sources)-shown)
+	}
+	fmt.Fprintf(w, "%s %s\n", dim(label), text)
+}
+
+// sources lists the items with an answer that has the verdict v, such as
+// flagged or matched.
+func sources(run *runs.Run, m marks, v verdict) []string {
+	if len(m.flags) == 0 && len(m.matches) == 0 {
 		return nil
 	}
 	results, err := run.Results()
 	if err != nil {
 		return nil
 	}
-	out := []string{}
+	var out []string
 	for _, res := range results {
-		if res.Status == "complete" && isFlagged(flags, res) {
+		if res.Status == "complete" && m.has(res, v) {
 			out = append(out, clean(res.Source))
 		}
 	}
@@ -325,7 +339,7 @@ func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source
 		fmt.Fprintf(w, "  %s\n", dim(fmt.Sprintf("… and %d more", total-shown)))
 	}
 	fmt.Fprintf(w, "\nand ask each one:\n\n")
-	flags := flagsOf(s)
+	m := marksOf(s)
 	for _, q := range s.Questions {
 		var body struct {
 			Instructions any `json:"instructions"`
@@ -333,8 +347,11 @@ func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source
 		json.Unmarshal(q.Raw, &body)
 		fmt.Fprintf(w, "  %s  %s\n", bold(q.Key), dim("("+describe(q.Raw)+")"))
 		fmt.Fprint(w, wrap(fmt.Sprint(body.Instructions), 72, "    "))
-		if when := flagText(flags[q.Key]); when != "" {
+		if when := flagText(m.flags[q.Key]); when != "" {
 			fmt.Fprintf(w, "    %s %s\n", dim("flagged when"), when)
+		}
+		if when := flagText(m.matches[q.Key]); when != "" {
+			fmt.Fprintf(w, "    %s %s\n", dim("matches when"), when)
 		}
 	}
 	fmt.Fprintf(w, "\n%s\n", dim("Nothing was sent to the model. Remove --dry-run to run it."))
@@ -375,7 +392,7 @@ func parseParams(args []string) (map[string]string, error) {
 		name, val, ok := strings.Cut(arg, "=")
 		if !ok || name == "" {
 			return nil, cli.Errorf("--param %q needs a name and a value", arg).
-				Hint(`Write it as name=value, like: --param question="Is this about pricing?"`)
+				Hint(`Write it as name=value, like: --param question="pricing"`)
 		}
 		values[name] = val
 	}

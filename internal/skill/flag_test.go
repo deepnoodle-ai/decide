@@ -68,6 +68,26 @@ func TestFlagsExplainProblems(t *testing.T) {
 	}
 }
 
+func TestMatchesExplainProblems(t *testing.T) {
+	matchSkill := strings.Replace(flagSkill, `"flags": %s`, `"matches": %s`, 1)
+	for matches, want := range map[string]string{
+		`{"nope": "yes"}`:          `matches names "nope", which is not a question`,
+		`{"risky": "maybe"}`:       `a yes-or-no question is matched with "yes" or "no", not "maybe"`,
+		`{"risky": "yes >= 180%"}`: `match "yes >= 180%" should be`,
+		`{"mood": "angry"}`:        `match "angry" is not an option`,
+		`{"clarity": "low"}`:       `match "low" should compare the score`,
+		`{"clarity": ">= 7"}`:      "match >= 7 is outside the scale",
+		`{"risky": {"if": "yes"}}`: "match options are not supported yet",
+		`{"risky": 1}`:             "a match must be a string",
+		`{"risky": []}`:            "match is empty",
+	} {
+		_, err := parse([]byte(strings.Replace(matchSkill, "%s", matches, 1)), "test")
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("matches %s: %v, want %q", matches, err, want)
+		}
+	}
+}
+
 func TestHolds(t *testing.T) {
 	prob := func(a string) float64 { return map[string]float64{"yes": 0.7, "no": 0.3}[a] }
 	for _, tc := range []struct {

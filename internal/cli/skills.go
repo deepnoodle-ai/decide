@@ -80,7 +80,7 @@ func (a *App) skillsShow(c *cli.Context) error {
 	fmt.Fprintf(w, "%s %s\n\n", bold("Reads:"), inputs[s.Input])
 
 	fmt.Fprintf(w, "%s\n", bold("Questions"))
-	flags := flagsOf(s)
+	m := marksOf(s)
 	for _, q := range s.Questions {
 		var body struct {
 			Instructions any             `json:"instructions"`
@@ -104,11 +104,14 @@ func (a *App) skillsShow(c *cli.Context) error {
 			for _, o := range options {
 				var desc any
 				json.Unmarshal(o.Raw, &desc)
-				fmt.Fprintf(w, "    %s %s\n", dim(fmt.Sprintf("%-*s", width, o.Key)), fmt.Sprint(desc))
+				fmt.Fprintf(w, "    %s  %s\n", dim(fmt.Sprintf("%-*s", width, o.Key)), fmt.Sprint(desc))
 			}
 		}
-		if when := flagText(flags[q.Key]); when != "" {
+		if when := flagText(m.flags[q.Key]); when != "" {
 			fmt.Fprintf(w, "    %s %s\n", failed("flagged when"), when)
+		}
+		if when := flagText(m.matches[q.Key]); when != "" {
+			fmt.Fprintf(w, "    %s %s\n", good("matches when"), when)
 		}
 	}
 

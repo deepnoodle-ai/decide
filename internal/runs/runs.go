@@ -328,7 +328,9 @@ func (e *RepeatedError) Error() string {
 
 // Execute evaluates every item without a successful result, with up to
 // workers requests at a time. It calls fn for each new result, one at a
-// time, in completion order.
+// time, in input order: a result that finishes early waits for the items
+// before it, and workers stay at most a few items ahead of the earliest
+// unfinished one. Once fn returns an error, Execute stops calling it.
 func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, fn func(Result) error) error {
 	unlock, err := lock(r.Dir)
 	if err != nil {
@@ -363,11 +365,40 @@ func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, f
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	var (
-		mu      sync.Mutex
-		fatal   error
-		lastErr string // the error of the latest failures in a row
-		streak  int
+		mu       sync.Mutex
+		fatal    error
+		lastErr  string // the error of the latest failures in a row
+		streak   int
+		order    []int // indexes sent to workers and not yet passed to fn
+		waiting  = map[int]Result{}
+		fnFailed bool
 	)
+	// ahead holds a slot for each index in order, so a slow item cannot
+	// leave many finished results waiting with nothing on screen.
+	ahead := make(chan struct{}, 2*max(workers, 1))
+	// flush passes the waiting results to fn in input order. With all set,
+	// it skips items that will never finish, such as after a cancel.
+	flush := func(all bool) error {
+		for len(order) > 0 {
+			res, ok := waiting[order[0]]
+			if !ok && !all {
+				return nil
+			}
+			order = order[1:]
+			<-ahead
+			if !ok {
+				continue
+			}
+			delete(waiting, res.Index)
+			if fn != nil && !fnFailed {
+				if err := fn(res); err != nil {
+					fnFailed = true
+					return err
+				}
+			}
+		}
+		return nil
+	}
 	stop := func(err error) {
 		mu.Lock()
 		if fatal == nil {
@@ -388,8 +419,9 @@ func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, f
 			r.count(status)
 			err = r.save()
 		}
-		if err == nil && fn != nil {
-			err = fn(res)
+		if err == nil {
+			waiting[res.Index] = res
+			err = flush(false)
 		}
 		switch {
 		case res.Status == "complete":
@@ -437,6 +469,14 @@ func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, f
 			return nil
 		}
 		select {
+		case ahead <- struct{}{}:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		mu.Lock()
+		order = append(order, in.Index)
+		mu.Unlock()
+		select {
 		case queue <- in:
 			return nil
 		case <-ctx.Done():
@@ -445,6 +485,9 @@ func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, f
 	})
 	close(queue)
 	wg.Wait()
+	if err := flush(true); err != nil && fatal == nil {
+		fatal = err
+	}
 
 	r.settle()
 	if err := r.save(); err != nil {

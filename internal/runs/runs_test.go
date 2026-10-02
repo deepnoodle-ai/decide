@@ -1,10 +1,16 @@
 package runs
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/decidetest"
@@ -83,6 +89,81 @@ func TestExecuteAndResume(t *testing.T) {
 	}
 	if got := len(server.Requests()); got != 4 {
 		t.Fatalf("server saw %d requests, want 4", got)
+	}
+}
+
+func TestResultsArriveInInputOrder(t *testing.T) {
+	r := newRun(t, "slow", "b", "c", "d")
+	server := decidetest.NewServer(t)
+	server.Respond(func(req *decide.Request) (*decide.Response, error) {
+		if fmt.Sprint(req.State) == "slow" {
+			time.Sleep(50 * time.Millisecond)
+		}
+		q := req.Questions["sentiment"].(*decide.ChoiceQuestion)
+		return &decide.Response{Answers: map[string]decide.Answer{"sentiment": decidetest.ChoiceFor(q, 0.8, 0.1, 0.1)}}, nil
+	})
+	var order []int
+	err := r.Execute(context.Background(), server.Client(t), 4, func(res Result) error {
+		order = append(order, res.Index)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(order, []int{0, 1, 2, 3}) {
+		t.Fatalf("order = %v", order)
+	}
+}
+
+func TestCancelDeliversWaitingResults(t *testing.T) {
+	r := newRun(t, "slow", "b", "c", "d", "e")
+	server := decidetest.NewServer(t)
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) }) // runs before the server closes
+	server.Respond(func(req *decide.Request) (*decide.Response, error) {
+		if fmt.Sprint(req.State) == "slow" {
+			<-release
+		}
+		q := req.Questions["sentiment"].(*decide.ChoiceQuestion)
+		return &decide.Response{Answers: map[string]decide.Answer{"sentiment": decidetest.ChoiceFor(q, 0.8, 0.1, 0.1)}}, nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		// Cancel once b, c, and d are saved behind the slow item.
+		for {
+			data, _ := os.ReadFile(filepath.Join(r.Dir, "results.jsonl"))
+			if bytes.Count(data, []byte("\n")) == 3 {
+				cancel()
+				return
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}()
+	var order []int
+	err := r.Execute(ctx, server.Client(t), 2, func(res Result) error {
+		order = append(order, res.Index)
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("err = %v", err)
+	}
+	// Two workers may run at most four items ahead, so e never starts.
+	if !slices.Equal(order, []int{1, 2, 3}) || r.Complete != 3 {
+		t.Fatalf("order = %v, complete = %d", order, r.Complete)
+	}
+}
+
+func TestOutputErrorStopsCallingFn(t *testing.T) {
+	r := newRun(t, "a", "b", "c", "d")
+	server := decidetest.NewServer(t)
+	broken := errors.New("broken pipe")
+	calls := 0
+	err := r.Execute(context.Background(), server.Client(t), 2, func(Result) error {
+		calls++
+		return broken
+	})
+	if !errors.Is(err, broken) || calls != 1 {
+		t.Fatalf("err = %v after %d calls", err, calls)
 	}
 }
 
