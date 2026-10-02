@@ -7,21 +7,15 @@ Go tools for System One Decisions.
 
 Requires Go 1.27 or later.
 
-The experimental [dataset CLI](docs/dataset-cli.md) applies reusable judgments
-to files, directory trees, JSONL, JSON exports, and images:
+The experimental [`decide` command](docs/cli.md) asks typed questions about
+files, folders, JSON, and text, and saves every answer:
 
 ```sh
-go install ./cmd/decide
-decide run code-risk . --include '**/*.go'
-decide runs list
-decide runs view RUN_ID
+go install github.com/deepnoodle-ai/decide/cmd/decide@latest
+echo "The new release fixed everything" | decide run sentiment
+decide run code-risk src --include '*.go' --limit 5
+decide runs view
 ```
-
-`run` shows compact per-item decisions and saves the full evidence automatically.
-`runs view` reads an old run without making model calls. Add `--details` for
-confidence and labeled probability distributions, or `--jsonl` for full evidence.
-`run --plan` previews prepared inputs without model calls. Skills define questions;
-patterns compose them through `run --pattern`.
 
 Before v1, public APIs may change or be removed in any release.
 
@@ -209,22 +203,9 @@ by the documentation used for this integration.
 
 ## CLI
 
-Install the experimental command:
-
-```sh
-go install ./cmd/decide
-decide --help
-```
-
-Use `decide run SKILL SOURCES...` to apply a judgment. Discover questions with
-`decide skills list`; read saved work with `decide runs list` and `decide runs view`.
-Use `run --plan` or `sources preview` to check inputs before model calls. Compositions
-use the same execution command: `decide run --pattern NAME SOURCES...`.
-
-The CLI uses Wonton's `cli` framework, `env` configuration, and inline `tui`
-styles. Commands stay direct, with readable decisions and explicit JSONL export.
-See the [dataset guide](docs/dataset-cli.md) for source selection, skills, patterns,
-and saved runs.
+`cmd/decide` runs skills (named sets of questions) on datasets and saves
+the results as runs that can be viewed and resumed. Run `decide` for an
+overview, or see the [CLI guide](docs/cli.md).
 
 ## Development
 

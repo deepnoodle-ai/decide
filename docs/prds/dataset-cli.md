@@ -1,6 +1,8 @@
 # Apply reusable judgments to datasets
 
-Status: Approved
+Status: Superseded. The CLI was simplified to skills, runs, and
+`decide run`; see [the CLI guide](../cli.md). Source manifests, URL sources,
+patterns, profiles, and most tuning flags were removed.
 Implementation PR: [#18](https://github.com/deepnoodle-ai/decide/pull/18)
 Updated: 2026-10-02
 
