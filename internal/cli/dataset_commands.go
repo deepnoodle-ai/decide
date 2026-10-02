@@ -210,7 +210,7 @@ func (a *App) executeDataset(ctx context.Context, command string, o jobs.Options
 			return a.offlineFailure(e)
 		}
 		if o.Progress != "none" {
-			fmt.Fprintf(a.Err, "Ready to try: %d items. No model calls.\n", summary.Items)
+			fmt.Fprintf(a.Err, "Prepared %d items. No model calls.\n", summary.Items)
 		}
 		return 0
 	}
@@ -241,7 +241,7 @@ func (a *App) executeDataset(ctx context.Context, command string, o jobs.Options
 		fmt.Fprintf(a.Err, "Run %s: %s · %d complete · %d failed · %d dropped · %d uncertain · %d requests\n", summary.ID, summary.Status, summary.Completed, summary.Failed, summary.Dropped, summary.Uncertain, summary.Requests)
 	}
 	if summary.ID != "" && o.Progress != "none" && o.JSONL {
-		fmt.Fprintf(a.Err, "Evidence: %s\nNext: decide runs view %s\n", summary.Path, summary.ID)
+		fmt.Fprintf(a.Err, "Evidence: %s\nView results: decide runs view %s\n", summary.Path, summary.ID)
 	}
 	if !o.JSONL && summary.ID != "" {
 		if err := printer.summary(summary); err != nil {
@@ -307,7 +307,7 @@ func (a *App) libraryCommand(kind, op string) *commandBinding {
 		fs.StringVar(from, "from", "", "copy a skill as the starting point")
 	}
 	if kind == "skills" && op == "test" {
-		fs.BoolVar(live, "live", false, "qualify examples with actual model calls")
+		fs.BoolVar(live, "live", false, "run example inputs through a model and save results")
 	}
 	return fs.run(func(ctx context.Context, operands []string) int {
 		var e error
@@ -323,11 +323,11 @@ func (a *App) libraryCommand(kind, op string) *commandBinding {
 				if *asJSON {
 					return a.offlineFailure(writeJSON(a.Out, items))
 				}
-				fmt.Fprint(a.Out, "Your judgment shelf\n\n")
+				fmt.Fprint(a.Out, "Available skills\n\n")
 				for _, s := range items {
 					fmt.Fprintf(a.Out, "  %-28s %s\n", s.Name, s.Description)
 				}
-				fmt.Fprintln(a.Out, "\nTry: decide run code-risk . --include '**/*.go'")
+				fmt.Fprintln(a.Out, "\nRun a skill: decide run code-risk . --include '**/*.go'")
 				return 0
 			}
 			items, e := catalog.ListPatterns()
@@ -337,11 +337,11 @@ func (a *App) libraryCommand(kind, op string) *commandBinding {
 			if *asJSON {
 				return a.offlineFailure(writeJSON(a.Out, items))
 			}
-			fmt.Fprint(a.Out, "Ways to put judgments to work\n\n")
+			fmt.Fprint(a.Out, "Available patterns\n\n")
 			for _, p := range items {
 				fmt.Fprintf(a.Out, "  %-28s %s\n", p.Name, p.Description)
 			}
-			fmt.Fprintln(a.Out, "\nShow a pattern, save its JSON, then run --pattern FILE.")
+			fmt.Fprintln(a.Out, "\nRun a pattern: decide run --pattern NAME SOURCES...")
 			return 0
 		}
 		if len(operands) != 1 {
@@ -363,7 +363,7 @@ func (a *App) libraryCommand(kind, op string) *commandBinding {
 			if e != nil {
 				return a.fail(e)
 			}
-			fmt.Fprintf(a.Out, "A fresh judgment, ready to shape: %s\nTry: decide skills edit %s\n", p, name)
+			fmt.Fprintf(a.Out, "Created skill: %s\nEdit: decide skills edit %s\n", p, name)
 			return 0
 		}
 		if op == "edit" {
@@ -388,7 +388,7 @@ func (a *App) libraryCommand(kind, op string) *commandBinding {
 			if _, e := catalog.LoadSkill(p); e != nil {
 				return a.fail(e)
 			}
-			fmt.Fprintln(a.Out, "Saved and validated. Ready for a sample.")
+			fmt.Fprintln(a.Out, "Skill saved and validated.")
 			return 0
 		}
 		s, e := catalog.LoadSkill(name)
@@ -408,7 +408,7 @@ func (a *App) libraryCommand(kind, op string) *commandBinding {
 			}
 			return 0
 		case "validate":
-			fmt.Fprintf(a.Out, "%s is ready: %d typed questions, %d examples.\n", name, len(s.Questions), len(s.Examples))
+			fmt.Fprintf(a.Out, "%s: configuration valid; %d typed questions, %d examples.\n", name, len(s.Questions), len(s.Examples))
 			return 0
 		case "test":
 			resolved, e := catalog.ResolveParameters(s, nil)
@@ -500,7 +500,7 @@ func (a *App) runsCommand(op string) *commandBinding {
 				return a.offlineFailure(writeJSON(a.Out, items))
 			}
 			if len(items) == 0 {
-				fmt.Fprintln(a.Out, "No saved runs yet. Try: decide run builtin/code-risk . --include '**/*.go' --sample 5")
+				fmt.Fprintln(a.Out, "No saved runs. Create a run: decide run builtin/code-risk . --include '**/*.go' --sample 5")
 				return 0
 			}
 			for _, s := range items {

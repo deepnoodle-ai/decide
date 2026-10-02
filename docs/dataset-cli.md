@@ -33,7 +33,7 @@ colored decision format as `run`, without credentials or provider calls. It also
 accepts exported result JSONL.
 Use `--jsonl` to read full machine evidence. Viewing never resubmits work.
 
-## One source or all these sources
+## Select input sources
 
 ```sh
 decide run builtin/code-risk ./src/server.go
@@ -114,7 +114,7 @@ URLs support public query parameters. Userinfo, fragments, and recognized creden
 or signing query parameters are rejected without echoing their values. There is
 no implicit crawling, pagination, or remote skill execution.
 
-### A large codebase or a giant export
+### Large codebases and JSON exports
 
 For a codebase, first inspect the selection and then bound your first experiment:
 
@@ -127,7 +127,7 @@ decide run builtin/code-risk ./repo --include '**/*.{go,ts,tsx}' \
 ```
 
 The attempt ceiling is a deliberate stopping point, not a record limit. Reopen
-that run and raise its ceiling when ready. For a giant export, prefer JSONL,
+that run and raise its ceiling when ready. For a large export, prefer JSONL,
 where each line is one record. Start with `--limit 5` to check the mapping, then
 use `--sample 50 --seed 42` to examine a reproducible slice of the whole selection.
 Use `--state /description --id-field /id` for records with those fields. For
@@ -140,7 +140,7 @@ for snapshots, image assets, results, and temporary source-discovery or sampling
 files. Streaming ingestion bounds memory; it does not eliminate preparation time
 or disk usage. Choose a run directory with enough space using `--run-dir`.
 
-## Make a skill your own
+## Create and edit skills
 
 A skill defines the judgment; a pattern defines its composition; a run records
 one execution. A skill bundle contains `skill.json` and `SKILL.md`. Example data
@@ -220,7 +220,7 @@ Use a later funnel stage for dependent work. Example thresholds are illustrative
 not recommended cutoffs. Measure policies on representative labeled datasets;
 the Go [`patterns/calibrate`](../patterns/calibrate) package supports calibration.
 
-## Keep a run you can reopen
+## Save, view, and resume runs
 
 `run` prepares and saves the entire selected input snapshot before sending model
 requests. It then executes with bounded workers and writes per-item evidence to
@@ -284,7 +284,7 @@ decide runs resume RUN_ID --jsonl > resumed-results.jsonl
 ```
 Partial runs and limit stops are visible in status and exit 2. Cancellation is 130.
 
-## Choose a connection
+## Configure a provider connection
 
 TypeSafe uses `TYPESAFE_API_KEY`. Cloudflare uses `CLOUDFLARE_AUTH_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID`. The default models are `jev-latest` and `clef` respectively.

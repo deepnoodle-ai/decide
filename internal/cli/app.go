@@ -49,7 +49,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 }
 
 func (a *App) commands() *wonton.App {
-	app := wonton.New("decide").Description("A little judgment, a lot of evidence.").Long(helpText).
+	app := wonton.New("decide").Description("Apply decision models to datasets and save results.").Long(helpText).
 		SetStdin(a.In).SetStdout(a.Out).SetStderr(a.Err).ForceInteractive(false).
 		SetColorEnabled(newResultPrinter(a.Out, "auto", false).color)
 	for _, entry := range []struct{ name, description string }{
@@ -60,20 +60,28 @@ func (a *App) commands() *wonton.App {
 		binding.attach(app.Command(entry.name).Description(entry.description).
 			Args("skill-or-source?...").Long("Usage: decide " + entry.name + " SKILL SOURCES... [flags]\nUse --skill NAME or --pattern NAME to choose the judgment with a flag.\nFiles, directories, URLs, and '-' for stdin can be mixed."))
 	}
-	sources := app.Group("sources").Description("Select and preview files, URLs, images, and JSONL")
+	sources := app.Group("sources").Description("List and preview selected input data")
 	for _, op := range []string{"list", "preview"} {
 		binding := a.sourcesCommand(op)
-		binding.attach(sources.Command(op).Description(map[string]string{"list": "List selected sources", "preview": "Preview five selected items"}[op]).Args("sources?..."))
+		binding.attach(sources.Command(op).Description(map[string]string{"list": "List selected input items", "preview": "Show input data (default: five items)"}[op]).Args("sources?..."))
 	}
 	for _, kind := range []string{"skills", "patterns"} {
-		group := app.Group(kind).Description(map[string]string{"skills": "Reusable judgments", "patterns": "Advanced: compose judgments for run --pattern"}[kind])
+		group := app.Group(kind).Description(map[string]string{"skills": "List and manage reusable question definitions", "patterns": "List and show configurations for run --pattern"}[kind])
 		ops := []string{"list", "show"}
 		if kind == "skills" {
 			ops = append(ops, "new", "edit", "validate", "test")
 		}
 		for _, op := range ops {
 			binding := a.libraryCommand(kind, op)
-			command := group.Command(op).Description(op + " " + kind)
+			descriptions := map[string]string{
+				"list": "List available skills", "show": "Show a skill's description, parameters, and documentation",
+				"new": "Create a skill by copying an existing one", "edit": "Edit a skill using VISUAL or EDITOR",
+				"validate": "Validate a skill's configuration", "test": "Validate a skill and its example inputs",
+			}
+			if kind == "patterns" {
+				descriptions = map[string]string{"list": "List available patterns", "show": "Print a pattern's configuration as JSON"}
+			}
+			command := group.Command(op).Description(descriptions[op])
 			if op == "list" {
 				command.Args()
 			} else {
