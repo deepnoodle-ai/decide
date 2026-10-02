@@ -88,6 +88,7 @@ Packages under `x/` may change or be removed in any release.
 | [`x/pick`](x/pick) | Select an original item from caller-supplied candidates, or abstain. | [`examples/pick`](examples/pick) |
 | [`x/gate`](x/gate) | Apply explicit policies and return allow, review, or escalate with reasons. | [`examples/gate`](examples/gate) |
 | [`x/fanout`](x/fanout) | Run independent requests with bounded concurrency and ordered outcomes. | [`examples/fanout`](examples/fanout) |
+| [`x/rank`](x/rank) | Order candidates from judgments and take a prefix under a budget. | [`examples/rank`](examples/rank) |
 
 Run the email selection example with `TYPESAFE_API_KEY` set:
 
