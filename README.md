@@ -190,6 +190,24 @@ OpenAI Decisions support awaits a verified API contract. The reported
 preview's request format and probability semantics are not yet established
 by the documentation used for this integration.
 
+## CLI
+
+Install the experimental command:
+
+```sh
+go install ./cmd/decide
+decide --help
+```
+
+`decide` provides `judge`, `grep`, `label`, `score`, `pick`, `join`, `rank`,
+`pack`, `gate`, `check`, and `eval`. It reads JSONL, retains source records
+and typed judgment evidence, and sends diagnostics to stderr. `rank`,
+`pack`, `gate`, and all `eval` operations are offline. Live commands use
+`TYPESAFE_*` provider settings. The saved format remains experimental.
+
+See the [CLI guide](docs/cli.md) and [recipes](docs/cli-recipes.md). With an
+API key set, `bash scripts/cli-tour.sh` exercises every command.
+
 ## Development
 
 ```sh
