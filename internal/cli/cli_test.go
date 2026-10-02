@@ -354,6 +354,14 @@ func TestDiffInput(t *testing.T) {
 	contains(t, out.stderr, "Skipped go.sum (lockfile)", "Running code-risk on 2 hunks", "Flagged: a.go:2, a.go:9")
 	contains(t, out.stdout, "a.go:2  func A() {\n")
 
+	// Without a unit, the hint points out --each function.
+	out = h.run(diff, "run", "sentiment")
+	contains(t, out.stderr, "Running sentiment on 2 hunks", "add --each function")
+	out = h.run("diff --git a/R.md b/R.md\n--- a/R.md\n+++ b/R.md\n@@ -1 +1 @@\n-a\n+b\n", "run", "sentiment")
+	if strings.Contains(out.stderr, "--each function") {
+		t.Errorf("a diff without code suggests --each function:\n%s", out.stderr)
+	}
+
 	// code-risk reads whole files, so a diff is judged by changed file.
 	out = h.run(diff, "run", "code-risk")
 	contains(t, out.stderr, "Running code-risk on 1 file")
@@ -378,6 +386,12 @@ func TestNothingToJudge(t *testing.T) {
 	if len(h.server.Requests()) != 0 {
 		t.Errorf("sent %d requests", len(h.server.Requests()))
 	}
+	// A change with no code has no functions to judge.
+	docs := "diff --git a/R.md b/R.md\n--- a/R.md\n+++ b/R.md\n@@ -1 +1 @@\n-a\n+b\n"
+	if out := h.run(docs, "run", "code-risk", "--each", "function", "--fail-on", "flagged"); out.code != 0 {
+		t.Errorf("docs only: exit %d, want 0: %s", out.code, out.stderr)
+	}
+
 	// A folder with nothing in it is still a mistake worth reporting.
 	h.write("empty/.keep", "")
 	if out := h.run("", "run", "code-risk", "empty"); out.code != 1 {

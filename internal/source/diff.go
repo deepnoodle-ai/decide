@@ -323,7 +323,9 @@ type diffState struct {
 	OldPath  string `json:"old_path,omitempty"`
 	Language string `json:"language,omitempty"`
 	Change   string `json:"change"`
-	Lines    string `json:"lines,omitempty"` // lines in the new version of the file
+	Function string `json:"function,omitempty"`
+	Context  string `json:"context,omitempty"` // code the change needs to be read, such as its imports
+	Lines    string `json:"lines,omitempty"`   // lines in the new version of the file
 	Part     string `json:"part,omitempty"`
 	Diff     string `json:"diff"` // the change in unified diff form
 }
@@ -336,11 +338,9 @@ func (w *walker) diff(data []byte, label, prefix string) error {
 	switch each {
 	case "":
 		each = template.EachHunk
-	case template.EachHunk, template.EachFile, template.EachLine:
-	case template.EachFunction:
-		return fmt.Errorf("--each function does not read diffs yet; use --each hunk or --each file")
+	case template.EachHunk, template.EachFile, template.EachLine, template.EachFunction:
 	default:
-		return fmt.Errorf("%s is a diff, so --each %s does not apply; use --each hunk, file, or line", label, each)
+		return fmt.Errorf("%s is a diff, so --each %s does not apply; use --each hunk, function, file, or line", label, each)
 	}
 	w.opts.Changes()
 	files, combined := parseDiff(string(data))
@@ -391,17 +391,15 @@ func (w *walker) diff(data []byte, label, prefix string) error {
 			err = w.diffFile(f)
 		case template.EachLine:
 			err = w.addedLines(f)
+		case template.EachFunction:
+			err = w.changedFunctions(f)
 		}
 		if err != nil {
 			return err
 		}
 	}
-	if n := len(skipped); n > 0 {
-		names := strings.Join(skipped[:min(n, 3)], ", ")
-		if n > 3 {
-			names += fmt.Sprintf(", and %d more", n-3)
-		}
-		w.opts.Warn("Skipped " + names)
+	if len(skipped) > 0 {
+		w.opts.Warn("Skipped " + listNames(skipped))
 	}
 	return nil
 }
@@ -447,17 +445,21 @@ func (h hunk) firstChange() int {
 
 func (w *walker) hunks(f *diffFile) error {
 	for _, h := range f.hunks {
-		label := fmt.Sprintf("%s:%d", f.name, h.firstChange())
-		value, _ := json.Marshal(h.context)
-		if h.context == "" {
-			value = nil
-		}
-		it := Item{Label: label, Unit: template.EachHunk, Value: value, Diff: true}
-		if err := w.emitDiff(&it, f, h.newLines(), append([]string{h.header}, h.lines...)); err != nil {
+		if err := w.hunk(f, h); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (w *walker) hunk(f *diffFile, h hunk) error {
+	label := fmt.Sprintf("%s:%d", f.name, h.firstChange())
+	value, _ := json.Marshal(h.context)
+	if h.context == "" {
+		value = nil
+	}
+	it := Item{Label: label, Unit: template.EachHunk, Value: value, Diff: true, Code: languageOf(f.path()) != nil}
+	return w.emitDiff(&it, f, h.newLines(), append([]string{h.header}, h.lines...))
 }
 
 func (w *walker) diffFile(f *diffFile) error {
@@ -473,10 +475,16 @@ func (w *walker) diffFile(f *diffFile) error {
 // emitDiff sets an item's state to the diff lines, cut into parts at hunks,
 // then between lines, when they are too large for one request.
 func (w *walker) emitDiff(it *Item, f *diffFile, where string, lines []string) error {
+	return w.emitDiffState(it, f.state(where, "", ""), lines)
+}
+
+// emitDiffState sets an item's state, with lines as its diff.
+func (w *walker) emitDiffState(it *Item, state diffState, lines []string) error {
 	text := strings.Join(lines, "\n")
-	budget := budget(f.path())
+	budget := max(budget(state.Path)-jsonSize(state.Context)-jsonSize(state.Function)-jsonSize(state.OldPath), 16)
 	if jsonSize(text) <= budget {
-		it.State, _ = json.Marshal(f.state(where, "", text))
+		state.Diff = text
+		it.State, _ = json.Marshal(state)
 		return w.emit(*it)
 	}
 	st := structure{breaks: map[int]bool{}, section: func(int, int) string { return "" }}
@@ -487,8 +495,9 @@ func (w *walker) emitDiff(it *Item, f *diffFile, where string, lines []string) e
 	}
 	parts := split(lines, 1, len(lines), st, budget)
 	for i, p := range parts {
-		state, _ := json.Marshal(f.state(where, fmt.Sprintf("%d of %d", i+1, len(parts)), p.text))
-		it.Parts = append(it.Parts, Part{Size: len(p.text), State: state})
+		state.Part, state.Diff = fmt.Sprintf("%d of %d", i+1, len(parts)), p.text
+		data, _ := json.Marshal(state)
+		it.Parts = append(it.Parts, Part{Size: len(p.text), State: data})
 	}
 	return w.emit(*it)
 }
@@ -571,4 +580,206 @@ func (w *walker) repoRoot() string {
 	}
 	w.root = &root
 	return root
+}
+
+// changedFunctions makes an item of each function a diff changes: the
+// whole function as it is now, with its added lines marked "+" and its
+// removed lines shown as "-". A hunk that changes code outside any
+// function, such as imports or a deleted function, is judged as a hunk. It
+// needs the new version of the file on disk; without it, the file is
+// judged by hunk.
+func (w *walker) changedFunctions(f *diffFile) error {
+	lang := languageOf(f.path())
+	if lang == nil {
+		w.notCode++
+		return nil
+	}
+	if !f.hasNewLines() {
+		return w.hunks(f) // nothing left to find functions in
+	}
+	src, ok := w.newSource(f)
+	if !ok {
+		w.notOnDisk = append(w.notOnDisk, f.path())
+		return w.hunks(f)
+	}
+	c, err := lang.find(src)
+	if err != nil {
+		w.diffLost = append(w.diffLost, f.path())
+		return w.hunks(f)
+	}
+	lines := strings.Split(src, "\n")
+	ch := f.changes()
+
+	// owner finds the smallest function that holds a change at line n, or
+	// returns -1. Lines removed just before a function's first line were
+	// not in it, such as a whole function deleted above it, unless lines
+	// were added in their place.
+	owner := func(n int, removed bool) int {
+		best := -1
+		for i, fn := range c.fns {
+			first := fn.lead
+			if removed && !ch.added[n] {
+				first++
+			}
+			if first <= n && n <= fn.end && (best < 0 || fn.end-fn.lead < c.fns[best].end-c.fns[best].lead) {
+				best = i
+			}
+		}
+		return best
+	}
+	touched := map[int]bool{}
+	outside := map[int]bool{} // hunks with changes outside any function
+	for hi, h := range f.hunks {
+		n := max(h.newStart, 1)
+		for _, l := range h.lines {
+			i := -2
+			switch l[0] {
+			case ' ':
+				n++
+			case '+':
+				i = owner(n, false)
+				n++
+			case '-':
+				i = owner(n, true)
+			}
+			switch {
+			case i == -1 && strings.TrimSpace(l[1:]) != "":
+				outside[hi] = true // a blank line between functions is not a change worth judging
+			case i >= 0:
+				touched[i] = true
+			}
+		}
+	}
+
+	// Emit functions and hunks in the order they appear in the file.
+	type unit struct {
+		line int
+		emit func() error
+	}
+	var units []unit
+	for i, fn := range c.fns {
+		if !touched[i] {
+			continue
+		}
+		units = append(units, unit{fn.start, func() error { return w.changedFunction(f, fn, c, lines, ch) }})
+	}
+	for hi, h := range f.hunks {
+		if outside[hi] {
+			units = append(units, unit{h.firstChange(), func() error { return w.hunk(f, h) }})
+		}
+	}
+	slices.SortStableFunc(units, func(a, b unit) int { return a.line - b.line })
+	for _, u := range units {
+		if err := u.emit(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// changedFunction emits one changed function.
+func (w *walker) changedFunction(f *diffFile, fn fn, c code, lines []string, ch changes) error {
+	var marked []string
+	for n := fn.lead; n <= fn.end; n++ {
+		if n > fn.lead || ch.added[n] {
+			for _, r := range ch.removed[n] {
+				marked = append(marked, "-"+r)
+			}
+		}
+		mark := " "
+		if ch.added[n] {
+			mark = "+"
+		}
+		marked = append(marked, mark+lines[n-1])
+	}
+	value, _ := json.Marshal(fn.name)
+	it := Item{Label: fmt.Sprintf("%s#L%d", f.name, fn.start), Unit: template.EachFunction, Value: value, Diff: true}
+	state := f.state(fmt.Sprintf("%d-%d", fn.lead, fn.end), "", "")
+	state.Function, state.Context = fn.name, c.context(lines, fn)
+	return w.emitDiffState(&it, state, marked)
+}
+
+// hasNewLines reports whether any hunk has lines in the new version.
+func (f *diffFile) hasNewLines() bool {
+	for _, h := range f.hunks {
+		for _, l := range h.lines {
+			if l[0] == ' ' || l[0] == '+' {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// changes says where a file's diff changes it, by line of the new version:
+// which lines were added, and which lines were removed just before a line.
+type changes struct {
+	added   map[int]bool
+	removed map[int][]string
+}
+
+func (f *diffFile) changes() changes {
+	c := changes{added: map[int]bool{}, removed: map[int][]string{}}
+	for _, h := range f.hunks {
+		n := max(h.newStart, 1) // a hunk that empties the file starts at 0
+		for _, l := range h.lines {
+			switch l[0] {
+			case ' ':
+				n++
+			case '+':
+				c.added[n] = true
+				n++
+			case '-':
+				c.removed[n] = append(c.removed[n], l[1:])
+			}
+		}
+	}
+	return c
+}
+
+// matches reports whether lines, the file on disk, is the new version of
+// the file the diff describes: every hunk has a context or added line, and
+// each such line is where the diff says. A hunk of removed lines alone
+// fits any version, so it cannot show which version is on disk.
+func (f *diffFile) matches(lines []string) bool {
+	for _, h := range f.hunks {
+		n, checked := h.newStart, 0
+		for _, l := range h.lines {
+			if l[0] != ' ' && l[0] != '+' {
+				continue
+			}
+			if n < 1 || n > len(lines) || strings.TrimRight(lines[n-1], "\r") != l[1:] {
+				return false
+			}
+			n++
+			checked++
+		}
+		if checked == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// newSource reads the new version of a changed file from disk. It returns
+// false when the file is not there, or is not the version the diff
+// describes, such as for a diff of another branch.
+func (w *walker) newSource(f *diffFile) (string, bool) {
+	p, ok := w.local(f.newPath)
+	if !ok {
+		return "", false
+	}
+	info, err := os.Stat(p)
+	if err != nil || info.Size() > MaxFileBytes {
+		return "", false
+	}
+	data, err := os.ReadFile(p)
+	if err != nil || isBinary(data) {
+		return "", false
+	}
+	src := strings.ReplaceAll(string(data), "\r\n", "\n")
+	if !f.matches(strings.Split(src, "\n")) {
+		return "", false
+	}
+	return src, true
 }

@@ -17,7 +17,7 @@ off, or remove them, as they land.
 
 - [x] **Diff input.** `git diff | decide run …` judges each hunk, changed
       file, or added line, and skips lockfiles and generated files.
-- [ ] **Changed functions.** `--each function` on a diff judges the whole
+- [x] **Changed functions.** `--each function` on a diff judges the whole
       function around each change.
 - [x] **`--fail-on`.** `decide run … --fail-on flagged|matched` exits 2 when
       any item is flagged or matched, so CI and hooks can block on it. Exit

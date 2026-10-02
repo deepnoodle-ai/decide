@@ -161,7 +161,8 @@ decide run code-risk . --dry-run
 Pipe in a diff to judge what changed rather than whole files:
 
 ```sh
-git diff main | decide run code-risk --each hunk     # which changes are risky?
+git diff main | decide run code-risk --each function # which changed functions are risky?
+git diff main | decide run code-risk --each hunk     # which changes?
 gh pr diff 42 | decide run code-risk                 # which changed files?
 git show HEAD | decide run sentiment --each line     # each added line
 decide run code-risk change.patch --fail-on flagged  # fail CI on a risky change
@@ -174,11 +175,23 @@ In a diff, one item is:
 | `--each` | One item is | Named like |
 | --- | --- | --- |
 | `hunk` (the default) | each block of changed lines | `server.go:42  func (h *Handler) Delete(id string) error {` |
+| `function` | each function a change touches, whole | `server.go#L40  Handler.Delete` |
 | `file` | every change to one file | `server.go` |
 | `line` | each added line | `server.go:43` |
 
 A template that reads whole files, such as `code-risk`, judges each changed
 file. Add `--each hunk` to judge each change on its own.
+
+`--each function` judges each changed function in Go, Python, JavaScript,
+TypeScript, or Java as a whole, which gives the model the code around a
+change. The model sees the function as it is now, with added lines marked
+`+` and removed lines shown as `-`, along with the file's imports. Decide
+reads the function from the file on disk, so run it in the repository the
+diff came from, at the version it describes. When the file is not there,
+such as for `gh pr diff` of another branch, that file is judged by hunk,
+with a warning. A change outside any function, such as to imports or a
+deleted function, is judged as a hunk. Decide reads only files inside the
+current folder or its git repository, whatever paths the diff names.
 
 An item is named by the file and the first changed line in the new
 version, followed by the function git found above the change, if any. The

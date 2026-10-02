@@ -91,6 +91,7 @@ type Item struct {
 	Parts []Part          `json:"parts,omitempty"` // the item cut into pieces, when it is too large to send whole
 	Image *ImageData      `json:"-"`
 	Diff  bool            `json:"-"` // a change read from a diff
+	Code  bool            `json:"-"` // a change to a file whose functions can be found
 }
 
 // Part is one piece of an item too large to send whole.
@@ -167,11 +168,14 @@ func Walk(ctx context.Context, paths []string, stdin io.Reader, opts Options, fn
 		opts.Warn(fmt.Sprintf("Skipped %d %s with no functions", w.noFuncs, plural(w.noFuncs, "file", "files")))
 	}
 	if n := len(w.lost); n > 0 {
-		names := strings.Join(w.lost[:min(n, 3)], ", ")
-		if n > 3 {
-			names += fmt.Sprintf(", and %d more", n-3)
-		}
-		opts.Warn(fmt.Sprintf("Could not find the functions in %s, so %s judged whole", names, plural(n, "it was", "each was")))
+		opts.Warn(fmt.Sprintf("Could not find the functions in %s, so %s judged whole", listNames(w.lost), plural(n, "it was", "each was")))
+	}
+	if n := len(w.notOnDisk); n > 0 {
+		opts.Warn(fmt.Sprintf("The %s of %s in the diff %s not on disk, so %s judged by hunk",
+			plural(n, "version", "versions"), listNames(w.notOnDisk), plural(n, "is", "are"), plural(n, "it was", "each was")))
+	}
+	if n := len(w.diffLost); n > 0 {
+		opts.Warn(fmt.Sprintf("Could not find the functions in %s, so %s judged by hunk", listNames(w.diffLost), plural(n, "it was", "each was")))
 	}
 	// Report sampled items in input order.
 	slices.SortFunc(w.sample, func(a, b sampled) int { return a.order - b.order })
@@ -195,8 +199,12 @@ type walker struct {
 	noFuncs int      // source files without functions
 	lost    []string // source files read whole because their functions could not be found
 	root    *string  // the git repository around the working directory, once looked for
-	seen    int
-	sample  []sampled
+
+	// For a diff judged by function:
+	notOnDisk []string // changed files judged by hunk, for want of their new version on disk
+	diffLost  []string // changed files judged by hunk because their functions could not be found
+	seen      int
+	sample    []sampled
 }
 
 // sampler keeps a uniform random sample (reservoir sampling). The seed is
@@ -634,6 +642,16 @@ func (w *walker) functions(label, data string, lang *language, explicit bool) er
 		}
 	}
 	return nil
+}
+
+// listNames joins the first few names, such as "a.go, b.go, c.go, and 2 more".
+func listNames(names []string) string {
+	n := len(names)
+	s := strings.Join(names[:min(n, 3)], ", ")
+	if n > 3 {
+		s += fmt.Sprintf(", and %d more", n-3)
+	}
+	return s
 }
 
 // orList joins "Go, Python, and Java" as "Go, Python, or Java".

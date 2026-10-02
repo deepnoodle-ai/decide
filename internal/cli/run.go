@@ -34,8 +34,9 @@ What counts as an item depends on your data:
 Choose another unit with --each file, line, paragraph, section, or
 function. A section is the text under a Markdown heading. A function is a
 function or method in Go, Python, JavaScript, TypeScript, or Java code. In
-a diff, such as git diff output or a .patch file, --each file judges each
-changed file and --each line each added line. An
+a diff, such as git diff output or a .patch file, --each function judges
+each changed function, --each file each changed file, and --each line each
+added line. An
 item too long to judge whole is judged in parts, and the parts' answers
 are combined.
 
@@ -49,7 +50,7 @@ Examples:
   decide run relevance CHANGELOG.md --each section -p question="tool calling"
   decide run ticket-routing tickets.jsonl --field body
   echo "This is great" | decide run sentiment
-  git diff main | decide run code-risk --each hunk
+  git diff main | decide run code-risk --each function
   decide run code-risk . --dry-run
 
 With --fail-on flagged, decide exits with code 2 when any item is flagged,
@@ -552,6 +553,7 @@ type tally struct {
 	inParts  int // items too large to judge whole
 	requests int
 	code     int // whole files in a language whose functions can be found
+	diffCode int // hunks of a diff in such a language
 }
 
 func newTally() *tally { return &tally{units: map[string]int{}} }
@@ -564,6 +566,9 @@ func (t *tally) add(it source.Item) {
 	}
 	if len(it.Parts) > 0 {
 		t.inParts++
+	}
+	if it.Diff && it.Unit == template.EachHunk && it.Code {
+		t.diffCode++
 	}
 }
 
@@ -610,6 +615,9 @@ func (t *tally) String() string {
 // a file or not is never a surprise. For code, it points out --each
 // function even when the template chose whole files.
 func eachHint(t *tally, chosen bool, templateEach string, paths []string) string {
+	if !chosen && templateEach == "" && t.diffCode > 0 {
+		return "Each hunk is one item. To judge the whole function around each change, add --each function."
+	}
 	if chosen || len(paths) == 0 || slices.Equal(paths, []string{"-"}) {
 		return ""
 	}
