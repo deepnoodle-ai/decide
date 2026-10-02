@@ -173,5 +173,5 @@ func (a *App) runsResume(c *cli.Context) error {
 	}
 	fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Resuming run %s: %s left · %s %s",
 		r.ID, humanize.PluralWord(r.Pending(), "request", "requests"), r.Provider, r.Model)))
-	return a.execute(c, r, client, c.Int("workers"))
+	return a.execute(c, r, client, c.Int("workers"), "")
 }
