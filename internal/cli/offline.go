@@ -13,6 +13,9 @@ import (
 const calibrationFileLimit = 64 << 20
 
 func (a *App) offlineFailure(err error) int {
+	if err == nil {
+		return 0
+	}
 	status := a.fail(err)
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return 130
@@ -35,7 +38,12 @@ func readCalibrationFile(path string, value any) error {
 }
 
 func writeJSON(w io.Writer, value any) error {
-	return json.NewEncoder(w).Encode(value)
+	b, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	_, err = io.WriteString(w, redact(string(b))+"\n")
+	return err
 }
 
 func (a *App) offlineFlags(command string, collection bool) (*flag.FlagSet, *CommonOptions) {

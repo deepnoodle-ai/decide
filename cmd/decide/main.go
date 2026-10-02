@@ -16,6 +16,11 @@ func run() int {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 	app := &cli.App{In: os.Stdin, Out: os.Stdout, Err: os.Stderr}
+	// A terminal runtime owns raw mode and must restore it before process exit.
+	// Batch mode retains the process-level escape hatch for an open stdin pipe.
+	if len(os.Args) > 1 && (os.Args[1] == "explore" || os.Args[1] == "inspect") {
+		return app.Run(ctx, os.Args[1:])
+	}
 	result := make(chan int, 1)
 	// A read of an open stdin pipe cannot be canceled reliably by closing fd 0
 	// on every platform. Only this executable owns the process lifetime: on

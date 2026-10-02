@@ -7,6 +7,19 @@ Go tools for System One Decisions.
 
 Requires Go 1.27 or later.
 
+The experimental [dataset CLI and Wonton workbench](docs/dataset-cli.md) apply
+reusable judgments to files, directory trees, JSONL, JSON exports, and images:
+
+```sh
+go install ./cmd/decide
+decide plan builtin/code-risk . --include '**/*.go' --sample 5
+decide explore . --skill builtin/code-risk --include '**/*.go'
+```
+
+Preview sources without model calls, experiment on a sample, execute a durable
+batch, and reopen its evidence. Existing [JSONL pipeline commands](docs/cli.md)
+remain available.
+
 Before v1, public APIs may change or be removed in any release.
 
 ## Evaluate or pick

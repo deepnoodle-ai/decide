@@ -185,8 +185,15 @@ func (a *App) RunLive(ctx context.Context, command string, o CommonOptions, buil
 	}
 }
 func redact(s string) string {
-	key := strings.TrimSpace(os.Getenv("TYPESAFE_API_KEY"))
-	if len(key) > 0 {
+	for _, name := range []string{"TYPESAFE_API_KEY", "CLOUDFLARE_AUTH_TOKEN"} {
+		key := strings.TrimSpace(os.Getenv(name))
+		if len(key) == 0 {
+			continue
+		}
+		encoded, _ := json.Marshal(key)
+		if len(encoded) > 2 {
+			s = strings.ReplaceAll(s, string(encoded[1:len(encoded)-1]), "[REDACTED]")
+		}
 		s = strings.ReplaceAll(s, key, "[REDACTED]")
 	}
 	return s

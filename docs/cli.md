@@ -4,6 +4,10 @@ Ask typed questions. Keep the evidence. Let shell tools do the routing.
 `decide` (System One Decisions) reads JSONL and saves answers alongside the data.
 Its commands, flags, and saved format are experimental.
 
+For directories, JSON exports, large JSONL files, images, reusable skills, durable
+runs, and the interactive Wonton workbench, see [the dataset guide](dataset-cli.md).
+The pipeline commands below retain their existing behavior.
+
 ## Take it for a spin
 
 From this checkout, with Go 1.27+, Bash, jq, and `TYPESAFE_API_KEY` set:

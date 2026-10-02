@@ -26,13 +26,23 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		a.Err = os.Stderr
 	}
 	if len(args) == 0 || args[0] == "help" || args[0] == "--help" || args[0] == "-h" {
-		fmt.Fprintln(a.Out, "decide: experimental System One decisions\nUsage: decide COMMAND [options]\nCommands: judge grep label score rank pick join gate pack check eval\nUse COMMAND --help for options. Input and output are JSONL; diagnostics use stderr.")
+		fmt.Fprint(a.Out, helpText)
 		return 0
 	}
 	if ctx.Err() != nil {
 		return 130
 	}
 	switch args[0] {
+	case "plan", "run", "explore":
+		return a.runDataset(ctx, args[0], args[1:])
+	case "sources":
+		return a.runSources(ctx, args[1:])
+	case "skills", "patterns":
+		return a.runLibrary(ctx, args[0], args[1:])
+	case "runs":
+		return a.runRuns(ctx, args[1:])
+	case "inspect":
+		return a.runInspect(ctx, args[1:])
 	case "judge", "grep", "label", "score", "check":
 		return a.runBasic(ctx, args[0], args[1:])
 	case "pick":
