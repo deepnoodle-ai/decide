@@ -12,7 +12,7 @@ import (
 	"log"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/compact"
+	"github.com/deepnoodle-ai/decide/patterns/compact"
 )
 
 var transcript = []compact.Segment{

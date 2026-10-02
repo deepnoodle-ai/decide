@@ -12,7 +12,7 @@ import (
 	"log"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/heads"
+	"github.com/deepnoodle-ai/decide/patterns/heads"
 )
 
 func main() {

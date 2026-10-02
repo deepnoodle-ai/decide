@@ -12,8 +12,8 @@ import (
 	"log"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/calibrate"
-	"github.com/deepnoodle-ai/decide/x/gate"
+	"github.com/deepnoodle-ai/decide/patterns/calibrate"
+	"github.com/deepnoodle-ai/decide/patterns/gate"
 )
 
 func main() {

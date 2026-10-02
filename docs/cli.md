@@ -88,7 +88,7 @@ Join expects `{"left":...,"right":...}`. It judges supplied pairs; it
 does not find candidate pairs, enforce unique matches, or track unmatched
 records. Only left/right enter model state; extra source fields survive.
 
-Gate uses [x/gate policies](../x/gate). It reports decisions and
+Gate uses [patterns/gate policies](../patterns/gate). It reports decisions and
 reasons; caller code acts on them. Example cutoffs are illustrative.
 Measure your own before using them to route real work.
 

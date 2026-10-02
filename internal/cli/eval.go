@@ -13,7 +13,7 @@ import (
 	"strconv"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/calibrate"
+	"github.com/deepnoodle-ai/decide/patterns/calibrate"
 )
 
 func (a *App) runEval(ctx context.Context, args []string) int {
@@ -241,7 +241,7 @@ func validateDatasetLabel(answer decide.Answer, label string) error {
 	default:
 		return fmt.Errorf("unsupported calibration answer type %q", answer.AnswerType())
 	}
-	// x/calibrate's saved-dataset contract is stricter than the root client's
+	// patterns/calibrate's saved-dataset contract is stricter than the root client's
 	// provisional sum tolerance. Do not emit datasets its Fit cannot read.
 	if probabilities != nil {
 		mass := 0.0

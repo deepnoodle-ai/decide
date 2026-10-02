@@ -11,7 +11,7 @@ import (
 	"log"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/funnel"
+	"github.com/deepnoodle-ai/decide/patterns/funnel"
 )
 
 const request = "Move my 3pm with Sam to Friday and let him know."

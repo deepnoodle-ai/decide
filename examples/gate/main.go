@@ -1,5 +1,5 @@
 // Command gate asks what file operation a user requested and gates the
-// agent's proposed delete with x/gate: allow, review, or escalate.
+// agent's proposed delete with patterns/gate: allow, review, or escalate.
 //
 //	TYPESAFE_API_KEY=... go run ./examples/gate
 package main
@@ -10,7 +10,7 @@ import (
 	"log"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/gate"
+	"github.com/deepnoodle-ai/decide/patterns/gate"
 )
 
 // policy requires more confidence to delete than to read. Every threshold

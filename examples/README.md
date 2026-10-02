@@ -16,7 +16,7 @@ API behavior, not model accuracy.
 
 ## Command examples
 
-These programs demonstrate the experimental `x/` packages.
+These programs demonstrate the decision packages under `patterns/`.
 
 | Program | Pattern | API requests with the supplied input, before retries |
 | --- | --- | --- |
