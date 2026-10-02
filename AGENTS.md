@@ -11,6 +11,8 @@ Guidance for coding agents and people working in this repository. See
 - `backend` selects a provider. `cloudflare` is the Workers AI transport.
 - `patterns/<name>`: decisions built from answers, such as gate and rank.
   Each one has a runnable program in `examples/<name>`.
+- `demo`: a fixture repository and issues with planted problems, for
+  trying the templates. `TestDemo` keeps it in step with the CLI.
 - `cmd/decide` and `internal/`: the CLI. `internal/cli` handles commands
   and output, `internal/template` templates, `internal/source` reading
   data into items, and `internal/runs` saved runs.
