@@ -51,5 +51,5 @@ func main() {
 		fmt.Printf("no pick (abstain p=%.2f)\n", r.AbstainP)
 		return
 	}
-	fmt.Printf("send receipt to %s (p=%.2f, runner-up %s)\n", r.Item, r.P, r.RunnerUp)
+	fmt.Printf("selected %s (p=%.2f)\n", r.Item, r.P)
 }

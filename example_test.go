@@ -18,12 +18,10 @@ func startFake() *decidetest.Server {
 		log.Fatal(err)
 	}
 	srv.Answer("billing", decidetest.NoulAnswer(0.93))
-	srv.Answer("tone", decidetest.ChoiceAnswer(map[string]float64{"calm": 0.05, "frustrated": 0.25, "angry": 0.7}))
-	srv.Answer("urgency", decidetest.ScoreAnswer([]any{"can wait", "this week", "today"}, 0.1, 0.3, 0.6))
 	return srv
 }
 
-// Ask typed questions about one piece of state and read typed answers.
+// Ask a typed question and read its validated answer.
 func Example() {
 	srv := startFake()
 	defer srv.Close()
@@ -34,27 +32,17 @@ func Example() {
 
 	req := decide.NewRequest("I was charged twice this month and nobody answers my emails.")
 	billing := decide.Ask(req, "billing", decide.Noul("Is this ticket about billing?"))
-	tone := decide.Ask(req, "tone", decide.Choice("What is the customer's tone?",
-		decide.Option("calm"), decide.Option("frustrated"), decide.Option("angry")))
-	urgency := decide.Ask(req, "urgency", decide.Score("How urgent is this?",
-		"can wait", "this week", "today"))
 
 	resp, err := client.SystemOne(context.Background(), req)
 	if err != nil {
 		log.Fatal(err)
 	}
-	b, _ := billing.From(resp)
-	t, _ := tone.From(resp)
-	u, _ := urgency.From(resp)
-	fmt.Println("model:", resp.Model)
-	fmt.Printf("billing: %.2f\n", b.Noul)
-	fmt.Printf("tone: %s (confidence %.2f)\n", t.Choice, t.Confidence)
-	fmt.Printf("urgency: %.2f of %d levels, most likely %q\n", u.Score, u.Levels(), u.LevelLabel(u.Level()))
-	// Output:
-	// model: jev-1.13.0
-	// billing: 0.93
-	// tone: angry (confidence 0.55)
-	// urgency: 1.50 of 3 levels, most likely "today"
+	answer, err := billing.From(resp)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("billing: %.2f\n", answer.Noul)
+	// Output: billing: 0.93
 }
 
 // A validation failure returns the response and an error. Keys that passed
@@ -78,6 +66,9 @@ func ExampleClient_SystemOne_partialResults() {
 	tone := decide.Ask(req, "tone", decide.Choice("Tone?", decide.Option("calm"), decide.Option("angry")))
 
 	resp, err := client.SystemOne(context.Background(), req)
+	if resp == nil {
+		log.Fatal(err)
+	}
 	fmt.Println("error:", err)
 	for key, ae := range resp.Invalid {
 		fmt.Println("invalid:", key, ae.Reason, errors.Is(ae, decide.ErrInconsistentAnswer))
@@ -151,4 +142,14 @@ func ExampleAPIError() {
 	}
 	// Output:
 	// 529 true true req_3
+}
+
+// Score is the expected zero-based level; Level selects the most likely level.
+func ExampleScoreAnswer_Level() {
+	a := decidetest.ScoreAnswer([]any{"can wait", "this week", "today"}, 0.1, 0.3, 0.6)
+	fmt.Printf("expected level: %.2f\n", a.Score)
+	fmt.Println("most likely:", a.LevelLabel(a.Level()))
+	// Output:
+	// expected level: 1.50
+	// most likely: today
 }

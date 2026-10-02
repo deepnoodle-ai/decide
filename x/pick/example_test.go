@@ -11,7 +11,7 @@ import (
 	"github.com/deepnoodle-ai/decide/x/pick"
 )
 
-// Pick the address a receipt goes to, from spans a regex found. The fake
+// Pick an original address from a candidate list. The fake
 // server's numbers are placeholders, not model output.
 func Example() {
 	srv, err := decidetest.Start()
@@ -36,7 +36,7 @@ func Example() {
 	receipt := emails.Ask(req, "receipt", "Which email address does the sender want their receipt sent to?")
 
 	resp, err := client.SystemOne(context.Background(), req)
-	if resp == nil {
+	if err != nil {
 		log.Fatal(err)
 	}
 	r, err := receipt.From(resp)
