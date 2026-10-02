@@ -10,7 +10,7 @@ proof of concept if you have one.
 ## Scope
 
 This policy covers the Go packages and the `decide` command in this
-repository. Before v1, fixes go into the latest release only.
+repository. Before v1, fixes go into main and the next tagged release.
 
 Examples of what we want to hear about:
 

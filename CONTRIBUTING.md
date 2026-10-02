@@ -71,7 +71,7 @@ We don't accept pull requests that read as unreviewed agent output.
 
 Keep commits small and buildable, with messages such as
 `fix(cli): keep ANSI codes out of warnings` or `feat(skill): add a summary
-question type`. We squash when merging.
+question type`.
 
 ## Security
 

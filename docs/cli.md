@@ -16,10 +16,12 @@ echo "The new release fixed everything I cared about" | decide run sentiment
 ```
 
 ```
+Running sentiment on 1 line · typesafe jev-latest
+
 stdin:1  The new release fixed everything I cared about
   sentiment  positive  94%
 
-✓ 1 answered  1.2s
+✓ 1 answered  nothing flagged  1.2s
 Saved as run 20261002-153012-a1b2
 See these results again with: decide runs view 20261002-153012-a1b2
 ```

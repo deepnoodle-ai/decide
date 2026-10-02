@@ -28,10 +28,12 @@ echo "The new release fixed everything I cared about" | decide run sentiment
 ```
 
 ```
+Running sentiment on 1 line · typesafe jev-latest
+
 stdin:1  The new release fixed everything I cared about
   sentiment  positive  94%
 
-✓ 1 answered  1.2s
+✓ 1 answered  nothing flagged  1.2s
 Saved as run 20261002-153012-a1b2
 See these results again with: decide runs view 20261002-153012-a1b2
 ```
@@ -47,8 +49,8 @@ Decide comes with five skills. A skill is a named set of questions.
 | --- | --- |
 | `sentiment` | Is it positive, negative, or neutral? |
 | `ticket-routing` | Does this support ticket belong to billing, engineering, or other? |
-| `relevance` | How relevant is it to a question you choose? |
-| `code-risk` | How risky and how maintainable is this file or function? |
+| `relevance` | Is it relevant to a question you choose? |
+| `code-risk` | Could it cause security or data problems, and how maintainable is it? |
 | `receipt-quality` | Does this image show a readable receipt? |
 
 ```sh
@@ -139,10 +141,10 @@ has a short, runnable [example](examples).
 | [`pick`](patterns/pick) | Select one of your candidates, or abstain. |
 | [`gate`](patterns/gate) | Allow, review, or escalate under thresholds you set. |
 | [`fanout`](patterns/fanout) | Run many requests at once, with results in order. |
-| [`rank`](patterns/rank) | Order candidates and keep the best within a budget. |
+| [`rank`](patterns/rank) | Order candidates from judgments and keep the top ones within a budget. |
 | [`funnel`](patterns/funnel) | Screen items in stages, keeping the reasons for each drop. |
 | [`heads`](patterns/heads) | Ask a selector and its follow-up questions in one request. |
-| [`compact`](patterns/compact) | Keep the most useful context within a size budget. |
+| [`compact`](patterns/compact) | Keep whole context segments, or their short forms, within a size budget. |
 | [`calibrate`](patterns/calibrate) | Fit thresholds on labeled answers, offline. |
 
 ### Providers

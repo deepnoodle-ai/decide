@@ -34,7 +34,7 @@ type Config struct {
 	Provider   Provider
 	APIKey     string
 	AccountID  string
-	Model      string       // empty: provider default
+	Model      string       // empty: "jev-latest" for TypeSafe, "clef" for Cloudflare
 	BaseURL    string       // empty: provider default
 	HTTPClient *http.Client // nil: provider default
 	UserAgent  string

@@ -20,11 +20,13 @@ Before v1, any API may change. The CLI is experimental.
 ## Code
 
 - Keep question and answer types open to other packages.
+- Preserve API field names and numbers. They are the wire format.
 - Validate answers against their questions. Keep thresholds and actions out
   of the root package.
 - Pass `context.Context` to network calls. Keep clients safe for
   concurrent use.
 - Never log, print, or commit credentials.
+- Each example demonstrates one pattern in a short, runnable program.
 - Test with `decidetest` or a fake HTTP server. Live tests need the `live`
   build tag and skip without `TYPESAFE_API_KEY`.
 
