@@ -62,7 +62,7 @@ func (a *App) RunLive(ctx context.Context, command string, o CommonOptions, buil
 		runs := make([]Run, len(chunk))
 		var indices []int
 		for i, e := range chunk {
-			runs[i] = Run{Name: o.As, Command: command, State: e.Data}
+			runs[i] = Run{Name: o.As, Command: command}
 			requests[i], errs[i] = build(ctx, e)
 			if req := requests[i]; req != nil {
 				if o.Model != "" {

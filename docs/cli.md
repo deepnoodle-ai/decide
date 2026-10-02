@@ -99,6 +99,9 @@ JSON stays in `data`, including large numbers. Each live run saves the
 actual state and questions, raw response, requested and resolved model,
 request ID, usage, and any error. Files contain source content too.
 
+When no request is built, the run omits model state. An empty-candidate pick
+retains its supplied state alongside the local abstention.
+
 The `typesafe_cli` member identifies version 1 of the saved envelope.
 
 ```sh

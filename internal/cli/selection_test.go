@@ -90,7 +90,7 @@ func TestPickAbstentionAndEmptyWithoutClient(t *testing.T) {
 		t.Fatalf("empty code %d: %s", code, diagnostics)
 	}
 	run := selectionOutput(t, out)[0].Runs[0]
-	if len(run.Response) != 0 || run.RequestID != "" || !bytes.Contains(run.Result, []byte(`"abstained":true`)) {
+	if string(run.State) != `"No candidates"` || len(run.Response) != 0 || run.RequestID != "" || !bytes.Contains(run.Result, []byte(`"abstained":true`)) {
 		t.Fatalf("empty pick fabricated evidence: %+v", run)
 	}
 }
