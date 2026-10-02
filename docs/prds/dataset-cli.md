@@ -2,7 +2,7 @@
 
 Status: Approved
 Implementation PR: [#18](https://github.com/deepnoodle-ai/decide/pull/18)
-Updated: 2026-10-01
+Updated: 2026-10-02
 
 ## Problem and context
 
@@ -10,7 +10,7 @@ Developers use decision models on code trees, JSON exports, and image collection
 The existing CLI accepts JSONL and text lines. Users must prepare those inputs,
 write questions, manage evidence files, and recover interrupted work themselves.
 The approved direction adds source selection, reusable skills and patterns,
-durable runs, and an explicit Wonton workbench. Existing pipelines remain usable.
+durable runs, and readable saved results. Interactive interfaces are deferred. Existing pipelines remain usable.
 
 ## Concepts
 
@@ -35,8 +35,7 @@ previews the selected items and prepared state without model calls.
 
 ### Experiment and execute
 
-`decide explore . --skill code-risk --include '**/*.go'` opens a workbench.
-`decide run code-risk . --include '**/*.go'` runs the same task without prompts.
+`decide run code-risk . --include '**/*.go'` shows per-file decisions and saves evidence without prompts.
 
 - Shipped skills include code assessment, ticket routing, and image assessment.
 - Personal and project skill bundles are supported; ambiguous names are rejected.
@@ -51,21 +50,18 @@ previews the selected items and prepared state without model calls.
 ### Recover and inspect
 
 `decide runs resume ID` uses recorded inputs and configuration.
-`decide inspect ID` opens a filterable evidence browser.
+`decide runs view ID` shows saved decisions without model calls.
 
 - Runs preserve prepared inputs, recorded configuration, attempts, results, and completion state.
 - A stopped or canceled run can resume without repeating successful results.
 - Failed and uncertain attempts remain distinct; retrying uncertain work is explicit.
 - Run listings, summaries, watching, and export also support scripts.
-- The workbench shows source preview, skill documentation, progress, results, and errors.
-- Keyboard controls are discoverable; empty and error states explain the next action.
-- The workbench can run a sample, inspect answers, compare experiments, and export evidence.
 - Existing `typesafe_cli: 1` files remain readable and inspectable.
 
 ## Decisions
 
-- Use explicit interactive commands. Visible menus guide newcomers; shortcuts
-  accelerate familiar workflows. Batch mode never prompts; scripts request JSONL explicitly.
+- Keep the starting workflow to run, list, and view. Commands never prompt;
+  scripts request JSONL explicitly. Interactive interfaces are outside this PR.
 - Keep skills declarative. Loading a library item does not execute arbitrary code.
 - Record consumed inputs on disk. Resume must not depend on reconstructing stdin.
 - Keep policies in experimental application code; the root client remains standard-library-only.

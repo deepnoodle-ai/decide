@@ -46,7 +46,7 @@ func readable(text string) string {
 }
 
 func (p resultPrinter) summary(s jobs.Summary) error {
-	_, err := fmt.Fprintf(p.out, "%s  %d complete · %d failed · %d dropped · %d uncertain · %d requests\n%s %s\n%s decide inspect %s\n", p.style("1", "Run "+s.ID+": "+s.Status), s.Completed, s.Failed, s.Dropped, s.Uncertain, s.Requests, p.style("2", "Saved evidence:"), readable(s.Path), p.style("2", "Full evidence:"), s.ID)
+	_, err := fmt.Fprintf(p.out, "%s  %d complete · %d failed · %d dropped · %d uncertain · %d requests\n%s %s\n%s decide runs view %s\n", p.style("1", "Run "+s.ID+": "+s.Status), s.Completed, s.Failed, s.Dropped, s.Uncertain, s.Requests, p.style("2", "Saved evidence:"), readable(s.Path), p.style("2", "View decisions:"), s.ID)
 	return err
 }
 

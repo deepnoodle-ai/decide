@@ -116,26 +116,3 @@ func TestPatternCoverageAndThresholds(t *testing.T) {
 		t.Fatal("invalid threshold accepted")
 	}
 }
-
-func TestResolvedSkillPreservesLiteralParameterSyntax(t *testing.T) {
-	s, err := LoadSkill("builtin/relevance")
-	if err != nil {
-		t.Fatal(err)
-	}
-	s, err = ResolveParameters(s, map[string]string{"question": "literal {{other}}"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.Resolved = true
-	if err := ValidateSkill(s); err != nil {
-		t.Fatal(err)
-	}
-	before := string(s.Questions["relevant"])
-	result, err := ResolveParameters(s, nil)
-	if err != nil || string(result.Questions["relevant"]) != before {
-		t.Fatalf("frozen question changed: %v", err)
-	}
-	if _, err := ResolveParameters(s, map[string]string{"question": "new"}); err == nil {
-		t.Fatal("frozen parameters were overridden")
-	}
-}

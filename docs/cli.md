@@ -5,7 +5,7 @@ Ask typed questions. Keep the evidence. Let shell tools do the routing.
 Its commands, flags, and saved format are experimental.
 
 For directories, JSON exports, large JSONL files, images, reusable skills, durable
-runs, and the interactive Wonton workbench, see [the dataset guide](dataset-cli.md).
+runs, and reading saved decisions, see [the dataset guide](dataset-cli.md).
 The pipeline commands below retain their existing behavior.
 
 ## Take it for a spin

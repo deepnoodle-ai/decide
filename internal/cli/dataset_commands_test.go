@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/decidetest"
 	"github.com/deepnoodle-ai/decide/internal/jobs"
 )
@@ -238,5 +239,66 @@ func TestRunSummaryDetailsAndExplicitJSONL(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSavedRunsViewIsReadableOfflineAndSupportsJSONL(t *testing.T) {
+	dir := datasetEnvironment(t)
+	source := filepath.Join(dir, "note.txt")
+	if err := os.WriteFile(source, []byte("restore the session"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	server := decidetest.NewServer(t)
+	a, out, diagnostics := coreApp(t, "", server)
+	if code := a.Run(t.Context(), []string{"run", "relevance", source}); code != 0 {
+		t.Fatalf("run: %d %s", code, diagnostics)
+	}
+	runs, err := jobs.List(filepath.Join(dir, "runs"))
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("runs: %v %v", runs, err)
+	}
+	calls := len(server.Requests())
+	a.NewClient = func() (*decide.Client, error) { t.Fatal("view constructed a provider client"); return nil, nil }
+	out.Reset()
+	if code := a.Run(t.Context(), []string{"runs", "view", runs[0].ID}); code != 0 {
+		t.Fatalf("view: %d %s", code, diagnostics)
+	}
+	if !strings.Contains(out.String(), "note.txt") || !strings.Contains(out.String(), "% yes") || strings.Contains(out.String(), `"decide_run"`) {
+		t.Fatalf("unreadable view: %s", out)
+	}
+	out.Reset()
+	if code := a.Run(t.Context(), []string{"runs", "view", runs[0].Path, "--jsonl", "--color", "always"}); code != 0 {
+		t.Fatalf("JSONL view: %d %s", code, diagnostics)
+	}
+	var result jobs.Result
+	if err := json.Unmarshal(out.Bytes(), &result); err != nil || result.ID == "" || bytes.Contains(out.Bytes(), []byte("\x1b")) {
+		t.Fatalf("invalid evidence: %v %s", err, out)
+	}
+	export := filepath.Join(t.TempDir(), "old.jsonl")
+	if err := os.WriteFile(export, out.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	out.Reset()
+	if code := a.Run(t.Context(), []string{"runs", "view", export}); code != 0 || !strings.Contains(out.String(), "% yes") {
+		t.Fatalf("file view: %d %s %s", code, out, diagnostics)
+	}
+	if len(server.Requests()) != calls {
+		t.Fatal("view made model calls")
+	}
+}
+
+func TestRemovedInteractiveCommandsAreNotAdvertisedOrDispatched(t *testing.T) {
+	a, out, diagnostics := coreApp(t, "", nil)
+	if code := a.Run(t.Context(), []string{"help"}); code != 0 {
+		t.Fatal(code)
+	}
+	if strings.Contains(out.String(), "explore") || strings.Contains(out.String(), "inspect") || !strings.Contains(out.String(), "runs view") {
+		t.Fatalf("help still advertises the removed interface: %s", out)
+	}
+	for _, command := range []string{"explore", "inspect"} {
+		diagnostics.Reset()
+		if code := a.Run(t.Context(), []string{command}); code != 2 || !strings.Contains(diagnostics.String(), "unknown command") {
+			t.Fatalf("command remains: %s, code=%d %s", command, code, diagnostics)
+		}
 	}
 }

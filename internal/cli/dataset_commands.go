@@ -17,7 +17,6 @@ import (
 	"github.com/deepnoodle-ai/decide/internal/catalog"
 	"github.com/deepnoodle-ai/decide/internal/dataset"
 	"github.com/deepnoodle-ai/decide/internal/jobs"
-	"github.com/deepnoodle-ai/decide/internal/workbench"
 	"golang.org/x/term"
 )
 
@@ -46,7 +45,7 @@ func bindSources(fs *flag.FlagSet, o *dataset.Options) {
 
 func bindExecution(fs *flag.FlagSet, o *jobs.Options, params *repeated) {
 	bindSources(fs, &o.Sources)
-	fs.StringVar(&o.Skill, "skill", o.Skill, "reusable skill name (explore or alternative to skill operand)")
+	fs.StringVar(&o.Skill, "skill", o.Skill, "reusable skill name (alternative to skill operand)")
 	fs.StringVar(&o.Pattern, "pattern", o.Pattern, "configured pattern name or JSON file")
 	fs.Var(params, "param", "typed skill parameter NAME=VALUE (repeatable)")
 	fs.StringVar(&o.Provider, "provider", o.Provider, "typesafe or cloudflare")
@@ -217,7 +216,7 @@ func (a *App) datasetOptions(command string, args []string) (jobs.Options, int, 
 		return o, a.fail(e), false
 	}
 	markSourceFlags(fs, &o.Sources)
-	if command != "explore" && o.Skill == "" && o.Pattern == "" {
+	if o.Skill == "" && o.Pattern == "" {
 		if len(operands) == 0 {
 			return o, a.fail(errors.New("choose a skill: decide skills list; then decide " + command + " SKILL SOURCES...")), false
 		}
@@ -241,9 +240,9 @@ func (a *App) datasetOptions(command string, args []string) (jobs.Options, int, 
 	if e != nil {
 		return o, a.fail(e), false
 	}
-	if len(operands) == 0 && o.Sources.Manifest == "" && command != "explore" {
+	if len(operands) == 0 && o.Sources.Manifest == "" {
 		if f, ok := a.In.(*os.File); ok && term.IsTerminal(int(f.Fd())) {
-			return o, a.fail(errors.New("choose files, a directory, a URL, or '-' for stdin; try decide explore")), false
+			return o, a.fail(errors.New("choose files, a directory, a URL, or '-' for stdin")), false
 		}
 	}
 	o.NewClient = a.NewClient
@@ -254,12 +253,6 @@ func (a *App) runDataset(ctx context.Context, command string, args []string) int
 	o, status, ok := a.datasetOptions(command, args)
 	if !ok {
 		return status
-	}
-	if command == "explore" {
-		if e := workbench.Explore(ctx, o); e != nil {
-			return a.offlineFailure(e)
-		}
-		return 0
 	}
 	if command == "plan" {
 		summary, e := jobs.Plan(ctx, o, a.In, func(p jobs.Prepared) error { return writeJSON(a.Out, p) })
@@ -298,7 +291,7 @@ func (a *App) runDataset(ctx context.Context, command string, args []string) int
 		fmt.Fprintf(a.Err, "Run %s: %s · %d complete · %d failed · %d dropped · %d uncertain · %d requests\n", summary.ID, summary.Status, summary.Completed, summary.Failed, summary.Dropped, summary.Uncertain, summary.Requests)
 	}
 	if summary.ID != "" && o.Progress != "none" && o.JSONL {
-		fmt.Fprintf(a.Err, "Evidence: %s\nNext: decide inspect %s\n", summary.Path, summary.ID)
+		fmt.Fprintf(a.Err, "Evidence: %s\nNext: decide runs view %s\n", summary.Path, summary.ID)
 	}
 	if !o.JSONL && summary.ID != "" {
 		if err := printer.summary(summary); err != nil {
@@ -410,7 +403,7 @@ func (a *App) runLibrary(ctx context.Context, kind string, args []string) int {
 			for _, s := range items {
 				fmt.Fprintf(a.Out, "  %-28s %s\n", s.Name, s.Description)
 			}
-			fmt.Fprintln(a.Out, "\nTry: decide explore . --skill builtin/code-risk")
+			fmt.Fprintln(a.Out, "\nTry: decide run code-risk . --include '**/*.go'")
 			return 0
 		}
 		items, e := catalog.ListPatterns()
@@ -502,7 +495,7 @@ func (a *App) runLibrary(ctx context.Context, kind string, args []string) int {
 			return a.fail(e)
 		}
 		if *live && len(s.Examples) == 0 {
-			return a.fail(errors.New("this skill has no examples; choose image sources with run or explore"))
+			return a.fail(errors.New("this skill has no examples; choose image sources with run"))
 		}
 		var input strings.Builder
 		for _, ex := range s.Examples {
@@ -554,21 +547,31 @@ func (a *App) runRuns(ctx context.Context, args []string) int {
 	}
 	op := args[0]
 	if op == "--help" || op == "-h" {
-		fmt.Fprintln(a.Out, "Usage: decide runs list|show|watch|resume|export [ID] [options]\nRecorded judgments are a notebook you can reopen.")
+		fmt.Fprintln(a.Out, "Usage: decide runs list|view|show|watch|resume|export [ID] [options]\nView saved decisions without making model calls.")
 		return 0
 	}
 	o := envOptions()
 	fs := a.flags("runs " + op)
-	asJSON := fs.Bool("json", false, "structured summaries")
-	retryFailed := fs.Bool("retry-failed", false, "retry known failed items")
-	retryUncertain := fs.Bool("retry-uncertain", false, "explicitly resubmit uncertain attempts; may duplicate provider work")
-	fs.StringVar(&o.RunDir, "run-dir", o.RunDir, "durable run directory")
-	fs.StringVar(&o.Output, "output", "", "export to a new file")
-	fs.BoolVar(&o.JSONL, "jsonl", false, "emit full result JSONL (resume)")
-	fs.BoolVar(&o.Details, "details", false, "show confidence and distributions (resume)")
-	fs.StringVar(&o.Color, "color", "auto", "auto, always, or never (resume)")
-	fs.IntVar(&o.Workers, "workers", o.Workers, "resume request concurrency")
-	fs.IntVar(&o.MaxRequests, "max-requests", o.MaxRequests, "resume total request ceiling")
+	var asJSON, retryFailed, retryUncertain bool
+	fs.StringVar(&o.RunDir, "run-dir", o.RunDir, "saved run directory")
+	switch op {
+	case "list", "show", "watch":
+		fs.BoolVar(&asJSON, "json", false, "structured summaries")
+	case "view", "resume":
+		fs.BoolVar(&o.JSONL, "jsonl", false, "emit full result JSONL")
+		fs.BoolVar(&o.Details, "details", false, "show confidence and labeled distributions")
+		fs.StringVar(&o.Color, "color", "auto", "auto, always, or never")
+		if op == "resume" {
+			fs.BoolVar(&retryFailed, "retry-failed", false, "retry known failed items")
+			fs.BoolVar(&retryUncertain, "retry-uncertain", false, "explicitly resubmit uncertain attempts; may duplicate provider work")
+			fs.IntVar(&o.Workers, "workers", o.Workers, "request concurrency")
+			fs.IntVar(&o.MaxRequests, "max-requests", o.MaxRequests, "total request ceiling")
+		}
+	case "export":
+		fs.StringVar(&o.Output, "output", "", "export to a new file")
+	default:
+		return a.fail(fmt.Errorf("unknown runs command %q", op))
+	}
 	operands, e := parseOperands(fs, args[1:])
 	if e != nil {
 		if errors.Is(e, flag.ErrHelp) {
@@ -584,11 +587,11 @@ func (a *App) runRuns(ctx context.Context, args []string) int {
 		if e != nil {
 			return a.fail(e)
 		}
-		if *asJSON {
+		if asJSON {
 			return a.offlineFailure(writeJSON(a.Out, items))
 		}
 		if len(items) == 0 {
-			fmt.Fprintln(a.Out, "Your notebook is empty. Try: decide run builtin/code-risk . --include '**/*.go' --sample 5")
+			fmt.Fprintln(a.Out, "No saved runs yet. Try: decide run builtin/code-risk . --include '**/*.go' --sample 5")
 			return 0
 		}
 		for _, s := range items {
@@ -601,13 +604,39 @@ func (a *App) runRuns(ctx context.Context, args []string) int {
 	}
 	id := operands[0]
 	switch op {
+	case "view":
+		if o.Color != "auto" && o.Color != "always" && o.Color != "never" {
+			return a.fail(errors.New("color must be auto, always, or never"))
+		}
+		if o.JSONL && o.Details {
+			return a.fail(errors.New("choose --details or --jsonl, not both"))
+		}
+		printer := newResultPrinter(a.Out, o.Color, o.Details)
+		err := jobs.ReadEvidence(id, o.RunDir, func(r jobs.Result) error {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if o.JSONL {
+				return writeJSON(a.Out, r)
+			}
+			return printer.result(r)
+		})
+		if err != nil {
+			return a.offlineFailure(err)
+		}
+		if !o.JSONL {
+			if sum, err := jobs.Show(id, o.RunDir); err == nil {
+				return a.offlineFailure(printer.summary(sum))
+			}
+		}
+		return 0
 	case "show", "watch":
 		for {
 			s, e := jobs.Show(id, o.RunDir)
 			if e != nil {
 				return a.fail(e)
 			}
-			if *asJSON {
+			if asJSON {
 				if e := writeJSON(a.Out, s); e != nil {
 					return a.fail(e)
 				}
@@ -651,7 +680,7 @@ func (a *App) runRuns(ctx context.Context, args []string) int {
 		if !visited["max-requests"] {
 			o.MaxRequests = 0
 		}
-		s, e := jobs.Resume(ctx, id, o, *retryFailed, *retryUncertain, func(r jobs.Result) error {
+		s, e := jobs.Resume(ctx, id, o, retryFailed, retryUncertain, func(r jobs.Result) error {
 			if o.JSONL {
 				return writeJSON(a.Out, r)
 			}
@@ -674,23 +703,4 @@ func (a *App) runRuns(ctx context.Context, args []string) int {
 	default:
 		return a.fail(fmt.Errorf("unknown runs command %q", op))
 	}
-}
-
-func (a *App) runInspect(ctx context.Context, args []string) int {
-	fs := a.flags("inspect")
-	dir := fs.String("run-dir", envOptions().RunDir, "durable run directory")
-	operands, e := parseOperands(fs, args)
-	if e != nil {
-		if errors.Is(e, flag.ErrHelp) {
-			return 0
-		}
-		return a.fail(e)
-	}
-	if len(operands) != 1 {
-		return a.fail(errors.New("inspect requires a run ID, run directory, or saved JSONL file"))
-	}
-	if e := workbench.Inspect(ctx, operands[0], *dir); e != nil {
-		return a.offlineFailure(e)
-	}
-	return 0
 }

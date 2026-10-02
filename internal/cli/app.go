@@ -33,7 +33,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return 130
 	}
 	switch args[0] {
-	case "plan", "run", "explore":
+	case "plan", "run":
 		return a.runDataset(ctx, args[0], args[1:])
 	case "sources":
 		return a.runSources(ctx, args[1:])
@@ -41,8 +41,6 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return a.runLibrary(ctx, args[0], args[1:])
 	case "runs":
 		return a.runRuns(ctx, args[1:])
-	case "inspect":
-		return a.runInspect(ctx, args[1:])
 	case "judge", "grep", "label", "score", "check":
 		return a.runBasic(ctx, args[0], args[1:])
 	case "pick":

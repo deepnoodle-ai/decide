@@ -31,7 +31,6 @@ type Parameter struct {
 
 type Skill struct {
 	Version       int                        `json:"version"`
-	Resolved      bool                       `json:"resolved,omitempty"`
 	Name          string                     `json:"name"`
 	Description   string                     `json:"description"`
 	Inputs        []string                   `json:"inputs"`
@@ -345,9 +344,6 @@ func ValidateSkill(s Skill) error {
 	// neutral values; required parameters are enforced when resolving a run.
 	values := map[string]string{}
 	for name, p := range s.Parameters {
-		if s.Resolved {
-			break
-		}
 		if len(p.Default) == 0 {
 			switch p.Type {
 			case "string":
@@ -413,12 +409,6 @@ func Questions(s Skill) (map[string]decide.Question, error) {
 var placeholder = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9._-]+)\s*\}\}`)
 
 func ResolveParameters(s Skill, supplied map[string]string) (Skill, error) {
-	if s.Resolved {
-		if len(supplied) > 0 {
-			return s, errors.New("resolved skill has frozen parameters; copy its original definition to change them")
-		}
-		return s, nil
-	}
 	values := map[string]any{}
 	for n := range supplied {
 		if _, ok := s.Parameters[n]; !ok {

@@ -1,14 +1,13 @@
-# Dataset CLI and workbench
+# Dataset CLI
 
 Status: Approved
-Workflow: Implement the approved proposal, independently review, then open one PR.
+The current scope is command-only. Interactive experimentation is deferred.
 
 ## Boundaries
 
 `internal/dataset` normalizes local, stdin, and HTTP inputs into streaming items.
 `internal/catalog` loads declarative skills, parameters, examples, and patterns.
 `internal/jobs` prepares requests and manages durable execution and composition.
-`internal/workbench` presents these operations with Wonton.
 `internal/cli` binds commands, options, JSON output, and diagnostics.
 The root library never imports these packages and keeps its existing API.
 
@@ -59,18 +58,13 @@ repeated. Collection patterns have explicit collection limits. Limits and partia
 are visible in the run summary. Run artifacts retain source identity and request
 evidence. Existing saved envelopes keep their discriminator and remain readable.
 
-## Interaction
+## Commands
 
-`explore` and `inspect` enter a Wonton full-screen interface. The workbench
-shares dataset, catalog, and jobs operations with batch commands. Background
-operations post events; only the event loop mutates display state. The source
-picker, skill browser, prepared-state preview, sample execution, progress, result
-detail, comparison, and export form one workflow. Network or file reads never
-block the event loop. Exiting cancels work and leaves its artifact resumable.
-
-Batch commands never launch a screen or ask a question. Help is grouped around
-sources, judgments, execution, and evidence. Friendly copy lives in interactive
-guidance and success summaries; error messages stay specific and factual.
+Commands never launch a screen or ask a question. The starting workflow is
+`run SKILL SOURCES...`, `runs list`, and `runs view ID`. `runs view` streams saved
+results through the same typed answer formatter as live execution. It never
+constructs a provider client. `--details` adds confidence and distributions;
+`--jsonl` preserves full evidence. Terminal color affects styling only.
 
 ## Executable contracts
 
@@ -92,25 +86,21 @@ rate, timeout, retries, request ceilings, snapshot policy, and artifact director
 `plan` emits prepared-item JSONL. `run` defaults to readable per-item decisions and a short summary;
 `--details` adds confidence and labeled probability distributions, `--jsonl` emits full evidence and stderr
 diagnostics, and `--output` writes full evidence to a file. `runs resume` also
-also shows each newly completed item’s decisions. The behavior is explicit and independent of terminal detection, except that automatic color requires a terminal.
+shows each newly completed item’s decisions. The behavior is explicit and independent of terminal detection, except that automatic color requires a terminal.
 `skills` and `patterns` list/show accept JSON output; skill new/edit/validate/test
 operate on local bundles. Tests are offline unless `--live` is supplied.
-`runs` list/show/watch/export/resume use recorded IDs or explicit artifact paths.
-`inspect` accepts run artifacts or old envelopes; `explore` accepts sources and
-initial skill selection. Flags override DECIDE environment defaults and profiles;
-recorded settings win on resume. Provider-specific credentials are never flags.
-Workbench sample and full-dataset actions are distinct. Sample comparison uses
-the same prepared sample. Configuration export records source selection and
-parameters so the experiment can be reproduced from a batch command.
+`runs` list/view/show/watch/export/resume use recorded IDs or explicit artifact paths.
+`runs view` accepts run directories, result JSONL, and legacy envelopes.
+Flags override DECIDE environment defaults and profiles; recorded settings win
+on resume. Provider-specific credentials are never flags.
 
 ## Tradeoffs and rollout
 
 Durability costs disk space. Inputs are spooled as consumed instead of loading
 entire datasets. Large images are stored once per digest. Collection operations
-retain explicit bounds. Wonton adds CLI dependencies without changing root imports.
+retain explicit bounds. The root package has no CLI dependencies.
 Existing primitive commands remain compatible. Source preparation, durable jobs,
-catalog management, and workbench share one implementation and ship together.
+and catalog management share one implementation and ship together.
 
 Fake HTTP providers, interrupted-run recovery, source selection, image capabilities,
-and Wonton event/render tests provide offline qualification. PTY acceptance checks
-verify terminal startup, key routing, and cleanup. No paid live calls are required.
+and CLI formatting tests provide offline qualification. No paid live calls are required.

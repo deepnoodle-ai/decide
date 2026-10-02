@@ -20,7 +20,6 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/internal/catalog"
-	"github.com/deepnoodle-ai/decide/internal/dataset"
 )
 
 func testOptions(t *testing.T) Options {
@@ -180,8 +179,15 @@ func TestImagesDeduplicatedAndCapability(t *testing.T) {
 	img := image.NewRGBA(image.Rect(0, 0, 2, 2))
 	var b bytes.Buffer
 	png.Encode(&b, img)
-	it := dataset.Item{ID: "img", Data: json.RawMessage(`{"path":"a.png"}`), Images: []dataset.Image{{ContentType: "image/png", Data: b.Bytes()}}}
-	_, e := RunPrepared(context.Background(), o, []Prepared{{Item: it}}, nil)
+	dir := t.TempDir()
+	for _, name := range []string{"a.png", "b.png"} {
+		if err := os.WriteFile(filepath.Join(dir, name), b.Bytes(), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	o.Sources.Sources = []string{dir}
+	o.Sources.Format = "image"
+	_, e := Run(context.Background(), o, nil, nil)
 	if e == nil || !strings.Contains(e.Error(), "cloudflare") {
 		t.Fatalf("%v", e)
 	}
@@ -196,7 +202,7 @@ func TestImagesDeduplicatedAndCapability(t *testing.T) {
 		}
 		okay(w)
 	})
-	s, e := RunPrepared(context.Background(), o, []Prepared{{Item: it}, {Item: it}}, nil)
+	s, e := Run(context.Background(), o, nil, nil)
 	if e != nil || calls.Load() != 2 {
 		t.Fatalf("%+v %v", s, e)
 	}

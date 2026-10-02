@@ -7,21 +7,21 @@ Go tools for System One Decisions.
 
 Requires Go 1.27 or later.
 
-The experimental [dataset CLI and Wonton workbench](docs/dataset-cli.md) apply
-reusable judgments to files, directory trees, JSONL, JSON exports, and images:
+The experimental [dataset CLI](docs/dataset-cli.md) applies reusable judgments
+to files, directory trees, JSONL, JSON exports, and images:
 
 ```sh
 go install ./cmd/decide
-decide plan builtin/code-risk . --include '**/*.go' --sample 5
-decide explore . --skill builtin/code-risk --include '**/*.go'
+decide run code-risk . --include '**/*.go'
+decide runs list
+decide runs view RUN_ID
 ```
 
-Preview sources without model calls, experiment on a sample, execute a durable
-batch, and reopen its evidence. `explore` starts with an arrow-key menu; `run`
-shows compact per-item decisions. Request `--details` for confidence and
-probability distributions or `--jsonl`
-for full evidence in a pipeline. Existing [JSONL pipeline commands](docs/cli.md)
-remain available.
+`run` shows compact per-item decisions and saves the full evidence automatically.
+`runs view` reads an old run without making model calls. Add `--details` for
+confidence and labeled probability distributions, or `--jsonl` for full evidence.
+`plan` previews prepared inputs without model calls. Existing
+[JSONL pipeline commands](docs/cli.md) remain available.
 
 Before v1, public APIs may change or be removed in any release.
 

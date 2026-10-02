@@ -48,14 +48,6 @@ func defaultClient(o Options) (*decide.Client, error) {
 }
 
 func Run(ctx context.Context, o Options, in io.Reader, fn func(Result) error) (Summary, error) {
-	return run(ctx, o, in, nil, fn)
-}
-
-func RunPrepared(ctx context.Context, o Options, items []Prepared, fn func(Result) error) (Summary, error) {
-	return run(ctx, o, nil, items, fn)
-}
-
-func run(ctx context.Context, o Options, in io.Reader, items []Prepared, fn func(Result) error) (Summary, error) {
 	o, e := normalize(o)
 	if e != nil {
 		return Summary{}, e
@@ -76,19 +68,7 @@ func run(ctx context.Context, o Options, in io.Reader, items []Prepared, fn func
 	if collection(d) {
 		return runCollection(ctx, d, s, fn)
 	}
-	if items != nil {
-		for _, p := range items {
-			if e = ctx.Err(); e != nil {
-				break
-			}
-			e = spoolItem(d, &s, p.Item)
-			if e != nil {
-				break
-			}
-		}
-	} else {
-		e = spool(ctx, d, &s, in)
-	}
+	e = spool(ctx, d, &s, in)
 	if e != nil {
 		s.Status = "preparation-incomplete"
 		saveSummary(&s)

@@ -1,19 +1,17 @@
-# A judgment notebook for your datasets
+# Run judgments on your datasets
 
 Choose some sources, try a small sample, and keep the evidence. Decide's dataset
 commands apply reusable judgments to files, directory trees, JSONL, JSON exports,
-images, public HTTP sources, and stdin. The Wonton workbench starts with an arrow-key menu and helps you experiment;
-batch commands never prompt. These commands, bundle schemas, and artifacts are
+images, public HTTP sources, and stdin. Commands never prompt. These commands, bundle schemas, and artifacts are
 experimental.
 
-## Start with a taste
+## Start here
 
 ```sh
 go install ./cmd/decide
-decide skills list
-decide sources list . --include '**/*.go' --exclude '**/*_test.go'
-decide plan builtin/code-risk . --include '**/*.go' --sample 5 --seed 42
-decide explore . --skill builtin/code-risk --include '**/*.go'
+decide run code-risk . --include '**/*.go'
+decide runs list
+decide runs view RUN_ID
 ```
 
 Sources, library browsing, and `plan` need no model credentials. Plan prints
@@ -21,86 +19,19 @@ prepared-item JSONL and a stderr count. Public HTTP sources still perform HTTP
 reads. Random sampling scans the selected sources; `--limit 5` stops after the
 first five items instead.
 
-The main menu guides you through **Choose data → Choose a judgment → Preview →
-Run sample → Review answers**. Use the arrows and Enter; Esc returns to the menu.
-A judgment (also called a skill) is a reusable set of questions. Choosing data,
-choosing a judgment, and previewing make no model calls. Preview shows the prepared
-records before Enter sends them to your provider. Space reveals full input details.
-**More actions → Settings** contains model choice, sample size, parameters, and
-advanced controls. More actions also contains compare, full runs, and export.
-Edit parameters or questions and run the same sample again to compare.
-Full-dataset work is a separate `r` action. All model work retains its run artifact.
-Export with `e` to a new directory: it contains evidence, configuration, an edited
-skill or frozen pattern bundle, and a runnable batch command. Recorded models,
-endpoints, and questions survive changes to your catalog or environment. The
-command reads the original sources again; retain the run to inspect its original
-input snapshot. Frozen exported skills use `resolved: true` and accept no new
-parameters. The workbench uses terminal
-stdin for keys; choose files or URLs instead of `-` there.
+## Read a saved run
 
-Use `a` to add a source, `i`/`x` for include/exclude globs, and `t` for a
-`NAME=VALUE` parameter. Shortcuts remain available: arrow keys navigate; `/` filters evidence; `?` shows
-the field guide. Advanced editors expose source, execution, and question JSON.
-The notebook keeps bounded evidence windows while full results remain on disk.
+```sh
+decide runs list
+decide runs view RUN_ID
+decide runs view RUN_ID --details
+decide runs export RUN_ID > results.jsonl
+```
 
-`o` chooses `provider:model`, `w` sets concurrency, and `B` sets the request-attempt
-budget (0 means unlimited). These keep your frozen sample ready for comparison.
-`O` opens advanced execution JSON. Changing providers clears the old endpoint,
-account, and profile so the next operation resolves the new provider's defaults.
-
-Follow the folder trail with `f`: Enter descends, Space selects a file or folder,
-and `.` adds the current directory. `g` cycles all-file, code, JSON, and image
-presets, replacing the current include globs (including custom ones). Folder pages hold 100 entries; `n`/`N` move forward/back. Each page is
-sorted locally, and browsing skips symlinks and `.git`. Dataset ignore rules
-apply when previewing and running.
-
-Preview starts with the first five items. `k` changes the flight size (1–200),
-and `z` switches between first-items and seeded random sampling. Random sampling
-scans the selection; first-items stops parsing after its limit. Local digest
-calculation still reads each consumed file completely. `--sample N` starts the
-workbench in seeded mode. Batch `plan` and `run` keep their existing sampling rules.
-
-In Preview or Evidence, `j` opens **JSON branches**. Enter opens a child, left
-goes up, and `n`/`N` page through large arrays/objects. `m` expands the selected
-array into items; `M` expands the current array. Preview those rows, then use
-`u` to select their model state and `I` to select an ID field. Mappings use
-escaped JSON Pointers. Direct `m`/`u`/`I` editors are also available outside the
-browser; `-` in the items editor restores whole-document interpretation.
-`decide inspect` is read-only. In an explore session, mappings selected from
-evidence affect the next preview; they never alter the saved run. JSON browsing
-retains 100 children per page and
-caps the nesting trail at 32 MiB / 64 levels; it does not load an unbounded tree.
-
-Evidence `n`/`N` reads next/previous saved pages, bounded by both records and bytes.
-`/` searches the entire artifact; matching results are paged too. Canceling a
-page/search retains the previous displayed evidence. Searches and page turns
-scan from the beginning of the saved file, so large artifacts can take time; Esc
-cancels without losing your place. Imported JSONL without a run summary shows an
-unknown total rather than counting the entire file before opening it. Provider
-work and previews remain explicit actions.
-
-### Workbench pocket guide
-
-| Goal | Keys |
-| --- | --- |
-| Open the main menu | `h`, or Esc from a page |
-| Navigate visible actions | Arrow keys and Enter; no shortcuts required |
-| Switch notebook pages | `1` Sources, `2` Library, `3` Preview, `4` Evidence, `5` Compare |
-| Select local data | `f`, Enter to descend, Space to add, `.` to add this directory |
-| Add a path or URL; set globs | `a`; `i` include, `x` exclude |
-| Choose a judgment | Library arrows and Enter; `b` switches to patterns |
-| Prepare a small flight | `p`; `k` size, `z` first-items/seeded sample |
-| Explore nested records | `j`; Enter/left to descend/return, `n`/`N` child pages |
-| Map records, state, ID | `m` selected array, `M` current array, `u` state, `I` ID |
-| Adjust the experiment | `t` parameter, `v` questions, `o` model, `w` workers, `B` attempt budget |
-| Send and compare | `s` sends the prepared sample, `c` compares experiments |
-| Run the full selection | `r`, then explicitly confirm with `run` |
-| Browse saved answers | `n`/`N` pages, `/` search, Enter details, left/right stages |
-| Keep or leave your notebook | `e` export to a new directory; `?` help, Esc back/cancel, `q` quit |
-
-After mapping an array, preview its rows again before selecting a row-relative
-state or ID pointer. Returning from a JSON branch restores the selected child
-and page, so you can follow neighboring records without starting over.
+Run IDs and explicit run-directory paths work. `runs view` uses the same readable,
+colored decision format as `run`, without credentials or provider calls. It also
+accepts exported result JSONL and legacy `typesafe_cli: 1` evidence files.
+Use `--jsonl` to read full machine evidence. Viewing never resubmits work.
 
 ## One source or all these sources
 
@@ -163,7 +94,7 @@ an additional streaming read of the source file.
 
 A manifest gives different sources their own mappings. Relative paths resolve
 against the manifest's directory. Per-source mappings override global defaults
-from flags or the workbench; edit the manifest to change those explicit mappings:
+from flags; edit the manifest to change those explicit mappings:
 
 ```json
 {
@@ -300,7 +231,7 @@ decide run builtin/relevance passages.jsonl --workers 8 \
 decide runs list
 decide runs show RUN_ID --json
 decide runs watch RUN_ID --json
-decide inspect RUN_ID
+decide runs view RUN_ID
 decide runs export RUN_ID > results.jsonl
 decide runs resume RUN_ID
 decide runs resume RUN_ID --max-requests 10000
@@ -322,7 +253,7 @@ Both retain consumed inputs on disk. Saved evidence is decoded one record at a
 time, without applying the input-item byte limit to the whole result. Original
 data plus prepared states for multiple stages can make a result much larger than
 its input. Reading one such record requires memory proportional to that record;
-collection and workbench retention budgets still apply. Images are assets
+collection retention budgets still apply. Images are assets
 addressed by digest instead of repeated base64 payloads in every output record.
 
 `--order completion` is the dataset default. `--order input` exports persisted
@@ -378,5 +309,6 @@ Credentials are resolved when executing and are never configuration fields or CL
 flags. `DECIDE_HOME` defaults to `XDG_CONFIG_HOME/decide` or `~/.config/decide`.
 
 The original eleven pipeline commands and their `typesafe_cli: 1` envelopes remain
-supported. `decide inspect old.jsonl` revalidates saved evidence. See [CLI pipelines](cli.md)
+supported. `decide runs view old.jsonl` reads saved evidence. Collection patterns revalidate
+questions and answers before applying policies. See [CLI pipelines](cli.md)
 and [recipes](cli-recipes.md) for one-off judgments and offline calibration.
