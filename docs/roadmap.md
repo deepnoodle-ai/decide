@@ -5,7 +5,7 @@ off, or remove them, as they land.
 
 ## Templates
 
-- [ ] **Templates.** Rename "skills" to "templates" (#30).
+- [x] **Templates.** Rename "skills" to "templates" (#30).
 - [ ] **`decide eval`.** Measure a template on labeled examples: agreement
       per question, confident mistakes, suggested thresholds, and
       `--fail-under` for CI. Ship examples with each built-in template.
@@ -16,11 +16,16 @@ off, or remove them, as they land.
 ## Running and results
 
 - [ ] **`--fail-on`.** `decide run … --fail-on flagged|matched` exits 2 when
-      any item is flagged or matched, so CI and hooks can block on it.
-- [ ] **Token usage.** Show input tokens in the run summary, in `--json`
-      output, and in saved runs.
+      any item is flagged or matched, so CI and hooks can block on it. Exit
+      1 keeps meaning an error, as with `terraform plan -detailed-exitcode`.
+- [ ] **Token usage and cost.** Show input tokens and an estimated cost in
+      the run summary, in `--json` output, and in saved runs. Prices come
+      from a table of the supported providers' models, dated and linked to
+      each provider's pricing page. It can go stale, so label it an
+      estimate.
 - [ ] **CSV and Markdown output.** `--format json|csv|md` on `run` and
-      `runs view`, keeping `--json` as a shorthand.
+      `runs view`, keeping `--json` as a shorthand. Markdown is for pull
+      request comments.
 - [ ] **Request cache.** An opt-in `--cache` that reuses identical requests.
 
 ## Providers and credentials
@@ -30,12 +35,15 @@ off, or remove them, as they land.
 - [ ] **Gateways.** Test Vercel AI Gateway and OpenRouter through
       `TYPESAFE_BASE_URL`, then document them.
 - [ ] **Saved credentials.** `decide auth login`, so keys need not be
-      exported in every shell.
+      exported in every shell. Keys go in a file under `DECIDE_HOME` that
+      only the user can read. Environment variables still take precedence.
 
 ## Agents
 
-- [ ] **Claude Code plugin.** An agent skill, installable from this
-      repository, that teaches agents to write templates and run decide.
+- [ ] **Claude Code plugin.** An agent skill, installed from this repository
+      with `/plugin marketplace add deepnoodle-ai/decide`, that teaches
+      agents to write templates and run decide. Other agents can use its
+      `SKILL.md` directly.
 - [ ] **MCP server.** `decide mcp`, with tools to run a template or ask a
       question.
 
@@ -43,7 +51,6 @@ off, or remove them, as they land.
 
 - [ ] **Releases.** `decide --version`, release binaries and checksums for
       each `v*` tag, and a formula in `deepnoodle-ai/homebrew-tap`.
-- [ ] **Install script.** `curl … | sh` that verifies the binary's checksum.
 
 ## Docs
 
@@ -69,13 +76,4 @@ off, or remove them, as they land.
   caller's code.
 - Falling back to a text model inside the CLI. Thresholds and fallbacks
   belong in `patterns/gate` and `patterns/funnel`.
-
-## Open questions
-
-- `--fail-on` exit code: 2, or reuse 1?
-- Token usage: tokens only, or an estimated cost too?
-- Output: `--format`, or separate `--csv` and `--md` flags?
-- Agents: a Claude Code plugin, or an install command?
-- Install script: ship one, or only Homebrew, binaries, and `go install`?
-- Saved credentials: a private file under `~/.decide`, or the system
-  keychain?
+- An install script, for now. Homebrew and `go install` come first.
