@@ -1,4 +1,4 @@
-// Command decide composes experimental TypeSafe judgments in shell pipelines.
+// Command decide applies reusable judgments to datasets and saves their evidence.
 package main
 
 import (
@@ -11,6 +11,7 @@ import (
 )
 
 func main() { os.Exit(run()) }
+
 func run() int {
 	signal.Ignore(syscall.SIGPIPE)
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)

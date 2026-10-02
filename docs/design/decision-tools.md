@@ -2,6 +2,7 @@
 
 > Historical record of the original implementation plan. Package promotion
 > supersedes its experimental-package layout and graduation exclusions.
+> Its CLI proposal is superseded by [the dataset CLI](../prds/dataset-cli.md); the old commands and envelope format were removed.
 > The old `x/` paths below are historical, not current imports. Use
 > `backend`, `cloudflare`, and `patterns/<name>` instead. See the
 > [README](../../README.md) for current APIs and the pre-v1 policy.
