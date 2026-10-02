@@ -132,27 +132,32 @@ func (a *App) runsView(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	results, err := r.Results()
-	if err != nil {
-		return err
-	}
 	if format != "json" {
 		fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Run %s · %s on %s · %s",
 			r.ID, r.Template.Name, clean(strings.Join(r.Sources, ", ")), humanize.Time(r.Created))))
 	}
-	w := newOutput(c, format, r.Template, "")
-	for _, it := range group(results, marksOf(r.Template)) {
-		if err := w.item(it); err != nil {
-			return err
-		}
-	}
-	if err := w.finish(r); err != nil {
+	if err := a.printRun(c, r, format, ""); err != nil {
 		return err
 	}
 	if format != "json" {
 		summarize(c.Stderr(), r, 0)
 	}
 	return nil
+}
+
+// printRun prints every item of a saved run in a format.
+func (a *App) printRun(c *cli.Context, r *runs.Run, format, failOn string) error {
+	results, err := r.Results()
+	if err != nil {
+		return err
+	}
+	w := newOutput(c, format, r.Template, failOn)
+	for _, it := range group(results, marksOf(r.Template)) {
+		if err := w.item(it); err != nil {
+			return err
+		}
+	}
+	return w.finish(r)
 }
 
 func (a *App) runsResume(c *cli.Context) error {
@@ -175,8 +180,12 @@ func (a *App) runsResume(c *cli.Context) error {
 		return err
 	}
 	if r.Pending() == 0 {
-		fmt.Fprintf(c.Stdout(), "Every item in run %s already has an answer.\n", r.ID)
-		fmt.Fprintf(c.Stdout(), "%s decide runs view %s\n", dim("See them with:"), r.ID)
+		fmt.Fprintf(c.Stderr(), "Every item in run %s already has an answer.\n", r.ID)
+		if format == "text" {
+			fmt.Fprintf(c.Stderr(), "%s decide runs view %s\n", dim("See them with:"), r.ID)
+		} else if err := a.printRun(c, r, format, failOn); err != nil {
+			return err
+		}
 		return failExit(c, failOn, marked(r))
 	}
 	client, err := a.NewClient(r.Provider, r.Model)

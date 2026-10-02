@@ -188,8 +188,7 @@ func (a *App) run(c *cli.Context) error {
 	})
 	if err == nil && run.Total == 0 && changes {
 		run.Discard()
-		nothingToJudge(c, s, format)
-		return nil
+		return nothingToJudge(c, s, format)
 	}
 	if err == nil && run.Total == 0 {
 		err = nothingFound(s, paths, opts)
@@ -228,6 +227,9 @@ func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, work
 		return err
 	}
 	w := newOutput(c, format, run.Template, failOn)
+	if err := replay(w, saved, marksOf(run.Template)); err != nil {
+		return err
+	}
 	out := newCollector(marksOf(run.Template), saved, w.item)
 	start := time.Now()
 	err = run.Execute(c.Context(), client, workers, out.add)
@@ -260,6 +262,20 @@ func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, work
 		return cli.Exit(1)
 	}
 	return failExit(c, failOn, marked)
+}
+
+// replay prints the items a resumed run answered before it stopped, so its
+// output covers the whole run.
+func replay(w resultWriter, saved []runs.Result, m marks) error {
+	for _, it := range group(saved, m) {
+		if it.Status != "complete" {
+			continue // it will be asked again
+		}
+		if err := w.item(it); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // checkFailOn refuses --fail-on when the template never marks an item that
@@ -433,8 +449,7 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 	}
 	total := found.items()
 	if total == 0 && *changes {
-		nothingToJudge(c, s, format)
-		return nil
+		return nothingToJudge(c, s, format)
 	}
 	if total == 0 {
 		return nothingFound(s, paths, opts)
@@ -481,10 +496,18 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 // nothingToJudge reports a diff, or empty input, with no changes for the
 // template to judge. That is not an error, so a CI gate on a change with
 // nothing to judge passes.
-func nothingToJudge(c *cli.Context, s *template.Template, format string) {
+func nothingToJudge(c *cli.Context, s *template.Template, format string) error {
+	msg := fmt.Sprintf("Nothing for %s to judge: no changes, or only changes it skips", s.Name)
 	if format != "json" {
-		fmt.Fprintf(c.Stderr(), "%s\n", dim(fmt.Sprintf("Nothing for %s to judge: no changes, or only changes it skips", s.Name)))
+		fmt.Fprintf(c.Stderr(), "%s\n", dim(msg))
 	}
+	switch format {
+	case "md":
+		return emptyReport(c.Stdout(), s.Name, msg)
+	case "github":
+		return addToSummary(func(w io.Writer) error { return emptyReport(w, s.Name, msg) })
+	}
+	return nil
 }
 
 func nothingFound(s *template.Template, paths []string, opts source.Options) error {

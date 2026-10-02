@@ -160,6 +160,7 @@ func TestLocation(t *testing.T) {
 		"README.md#install":              {"README.md", 0},
 		"docs/v1.0#2/guide.md":           {"docs/v1.0#2/guide.md", 0},
 		"tickets.jsonl:3":                {"tickets.jsonl", 3},
+		"tickets.json[3]":                {"tickets.json", 0},
 		"server.go@1a2b3c4:42":           {"server.go", 0},
 		"server.go@1a2b3c4#L40":          {"server.go", 0},
 		"fixes/auth.patch: server.go:42": {"fixes/auth.patch", 0},
@@ -181,8 +182,16 @@ func TestUntrustedTextIsEscaped(t *testing.T) {
 	if got := escapeProperty("a,b:c\nd"); got != "a%2Cb%3Ac d" {
 		t.Errorf("escapeProperty = %q", got)
 	}
-	if got := mdText("[x](http://e) <img> @team | `a` *b*"); got != `\[x\]\(http://e\) &lt;img&gt; &#64;team \| \`+"`a\\`"+` \*b\*` {
-		t.Errorf("mdText = %q", got)
+	wj := "\u2060"
+	for in, want := range map[string]string{
+		"[x](a.png) <img> | `a` *b*": `\[x\]\(a.png\) &lt;img&gt; \| \` + "`a\\`" + ` \*b\*`,
+		"docs/@org/notes.md":         "docs/@" + wj + "org/notes.md",
+		"fix#42.go":                  "fix#" + wj + "42.go",
+		"http://e.com www.e.com":     "http:" + wj + "//e.com www" + wj + ".e.com",
+	} {
+		if got := mdText(in); got != want {
+			t.Errorf("mdText(%q) = %q, want %q", in, got, want)
+		}
 	}
 	if got := cells([]string{"=1+1", "+x", "-y", "@z", "ok", "a\nb"}); strings.Join(got, ",") != "'=1+1,'+x,'-y,'@z,ok,a b" {
 		t.Errorf("cells = %q", got)
@@ -199,4 +208,40 @@ func TestGitHubAnnotationCannotInjectCommands(t *testing.T) {
 			t.Errorf("unexpected line %q in:\n%s", line, out.stdout)
 		}
 	}
+}
+
+func TestFormatsCoverTheWholeRunOnResume(t *testing.T) {
+	h := setup(t)
+	h.server.Answer("relevant", decidetest.NoulAnswer(0.9))
+	h.server.FailNext(422)
+	out := h.run("one\ntwo\n", "run", "relevance", "-p", "question=x", "--workers", "1")
+	if out.code != 1 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	// The item matched before the run stopped is annotated on resume too,
+	// and as an error, since --fail-on matched fails the job.
+	out = h.run("", "runs", "resume", "--format", "github", "--fail-on", "matched")
+	if out.code != 2 || strings.Count(out.stdout, "::error ") != 2 {
+		t.Fatalf("exit %d:\n%s%s", out.code, out.stdout, out.stderr)
+	}
+	// A finished run prints its results in the format, with the notice on
+	// stderr.
+	out = h.run("", "runs", "resume", "--format", "md")
+	contains(t, out.stdout, "**2 answered** · **2 matched**")
+	contains(t, out.stderr, "already has an answer")
+}
+
+func TestReportWithNothingToJudge(t *testing.T) {
+	h := setup(t)
+	summary := filepath.Join(t.TempDir(), "summary.md")
+	t.Setenv("GITHUB_STEP_SUMMARY", summary)
+	lockfile := "diff --git a/go.sum b/go.sum\n--- a/go.sum\n+++ b/go.sum\n@@ -1 +1 @@\n-a\n+b\n"
+	out := h.run(lockfile, "run", "code-risk", "--format", "md")
+	if out.code != 0 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stdout, "### decide code-risk\n\nNothing for code-risk to judge")
+	h.run(lockfile, "run", "code-risk", "--format", "github")
+	report, _ := os.ReadFile(summary)
+	contains(t, string(report), "Nothing for code-risk to judge")
 }

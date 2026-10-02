@@ -58,7 +58,7 @@ func newOutput(c *cli.Context, format string, s *template.Template, failOn strin
 	case "md":
 		return mdOutput{w}
 	case "github":
-		return &githubOutput{w: w, marks: marksOf(s), template: s, level: annotationLevel(failOn)}
+		return &githubOutput{w: w, marks: marksOf(s), template: s, failOn: failOn}
 	}
 	return newPrinter(w, s, c.Bool("details"))
 }
@@ -297,7 +297,9 @@ func table(b *strings.Builder, s *template.Template, m marks, items []item) {
 }
 
 // mdText escapes text from outside the program for Markdown, so a file
-// name or answer cannot add links, images, HTML, or mentions.
+// name or answer cannot add links, images, HTML, mentions, or references
+// to issues. A word joiner after "@" and "#" keeps GitHub from linking
+// them, and one inside "://" and "www." keeps it from linking addresses.
 func mdText(s string) string {
 	var b strings.Builder
 	for _, r := range clean(s) {
@@ -308,17 +310,22 @@ func mdText(s string) string {
 			b.WriteString("&lt;")
 		case '>':
 			b.WriteString("&gt;")
-		case '@':
-			b.WriteString("&#64;")
-		case '\\', '`', '*', '_', '[', ']', '(', ')', '#', '!', '|', '~':
+		case '@', '#':
+			b.WriteRune(r)
+			b.WriteRune(wordJoiner)
+		case '\\', '`', '*', '_', '[', ']', '(', ')', '!', '|', '~':
 			b.WriteByte('\\')
 			b.WriteRune(r)
 		default:
 			b.WriteRune(r)
 		}
 	}
-	return b.String()
+	return unlink.Replace(b.String())
 }
+
+const wordJoiner = '\u2060'
+
+var unlink = strings.NewReplacer("://", ":"+string(wordJoiner)+"//", "www.", "www"+string(wordJoiner)+".")
 
 // githubOutput writes GitHub Actions workflow commands: a warning for each
 // flagged item and a notice for each matched one, at the file and line it
@@ -328,28 +335,26 @@ type githubOutput struct {
 	w        io.Writer
 	marks    marks
 	template *template.Template
-	level    string // "warning", or "error" when flagged items fail the run
-}
-
-// annotationLevel is "error" when flagged items fail the run, and
-// "warning" otherwise, so annotations match the job's outcome.
-func annotationLevel(failOn string) string {
-	if failOn == "flagged" {
-		return "error"
-	}
-	return "warning"
+	failOn   string // "flagged" or "matched": those items fail the run
 }
 
 func (o *githubOutput) item(it item) error {
 	if it.Status != "complete" {
 		return nil
 	}
-	level, mark := o.level, flagged
+	level, mark := "warning", flagged
 	if !o.marks.has(it.Result, flagged) {
 		if !o.marks.has(it.Result, matched) {
 			return nil
 		}
 		level, mark = "notice", matched
+	}
+	word := "flagged"
+	if mark == matched {
+		word = "matched"
+	}
+	if o.failOn == word {
+		level = "error" // the item fails the job, so say so
 	}
 	var keys, names, lines []string
 	for _, q := range o.template.Questions {
@@ -371,10 +376,6 @@ func (o *githubOutput) item(it item) error {
 		}
 		lines = append(lines, line)
 	}
-	word := "flagged"
-	if mark == matched {
-		word = "matched"
-	}
 	props := []string{"title=" + escapeProperty(fmt.Sprintf("%s %s %s", o.template.Name, word, strings.Join(names, ", ")))}
 	file, line := location(it.Source)
 	if file != "" {
@@ -391,9 +392,14 @@ func (o *githubOutput) item(it item) error {
 	return err
 }
 
-// finish adds a report to the job summary, when GitHub Actions names a
-// file for one.
+// finish adds a report to the job summary.
 func (o *githubOutput) finish(r *runs.Run) error {
+	return addToSummary(func(w io.Writer) error { return report(w, r) })
+}
+
+// addToSummary writes to the job summary, when GitHub Actions names a
+// file for one.
+func addToSummary(write func(io.Writer) error) error {
 	path := os.Getenv("GITHUB_STEP_SUMMARY")
 	if path == "" {
 		return nil
@@ -402,11 +408,18 @@ func (o *githubOutput) finish(r *runs.Run) error {
 	if err != nil {
 		return err
 	}
-	if err := report(f, r); err != nil {
+	if err := write(f); err != nil {
 		f.Close()
 		return err
 	}
 	return f.Close()
+}
+
+// emptyReport is the Markdown report of a run with nothing to judge, so a
+// pull request comment from an earlier run does not go stale.
+func emptyReport(w io.Writer, name, msg string) error {
+	_, err := fmt.Fprintf(w, "### decide %s\n\n%s.\n", mdText(name), mdText(msg))
+	return err
 }
 
 // location finds the file and line that an item's source names, such as
@@ -418,6 +431,11 @@ func location(src string) (file string, line int) {
 		return src[:i], 0
 	}
 	file = src
+	if i := strings.LastIndexByte(file, '['); i >= 0 && strings.HasSuffix(file, "]") { // an element of a JSON array
+		if _, err := strconv.Atoi(file[i+1 : len(file)-1]); err == nil {
+			file = file[:i]
+		}
+	}
 	if i := strings.LastIndex(file, "#L"); i >= 0 {
 		if n, err := strconv.Atoi(file[i+2:]); err == nil {
 			file, line = file[:i], n
