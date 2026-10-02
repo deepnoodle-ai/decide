@@ -41,7 +41,7 @@ Each question has one of three types, and its answer has a probability:
 | --- | --- | --- |
 | `noul` | a yes-or-no question | `risk  no  88%`, or `unsure  52% yes` between 40% and 60% |
 | `choice` | which one of several options fits | `queue  billing  91%` |
-| `score` | where something falls on a scale | `maintainability  ━━━━━━━━──── 2.7 of 4  Clear responsibilities…` |
+| `score` | where something falls on a scale | `maintainability  ━━━━━━━━────  2.7 of 4  Clear responsibilities…` |
 
 Some skills flag the answers that need attention, such as a file that is
 probably risky. A flagged answer is red and marked with `!`, an answer
@@ -50,8 +50,8 @@ lists the flagged items:
 
 ```
 marker/app.py
-! risk             yes  82%
-  maintainability  ━━━━━━━───── 2.4 of 4  Understandable with some friction
+! risk             yes           82%
+  maintainability  ━━━━━━━─────  2.4 of 4  Understandable with some friction
 
 ✓ 5 answered  ! 2 flagged  500ms
 Flagged: marker/Makefile, marker/app.py

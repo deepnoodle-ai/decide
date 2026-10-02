@@ -46,6 +46,7 @@ type printer struct {
 	skill   *skill.Skill
 	details bool
 	width   int // width of the question-name column
+	answers int // width of the answer column
 	flags   map[string][]skill.Condition
 }
 
@@ -53,8 +54,39 @@ func newPrinter(w io.Writer, s *skill.Skill, details bool) *printer {
 	p := &printer{w: w, skill: s, details: details, flags: flagsOf(s)}
 	for _, q := range s.Questions {
 		p.width = max(p.width, len(q.Key))
+		p.answers = max(p.answers, answerWidth(q.Raw))
 	}
 	return p
+}
+
+// answerWidth is the widest answer a question can have, so the figures
+// after the answers line up across questions and items.
+func answerWidth(raw json.RawMessage) int {
+	var q struct {
+		Type     string          `json:"type"`
+		Criteria json.RawMessage `json:"criteria"`
+	}
+	json.Unmarshal(raw, &q)
+	switch q.Type {
+	case "score":
+		return trackWidth
+	case "choice":
+		var opts skill.Questions
+		w := 0
+		if json.Unmarshal(q.Criteria, &opts) == nil {
+			for _, o := range opts {
+				w = max(w, len([]rune(o.Key)))
+			}
+		} else {
+			var list []string
+			json.Unmarshal(q.Criteria, &list)
+			for _, o := range list {
+				w = max(w, len([]rune(o)))
+			}
+		}
+		return min(w, 24)
+	}
+	return len("unsure")
 }
 
 func (p *printer) result(res runs.Result) error {
@@ -92,33 +124,34 @@ func (p *printer) result(res runs.Result) error {
 }
 
 // summary is the one-line form of an answer, styled by its verdict.
+// Every answer has the same columns: the answer (a word, or a track for a
+// score), a figure, and for scores the level's description.
 func (p *printer) summary(a answer, v verdict) string {
-	if a.Type == "score" {
-		top := levels(a) - 1
-		s := track(a.Score, top, v) + " " + v.style(fmt.Sprintf("%.1f of %d", a.Score, top))
-		if label := legend(a, int(math.Round(a.Score))); label != "" {
-			s += "  " + dim(label)
-		}
-		return s
-	}
-	return v.style(p.text(a))
-}
-
-// text is the words for a yes-or-no or choice answer.
-func (p *printer) text(a answer) string {
+	var ans, figure, note string
 	switch a.Type {
 	case "noul":
 		switch {
 		case a.Noul >= unsureBelow:
-			return "yes  " + percent(a.Noul)
+			ans, figure = v.style("yes"), v.style(percent(a.Noul))
 		case a.Noul <= unsureAbove:
-			return "no  " + percent(1-a.Noul)
+			ans, figure = v.style("no"), v.style(percent(1-a.Noul))
+		default:
+			ans, figure = v.style("unsure"), v.style(percent(a.Noul)+" yes")
 		}
-		return fmt.Sprintf("unsure  %s yes", percent(a.Noul))
 	case "choice":
-		return fmt.Sprintf("%s  %s", clean(a.Choice), percent(a.Probabilities[a.Choice]))
+		ans, figure = v.style(clean(a.Choice)), v.style(percent(a.Probabilities[a.Choice]))
+	case "score":
+		top := levels(a) - 1
+		ans, figure = track(a.Score, top, v), v.style(fmt.Sprintf("%.1f of %d", a.Score, top))
+		note = legend(a, int(math.Round(a.Score)))
+	default:
+		return value("(answer type " + a.Type + ")")
 	}
-	return "(answer type " + a.Type + ")"
+	s := pad(ans, p.answers) + "  " + figure
+	if note != "" {
+		s += "  " + dim(note)
+	}
+	return s
 }
 
 func (p *printer) distribution(b *strings.Builder, a answer) {

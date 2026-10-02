@@ -256,17 +256,20 @@ func TestFlaggedAnswers(t *testing.T) {
 	if out.code != 0 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stdout, "! risk             yes  88%", "  maintainability  ━━━━━━━━━━── 3.3 of 4  3")
+	// Answers and figures line up in columns across questions.
+	contains(t, out.stdout,
+		"! risk             yes           88%\n",
+		"  maintainability  ━━━━━━━━━━──  3.3 of 4  3\n")
 	contains(t, out.stderr, "! 1 flagged", "Flagged: src/a.go")
 
 	h.server.Answer("risk", decidetest.NoulAnswer(0.5))
 	out = h.run("", "run", "code-risk", "src")
-	contains(t, out.stdout, "  risk             unsure  50% yes")
+	contains(t, out.stdout, "  risk             unsure        50% yes\n")
 	contains(t, out.stderr, "nothing flagged")
 
 	h.server.Answer("risk", decidetest.NoulAnswer(0.1))
 	out = h.run("", "run", "code-risk", "src")
-	contains(t, out.stdout, "  risk             no  90%")
+	contains(t, out.stdout, "  risk             no            90%\n")
 
 	// Skills without flags do not mention them.
 	out = h.run("ok\n", "run", "relevance", "-p", "question=x")
