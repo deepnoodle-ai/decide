@@ -1,6 +1,6 @@
 // Package backend selects a decision provider during decide.Client construction.
-// It is experimental. Requests, typed handles, retries, and answer validation
-// use the same decide API for either provider.
+// Requests, typed handles, retries, and answer validation use the same decide
+// API for either provider.
 //
 // Config supplies connection settings explicitly. NewClient reads no
 // environment variables, so a TypeSafe environment cannot affect Cloudflare

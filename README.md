@@ -7,6 +7,8 @@ Go tools for System One Decisions.
 
 Requires Go 1.27 or later.
 
+Before v1, public APIs may change or be removed in any release.
+
 ## Evaluate or pick
 
 Ask one typed question with `Eval`:
@@ -102,12 +104,12 @@ go run ./examples/pick
 
 ## Choose a backend
 
-The experimental `x/backend` package selects TypeSafe Jev or Cloudflare
+The [`backend`](backend) package selects TypeSafe Jev or Cloudflare
 Clef during client construction. The resulting client uses the same
 requests, questions, typed handles, validation, and retry settings:
 
 ```go
-import "github.com/deepnoodle-ai/decide/x/backend"
+import "github.com/deepnoodle-ai/decide/backend"
 
 client, err := backend.NewClient(backend.Config{
 	Provider:  backend.Cloudflare,
