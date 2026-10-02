@@ -93,7 +93,7 @@ Decide comes with eight templates. A template is a named set of questions.
 ```sh
 decide run code-risk src --include '*.go'
 decide run relevance docs --each section -p question="pricing"
-decide runs view --json > results.jsonl
+decide runs view --format csv > results.csv
 decide run code-risk src --fail-on flagged   # exit code 2 if anything is flagged
 git diff main | decide run code-risk --each function   # judge each changed function
 git diff main | decide run prompt-injection            # hidden instructions for AI agents
@@ -101,10 +101,13 @@ gh issue list --json number,title,body | decide run task-readiness
 ```
 
 Decide reads JSONL, JSON, CSV, text, Markdown, source code, diffs, and images,
-flags answers that need attention, and resumes stopped runs. To try the
-templates on planted problems, see [demo](demo/README.md). You can write
-your own template in a few lines of JSON with `decide templates new`. The
-[CLI guide](docs/cli.md) covers it all.
+flags answers that need attention, and resumes stopped runs. It prints
+text, JSON, CSV, a Markdown report, or GitHub Actions annotations on a pull
+request. To try the templates on planted problems, see
+[demo](demo/README.md). You can write your own template in a few lines of
+JSON with `decide templates new`. The [CLI guide](docs/cli.md) covers it
+all, and the [recipes](docs/recipes.md) show it in GitHub Actions, other
+CI systems, and git hooks.
 
 ## Use it from Go
 
