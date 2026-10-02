@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -27,4 +29,18 @@ func TestDemo(t *testing.T) {
 
 	out = h.run("", "run", "task-readiness", "../issues.json", "--dry-run")
 	contains(t, out.stdout, "6 records")
+
+	// setup.sh undoes change.diff to make the first commit.
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	repo := t.TempDir()
+	if err := os.CopyFS(repo, os.DirFS(filepath.Join(demo, "repo"))); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("git", "apply", "-R", "--check", filepath.Join(demo, "change.diff"))
+	cmd.Dir = repo
+	if msg, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("change.diff does not undo cleanly in demo/repo: %v\n%s", err, msg)
+	}
 }

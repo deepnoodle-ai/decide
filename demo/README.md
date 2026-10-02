@@ -27,9 +27,10 @@ git diff | decide run code-risk --each function --fail-on flagged
 `AGENTS.md`. `code-risk` flags `Refunds.Apply` and `Refunds.Search`, and
 exits with code 2.
 
-Then judge the issues, from the root of this repository:
+Then go back to the root of this repository and judge the issues:
 
 ```sh
+cd -
 decide run task-readiness demo/issues.json    # flags the vague and large issues
 decide run prompt-injection demo/issues.json  # flags issue 105
 ```
