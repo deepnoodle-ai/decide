@@ -1,223 +1,172 @@
 # Decide
 
-Go tools for System One Decisions.
+**Ask typed questions about your data. Get answers with probabilities.**
 
-- Module: `github.com/deepnoodle-ai/decide`
-- Root package: `decide`
+Decide asks yes-or-no, multiple-choice, and scale questions about files,
+folders, JSON records, and text. Each answer comes back typed, with a
+probability, so a script or a program can act on it directly. There is no
+prose to parse.
 
-Requires Go 1.27 or later.
+It works two ways:
 
-The experimental [`decide` command](docs/cli.md) asks typed questions about
-files, folders, JSON, and text, and saves every answer:
+- **`decide`, a command-line tool.** Point it at your data and pick a skill.
+  Every answer is saved so you can view it again or resume a run.
+- **A Go library.** Put typed questions into your own code, with validated
+  answers, retries, and test fakes.
+
+Decide runs on [System One](https://docs.typesafe.ai/introduction) models,
+which are built to answer typed questions rather than to generate text:
+TypeSafe's Jev and Cloudflare Workers AI's Clef.
+
+## Try it
 
 ```sh
 go install github.com/deepnoodle-ai/decide/cmd/decide@latest
-echo "The new release fixed everything" | decide run sentiment
-decide run code-risk src --include '*.go' --limit 5
-decide runs view
+export TYPESAFE_API_KEY=...   # from https://typesafe.ai
+
+echo "The new release fixed everything I cared about" | decide run sentiment
 ```
 
-Before v1, public APIs may change or be removed in any release.
+```
+stdin:1  The new release fixed everything I cared about
+  sentiment  positive  94%
 
-## Evaluate or pick
-
-Ask one typed question with `Eval`:
-
-```go
-e, err := decide.Eval(ctx, client, ticket,
-    decide.Noul("Is this about billing?"))
-if err != nil {
-    return err
-}
-fmt.Println(e.Answer.Noul, e.Response.Model)
+✓ 1 answered  1.2s
+Saved as run 20261002-153012-a1b2
+See these results again with: decide runs view 20261002-153012-a1b2
 ```
 
-Select an original value with `Pick`:
+Requires Go 1.27 or later. Run `decide` on its own for a tour of the
+commands.
 
-```go
-d, err := decide.Pick(ctx, client, ticket, "Choose a queue.",
-    []decide.Candidate[string]{
-        {Item: "billing", Description: "Payments and invoices"},
-        {Item: "engineering", Description: "Product defects"},
-    })
-if err != nil {
-    return err
-}
-if d.Picked {
-    fmt.Println(d.Item, d.Index, d.Answer.Probabilities)
-}
-```
+## What you can ask
 
-`Pick` returns a `Decision[T]`. It offers abstention and accepts at most 254
-candidates. Empty candidates abstain locally. `Eval` returns an
-`Evaluation[A]` with the inferred answer type. Both always validate the full
-response and preserve its model, usage, request ID, and diagnostics.
-Consistency-only failures retain the answer or item together with an error;
-structural failures retain evidence without a selection. Neither operation
-applies an action threshold. Use the request API below for multiple questions
-or `patterns/pick` for reusable candidates and configurable keys.
+Decide comes with five skills. A skill is a named set of questions.
 
-## Client
-
-Set `TYPESAFE_API_KEY` and create a client:
-
-```go
-client, err := decide.NewClient()
-if err != nil {
-	return err
-}
-req := decide.NewRequest("I was charged twice. Please help.")
-billing := decide.Ask(req, "billing", decide.Noul("Is this about billing?"))
-resp, err := client.SystemOne(ctx, req)
-if err != nil {
-	return err
-}
-answer, err := billing.From(resp)
-if err != nil {
-	return err
-}
-fmt.Println(resp.Model, answer.Noul)
-```
-
-Import `github.com/deepnoodle-ai/decide`. Requests support Noul, Choice, and
-Score questions with typed answers. The client validates answers against
-their questions and retries transient failures with backoff. Model names
-are strings; responses expose the resolved model and request ID.
-
-Client options configure authentication, base URL, model, logging, retry
-behavior, and transport. Environment defaults use `TYPESAFE_API_KEY`,
-`TYPESAFE_BASE_URL`, `TYPESAFE_DEFAULT_MODEL`, and `TYPESAFE_LOG_LEVEL`.
-
-The `github.com/deepnoodle-ai/decide/decidetest` package supplies a fake HTTP
-server, answer fixtures, request recording, and queued failures for tests.
-
-## Decision patterns
-
-Packages under `patterns/` compose System One judgments and process their
-evidence. They work with the shared client API rather than a specific model.
-
-| Package | Purpose | Example |
-| --- | --- | --- |
-| [`patterns/pick`](patterns/pick) | Select an original item from caller-supplied candidates, or abstain. | [`examples/pick`](examples/pick) |
-| [`patterns/gate`](patterns/gate) | Apply explicit policies and return allow, review, or escalate with reasons. | [`examples/gate`](examples/gate) |
-| [`patterns/fanout`](patterns/fanout) | Run independent requests with bounded concurrency and ordered outcomes. | [`examples/fanout`](examples/fanout) |
-| [`patterns/rank`](patterns/rank) | Order candidates from judgments and take a prefix under a budget. | [`examples/rank`](examples/rank) |
-| [`patterns/calibrate`](patterns/calibrate) | Fit thresholds and compare labeled evidence offline. | [`examples/calibrate`](examples/calibrate) |
-| [`patterns/heads`](patterns/heads) | Ask selector and branch questions together; read the selected branch. | [`examples/heads`](examples/heads) |
-| [`patterns/funnel`](patterns/funnel) | Screen items in stages while retaining answers and drop reasons. | [`examples/funnel`](examples/funnel) |
-| [`patterns/compact`](patterns/compact) | Keep whole context segments or supplied short forms under a budget. | [`examples/compact`](examples/compact) |
-
-See the [example guide](examples/README.md) for run commands, request counts,
-and the pattern each program demonstrates. Calibration runs offline; the
-other command examples require `TYPESAFE_API_KEY`.
-
-## Choose a backend
-
-The [`backend`](backend) package selects TypeSafe Jev or Cloudflare
-Clef during client construction. The resulting client uses the same
-requests, questions, typed handles, validation, and retry settings:
-
-```go
-import "github.com/deepnoodle-ai/decide/backend"
-
-client, err := backend.NewClient(backend.Config{
-	Provider:  backend.Cloudflare,
-	APIKey:    os.Getenv("CLOUDFLARE_AUTH_TOKEN"),
-	AccountID: os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
-	Model:     "clef", // use "clef-flash" for the faster model
-})
-if err != nil {
-	return err
-}
-// Use client.SystemOne(ctx, req) and the same typed handles as above.
-```
-
-Change the configuration to switch services:
-
-| Provider | APIKey | AccountID | Default model |
-| --- | --- | --- | --- |
-| `backend.TypeSafe` | TypeSafe API key | empty | `jev-latest` |
-| `backend.Cloudflare` | Workers AI API token | Cloudflare account ID | `clef` |
-
-`backend.NewClient` reads no environment variables itself. Applications
-choose where to obtain configuration, as the example does with `os.Getenv`.
-An existing `TYPESAFE_*` environment cannot affect this constructor.
-`decide.NewClient()` retains its existing TypeSafe environment defaults.
-
-Set connection settings through `backend.Config`. Pass shared client options
-such as `decide.WithMaxRetries`, `decide.WithAttemptTimeout`, and `decide.WithLogger`
-to `backend.NewClient`. `decide.WithRequestModel("clef-flash")` can select the
-other Cloudflare model for a single request.
-
-The [`cloudflare`](cloudflare) package also exposes `NewTransport` for
-use with `decide.WithTransport` and an explicit `decide.WithModel`. It handles the
-Workers AI account-scoped routes, response envelope, and provider errors.
-HTTP failures expose `*decide.APIError` through `errors.As` and existing error
-sentinels. `cloudflare.Error` retains the full provider error array.
-`Response.Raw` holds the redacted envelope, and `Response.Header` retains
-headers such as `CF-Ray`. Malformed and non-JSON response bodies are
-suppressed to prevent escaped credentials from reaching errors or logs.
-`Models.List` returns `errors.ErrUnsupported` for
-this adapter.
-
-Clef accepts Noul, Choice, and Score questions. The adapter checks its
-documented request limits before sending: at most 64 questions, restricted
-question IDs, 2–255 choice options, and 2–10 score levels. It preserves
-returned probabilities and confidence values. Cloudflare documents that
-long text state is truncated by the service to its context limit.
-
-### Embedded images
-
-Use `cloudflare.NewImage` and `cloudflare.SetImages` with Clef or Clef-flash:
-
-```go
-img, err := cloudflare.NewImage("image/png", pngBytes)
-if err != nil {
-	return err
-}
-req := decide.NewRequest("Review the attached receipt.")
-receipt := decide.Ask(req, "receipt", decide.Noul("Is a receipt visible?"))
-if err := cloudflare.SetImages(req, img); err != nil {
-	return err
-}
-resp, err := client.SystemOne(ctx, req)
-if err != nil {
-	return err
-}
-answer, err := receipt.From(resp)
-```
-
-The hosted API accepts embedded PNG, JPEG, and WebP images. It allows four
-images, 4 MiB and 16 megapixels per image, 8 MiB of combined decoded image
-data, and a 13 MiB complete request. The helper checks image headers and
-these limits; the provider validates the full image data. Base64 data URLs
-also work through `Request.Extra["images"]`. Remote image URLs and hosted
-video inputs are unsupported. Build requests before sharing them between
-goroutines.
-
-Schemas: [Clef](https://developers.cloudflare.com/workers-ai/models/clef/)
-and [Clef-flash](https://developers.cloudflare.com/workers-ai/models/clef-flash/).
-OpenAI Decisions support awaits a verified API contract. The reported
-preview's request format and probability semantics are not yet established
-by the documentation used for this integration.
-
-## CLI
-
-`cmd/decide` runs skills (named sets of questions) on datasets and saves
-the results as runs that can be viewed and resumed. Run `decide` for an
-overview, or see the [CLI guide](docs/cli.md).
-
-## Development
+| Skill | Asks about each item |
+| --- | --- |
+| `sentiment` | Is it positive, negative, or neutral? |
+| `ticket-routing` | Does this support ticket belong to billing, engineering, or other? |
+| `relevance` | How relevant is it to a question you choose? |
+| `code-risk` | How risky and how maintainable is this file or function? |
+| `receipt-quality` | Does this image show a readable receipt? |
 
 ```sh
-go build ./...
-go vet ./...
-go test -race -count=1 ./...
+# Which source files deserve a second look?
+decide run code-risk src --include '*.go'
+
+# Which docs, or which sections of them, talk about pricing?
+decide run relevance docs --each section -p question="pricing"
+
+# Route every ticket in an export, reading one field of each record.
+decide run ticket-routing export.json --items data.tickets --field body
+
+# See the latest results again, or as JSON lines.
+decide runs view
+decide runs view --json > results.jsonl
 ```
 
-CI also checks formatting and verifies that `go mod tidy` leaves the
-module files unchanged.
+Decide reads JSONL, JSON, CSV, text, Markdown, source code, and images. It
+works out what one item is, such as a record, a line, or a whole file, and
+`--each` can change that to a Markdown section, a paragraph, or a function.
+Answers that need attention are flagged in red, and runs stopped with
+Ctrl-C pick up where they left off with `decide runs resume`.
+
+**Write your own skill** in a few lines of JSON, and commit it with your
+project so your team can run it too:
+
+```sh
+decide skills new support-triage --from ticket-routing --project
+decide run support-triage tickets.jsonl --dry-run
+```
+
+The [CLI guide](docs/cli.md) covers skills, items, saved runs, and
+providers in full.
+
+## Use it from Go
+
+```sh
+go get github.com/deepnoodle-ai/decide
+```
+
+Ask one question with `Eval`:
+
+```go
+client, err := decide.NewClient() // reads TYPESAFE_API_KEY
+if err != nil {
+	return err
+}
+e, err := decide.Eval(ctx, client, ticket,
+	decide.Noul("Is this about billing?"))
+if err != nil {
+	return err
+}
+fmt.Println(e.Answer.Noul) // the probability of yes, such as 0.97
+```
+
+Or ask several at once, each with a typed handle:
+
+```go
+req := decide.NewRequest(ticket)
+billing := decide.Ask(req, "billing", decide.Noul("Is this about billing?"))
+tone := decide.Ask(req, "tone", decide.Choice("What is the customer's tone?",
+	decide.Option("calm"), decide.Option("frustrated"), decide.Option("angry")))
+
+resp, err := client.SystemOne(ctx, req)
+if err != nil {
+	return err
+}
+b, _ := billing.From(resp) // *decide.NoulAnswer
+t, _ := tone.From(resp)    // *decide.ChoiceAnswer
+fmt.Println(b.Noul, t.Choice, t.Confidence)
+```
+
+The client checks every answer against its question before you see it,
+retries transient failures with backoff, and returns errors you can match
+with `errors.Is`. `Pick` chooses one of your own values, or abstains. The
+[`decidetest`](decidetest) package provides a fake server, so your tests
+need no network or API key. See the
+[package documentation](https://pkg.go.dev/github.com/deepnoodle-ai/decide)
+for the full API.
+
+### Patterns
+
+Packages under `patterns/` build common decisions from answers. Each one
+has a short, runnable [example](examples).
+
+| Package | What it does |
+| --- | --- |
+| [`pick`](patterns/pick) | Select one of your candidates, or abstain. |
+| [`gate`](patterns/gate) | Allow, review, or escalate under thresholds you set. |
+| [`fanout`](patterns/fanout) | Run many requests at once, with results in order. |
+| [`rank`](patterns/rank) | Order candidates and keep the best within a budget. |
+| [`funnel`](patterns/funnel) | Screen items in stages, keeping the reasons for each drop. |
+| [`heads`](patterns/heads) | Ask a selector and its follow-up questions in one request. |
+| [`compact`](patterns/compact) | Keep the most useful context within a size budget. |
+| [`calibrate`](patterns/calibrate) | Fit thresholds on labeled answers, offline. |
+
+### Providers
+
+| Provider | Models | Credentials |
+| --- | --- | --- |
+| [TypeSafe](https://typesafe.ai) (default) | `jev-latest` | `TYPESAFE_API_KEY` |
+| [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/models/clef/) | `clef`, `clef-flash`, with images | `CLOUDFLARE_AUTH_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
+
+In Go, [`backend.NewClient`](backend) chooses the provider, and the rest of
+your code stays the same. In the CLI, use `--provider cloudflare`. Image
+skills use Cloudflare automatically.
+
+## Status
+
+Decide is young. Before v1, the library API and the CLI may change in any
+release. The root package uses only the Go standard library.
+
+## Contributing
+
+Issues and pull requests are welcome. Please read
+[CONTRIBUTING.md](CONTRIBUTING.md) first, and report security issues as
+described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-Apache 2.0. See [LICENSE](LICENSE).
+[Apache 2.0](LICENSE)
