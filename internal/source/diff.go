@@ -313,12 +313,13 @@ func (w *walker) diff(data []byte, label, prefix string) error {
 	default:
 		return fmt.Errorf("%s is a diff, so --each %s does not apply; use --each hunk, file, or line", label, each)
 	}
+	w.opts.Changes()
 	files, combined := parseDiff(string(data))
 	if len(files) == 0 && combined > 0 {
 		return fmt.Errorf("%s holds a merge commit's combined diff, which decide does not read; diff against one side instead, such as: git diff main...branch", label)
 	}
 	if len(files) == 0 {
-		return fmt.Errorf("%s has no changes", label)
+		return nil // nothing changed
 	}
 	if combined > 0 {
 		w.opts.Warn(fmt.Sprintf("Skipped %d combined %s from merge commits", combined, plural(combined, "diff", "diffs")))

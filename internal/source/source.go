@@ -74,6 +74,12 @@ type Options struct {
 	Limit   int    // stop after this many items
 	Sample  int    // pick this many items at random
 	Warn    func(msg string)
+
+	// Changes, when not nil, is called for each diff read, and for empty
+	// stdin, which is what git diff prints when nothing changed. A run
+	// that finds no items in them has nothing to judge, which is not an
+	// error.
+	Changes func()
 }
 
 // Item is one thing to evaluate.
@@ -119,6 +125,9 @@ func Walk(ctx context.Context, paths []string, stdin io.Reader, opts Options, fn
 	}
 	if opts.Warn == nil {
 		opts.Warn = func(string) {}
+	}
+	if opts.Changes == nil {
+		opts.Changes = func() {}
 	}
 	if len(paths) == 0 {
 		paths = []string{"-"}
@@ -703,7 +712,12 @@ func (w *walker) stdinItems() error {
 		return errors.New("image templates read image files, not stdin")
 	}
 	br := bufio.NewReader(w.stdin)
-	if peek, _ := br.Peek(64 << 10); isDiff(peek) {
+	peek, _ := br.Peek(64 << 10)
+	if len(bytes.TrimSpace(peek)) == 0 && len(peek) < 64<<10 {
+		w.opts.Changes()
+		return nil
+	}
+	if isDiff(peek) {
 		data, err := io.ReadAll(io.LimitReader(br, MaxJSONBytes+1))
 		if err != nil {
 			return err

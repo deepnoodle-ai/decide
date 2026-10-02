@@ -142,8 +142,10 @@ func (a *App) run(c *cli.Context) error {
 		Sample:  sample,
 		Warn:    func(msg string) { fmt.Fprintln(c.Stderr(), dim(clean(msg))) },
 	}
+	changes := false
+	opts.Changes = func() { changes = true }
 	if c.Bool("dry-run") {
-		return a.dryRun(c, resolved, paths, opts)
+		return a.dryRun(c, resolved, paths, opts, &changes)
 	}
 
 	provider := c.String("provider")
@@ -175,6 +177,11 @@ func (a *App) run(c *cli.Context) error {
 		found.add(it)
 		return run.Add(it)
 	})
+	if err == nil && run.Total == 0 && changes {
+		run.Discard()
+		nothingToJudge(c, s)
+		return nil
+	}
 	if err == nil && run.Total == 0 {
 		err = nothingFound(s, paths, opts)
 	}
@@ -402,7 +409,7 @@ func list(w io.Writer, label string, sources []string) {
 	fmt.Fprintf(w, "%s %s\n", dim(label), text)
 }
 
-func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts source.Options) error {
+func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts source.Options, changes *bool) error {
 	if c.Bool("json") {
 		enc := json.NewEncoder(c.Stdout())
 		return source.Walk(c.Context(), paths, c.Stdin(), opts, func(it source.Item) error { return enc.Encode(it) })
@@ -421,6 +428,10 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 		return err
 	}
 	total := found.items()
+	if total == 0 && *changes {
+		nothingToJudge(c, s)
+		return nil
+	}
 	if total == 0 {
 		return nothingFound(s, paths, opts)
 	}
@@ -461,6 +472,15 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 	}
 	fmt.Fprintf(w, "\n%s\n", dim("Nothing was sent to the model. Remove --dry-run to run it."))
 	return nil
+}
+
+// nothingToJudge reports a diff, or empty input, with no changes for the
+// template to judge. That is not an error, so a CI gate on a change with
+// nothing to judge passes.
+func nothingToJudge(c *cli.Context, s *template.Template) {
+	if !c.Bool("json") {
+		fmt.Fprintf(c.Stderr(), "%s\n", dim(fmt.Sprintf("Nothing for %s to judge: no changes, or only changes it skips", s.Name)))
+	}
 }
 
 func nothingFound(s *template.Template, paths []string, opts source.Options) error {

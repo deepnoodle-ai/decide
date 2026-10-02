@@ -191,6 +191,10 @@ Decide skips deleted files, binary files, lockfiles such as `go.sum` and
 `--exclude` match the paths in the diff, and a lockfile or generated file
 that `--include` names is judged.
 
+A diff with nothing to judge, such as an empty one from `git diff` when
+nothing changed, or one that changes only lockfiles, is not an error:
+decide says so and exits 0, so a CI gate on that change passes.
+
 When a diff holds several commits, as from `git log -p` or `git
 format-patch`, each item's name ends with its commit, such as
 `server.go@1a2b3c4:42`. Decide does not read the combined diff that `git
@@ -380,7 +384,7 @@ requests run at once (default 4).
 
 | Code | Meaning |
 | --- | --- |
-| 0 | Every item was answered. With `--fail-on`, none was flagged or matched. |
+| 0 | Every item was answered, or a diff had nothing to judge. With `--fail-on`, none was flagged or matched. |
 | 1 | An error, or some items failed or were not reached. This wins over 2, even if items were flagged. |
 | 2 | With `--fail-on`, at least one item was flagged or matched. |
 | 130 | Stopped with Ctrl-C. Resume with `decide runs resume`. |

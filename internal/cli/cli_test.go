@@ -362,6 +362,29 @@ func TestDiffInput(t *testing.T) {
 	}
 }
 
+func TestNothingToJudge(t *testing.T) {
+	h := setup(t)
+	lockOnly := "diff --git a/go.sum b/go.sum\n--- a/go.sum\n+++ b/go.sum\n@@ -1 +1 @@\n-a\n+b\n"
+	for name, stdin := range map[string]string{"empty diff": "", "skipped files": lockOnly} {
+		for _, extra := range [][]string{nil, {"--dry-run"}} {
+			args := append([]string{"run", "code-risk", "--fail-on", "flagged"}, extra...)
+			out := h.run(stdin, args...)
+			if out.code != 0 {
+				t.Errorf("%s %v: exit %d, want 0: %s", name, extra, out.code, out.stderr)
+			}
+			contains(t, out.stderr, "Nothing for code-risk to judge")
+		}
+	}
+	if len(h.server.Requests()) != 0 {
+		t.Errorf("sent %d requests", len(h.server.Requests()))
+	}
+	// A folder with nothing in it is still a mistake worth reporting.
+	h.write("empty/.keep", "")
+	if out := h.run("", "run", "code-risk", "empty"); out.code != 1 {
+		t.Errorf("empty folder: exit %d, want 1", out.code)
+	}
+}
+
 func TestMatchedAnswers(t *testing.T) {
 	h := setup(t)
 	h.write("notes.txt", "about tools\nabout pricing\n")
