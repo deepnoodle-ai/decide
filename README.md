@@ -89,6 +89,7 @@ Packages under `x/` may change or be removed in any release.
 | [`x/gate`](x/gate) | Apply explicit policies and return allow, review, or escalate with reasons. | [`examples/gate`](examples/gate) |
 | [`x/fanout`](x/fanout) | Run independent requests with bounded concurrency and ordered outcomes. | [`examples/fanout`](examples/fanout) |
 | [`x/rank`](x/rank) | Order candidates from judgments and take a prefix under a budget. | [`examples/rank`](examples/rank) |
+| [`x/calibrate`](x/calibrate) | Fit thresholds and compare labeled evidence offline. | [`examples/calibrate`](examples/calibrate) |
 
 Run the email selection example with `TYPESAFE_API_KEY` set:
 
