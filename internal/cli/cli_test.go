@@ -486,14 +486,14 @@ func TestSkillAndFileTextCannotControlTheTerminal(t *testing.T) {
   "description": "Odd \u001b[31mskill",
   "parameters": {"p": {"description": "A \u001b[2J parameter", "default": "x\u001b[0m"}},
   "questions": {
-    "tone\u001b[31m": {
+    "tone": {
       "type": "choice",
       "instructions": "Pick one {{p}} \u001b]0;title\u0007",
-      "criteria": {"calm\u001b[31m": "Calm \u001b[1m", "angry": "Angry"}
+      "criteria": {"calm": "Calm \u001b[1m", "angry": "Angry"}
     },
     "level": {"type": "score", "instructions": "Rate it", "criteria": ["low \u001b[31m", "high"]}
   },
-  "flags": {"tone\u001b[31m": "calm\u001b[31m >= 60%"}
+  "flags": {"tone": "calm >= 60%"}
 }`)
 	h.write(".decide/skills/odd/SKILL.md", "Notes \x1b[31mhere\n")
 	h.write("in/a\x1b[31m.txt", "hello")
@@ -509,6 +509,28 @@ func TestSkillAndFileTextCannotControlTheTerminal(t *testing.T) {
 		}
 		if strings.ContainsAny(out.stdout+out.stderr, "\x1b\x07") {
 			t.Errorf("%v printed a control character:\n%q\n%q", args, out.stdout, out.stderr)
+		}
+	}
+
+	h.write(".decide/skills/bad/skill.json", `{"name": "bad", "description": "Bad",
+  "questions": {"q\u001b[31m": {"type": "noul", "instructions": "?"}}}`)
+	h.write(".decide/skills/broken\x1b[31m/skill.json", `{`)
+	h.write("bad/x\x1b]0;title\x07.jsonl", "{\"a\":1}\nnot json\n")
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"skills"}, "control characters"},
+		{[]string{"skills", "show", "bad"}, "control characters"},
+		{[]string{"skills"}, "broken"},
+		{[]string{"run", "odd", "bad", "--dry-run"}, "not valid JSON"},
+	} {
+		out := h.run("", c.args...)
+		if !strings.Contains(out.stderr, c.want) {
+			t.Errorf("%v: stderr %q, want %q", c.args, out.stderr, c.want)
+		}
+		if strings.ContainsAny(out.stdout+out.stderr, "\x1b\x07") {
+			t.Errorf("%v printed a control character:\n%q\n%q", c.args, out.stdout, out.stderr)
 		}
 	}
 }
