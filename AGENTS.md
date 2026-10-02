@@ -42,7 +42,8 @@ Before v1, any API may change. The CLI is experimental.
 
 Keep the README, [docs/cli.md](docs/cli.md), package comments, and
 [examples/README.md](examples/README.md) in step with behavior in the same
-pull request. Keep plans, reviews, and process notes out of the repository.
+pull request. Track planned work in [docs/roadmap.md](docs/roadmap.md), and
+update it when an item lands or changes. Keep reviews out of the repository.
 
 ## Process
 
