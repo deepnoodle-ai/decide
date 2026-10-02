@@ -73,7 +73,7 @@ Requires Go 1.27 or later. Run `decide` on its own for a tour.
 
 ## What you can ask
 
-Decide comes with six templates. A template is a named set of questions.
+Decide comes with eight templates. A template is a named set of questions.
 
 | Template | Asks about each item |
 | --- | --- |
@@ -82,6 +82,8 @@ Decide comes with six templates. A template is a named set of questions.
 | `ticket-routing` | Does this support ticket belong to billing, engineering, or other? |
 | `relevance` | Is it relevant to a question you choose? |
 | `code-risk` | Could it cause security or data problems, and how maintainable is it? |
+| `prompt-injection` | Does it try to take over an AI agent that reads it? |
+| `task-readiness` | Is this issue ready to hand to a coding agent, and how large is it? |
 | `receipt-quality` | Does this image show a readable receipt? Runs on Clef. |
 
 ```sh
@@ -90,10 +92,13 @@ decide run relevance docs --each section -p question="pricing"
 decide runs view --json > results.jsonl
 decide run code-risk src --fail-on flagged   # exit code 2 if anything is flagged
 git diff main | decide run code-risk --each function   # judge each changed function
+git diff main | decide run prompt-injection            # hidden instructions for AI agents
+gh issue list --json number,title,body | decide run task-readiness
 ```
 
 Decide reads JSONL, JSON, CSV, text, Markdown, source code, diffs, and images,
-flags answers that need attention, and resumes stopped runs. You can write
+flags answers that need attention, and resumes stopped runs. To try the
+templates on planted problems, see [demo](demo/README.md). You can write
 your own template in a few lines of JSON with `decide templates new`. The
 [CLI guide](docs/cli.md) covers it all.
 

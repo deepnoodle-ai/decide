@@ -164,6 +164,7 @@ Pipe in a diff to judge what changed rather than whole files:
 git diff main | decide run code-risk --each function # which changed functions are risky?
 git diff main | decide run code-risk --each hunk     # which changes?
 gh pr diff 42 | decide run code-risk                 # which changed files?
+git diff main | decide run prompt-injection          # instructions hidden for AI agents?
 git show HEAD | decide run sentiment --each line     # each added line
 decide run code-risk change.patch --fail-on flagged  # fail CI on a risky change
 ```

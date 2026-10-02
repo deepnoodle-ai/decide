@@ -6,6 +6,10 @@ off, or remove them, as they land.
 ## Templates
 
 - [x] **Templates.** Rename "skills" to "templates" (#30).
+- [x] **`prompt-injection` and `task-readiness`.** Two built-in templates,
+      with a demo repository and issues that have planted problems.
+- [ ] **More code templates.** `breaking-change`, `secrets`, `sql-injection`,
+      and `commit-messages`, each with planted problems in the demo.
 - [ ] **`decide eval`.** Measure a template on labeled examples: agreement
       per question, confident mistakes, suggested thresholds, and
       `--fail-under` for CI. Ship examples with each built-in template.
