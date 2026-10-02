@@ -3,9 +3,7 @@
 [![Reference](https://img.shields.io/badge/reference-pkg.go.dev-00ADD8?style=flat-square&logo=go&logoColor=white&labelColor=2f363d)](https://pkg.go.dev/github.com/deepnoodle-ai/decide)
 [![Tests](https://img.shields.io/github/actions/workflow/status/deepnoodle-ai/decide/ci.yml?branch=main&style=flat-square&label=tests&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/deepnoodle-ai/decide?style=flat-square&label=release&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/releases)
-[![Go](https://img.shields.io/github/go-mod/go-version/deepnoodle-ai/decide?style=flat-square&labelColor=2f363d&color=00ADD8)](go.mod)
 [![Last commit](https://img.shields.io/github/last-commit/deepnoodle-ai/decide?style=flat-square&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/commits/main)
-[![License](https://img.shields.io/badge/license-Apache_2.0-00ADD8?style=flat-square&labelColor=2f363d)](LICENSE)
 
 **Ask typed questions about your data. Get answers with probabilities.**
 
