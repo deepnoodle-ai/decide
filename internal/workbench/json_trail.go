@@ -67,6 +67,7 @@ func jsonChildren(raw json.RawMessage, pointer string, offset int) ([]jsonBranch
 	}
 	return children, i, false, nil
 }
+
 func (s *screen) openJSON() {
 	var raw json.RawMessage
 	if s.tab == 2 && len(s.prepared) > 0 {
@@ -84,6 +85,7 @@ func (s *screen) openJSON() {
 	s.refreshJSON()
 	s.scroll = 0
 }
+
 func (s *screen) refreshJSON() {
 	j := s.jsonTrail
 	f := j.Trail[len(j.Trail)-1]
@@ -96,6 +98,7 @@ func (s *screen) refreshJSON() {
 	j.Index = min(f.Index, max(0, len(rows)-1))
 	s.problem = ""
 }
+
 func (s *screen) jsonKey(e tui.KeyEvent) []tui.Cmd {
 	if e.Rune == 'q' {
 		s.quitting = true
@@ -173,6 +176,7 @@ func (s *screen) jsonKey(e tui.KeyEvent) []tui.Cmd {
 	}
 	return nil
 }
+
 func (s *screen) jsonContent() string {
 	j := s.jsonTrail
 	f := j.Trail[len(j.Trail)-1]
@@ -197,6 +201,7 @@ func (s *screen) jsonContent() string {
 	fmt.Fprintf(&b, "\nChild window %d–%d · more: %t\nPointers are relative to each input item. Expand arrays before mapping their rows.", f.Offset+1, j.Next, j.More)
 	return b.String()
 }
+
 func jsonShape(raw json.RawMessage) string {
 	raw = bytes.TrimSpace(raw)
 	if len(raw) == 0 {

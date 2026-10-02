@@ -184,6 +184,7 @@ func (a *App) RunLive(ctx context.Context, command string, o CommonOptions, buil
 		}
 	}
 }
+
 func redact(s string) string {
 	for _, name := range []string{"TYPESAFE_API_KEY", "CLOUDFLARE_AUTH_TOKEN"} {
 		key := strings.TrimSpace(os.Getenv(name))
@@ -198,6 +199,7 @@ func redact(s string) string {
 	}
 	return s
 }
+
 func recordError(err error) *RecordError {
 	result := &RecordError{Kind: "input", Message: redact(err.Error())}
 	switch {

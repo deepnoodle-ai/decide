@@ -17,7 +17,9 @@ decide explore . --skill builtin/code-risk --include '**/*.go'
 ```
 
 Preview sources without model calls, experiment on a sample, execute a durable
-batch, and reopen its evidence. Existing [JSONL pipeline commands](docs/cli.md)
+batch, and reopen its evidence. `explore` starts with an arrow-key menu; `run`
+prints a short summary. Request `--details` for readable answers or `--jsonl`
+for full evidence in a pipeline. Existing [JSONL pipeline commands](docs/cli.md)
 remain available.
 
 Before v1, public APIs may change or be removed in any release.

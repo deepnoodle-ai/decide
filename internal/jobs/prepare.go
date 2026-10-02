@@ -92,6 +92,7 @@ func normalize(o Options) (Options, error) {
 	}
 	return o, nil
 }
+
 func resolve(o Options) (definition, error) {
 	d := definition{Version: 1, Options: o, Skills: map[string]catalog.Skill{}}
 	known := map[string]bool{}
@@ -174,6 +175,7 @@ func resolve(o Options) (definition, error) {
 	clean.Options.NewClient = factory
 	return clean, nil
 }
+
 func stateFor(it dataset.Item, s catalog.Skill) json.RawMessage {
 	state := it.Data
 	if len(it.State) > 0 {
@@ -189,6 +191,7 @@ func stateFor(it dataset.Item, s catalog.Skill) json.RawMessage {
 	}
 	return state
 }
+
 func prepared(it dataset.Item, d definition) (Prepared, error) {
 	s := d.Skill
 	if d.Pattern.Type == "funnel" {
@@ -253,7 +256,9 @@ func prepared(it dataset.Item, d definition) (Prepared, error) {
 	}
 	return p, nil
 }
+
 func imageDigest(b []byte) string { sum := sha256.Sum256(b); return hex.EncodeToString(sum[:]) }
+
 func rawQuestions(qs map[string]decide.Question) map[string]json.RawMessage {
 	out := map[string]json.RawMessage{}
 	for k, q := range qs {
@@ -262,6 +267,7 @@ func rawQuestions(qs map[string]decide.Question) map[string]json.RawMessage {
 	}
 	return out
 }
+
 func Plan(ctx context.Context, o Options, in io.Reader, fn func(Prepared) error) (Summary, error) {
 	o, e := normalize(o)
 	if e != nil {
@@ -288,6 +294,7 @@ func Plan(ctx context.Context, o Options, in io.Reader, fn func(Prepared) error)
 	})
 	return s, e
 }
+
 func newRun(d definition) (Summary, error) {
 	b := make([]byte, 6)
 	if _, e := rand.Read(b); e != nil {
@@ -310,6 +317,7 @@ func newRun(d definition) (Summary, error) {
 	e = saveSummary(&s)
 	return s, e
 }
+
 func spool(ctx context.Context, d definition, s *Summary, in io.Reader) error {
 	return dataset.Walk(ctx, d.Options.Sources, in, func(it dataset.Item) error {
 		p, e := prepared(it, d)
@@ -334,6 +342,7 @@ func spool(ctx context.Context, d definition, s *Summary, in io.Reader) error {
 		return nil
 	})
 }
+
 func verifyRefs(ctx context.Context, s Summary) error {
 	seen := map[string]bool{}
 	for i := 0; i < s.Items; i++ {

@@ -65,9 +65,11 @@ func loadEvidencePage(ctx context.Context, target, dir, filter string, start int
 	}
 	return p, sum, err
 }
+
 func (s *screen) evidencePage(start int) []tui.Cmd {
 	return s.loadPage(start, s.filter, s.pageHistory)
 }
+
 func (s *screen) loadPage(start int, filter string, history []int) []tui.Cmd {
 	target, dir := s.target, s.options.RunDir
 	history = append([]int(nil), history...)
@@ -84,6 +86,7 @@ func (s *screen) loadPage(start int, filter string, history []int) []tui.Cmd {
 		return update{kind: "inspect", page: p, results: p.Results, summary: sum, err: err, filter: &filter, history: history}
 	})}
 }
+
 func (s *screen) turnEvidence(next bool) []tui.Cmd {
 	if next {
 		if !s.evidenceMore {
@@ -102,12 +105,14 @@ func (s *screen) turnEvidence(next bool) []tui.Cmd {
 	n := s.pageHistory[len(s.pageHistory)-1]
 	return s.loadPage(n, s.filter, s.pageHistory[:len(s.pageHistory)-1])
 }
+
 func matches(r jobs.Result, filter string) bool {
 	if filter == "" {
 		return true
 	}
 	return strings.Contains(strings.ToLower(pretty(r)), strings.ToLower(filter))
 }
+
 func decodeEvidence(ctx context.Context, reader io.Reader, accept func(jobs.Result) error) error {
 	return jobs.DecodeEvidence(reader, func(r jobs.Result) error {
 		if err := ctx.Err(); err != nil {
@@ -116,14 +121,17 @@ func decodeEvidence(ctx context.Context, reader io.Reader, accept func(jobs.Resu
 		return accept(checkedResult(r))
 	})
 }
+
 func legacyResult(raw json.RawMessage) (jobs.Result, error) {
 	var out jobs.Result
 	err := decodeEvidence(context.Background(), strings.NewReader(string(raw)), func(r jobs.Result) error { out = r; return nil })
 	return out, err
 }
+
 func transformation(e jobs.Evidence) bool {
 	return len(e.Questions) == 0 && len(e.Response) == 0 && len(e.Result) > 0
 }
+
 func checkedResult(r jobs.Result) jobs.Result {
 	r.Stages = append([]jobs.Evidence(nil), r.Stages...)
 	for i, e := range r.Stages {
@@ -146,6 +154,7 @@ func checkedResult(r jobs.Result) jobs.Result {
 	}
 	return r
 }
+
 func validateEvidence(e jobs.Evidence) error {
 	if len(e.Invalid) > 0 {
 		return fmt.Errorf("saved validation rejected %d answers", len(e.Invalid))

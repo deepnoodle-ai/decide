@@ -11,6 +11,8 @@ import (
 )
 
 type Options struct {
+	JSONL              bool                           `json:"-"`
+	Details            bool                           `json:"-"`
 	Progress           string                         `json:"progress,omitempty"`
 	Skill              string                         `json:"skill,omitempty"`
 	Pattern            string                         `json:"pattern,omitempty"`

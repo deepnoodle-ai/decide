@@ -46,12 +46,15 @@ func defaultClient(o Options) (*decide.Client, error) {
 	}
 	return backend.NewClient(cfg, decide.WithMaxRetries(0))
 }
+
 func Run(ctx context.Context, o Options, in io.Reader, fn func(Result) error) (Summary, error) {
 	return run(ctx, o, in, nil, fn)
 }
+
 func RunPrepared(ctx context.Context, o Options, items []Prepared, fn func(Result) error) (Summary, error) {
 	return run(ctx, o, nil, items, fn)
 }
+
 func run(ctx context.Context, o Options, in io.Reader, items []Prepared, fn func(Result) error) (Summary, error) {
 	o, e := normalize(o)
 	if e != nil {
@@ -97,6 +100,7 @@ func run(ctx context.Context, o Options, in io.Reader, items []Prepared, fn func
 	}
 	return execute(ctx, d, s, fn, false, false)
 }
+
 func spoolItem(d definition, s *Summary, it dataset.Item) error {
 	p, e := prepared(it, d)
 	if e != nil {
@@ -116,6 +120,7 @@ func spoolItem(d definition, s *Summary, it dataset.Item) error {
 	}
 	return e
 }
+
 func Resume(ctx context.Context, id string, o Options, retryFailed, retryUncertain bool, fn func(Result) error) (Summary, error) {
 	s, e := Show(id, o.RunDir)
 	if e != nil {
@@ -160,6 +165,7 @@ func Resume(ctx context.Context, id string, o Options, retryFailed, retryUncerta
 	}
 	return execute(ctx, d, s, fn, retryFailed, retryUncertain)
 }
+
 func execute(ctx context.Context, d definition, s Summary, fn func(Result) error, retryFailed, retryUncertain bool) (Summary, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -260,6 +266,7 @@ func execute(ctx context.Context, d definition, s Summary, fn func(Result) error
 	}
 	return result, nil
 }
+
 func (e *executor) fail(err error) {
 	e.mu.Lock()
 	if e.fatal == nil {
@@ -268,6 +275,7 @@ func (e *executor) fail(err error) {
 	e.mu.Unlock()
 	e.cancel()
 }
+
 func (e *executor) reconcile() error {
 	e.s.Completed = 0
 	e.s.Failed = 0
@@ -347,6 +355,7 @@ func (e *executor) reconcile() error {
 
 	return ReadResults(e.s.Path, "", func(r Result) error { e.count(r, 1); return nil })
 }
+
 func (e *executor) count(r Result, n int) {
 	switch r.Status {
 	case "complete":
@@ -359,6 +368,7 @@ func (e *executor) count(r Result, n int) {
 		e.s.Uncertain += n
 	}
 }
+
 func (e *executor) storeResult(r Result) error {
 	var err error
 	r, err = cleanValue(r)
@@ -383,6 +393,7 @@ func (e *executor) storeResult(r Result) error {
 	}
 	return nil
 }
+
 func (e *executor) admit(ctx context.Context, index int, stage string, number int, r Result) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -421,6 +432,7 @@ func (e *executor) admit(ctx context.Context, index int, stage string, number in
 	e.count(r, 1)
 	return saveSummary(&e.s)
 }
+
 func (e *executor) call(ctx context.Context, req *decide.Request, index int, name string, r Result) (*decide.Response, Evidence, string, error) {
 	ev := Evidence{Name: name, Model: req.Model, State: mustJSON(req.State), Questions: rawQuestions(req.Questions)}
 	e.clientOnce.Do(func() { e.client, e.clientErr = e.factory() })
@@ -491,6 +503,7 @@ func (e *executor) call(ctx context.Context, req *decide.Request, index int, nam
 	}
 	panic("unreachable")
 }
+
 func attachAssets(req *decide.Request, path string, assets []asset) error {
 	if len(assets) == 0 {
 		return nil
@@ -515,6 +528,7 @@ func attachAssets(req *decide.Request, path string, assets []asset) error {
 	}
 	return cloudflare.SetImages(req, ims...)
 }
+
 func mustJSON(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
 
 // Persist only typed response fields; unmodeled provider fields can echo headers,
@@ -541,6 +555,7 @@ func sanitize(s string) string {
 	}
 	return s
 }
+
 func safeError(err error) error {
 	if err == nil {
 		return nil

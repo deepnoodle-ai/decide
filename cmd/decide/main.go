@@ -11,6 +11,7 @@ import (
 )
 
 func main() { os.Exit(run()) }
+
 func run() int {
 	signal.Ignore(syscall.SIGPIPE)
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)

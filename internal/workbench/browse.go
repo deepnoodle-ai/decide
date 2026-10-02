@@ -150,6 +150,7 @@ func (s *screen) browserKey(e tui.KeyEvent) []tui.Cmd {
 	}
 	return nil
 }
+
 func (s *screen) addBrowsedSource(path string) {
 	for _, selected := range s.options.Sources.Sources {
 		abs, _ := filepath.Abs(selected)
@@ -162,6 +163,7 @@ func (s *screen) addBrowsedSource(path string) {
 	s.sample, s.prepared = nil, nil
 	s.status = fmt.Sprintf("Added %s · %d sources packed for your next flight.", filepath.Base(path), len(s.options.Sources.Sources))
 }
+
 func (s *screen) browserContent() string {
 	p := s.browser
 	var b strings.Builder
@@ -182,12 +184,14 @@ func (s *screen) browserContent() string {
 	fmt.Fprintf(&b, "\nWindow %d–%d · more: %t\nWindows are sorted locally; ignore rules apply when previewing.\nNo files have been sent to a model.", p.Offset+1, p.Offset+len(p.Entries), p.More)
 	return b.String()
 }
+
 func (s *screen) sampleLabel() string {
 	if s.randomSample {
 		return fmt.Sprintf("seeded %d-item sample (scans the selection)", sampleSize(s.options))
 	}
 	return fmt.Sprintf("first %d items (stops early)", sampleSize(s.options))
 }
+
 func (s *screen) cyclePreset() {
 	presets := [][]string{nil, {"**/*.{go,py,js,ts,tsx,rs,java,rb,sh}"}, {"**/*.{json,jsonl}"}, {"**/*.{png,jpg,jpeg,webp}"}}
 	names := []string{"all files", "code trail", "JSON orchard", "image gallery"}

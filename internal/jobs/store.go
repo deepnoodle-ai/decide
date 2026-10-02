@@ -19,15 +19,18 @@ func runRoot(dir string) string {
 	}
 	return ".decide/runs"
 }
+
 func pathFor(id, dir string) string {
 	if _, err := os.Stat(filepath.Join(id, "summary.json")); err == nil {
 		return id
 	}
 	return filepath.Join(runRoot(dir), id)
 }
+
 func itemPath(path, kind string, i int) string {
 	return filepath.Join(path, kind, fmt.Sprintf("%012d.json", i))
 }
+
 func writeJSON(path string, v any) error {
 	b, e := json.Marshal(v)
 	b = []byte(sanitize(string(b)))
@@ -55,6 +58,7 @@ func writeJSON(path string, v any) error {
 	}
 	return os.Rename(name, path)
 }
+
 func readJSON(path string, v any) error {
 	b, e := os.ReadFile(path)
 	if e != nil {
@@ -62,10 +66,12 @@ func readJSON(path string, v any) error {
 	}
 	return json.Unmarshal(b, v)
 }
+
 func saveSummary(s *Summary) error {
 	s.Updated = time.Now().UTC()
 	return writeJSON(filepath.Join(s.Path, "summary.json"), s)
 }
+
 func Show(id, dir string) (Summary, error) {
 	var s Summary
 	e := readJSON(filepath.Join(pathFor(id, dir), "summary.json"), &s)
@@ -74,6 +80,7 @@ func Show(id, dir string) (Summary, error) {
 	}
 	return s, e
 }
+
 func List(dir string) ([]Summary, error) {
 	es, e := os.ReadDir(runRoot(dir))
 	if os.IsNotExist(e) {
@@ -96,6 +103,7 @@ func List(dir string) ([]Summary, error) {
 	sort.Slice(out, func(i, j int) bool { return out[i].Started.After(out[j].Started) })
 	return out, nil
 }
+
 func ReadResults(id, dir string, fn func(Result) error) error {
 	path := pathFor(id, dir)
 	var summary Summary
@@ -125,6 +133,7 @@ func ReadResults(id, dir string, fn func(Result) error) error {
 	}
 	return nil
 }
+
 func Export(id, dir string, w io.Writer) error {
 	enc := json.NewEncoder(w)
 	return ReadResults(id, dir, func(r Result) error { return enc.Encode(r) })

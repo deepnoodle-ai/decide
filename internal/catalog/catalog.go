@@ -289,6 +289,7 @@ func ListSkills() ([]Skill, error) {
 	}
 	return out, nil
 }
+
 func ListPatterns() ([]Pattern, error) {
 	names, e := libraryNames("patterns")
 	if e != nil {

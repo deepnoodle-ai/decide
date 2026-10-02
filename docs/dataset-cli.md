@@ -2,7 +2,7 @@
 
 Choose some sources, try a small sample, and keep the evidence. Decide's dataset
 commands apply reusable judgments to files, directory trees, JSONL, JSON exports,
-images, public HTTP sources, and stdin. The Wonton workbench helps you experiment;
+images, public HTTP sources, and stdin. The Wonton workbench starts with an arrow-key menu and helps you experiment;
 batch commands never prompt. These commands, bundle schemas, and artifacts are
 experimental.
 
@@ -21,8 +21,14 @@ prepared-item JSONL and a stderr count. Public HTTP sources still perform HTTP
 reads. Random sampling scans the selected sources; `--limit 5` stops after the
 first five items instead.
 
-In the workbench, choose a skill, preview with `p`, and send that exact sample
-with `s`. Edit parameters or questions and run the sample again to compare.
+The main menu guides you through **Choose data → Choose a judgment → Preview →
+Run sample → Review answers**. Use the arrows and Enter; Esc returns to the menu.
+A judgment (also called a skill) is a reusable set of questions. Choosing data,
+choosing a judgment, and previewing make no model calls. Preview shows the prepared
+records before Enter sends them to your provider. Space reveals full input details.
+**More actions → Settings** contains model choice, sample size, parameters, and
+advanced controls. More actions also contains compare, full runs, and export.
+Edit parameters or questions and run the same sample again to compare.
 Full-dataset work is a separate `r` action. All model work retains its run artifact.
 Export with `e` to a new directory: it contains evidence, configuration, an edited
 skill or frozen pattern bundle, and a runnable batch command. Recorded models,
@@ -33,7 +39,7 @@ parameters. The workbench uses terminal
 stdin for keys; choose files or URLs instead of `-` there.
 
 Use `a` to add a source, `i`/`x` for include/exclude globs, and `t` for a
-`NAME=VALUE` parameter. Arrow keys navigate; `/` filters evidence; `?` shows
+`NAME=VALUE` parameter. Shortcuts remain available: arrow keys navigate; `/` filters evidence; `?` shows
 the field guide. Advanced editors expose source, execution, and question JSON.
 The notebook keeps bounded evidence windows while full results remain on disk.
 
@@ -77,6 +83,8 @@ work and previews remain explicit actions.
 
 | Goal | Keys |
 | --- | --- |
+| Open the main menu | `h`, or Esc from a page |
+| Navigate visible actions | Arrow keys and Enter; no shortcuts required |
 | Switch notebook pages | `1` Sources, `2` Library, `3` Preview, `4` Evidence, `5` Compare |
 | Select local data | `f`, Enter to descend, Space to add, `.` to add this directory |
 | Add a path or URL; set globs | `a`; `i` include, `x` exclude |
@@ -87,7 +95,7 @@ work and previews remain explicit actions.
 | Adjust the experiment | `t` parameter, `v` questions, `o` model, `w` workers, `B` attempt budget |
 | Send and compare | `s` sends the prepared sample, `c` compares experiments |
 | Run the full selection | `r`, then explicitly confirm with `run` |
-| Browse saved answers | `n`/`N` pages, `/` search, Enter detail, left/right stages |
+| Browse saved answers | `n`/`N` pages, `/` search, Enter details, left/right stages |
 | Keep or leave your notebook | `e` export to a new directory; `?` help, Esc back/cancel, `q` quit |
 
 After mapping an array, preview its rows again before selecting a row-relative
@@ -321,8 +329,22 @@ addressed by digest instead of repeated base64 payloads in every output record.
 results in input order after execution, keeping the reorder buffer off the heap.
 `--rate-limit` bounds attempt admission per second; `--on-error stop` cancels further
 work after failure. `--output FILE` requires a new file and refuses to overwrite an
-existing source or export. Stdout contains result JSONL; stderr contains summaries.
-Use `--progress none` to suppress routine summaries.
+existing source or export. By default, `run` and `runs resume` print a short summary with counts, the saved
+evidence path, and commands to inspect or export it. They do not print original
+inputs, questions, or response metadata. This behavior is consistent in terminals
+and pipes. Use `run --details` for readable per-item answers, or `--jsonl` for full
+result JSONL on stdout. JSONL mode sends summaries to stderr; `--progress none`
+suppresses those diagnostics. `--output FILE` writes full JSONL to a new file while
+keeping the terminal summary readable. `plan` and the original pipeline commands
+retain their machine-readable output.
+
+```sh
+decide run builtin/relevance passages.jsonl                 # short summary
+decide run builtin/relevance passages.jsonl --details       # per-item answers
+decide run builtin/relevance passages.jsonl --jsonl > results.jsonl
+decide run builtin/relevance passages.jsonl --output results.jsonl
+decide runs resume RUN_ID --jsonl > resumed-results.jsonl
+```
 Partial runs and limit stops are visible in status and exit 2. Cancellation is 130.
 
 ## Choose a connection

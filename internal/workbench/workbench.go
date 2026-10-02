@@ -102,6 +102,7 @@ type screen struct {
 	pending                      []tui.Cmd
 	patternLibrary               bool
 	detail                       bool
+	guided                       bool
 	browser                      *directoryPage
 	jsonTrail                    *jsonExplorer
 	randomSample                 bool
@@ -116,13 +117,19 @@ type screen struct {
 
 func newScreen(ctx context.Context, o jobs.Options, target string) *screen {
 	ctx, cancel := context.WithCancel(ctx)
-	return &screen{ctx: ctx, cancel: cancel, options: o, target: target, randomSample: o.Sources.Sample > 0, width: 80, height: 24, status: "A little curiosity goes a long way. Pick sources, then preview a sample."}
+	s := &screen{ctx: ctx, cancel: cancel, options: o, target: target, randomSample: o.Sources.Sample > 0, width: 80, height: 24, status: "Choose an action with the arrow keys. Enter opens it."}
+	if target == "" {
+		s.home()
+	}
+	return s
 }
+
 func (s *screen) SetRuntime(r *tui.Runtime) {
 	s.runtime = r
 	ctx := s.ctx
 	go func() { <-ctx.Done(); r.SendEvent(update{kind: "shutdown"}) }()
 }
+
 func (s *screen) Destroy() {
 	s.stopMu.Lock()
 	s.stopped = true
@@ -217,11 +224,8 @@ func (s *screen) HandleEvent(event tui.Event) []tui.Cmd {
 		switch e.kind {
 		case "library":
 			s.skills, s.patterns, s.skill = e.skills, e.patterns, e.skill
-			if s.skill == nil && len(s.skills) > 0 {
-				v := s.skills[0]
-				s.options.Skill = v.Name
-				v.Name = filepath.Base(v.Name)
-				s.skill = &v
+			if s.guided && s.tab == 6 {
+				s.home()
 			}
 		case "preview":
 			s.prepared = e.prepared
@@ -323,9 +327,18 @@ func (s *screen) key(e tui.KeyEvent) []tui.Cmd {
 		if s.browser != nil {
 			s.browser = nil
 			s.index = 0
+			if s.guided {
+				s.home()
+			}
 			return nil
 		}
-		s.detail = false
+		if s.detail {
+			s.detail = false
+			return nil
+		}
+		if s.target == "" {
+			s.home()
+		}
 		return nil
 	}
 	if s.edit != "" {
@@ -359,6 +372,12 @@ func (s *screen) key(e tui.KeyEvent) []tui.Cmd {
 	case tui.KeyPageUp:
 		s.scroll = max(0, s.scroll-max(1, s.height-12))
 	case tui.KeyEnter:
+		if s.tab >= 6 {
+			return s.selectMenu()
+		}
+		if s.tab == 2 && !s.busy && !s.detail && s.target == "" {
+			return s.run(false)
+		}
 		if s.busy {
 			return nil
 		}
@@ -366,7 +385,11 @@ func (s *screen) key(e tui.KeyEvent) []tui.Cmd {
 			return s.browse(s.options.Sources.Sources[s.index], 0)
 		} else if s.tab == 1 && s.patternLibrary && s.index < len(s.patterns) {
 			s.options.Pattern = s.patterns[s.index].Name
-			s.status = "Pattern selected. p previews, s samples, r runs the full selection."
+			s.sample, s.prepared = nil, nil
+			s.status = "Pattern selected. Preview a sample next."
+			if s.guided {
+				s.home()
+			}
 		} else if s.tab == 1 && s.index < len(s.skills) {
 			v := s.skills[s.index]
 			s.options.Skill = v.Name
@@ -375,13 +398,22 @@ func (s *screen) key(e tui.KeyEvent) []tui.Cmd {
 			s.options.Pattern = ""
 			s.sample = nil
 			s.prepared = nil
-			s.status = "Skill selected. p previews its prepared inputs."
+			s.status = "Judgment selected. Preview a sample next."
+			if s.guided {
+				s.home()
+			}
 		} else {
 			s.detail = !s.detail
 			s.scroll = 0
 		}
 	}
 	switch e.Rune {
+	case ' ':
+		s.detail = !s.detail
+	case 'h':
+		if s.target == "" {
+			s.home()
+		}
 	case 'q':
 		s.quitting = true
 		s.cancel()
@@ -557,7 +589,9 @@ func (s *screen) key(e tui.KeyEvent) []tui.Cmd {
 	}
 	return nil
 }
+
 func (s *screen) begin(mode, value string) { s.edit, s.draft = mode, value; s.problem = "" }
+
 func (s *screen) count() int {
 	switch s.tab {
 	case 0:
@@ -574,11 +608,14 @@ func (s *screen) count() int {
 		return len(s.prepared)
 	case 3:
 		return len(s.results)
+	case 6, 7, 8, 9, 10:
+		return len(s.menuActions())
 	case 4:
 		return len(s.experiments)
 	}
 	return 1
 }
+
 func cloneOptions(o jobs.Options) jobs.Options {
 	b, _ := json.Marshal(o)
 	var c jobs.Options
@@ -586,6 +623,7 @@ func cloneOptions(o jobs.Options) jobs.Options {
 	c.NewClient = o.NewClient
 	return c
 }
+
 func pretty(v any) string {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
@@ -593,6 +631,7 @@ func pretty(v any) string {
 	}
 	return string(b)
 }
+
 func appendWindow(a []jobs.Result, r jobs.Result) []jobs.Result {
 	const budget = 16 << 20
 	if resultBytes(r) > budget {
@@ -623,6 +662,7 @@ func resultBytes(r jobs.Result) int {
 	}
 	return n
 }
+
 func resultsBytes(a []jobs.Result) int {
 	n := 0
 	for _, r := range a {
@@ -630,6 +670,7 @@ func resultsBytes(a []jobs.Result) int {
 	}
 	return n
 }
+
 func experimentBytes(a []experiment) int {
 	n := 0
 	for _, e := range a {
@@ -637,6 +678,7 @@ func experimentBytes(a []experiment) int {
 	}
 	return n
 }
+
 func compactResult(r jobs.Result) jobs.Result {
 	r.Data = json.RawMessage(`"Large original data omitted from screen; inspect the exported evidence."`)
 	stages := append([]jobs.Evidence(nil), r.Stages...)

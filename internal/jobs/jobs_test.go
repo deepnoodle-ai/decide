@@ -33,6 +33,7 @@ func testOptions(t *testing.T) Options {
 	o.Sources.Format = "jsonl"
 	return o
 }
+
 func serverClient(t *testing.T, handler http.HandlerFunc) func() (*decide.Client, error) {
 	t.Helper()
 	s := httptest.NewServer(handler)
@@ -41,9 +42,11 @@ func serverClient(t *testing.T, handler http.HandlerFunc) func() (*decide.Client
 		return decide.NewClient(decide.WithAPIKey("test"), decide.WithBaseURL(s.URL), decide.WithMaxRetries(5), decide.WithoutEnvironment())
 	}
 }
+
 func okay(w http.ResponseWriter) {
 	io.WriteString(w, `{"model":"test-model","answers":{"yes":{"type":"noul","noul":0.8}},"usage":{"input_tokens":3,"output_tokens":1}}`)
 }
+
 func TestPlanAndPreparationBeforeCalls(t *testing.T) {
 	o := testOptions(t)
 	var calls atomic.Int32
@@ -61,6 +64,7 @@ func TestPlanAndPreparationBeforeCalls(t *testing.T) {
 		t.Fatalf("resume %v", e)
 	}
 }
+
 func TestRunBudgetOrderResumeFrozen(t *testing.T) {
 	o := testOptions(t)
 	o.Workers = 2
@@ -92,6 +96,7 @@ func TestRunBudgetOrderResumeFrozen(t *testing.T) {
 		t.Fatal(b.String())
 	}
 }
+
 func TestRetriesCountEachAttempt(t *testing.T) {
 	o := testOptions(t)
 	o.Retries = 2
@@ -118,9 +123,11 @@ func (t *unknownTransport) SystemOne(context.Context, *decide.Request) (*decide.
 	t.calls.Add(1)
 	return nil, errors.New("connection lost after submission")
 }
+
 func (t *unknownTransport) ListModels(context.Context) (*decide.ModelList, error) {
 	return nil, errors.New("unused")
 }
+
 func TestUncertainRequiresExplicitRetry(t *testing.T) {
 	o := testOptions(t)
 	o.Retries = 9
@@ -141,6 +148,7 @@ func TestUncertainRequiresExplicitRetry(t *testing.T) {
 		t.Fatalf("%+v %v calls %d", s, e, tr.calls.Load())
 	}
 }
+
 func TestSnapshotRefsAndCopy(t *testing.T) {
 	for _, snapshot := range []string{"refs", "copy"} {
 		t.Run(snapshot, func(t *testing.T) {
@@ -165,6 +173,7 @@ func TestSnapshotRefsAndCopy(t *testing.T) {
 		})
 	}
 }
+
 func TestImagesDeduplicatedAndCapability(t *testing.T) {
 	o := testOptions(t)
 	o.SkillDefinition.Inputs = []string{"image"}
@@ -202,6 +211,7 @@ func TestImagesDeduplicatedAndCapability(t *testing.T) {
 		}
 	}
 }
+
 func TestConcurrencyAndCancellation(t *testing.T) {
 	o := testOptions(t)
 	o.Workers = 2
@@ -228,6 +238,7 @@ func TestConcurrencyAndCancellation(t *testing.T) {
 		t.Fatalf("%+v %v peak %d", s, e, peak.Load())
 	}
 }
+
 func TestLockAndRedaction(t *testing.T) {
 	o := testOptions(t)
 	secret := "a\"b\\secret"
@@ -284,6 +295,7 @@ func TestRecoveredFinishedAttemptNeverResubmits(t *testing.T) {
 		t.Fatalf("%+v %v calls %d", s, e, calls.Load())
 	}
 }
+
 func TestGlobalPatternParametersAndInputValidation(t *testing.T) {
 	o := testOptions(t)
 	o.Skill = ""
@@ -356,6 +368,7 @@ func TestCredentialsNeverReachCallbacksOrFrozenRequests(t *testing.T) {
 		return nil
 	})
 }
+
 func TestCredentialEndpointsRejectedBeforeArtifacts(t *testing.T) {
 	for _, base := range []string{"https://api.example/?api_key=synthetic-credential-123", "https://user:password@api.example/", "https://api.example/#secret"} {
 		o := testOptions(t)
@@ -389,6 +402,7 @@ func TestLegacyEvidenceFidelityAndMalformedRecords(t *testing.T) {
 		}
 	}
 }
+
 func TestUnknownArtifactVersionRejected(t *testing.T) {
 	o := testOptions(t)
 	o.NewClient = serverClient(t, func(w http.ResponseWriter, r *http.Request) { okay(w) })
@@ -434,6 +448,7 @@ func TestEnvironmentEndpointRejectedBeforeArtifacts(t *testing.T) {
 		})
 	}
 }
+
 func TestResumeUsesFrozenEnvironmentEndpointAndModel(t *testing.T) {
 	o := testOptions(t)
 	o.Snapshot = "copy"
@@ -467,6 +482,7 @@ func TestResumeUsesFrozenEnvironmentEndpointAndModel(t *testing.T) {
 		t.Fatalf("%+v %v original %d new %d", s, e, originalCalls.Load(), newCalls.Load())
 	}
 }
+
 func TestCloudflareConnectionDefaultsFrozen(t *testing.T) {
 	o := testOptions(t)
 	o.Provider = "cloudflare"

@@ -45,7 +45,8 @@ previews the selected items and prepared state without model calls.
 - Configured compositions retain stage results and distinguish drops from failures.
 - Cloudflare images are validated before submission and are retained as run assets.
 - Provider selection does not leak TypeSafe environment defaults into Cloudflare.
-- Batch commands never prompt; stdout is structured and stderr carries diagnostics.
+- Batch commands never prompt. Dataset runs default to readable summaries;
+  explicit `--jsonl` emits full evidence with diagnostics on stderr.
 
 ### Recover and inspect
 
@@ -63,7 +64,8 @@ previews the selected items and prepared state without model calls.
 
 ## Decisions
 
-- Use explicit interactive commands. Batch mode must remain safe for pipelines and CI.
+- Use explicit interactive commands. Visible menus guide newcomers; shortcuts
+  accelerate familiar workflows. Batch mode never prompts; scripts request JSONL explicitly.
 - Keep skills declarative. Loading a library item does not execute arbitrary code.
 - Record consumed inputs on disk. Resume must not depend on reconstructing stdin.
 - Keep policies in experimental application code; the root client remains standard-library-only.

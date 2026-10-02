@@ -28,6 +28,7 @@ func (s *screen) currentOptions() jobs.Options {
 	}
 	return o
 }
+
 func (s *screen) preview() tui.Cmd {
 	o := s.currentOptions()
 	n := sampleSize(o)
@@ -59,12 +60,14 @@ func (s *screen) preview() tui.Cmd {
 		return update{kind: "preview", prepared: prepared, err: err}
 	})
 }
+
 func sampleSize(o jobs.Options) int {
 	if o.Sources.Sample > 0 {
 		return min(o.Sources.Sample, 200)
 	}
 	return 5
 }
+
 func (s *screen) run(full bool) []tui.Cmd {
 	if s.skill == nil && s.options.Pattern == "" {
 		s.problem = errNoSkill.Error()
@@ -220,7 +223,10 @@ func (s *screen) submit(value string) {
 		s.index = len(s.options.Sources.Sources) - 1
 		s.sample = nil
 		s.prepared = nil
-		s.status = "Source added. Add another with a, or p previews your selection."
+		s.status = "Source added. Choose a judgment, then preview a sample."
+		if s.guided {
+			s.home()
+		}
 	case "include", "exclude":
 		pattern := strings.TrimSpace(value)
 		if pattern == "" {
@@ -360,6 +366,7 @@ func (s *screen) submit(value string) {
 	}
 	s.edit = ""
 }
+
 func strictJSON(text string, v any) error {
 	d := json.NewDecoder(strings.NewReader(text))
 	d.DisallowUnknownFields()
@@ -457,10 +464,12 @@ func exportBundle(ctx context.Context, path string, o jobs.Options, sum jobs.Sum
 	cmd = "cd " + quote(cwd) + " || exit\n" + cmd
 	return os.WriteFile(filepath.Join(path, "command.sh"), []byte("#!/bin/sh\n# Replay against original sources; recorded inputs remain in the run artifact.\n"+cmd+"\n"), 0700)
 }
+
 func quote(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'" }
+
 func command(o jobs.Options, path string) string {
 	abs, _ := filepath.Abs(path)
-	args := []string{"decide", "run"}
+	args := []string{"decide", "run", "--jsonl"}
 	if o.Pattern != "" {
 		args = append(args, "--pattern", quote(o.Pattern))
 	} else if o.SkillDefinition != nil {

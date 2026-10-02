@@ -33,7 +33,9 @@ func (it *nameIterator) Next() (string, bool) {
 	}
 	return name, true
 }
+
 func (it *nameIterator) Close() { _ = it.f.Close(); _ = os.RemoveAll(it.temporary) }
+
 func directoryNames(ctx context.Context, dir string) (*nameIterator, error) {
 	temporary, err := os.MkdirTemp("", "decide-directory-")
 	if err != nil {
@@ -133,11 +135,16 @@ type nameHead struct {
 }
 type nameHeap []nameHead
 
-func (h nameHeap) Len() int           { return len(h) }
+func (h nameHeap) Len() int { return len(h) }
+
 func (h nameHeap) Less(i, j int) bool { return h[i].name < h[j].name }
-func (h nameHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
-func (h *nameHeap) Push(v any)        { *h = append(*h, v.(nameHead)) }
-func (h *nameHeap) Pop() any          { old := *h; n := len(old); v := old[n-1]; *h = old[:n-1]; return v }
+
+func (h nameHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+
+func (h *nameHeap) Push(v any) { *h = append(*h, v.(nameHead)) }
+
+func (h *nameHeap) Pop() any { old := *h; n := len(old); v := old[n-1]; *h = old[:n-1]; return v }
+
 func mergeNames(ctx context.Context, paths []string, out string) error {
 	var files []*os.File
 	defer func() {

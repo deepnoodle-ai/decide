@@ -89,7 +89,10 @@ become a successful drop. Collection patterns validate saved questions and answe
 flags. `plan` and `run` additionally accept a skill operand or `--pattern` and
 typed `--param` values. Execution flags select provider, model, profile, workers,
 rate, timeout, retries, request ceilings, snapshot policy, and artifact directory.
-`plan` emits prepared-item JSONL; `run` emits result JSONL and a stderr summary.
+`plan` emits prepared-item JSONL. `run` defaults to a short readable summary;
+`--details` shows per-item answers, `--jsonl` emits full evidence and stderr
+diagnostics, and `--output` writes full evidence to a file. `runs resume` also
+defaults to a summary. The behavior is explicit and independent of terminal detection.
 `skills` and `patterns` list/show accept JSON output; skill new/edit/validate/test
 operate on local bundles. Tests are offline unless `--live` is supplied.
 `runs` list/show/watch/export/resume use recorded IDs or explicit artifact paths.

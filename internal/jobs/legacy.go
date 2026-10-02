@@ -11,6 +11,7 @@ import (
 
 // ReadEvidence accepts a durable run or existing typesafe_cli:1 JSONL envelopes.
 func ReadEvidence(id, dir string, fn func(Result) error) error { return readEvidence(id, dir, fn) }
+
 func readEvidence(id, dir string, fn func(Result) error) error {
 	if st, e := os.Stat(pathFor(id, dir)); e == nil && st.IsDir() {
 		return ReadResults(id, dir, fn)

@@ -24,4 +24,5 @@ func redactCredentials(text string) string {
 	}
 	return text
 }
+
 func containsCredential(text string) bool { return redactCredentials(text) != text }

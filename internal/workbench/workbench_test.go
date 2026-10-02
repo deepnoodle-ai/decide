@@ -33,6 +33,7 @@ func testScreen(t *testing.T) *screen {
 	t.Cleanup(s.Destroy)
 	return s
 }
+
 func TestPreviewIsOfflineAndSampleReusesFrozenItems(t *testing.T) {
 	s := testScreen(t)
 	path := filepath.Join(t.TempDir(), "main.go")
@@ -80,18 +81,20 @@ func TestPreviewIsOfflineAndSampleReusesFrozenItems(t *testing.T) {
 		t.Fatal("missing comparison")
 	}
 }
+
 func TestNarrowRenderKeepsHelpAndError(t *testing.T) {
 	s := testScreen(t)
 	s.width = 40
 	s.height = 20
 	s.problem = "source file does not exist"
 	text := tui.SprintScreen(s.View(), tui.WithWidth(40)).Text()
-	for _, want := range []string{"field notebook", "1 Src", "source file", "f browse", "q quit"} {
+	for _, want := range []string{"try a judgment", "Choose data", "source file", "Enter open", "q quit"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %q in:\n%s", want, text)
 		}
 	}
 }
+
 func TestEditorValidationRetainsDraftAndOriginalQuestions(t *testing.T) {
 	s := testScreen(t)
 	before := pretty(s.skill.Questions)
@@ -113,6 +116,7 @@ func TestEditorValidationRetainsDraftAndOriginalQuestions(t *testing.T) {
 		t.Fatal("stdin allowed in interactive sources")
 	}
 }
+
 func TestEvidenceFilterScansBeyondDisplayWindowAndExportKeepsAll(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "evidence.jsonl")
 	f, err := os.Create(path)
@@ -145,6 +149,7 @@ func TestEvidenceFilterScansBeyondDisplayWindowAndExportKeepsAll(t *testing.T) {
 		t.Fatal("export truncated to screen window")
 	}
 }
+
 func TestAsyncCancellationAndTerminalControlSanitization(t *testing.T) {
 	s := testScreen(t)
 	started := make(chan struct{})
@@ -169,6 +174,7 @@ func TestAsyncCancellationAndTerminalControlSanitization(t *testing.T) {
 		t.Fatal("terminal control not sanitized")
 	}
 }
+
 func TestLegacyEvidenceRevalidatesAnswers(t *testing.T) {
 	raw := json.RawMessage(`{"typesafe_cli":1,"id":"old","data":"file","runs":[{"name":"first","command":"judge","state":"file","questions":{"risk":{"type":"noul","instructions":"Risk?"}},"response":{"answers":{"risk":{"type":"noul","probability":2}}}}]}`)
 	r, err := legacyResult(raw)

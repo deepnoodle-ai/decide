@@ -31,6 +31,7 @@ func patternFile(t *testing.T, p catalog.Pattern) string {
 	}
 	return path
 }
+
 func TestHeadsSelectedBranchAndEvidence(t *testing.T) {
 	o := testOptions(t)
 	o.Skill = ""
@@ -64,6 +65,7 @@ func TestHeadsSelectedBranchAndEvidence(t *testing.T) {
 		return nil
 	})
 }
+
 func TestFunnelDropsAndCarriesEvidence(t *testing.T) {
 	o := testOptions(t)
 	o.Skill = ""
@@ -99,6 +101,7 @@ func TestFunnelDropsAndCarriesEvidence(t *testing.T) {
 		t.Fatalf("%+v %v calls %d", s, e, calls.Load())
 	}
 }
+
 func TestLimitedFunnelRanksBeforeNextStage(t *testing.T) {
 	o := testOptions(t)
 	o.Skill = ""
@@ -129,6 +132,7 @@ func TestLimitedFunnelRanksBeforeNextStage(t *testing.T) {
 		}
 	}
 }
+
 func TestSavedRankAndPackAndGate(t *testing.T) {
 	o := testOptions(t)
 	o.Skill = "builtin/relevance"
@@ -196,6 +200,7 @@ func TestRankThenPackReadsUnderlyingModelEvidence(t *testing.T) {
 		t.Fatalf("%+v %v", packed, e)
 	}
 }
+
 func TestCollectionAndFunnelByteBounds(t *testing.T) {
 	o := testOptions(t)
 	o.Skill = "builtin/relevance"

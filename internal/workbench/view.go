@@ -17,13 +17,13 @@ var amber = tui.Color(214)
 var muted = tui.Color(248)
 
 func (s *screen) View() tui.View {
-	title := "decide / field notebook"
+	title := "decide — try a judgment"
 	if s.target != "" {
-		title = "decide / evidence notebook"
+		title = "decide — saved answers"
 	}
-	labels := []string{"1 Sources", "2 Library", "3 Preview", "4 Evidence", "5 Compare", "? Help"}
+	labels := []string{"1 Data", "2 Judgments", "3 Preview", "4 Answers", "5 Compare"}
 	if s.width < 70 {
-		labels = []string{"1 Src", "2 Lib", "3 Peek", "4 Log", "5 Mix", "?"}
+		labels = []string{"1 Data", "2 Judge", "3 Preview", "4 Answers", "5 Compare"}
 	}
 	var tabs []tui.View
 	for i, label := range labels {
@@ -32,6 +32,9 @@ func (s *screen) View() tui.View {
 			t.Bold().Fg(amber).Underline()
 		}
 		tabs = append(tabs, t)
+	}
+	if s.tab >= 6 {
+		tabs = nil
 	}
 	header := tui.Stack(tui.Text(" %s", title).Bold().Fg(amber), tui.Group(tabs...).Gap(2), tui.Divider()).Gap(0)
 	var body tui.View
@@ -64,6 +67,7 @@ func (s *screen) View() tui.View {
 	footer := tui.Stack(tui.Divider(), feedback, tui.Text(" %s", keys).Fg(muted).Wrap()).Gap(0)
 	return tui.Height(max(1, s.height), tui.PaddingLTRB(1, 0, 1, 0, tui.Stack(header, body, footer).Gap(0)))
 }
+
 func (s *screen) editorView() tui.View {
 	s.draft = redactCredentials(s.draft)
 	hint := "Edit JSON · Ctrl-S validates and saves · Esc discards · Enter adds a line"
@@ -123,6 +127,7 @@ func (s *screen) editorView() tui.View {
 	}
 	return tui.Stack(tui.Text("%s", s.edit).Bold().Fg(amber), tui.Text("%s", hint).Wrap().Fg(muted), guidance, field).Gap(1)
 }
+
 func (s *screen) content() string {
 	if s.jsonTrail != nil {
 		return s.jsonContent()
@@ -131,6 +136,8 @@ func (s *screen) content() string {
 		return s.browserContent()
 	}
 	switch s.tab {
+	case 6, 7, 8, 9, 10:
+		return s.menuContent()
 	case 0:
 		return s.sourceContent()
 
@@ -138,10 +145,10 @@ func (s *screen) content() string {
 		return s.libraryContent()
 	case 2:
 		if len(s.prepared) == 0 {
-			return "TASTING FLIGHT\n\nFirst choose sources (1) and a skill (2).\np prepares a small sample, without asking a model.\ns sends that sample; r starts the full selection.\n\nEvery item keeps its source identity."
+			return "SAMPLE PREVIEW\n\nNo sample prepared yet.\nEsc returns to the main menu: choose data, choose a judgment, then preview.\nPreview reads a few records without model calls."
 		}
 		var b strings.Builder
-		fmt.Fprintf(&b, "TASTING FLIGHT · %d prepared items\n\n", len(s.prepared))
+		fmt.Fprintf(&b, "SAMPLE PREVIEW · %d prepared items\n\n", len(s.prepared))
 		if !s.detail {
 			for i, p := range s.prepared {
 				fmt.Fprintf(&b, "%s %s%s\n", cursor(i, s.index), sourceName(p.Item.Source.URI, p.Item.Source.Path, p.Item.ID), sourceLocation(p.Item.Source))
@@ -154,7 +161,12 @@ func (s *screen) content() string {
 		}
 		state := previewJSON(p.State)
 		if !s.detail && len(p.State) > 4<<10 {
-			state = jsonShape(p.State) + "\nLarge state kept intact. j explores branches; Enter shows a raw preview."
+			state = jsonShape(p.State) + "\nLarge state kept intact. j explores branches; Space shows full input details."
+		}
+		if !s.detail {
+			fmt.Fprintf(&b, "\nSelected: %s\n\n%s\n\n%s\n", sourceName(p.Item.Source.URI, p.Item.Source.Path, p.Item.ID), excerpt(state, 600), questionDescriptions(p.Questions))
+			b.WriteString("\nEnter runs this sample (model calls). Space shows full input details.\nEsc returns to the main menu; j explores JSON fields.")
+			return b.String()
 		}
 		fmt.Fprintf(&b, "Source: %s\nID: %s\nDigest: %s\nFormat: %s · %d bytes · %d images\n\nPREPARED STATE\n%s\n\nQUESTIONS\n%s", p.Item.Source.URI, p.Item.ID, p.Item.Source.Digest, p.Item.Source.Format, p.Item.Source.SizeBytes, len(p.Item.Images), state, pretty(p.Questions))
 		return b.String()
@@ -166,6 +178,7 @@ func (s *screen) content() string {
 		return helpText
 	}
 }
+
 func (s *screen) judgmentInfo() string {
 	if s.options.Pattern != "" {
 		return "Pattern: " + s.options.Pattern
@@ -175,38 +188,46 @@ func (s *screen) judgmentInfo() string {
 	}
 	return fmt.Sprintf("Skill: %s\n%s\nt  Edit parameters · v  Edit questions", s.skill.Name, s.skill.Description)
 }
+
 func executionInfo(o jobs.Options) string {
 	return fmt.Sprintf("Provider: %s · Model: %s\nWorkers: %d · Max requests: %d (0 unlimited)\no model · w workers · B budget · O advanced\nSnapshot: %s · Run directory: %s", o.Provider, o.Model, o.Workers, o.MaxRequests, o.Snapshot, o.RunDir)
 }
+
 func (s *screen) libraryContent() string {
 	if s.patternLibrary {
 		var b strings.Builder
-		b.WriteString("PATTERN FIELD GUIDE\n\n↑/↓ browse · Enter chooses · b returns to skills\n\n")
+		b.WriteString("COMPOSITION PATTERNS\n\n↑/↓ browse · Enter chooses · b returns to skills\n\n")
 		for i, p := range s.patterns {
 			fmt.Fprintf(&b, "%s %s [%s] — %s\n", cursor(i, s.index), p.Name, p.Type, p.Description)
 		}
 		if len(s.patterns) > 0 {
-			fmt.Fprintf(&b, "\n%s", pretty(s.patterns[min(s.index, len(s.patterns)-1)]))
+			if s.detail {
+				fmt.Fprintf(&b, "\n%s", pretty(s.patterns[min(s.index, len(s.patterns)-1)]))
+			} else {
+				b.WriteString("\nEnter chooses this composition. Space shows its definition.")
+			}
 		}
 		return b.String()
 	}
 
 	var b strings.Builder
-	b.WriteString("JUDGMENT LIBRARY\n\n↑/↓ browse · Enter chooses a skill · b patterns · t parameters · v questions\n\n")
-	for i, v := range s.skills {
+	b.WriteString("CHOOSE A JUDGMENT\n\n↑/↓ browse · Enter chooses · Space details · Esc main menu\n\n")
+	start := max(0, s.index-2)
+	end := min(len(s.skills), start+max(3, s.height-15))
+	for i := start; i < end; i++ {
+		v := s.skills[i]
 		fmt.Fprintf(&b, "%s %s — %s\n", cursor(i, s.index), v.Name, v.Description)
 	}
 	if len(s.skills) > 0 {
 		v := s.skills[min(s.index, len(s.skills)-1)]
-		fmt.Fprintf(&b, "\n%s\n\nInputs: %s\nParameters:\n%s\n\nQuestions:\n%s\n", v.Documentation, strings.Join(v.Inputs, ", "), pretty(v.Parameters), pretty(v.Questions))
+		fmt.Fprintf(&b, "\n%s\nWorks with: %s\n\n%s\n\nEnter chooses this judgment. Esc returns to the main menu.\n", v.Description, strings.Join(v.Inputs, ", "), questionDescriptions(v.Questions))
+		if s.detail {
+			fmt.Fprintf(&b, "\n%s\n%s", v.Documentation, pretty(v))
+		}
 	}
-	b.WriteString("\nPATTERN FIELD GUIDE\n\n")
-	for _, p := range s.patterns {
-		fmt.Fprintf(&b, "%s [%s] — %s\n", p.Name, p.Type, p.Description)
-	}
-	b.WriteString("\nConfigure patterns with decide patterns show NAME; enter its path\nas Pattern in advanced execution settings (O). Pattern runs retain stage evidence.")
 	return b.String()
 }
+
 func (s *screen) evidenceContent() string {
 	if len(s.results) == 0 {
 		if s.filter != "" {
@@ -215,7 +236,7 @@ func (s *screen) evidenceContent() string {
 		if s.target != "" {
 			return "EVIDENCE NOTEBOOK\n\nNo saved outcomes in this file.\nFailures and uncertain requests remain explicit when present."
 		}
-		return fmt.Sprintf("EVIDENCE NOTEBOOK\n\n%d outcomes received.\n%s\n\nRun a sample with s, or open recorded evidence with decide inspect.\nFailures and uncertain requests remain explicit.", s.totalResults, s.status)
+		return fmt.Sprintf("EVIDENCE NOTEBOOK\n\n%d outcomes received.\n%s\n\nEsc returns to the main menu. Preview and run a sample to see answers here.\nFailures and uncertain requests remain explicit.", s.totalResults, s.status)
 	}
 	var b strings.Builder
 	count := fmt.Sprintf("%d recorded outcomes", s.totalResults)
@@ -233,7 +254,10 @@ func (s *screen) evidenceContent() string {
 		b.WriteString("\n↑/↓ select · n/N pages · j JSON · ←/→ stage · / search all evidence\n\n")
 	}
 	r := s.results[min(s.index, len(s.results)-1)]
-	fmt.Fprintf(&b, "%s\nSource: %s\nStatus: %s\n%s\n", r.ID, r.Source.URI, r.Status, r.Error)
+	fmt.Fprintf(&b, "\n%s · %s\n%s\n", sourceName(r.Source.URI, r.Source.Path, r.ID), r.Status, r.Error)
+	if s.detail {
+		fmt.Fprintf(&b, "ID: %s\nSource: %s\n", r.ID, r.Source.URI)
+	}
 	if len(r.Stages) > 0 {
 		stage := min(s.stage, len(r.Stages)-1)
 		e := r.Stages[stage]
@@ -248,13 +272,19 @@ func (s *screen) evidenceContent() string {
 		if e.Error != "" {
 			fmt.Fprintf(&b, "Error: %s\n", e.Error)
 		}
-		fmt.Fprintf(&b, "\nANSWERS / DISTRIBUTIONS\n%s\n\nRESULT\n%s\n\nQUESTIONS\n%s\n\nSTATE\n%s", distributionText(e.Response), previewJSON(e.Result), pretty(e.Questions), previewJSON(e.State))
+		fmt.Fprintf(&b, "\nANSWERS\n%s", distributionText(e.Response))
+		if s.detail {
+			fmt.Fprintf(&b, "\nRESULT\n%s\n\nQUESTIONS\n%s\n\nSTATE\n%s", previewJSON(e.Result), pretty(e.Questions), previewJSON(e.State))
+		} else {
+			b.WriteString("\nEnter shows full evidence. Esc returns to the main menu.")
+		}
 	}
 	if s.detail {
 		fmt.Fprintf(&b, "\n\nORIGINAL DATA\n%s", previewJSON(r.Data))
 	}
 	return b.String()
 }
+
 func (s *screen) compareContent() string {
 	if len(s.experiments) < 2 {
 		return "EXPERIMENT BENCH\n\nA good question gets better with a second look.\n\n1. p freezes a sample.\n2. s runs experiment one.\n3. t changes parameters, v edits questions, or o changes the model.\n4. s runs the same source items again.\n\nc compares results by source ID. Changing sources or skills requires\na fresh preview. Up to eight experiments stay in this notebook."
@@ -277,18 +307,21 @@ func (s *screen) compareContent() string {
 	b.WriteString("Raw probabilities are evidence, not action policies.\ne exports the latest experiment and its frozen judgment configuration.")
 	return b.String()
 }
+
 func briefAnswers(r jobs.Result) string {
 	if len(r.Stages) == 0 {
 		return r.Error
 	}
 	return strings.ReplaceAll(distributionText(r.Stages[len(r.Stages)-1].Response), "\n", " ")
 }
+
 func cursor(i, selected int) string {
 	if i == selected {
 		return "›"
 	}
 	return " "
 }
+
 func sourceName(uri, path, id string) string {
 	if path != "" {
 		return path
@@ -298,6 +331,7 @@ func sourceName(uri, path, id string) string {
 	}
 	return id
 }
+
 func clean(s string) string {
 	s = redactCredentials(s)
 	return strings.Map(func(r rune) rune {
@@ -307,6 +341,7 @@ func clean(s string) string {
 		return r
 	}, s)
 }
+
 func previewJSON(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return "(none)"
@@ -320,6 +355,7 @@ func previewJSON(raw json.RawMessage) string {
 	}
 	return string(raw)
 }
+
 func sortedKeys[V any](m map[string]V) []string {
 	k := make([]string, 0, len(m))
 	for key := range m {
@@ -328,6 +364,7 @@ func sortedKeys[V any](m map[string]V) []string {
 	sort.Strings(k)
 	return k
 }
+
 func distributionText(raw json.RawMessage) string {
 	var v any
 	if json.Unmarshal(raw, &v) != nil {
@@ -402,7 +439,7 @@ Closing cancels outstanding work and preserves resumable artifacts.
 The screen keeps at most 200 records / 16 MiB; pages and searches read saved evidence.
 Folder and JSON browsers retain 100 children per page; nested JSON trails
 have a 32 MiB / 64-level bound. Folder browsing skips symlinks and .git.
-Comparison history is capped at 32 MiB. JSONL records are capped at 16 MiB.
+Comparison history is capped at 32 MiB. Saved records decode one at a time.
 Exports include evidence, skill configuration, options and a batch command.
 Images need the Cloudflare provider (Clef/Clef-flash); TypeSafe rejects
 image work before submission. Preview shows MIME type and byte size.
@@ -426,16 +463,17 @@ func (s *screen) sourceContent() string {
 	if d.Manifest != "" {
 		fmt.Fprintf(&b, "Manifest: %s\n", d.Manifest)
 	}
-	fmt.Fprintf(&b, "\nTASTING PLAN\n%s · k changes size · z switches strategy\nItems: %q (expand: %t) · State: %q · ID: %q\nm/u/I edit mappings · j explores JSON after preview\n", s.sampleLabel(), d.Items, d.ItemsSet, d.State, d.IDField)
-	fmt.Fprintf(&b, "\nInclude: %s\nExclude: %s\nFormat: %s\n\n%s\n\n%s\n\np previews up to %d prepared items, without model calls.\nDirectories honor ignore files; exclusions win.\nImages: Cloudflare Clef/Clef-flash required; TypeSafe has no image input.\nSource limits: %d bytes/item, %d bytes/source. Sample cap: 64 MiB.\n", listOrAll(d.Include, "all files"), listOrAll(d.Exclude, "none"), d.Format, s.judgmentInfo(), executionInfo(s.options), sampleSize(s.options), d.MaxItemBytes, d.MaxSourceBytes)
+	fmt.Fprintf(&b, "\nInclude: %s\nExclude: %s\n\nPreview: %s\nEsc returns to the main menu. Settings contains JSON mapping and model controls.", listOrAll(d.Include, "all files"), listOrAll(d.Exclude, "none"), s.sampleLabel())
 	return b.String()
 }
+
 func listOrAll(v []string, fallback string) string {
 	if len(v) == 0 {
 		return fallback
 	}
 	return strings.Join(v, ", ")
 }
+
 func sourceLocation(s dataset.Source) string {
 	if s.Line > 0 {
 		return fmt.Sprintf(":L%d", s.Line)
@@ -445,6 +483,7 @@ func sourceLocation(s dataset.Source) string {
 	}
 	return ""
 }
+
 func (s *screen) shortcuts() string {
 	if s.busy {
 		return "Esc stop work · 1–5 switch pages · q quit"
@@ -453,18 +492,20 @@ func (s *screen) shortcuts() string {
 		return "Enter apply · Esc discard · q types into this field"
 	}
 	if s.jsonTrail != nil {
-		return "Enter open · ← up · m/M items · u state · I ID · n/N pages · Esc back"
+		return "Enter open · ← up · m/M items · u state · I ID · n/N pages · Esc main menu"
 	}
 	if s.browser != nil {
 		return "Enter open · Space select · . whole folder · ← up · n/N pages · Esc back"
 	}
 	switch s.tab {
+	case 6, 7, 8, 9, 10:
+		return "↑/↓ choose · Enter open · Esc main menu · q quit"
 	case 0:
 		return "f browse · g presets · k size · z strategy · p preview · ? field guide"
 	case 1:
-		return "↑/↓ browse · Enter choose · b patterns · t tune · p preview · ? help"
+		return "↑/↓ browse · Enter choose · Space details · Esc main menu"
 	case 2:
-		return "j JSON branches · s sample · z strategy · k size · r full · ? help"
+		return "Enter run sample · Space details · j JSON · Esc main menu · h main"
 	case 3:
 		return "n/N pages · / search · j JSON · e export · c compare · q quit"
 	case 4:
@@ -472,6 +513,7 @@ func (s *screen) shortcuts() string {
 	}
 	return "1–5 pages · p preview · s sample · Esc back · q quit"
 }
+
 func parameterInfo(s *screen) string {
 	var b strings.Builder
 	for _, name := range sortedKeys(s.skill.Parameters) {

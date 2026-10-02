@@ -30,6 +30,7 @@ func write(t *testing.T, dir, path, value string) string {
 	}
 	return p
 }
+
 func collect(t *testing.T, o Options, stdin io.Reader) []Item {
 	t.Helper()
 	var items []Item
@@ -38,6 +39,7 @@ func collect(t *testing.T, o Options, stdin io.Reader) []Item {
 	}
 	return items
 }
+
 func TestDirectoryGlobsIgnoreAndStableIdentity(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, ".gitignore", "ignored/\n*.tmp\n")
@@ -73,6 +75,7 @@ func TestDirectoryGlobsIgnoreAndStableIdentity(t *testing.T) {
 		t.Fatal("no-ignore failed")
 	}
 }
+
 func TestNestedNegationAndAncestorIgnore(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Mkdir(filepath.Join(dir, ".git"), 0755); err != nil {
@@ -90,6 +93,7 @@ func TestNestedNegationAndAncestorIgnore(t *testing.T) {
 		t.Fatalf("items %+v", items)
 	}
 }
+
 func TestJSONAndManifestMappings(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, "a.json", `{"tickets":[{"id":1,"body":"hello"},{"id":2,"body":"bye"}]}`)
@@ -115,6 +119,7 @@ func TestJSONAndManifestMappings(t *testing.T) {
 		t.Fatal("explicit root array not expanded")
 	}
 }
+
 func TestJSONLStreamingLimitAndLocations(t *testing.T) {
 	o := DefaultOptions()
 	o.Sources = []string{"-"}
@@ -132,6 +137,7 @@ func TestJSONLStreamingLimitAndLocations(t *testing.T) {
 		t.Fatal("invalid JSON accepted")
 	}
 }
+
 func TestHTTPAndBounds(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-ndjson")
@@ -160,6 +166,7 @@ func TestHTTPAndBounds(t *testing.T) {
 		t.Fatal("credential URL not safely rejected")
 	}
 }
+
 func TestSampleDeterministicAndCallbackErrors(t *testing.T) {
 	var data strings.Builder
 	for i := 0; i < 100; i++ {
@@ -188,6 +195,7 @@ func TestSampleDeterministicAndCallbackErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
 func TestPointer(t *testing.T) {
 	data := json.RawMessage(`{"a/b":{"~x":[1,2]}}`)
 	got, err := Pointer(data, "/a~1b/~0x/1")
@@ -200,6 +208,7 @@ func TestPointer(t *testing.T) {
 		}
 	}
 }
+
 func TestSymlinksAndDuplicateSources(t *testing.T) {
 	dir := t.TempDir()
 	p := write(t, dir, "a.txt", "hello")
@@ -249,6 +258,7 @@ func TestLargeStreamsAndDirectoryMerge(t *testing.T) {
 		t.Fatalf("end error %v", it.err)
 	}
 }
+
 func TestEmptyArrayPointerAndDuplicateRecords(t *testing.T) {
 	o := DefaultOptions()
 	o.Sources = []string{"-"}
@@ -280,6 +290,7 @@ func TestImagesRetainBytesAndSourceIdentity(t *testing.T) {
 		t.Fatal("image fingerprint metadata")
 	}
 }
+
 func TestExplicitIDsRemainUniqueForRepeatedRows(t *testing.T) {
 	o := DefaultOptions()
 	o.Sources = []string{"-"}
@@ -312,6 +323,7 @@ func TestPublicQueriesAndCredentialValidation(t *testing.T) {
 		}
 	}
 }
+
 func TestHTTPStalledBodyCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/x-ndjson")
@@ -333,6 +345,7 @@ func TestHTTPStalledBodyCancellation(t *testing.T) {
 		t.Fatal("HTTP read did not cancel promptly")
 	}
 }
+
 func TestOptionsRoundTripAndCrossSourceIDs(t *testing.T) {
 	o := DefaultOptions()
 	o.ItemsSet = true

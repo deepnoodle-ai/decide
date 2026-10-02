@@ -42,6 +42,7 @@ func (r *contextReader) Read(p []byte) (int, error) {
 	}
 	return n, err
 }
+
 func detectFormat(path, ctype string) string {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".json":
@@ -63,9 +64,11 @@ func detectFormat(path, ctype string) string {
 	}
 	return "text"
 }
+
 func readSource(ctx context.Context, r io.Reader, uri, path string, opts Options, emit func(Item) error) error {
 	return readSourceDigest(ctx, r, uri, path, "", opts, emit)
 }
+
 func readSourceDigest(ctx context.Context, r io.Reader, uri, path, sourceDigest string, opts Options, emit func(Item) error) error {
 	format := opts.Format
 	if format == "" || format == "auto" {
@@ -186,6 +189,7 @@ func readSourceDigest(ctx context.Context, r io.Reader, uri, path, sourceDigest 
 	}
 	return makeItem(raw, 0, nil)
 }
+
 func readLine(r *bufio.Reader, max int64) ([]byte, error) {
 	var data []byte
 	for {

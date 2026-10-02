@@ -375,6 +375,7 @@ func walkDirectory(ctx context.Context, root, dir string, opts Options, rules []
 	}
 	return entries.err
 }
+
 func matches(patterns []string, path string) bool {
 	for _, p := range patterns {
 		matched, _ := doublestar.Match(p, path)
@@ -384,6 +385,7 @@ func matches(patterns []string, path string) bool {
 	}
 	return false
 }
+
 func readFile(ctx context.Context, path, relative string, opts Options, seen map[string]bool, emit func(Item) error) error {
 	if seen[path] || covered(path, seen) {
 		return nil
@@ -473,6 +475,7 @@ func sampler(ctx context.Context, opts Options, yield func(Item) error) (func(It
 	}
 	return emit, finish, func() { _ = os.RemoveAll(dir) }, nil
 }
+
 func digest(data []byte) string { sum := sha256.Sum256(data); return hex.EncodeToString(sum[:]) }
 
 func directoryRules(dir string, max int64) ([]ignoreRule, error) {
@@ -503,6 +506,7 @@ func directoryRules(dir string, max int64) ([]ignoreRule, error) {
 	}
 	return out, nil
 }
+
 func ancestorRules(root string, opts Options) ([]ignoreRule, error) {
 	if opts.NoIgnore {
 		return nil, nil
@@ -560,6 +564,7 @@ func ValidateSources(opts Options) error {
 	}
 	return nil
 }
+
 func validateSource(source configuredSource) error {
 	switch source.options.Format {
 	case "", "auto", "json", "jsonl", "text", "lines", "image":
@@ -583,6 +588,7 @@ func validateSource(source configuredSource) error {
 	}
 	return nil
 }
+
 func publicURL(raw string) (*url.URL, error) {
 	u, err := url.Parse(raw)
 	if err != nil || u.Hostname() == "" {

@@ -190,3 +190,53 @@ func TestDatasetOutputRefusesToOverwriteSource(t *testing.T) {
 		t.Fatal("source overwritten")
 	}
 }
+
+func TestRunSummaryDetailsAndExplicitJSONL(t *testing.T) {
+	dir := datasetEnvironment(t)
+	path := filepath.Join(dir, "record.jsonl")
+	secretData := "ORIGINAL_CONTENT_SHOULD_NOT_FILL_THE_TERMINAL"
+	if err := os.WriteFile(path, []byte(`{"description":"`+secretData+`"}`+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, mode := range []string{"summary", "details", "jsonl", "output"} {
+		t.Run(mode, func(t *testing.T) {
+			server := decidetest.NewServer(t)
+			a, out, diagnostics := coreApp(t, "", server)
+			args := []string{"run", "builtin/relevance", path}
+			output := filepath.Join(t.TempDir(), "results.jsonl")
+			switch mode {
+			case "details":
+				args = append(args, "--details")
+			case "jsonl":
+				args = append(args, "--jsonl")
+			case "output":
+				args = append(args, "--output", output)
+			}
+			if code := a.Run(t.Context(), args); code != 0 {
+				t.Fatalf("code=%d %s", code, diagnostics)
+			}
+			if mode == "jsonl" {
+				var result jobs.Result
+				if err := json.Unmarshal(out.Bytes(), &result); err != nil || len(result.Data) == 0 {
+					t.Fatalf("JSONL missing full data: %v", err)
+				}
+			} else {
+				if strings.Contains(out.String(), secretData) || strings.Contains(out.String(), `"decide_run"`) {
+					t.Fatalf("default/details dumped evidence: %s", out)
+				}
+				if !strings.Contains(out.String(), "1 complete") || !strings.Contains(out.String(), "Saved evidence:") {
+					t.Fatalf("missing useful summary: %s", out)
+				}
+				if mode == "details" && !strings.Contains(out.String(), "noul=") {
+					t.Fatalf("missing readable answers: %s", out)
+				}
+				if mode == "output" {
+					b, err := os.ReadFile(output)
+					if err != nil || !strings.Contains(string(b), secretData) {
+						t.Fatal("explicit file lost full evidence")
+					}
+				}
+			}
+		})
+	}
+}

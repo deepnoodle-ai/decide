@@ -18,6 +18,7 @@ import (
 func collection(d definition) bool {
 	return d.Pattern.Type == "gate" || d.Pattern.Type == "rank" || d.Pattern.Type == "rank-pack"
 }
+
 func headsRequest(state json.RawMessage, d definition) (*decide.Request, *heads.Binding, error) {
 	q, err := decide.DecodeQuestion(d.Pattern.Selector)
 	if err != nil {
@@ -48,6 +49,7 @@ func headsRequest(state json.RawMessage, d definition) (*decide.Request, *heads.
 	b, e := p.Attach(req, "selector")
 	return req, b, e
 }
+
 func (e *executor) process(ctx context.Context, i int, rec input, old Result) Result {
 	r := Result{Version: 1, Assets: rec.Assets, ID: rec.Prepared.Item.ID, Source: rec.Prepared.Item.Source, Data: rec.Prepared.Item.Data, Index: i, Status: "complete"}
 	if e.singleStage {
@@ -194,6 +196,7 @@ func (e *executor) process(ctx context.Context, i int, rec input, old Result) Re
 	}
 	return r
 }
+
 func validateSaved(req *decide.Request, resp *decide.Response) error {
 	for key, q := range req.Questions {
 		a := resp.Answers[key]
@@ -215,6 +218,7 @@ func validateSaved(req *decide.Request, resp *decide.Response) error {
 	}
 	return nil
 }
+
 func savedResponse(r Result) (*decide.Response, error) {
 	if r.Status != "complete" {
 		return nil, errors.New("source item does not have successful evidence")
@@ -248,6 +252,7 @@ func savedResponse(r Result) (*decide.Response, error) {
 	}
 	return nil, errors.New("source item has no model question/response evidence")
 }
+
 func runCollection(ctx context.Context, d definition, s Summary, fn func(Result) error) (Summary, error) {
 	p := d.Pattern
 	if p.Run == "" {

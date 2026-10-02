@@ -23,7 +23,8 @@ import (
 
 type repeated []string
 
-func (r *repeated) String() string     { return strings.Join(*r, ", ") }
+func (r *repeated) String() string { return strings.Join(*r, ", ") }
+
 func (r *repeated) Set(v string) error { *r = append(*r, v); return nil }
 
 func bindSources(fs *flag.FlagSet, o *dataset.Options) {
@@ -64,7 +65,9 @@ func bindExecution(fs *flag.FlagSet, o *jobs.Options, params *repeated) {
 	fs.StringVar(&o.OnError, "on-error", o.OnError, "continue or stop")
 	fs.StringVar(&o.Snapshot, "snapshot", o.Snapshot, "copy or refs; refs verifies local sources on resume")
 	fs.StringVar(&o.RunDir, "run-dir", o.RunDir, "durable run directory")
-	fs.StringVar(&o.Output, "output", o.Output, "write result JSONL to a new file")
+	fs.StringVar(&o.Output, "output", o.Output, "write full result JSONL to a new file")
+	fs.BoolVar(&o.JSONL, "jsonl", false, "emit full result JSONL to stdout (run)")
+	fs.BoolVar(&o.Details, "details", false, "show readable per-item answers (run)")
 	fs.StringVar(&o.Progress, "progress", "auto", "stderr summaries: auto, plain, or none")
 }
 
@@ -224,6 +227,9 @@ func (a *App) datasetOptions(command string, args []string) (jobs.Options, int, 
 	if o.Progress != "auto" && o.Progress != "plain" && o.Progress != "none" {
 		return o, a.fail(errors.New("progress must be auto, plain, or none")), false
 	}
+	if o.JSONL && o.Details {
+		return o, a.fail(errors.New("choose --details or --jsonl, not both")), false
+	}
 	o.Params, e = catalog.ParameterValues(params)
 	if e == nil {
 		e = resolveConnection(&o)
@@ -272,12 +278,27 @@ func (a *App) runDataset(ctx context.Context, command string, args []string) int
 		defer file.Close()
 		w = file
 	}
-	summary, e := jobs.Run(ctx, o, a.In, func(r jobs.Result) error { return writeJSON(w, r) })
-	if o.Progress != "none" {
+	summary, e := jobs.Run(ctx, o, a.In, func(r jobs.Result) error {
+		if file != nil || o.JSONL {
+			if err := writeJSON(w, r); err != nil {
+				return err
+			}
+		}
+		if o.Details {
+			return writeResultDetails(a.Out, r)
+		}
+		return nil
+	})
+	if o.Progress != "none" && o.JSONL {
 		fmt.Fprintf(a.Err, "Run %s: %s · %d complete · %d failed · %d dropped · %d uncertain · %d requests\n", summary.ID, summary.Status, summary.Completed, summary.Failed, summary.Dropped, summary.Uncertain, summary.Requests)
 	}
-	if summary.ID != "" && o.Progress != "none" {
+	if summary.ID != "" && o.Progress != "none" && o.JSONL {
 		fmt.Fprintf(a.Err, "Evidence: %s\nNext: decide inspect %s\n", summary.Path, summary.ID)
+	}
+	if !o.JSONL && summary.ID != "" {
+		if err := writeRunSummary(a.Out, summary); err != nil {
+			return a.fail(err)
+		}
 	}
 	if e != nil {
 		return a.offlineFailure(e)
@@ -538,6 +559,7 @@ func (a *App) runRuns(ctx context.Context, args []string) int {
 	retryUncertain := fs.Bool("retry-uncertain", false, "explicitly resubmit uncertain attempts; may duplicate provider work")
 	fs.StringVar(&o.RunDir, "run-dir", o.RunDir, "durable run directory")
 	fs.StringVar(&o.Output, "output", "", "export to a new file")
+	fs.BoolVar(&o.JSONL, "jsonl", false, "emit full result JSONL (resume)")
 	fs.IntVar(&o.Workers, "workers", o.Workers, "resume request concurrency")
 	fs.IntVar(&o.MaxRequests, "max-requests", o.MaxRequests, "resume total request ceiling")
 	operands, e := parseOperands(fs, args[1:])
@@ -615,8 +637,19 @@ func (a *App) runRuns(ctx context.Context, args []string) int {
 		if !visited["max-requests"] {
 			o.MaxRequests = 0
 		}
-		s, e := jobs.Resume(ctx, id, o, *retryFailed, *retryUncertain, func(r jobs.Result) error { return writeJSON(a.Out, r) })
-		fmt.Fprintf(a.Err, "Run %s: %s · %d complete · %d failed · %d uncertain\n", s.ID, s.Status, s.Completed, s.Failed, s.Uncertain)
+		s, e := jobs.Resume(ctx, id, o, *retryFailed, *retryUncertain, func(r jobs.Result) error {
+			if o.JSONL {
+				return writeJSON(a.Out, r)
+			}
+			return nil
+		})
+		if o.JSONL {
+			fmt.Fprintf(a.Err, "Run %s: %s · %d complete · %d failed · %d uncertain\n", s.ID, s.Status, s.Completed, s.Failed, s.Uncertain)
+		} else if s.ID != "" {
+			if err := writeRunSummary(a.Out, s); err != nil {
+				return a.fail(err)
+			}
+		}
 		if e != nil {
 			return a.offlineFailure(e)
 		}

@@ -88,6 +88,7 @@ func frozenExport(path string, o jobs.Options, sum jobs.Summary) (jobs.Options, 
 	}
 	return o, &d, nil
 }
+
 func writeFrozen(path string, d *frozenDefinition) error {
 	if d == nil {
 		return nil
