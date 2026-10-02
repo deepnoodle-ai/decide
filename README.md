@@ -9,7 +9,7 @@
 
 **Ask typed questions about your data. Get answers with probabilities.**
 
-[![decide triaging and routing five support tickets in the terminal](https://files.deepnoodle.ai/images/decide/decide-cli-demo-2026-10-02-80col.gif)](https://files.deepnoodle.ai/videos/decide/decide-cli-demo-2026-10-02-80col.mp4)
+[![decide triaging and routing three support tickets in the terminal](https://files.deepnoodle.ai/images/decide/decide-cli-demo-2026-10-02-short.gif)](https://files.deepnoodle.ai/videos/decide/decide-cli-demo-2026-10-02-short.mp4)
 
 Decide asks yes-or-no (`noul`), multiple-choice (`choice`), and scale
 (`score`) questions about files, folders, JSON records, and text. Each
