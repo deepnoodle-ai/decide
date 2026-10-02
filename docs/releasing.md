@@ -8,8 +8,8 @@ to.
 
 - Binaries for Linux, macOS, and Windows, on amd64 and arm64.
   `decide --version` prints the tag.
-- A GitHub release with the archives, `checksums.txt`, and notes made from
-  the titles of the merged pull requests.
+- A GitHub release with the archives, `checksums.txt`, and the version's
+  section of [CHANGELOG.md](../CHANGELOG.md) as its notes.
 - `Formula/decide.rb` in
   [deepnoodle-ai/homebrew-tap](https://github.com/deepnoodle-ai/homebrew-tap),
   for `brew install deepnoodle-ai/tap/decide`.
@@ -31,10 +31,21 @@ Before v1, any release may change the library API and the CLI.
 
 ## Release
 
-1. Make sure CI passes on `main`. CI runs `goreleaser check`, so a broken
+1. Cut the changelog in a pull request. Rename `## [Unreleased]` to the
+   version and date, such as `## [0.2.0] - 2026-11-02`, and add an empty
+   `## [Unreleased]` above it. Update the links at the end of the file.
+   - Check that each merged pull request since the last release has an
+     entry: `git log v0.1.0..main --oneline`.
+   - Keep each entry to one to three lines, and state what changed for
+     the user. A line or two under the version heading can sum up the
+     release.
+   - Run `scripts/release-notes.sh v0.2.0` to see the notes. The release
+     fails if the section is missing. A prerelease with no section of its
+     own uses `Unreleased`.
+2. Make sure CI passes on `main`. CI runs `goreleaser check`, so a broken
    release configuration fails there first. The repository must be public,
    or Homebrew and the download links fail.
-2. Tag the commit and push the tag:
+3. Tag the commit and push the tag:
 
    ```sh
    git switch main && git pull
@@ -42,8 +53,8 @@ Before v1, any release may change the library API and the CLI.
    git push origin v0.2.0
    ```
 
-3. Watch the run with `gh run watch`. It runs the tests, then GoReleaser.
-4. Check the result:
+4. Watch the run with `gh run watch`. It runs the tests, then GoReleaser.
+5. Check the result:
 
    ```sh
    brew install deepnoodle-ai/tap/decide   # or brew upgrade decide

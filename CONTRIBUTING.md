@@ -38,7 +38,8 @@ We don't accept pull requests that read as unreviewed agent output.
   is tested through its public API or the CLI. Tests use `decidetest` or a
   fake HTTP server and never call a live service.
 - **Docs in the same change.** Update the README, [docs/cli.md](docs/cli.md),
-  package comments, and examples wherever behavior changed.
+  package comments, and examples wherever behavior changed. Add a short
+  entry under `Unreleased` in [CHANGELOG.md](CHANGELOG.md).
 - **Passing checks:**
 
   ```sh
