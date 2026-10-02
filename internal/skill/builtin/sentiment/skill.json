@@ -1,0 +1,16 @@
+{
+  "name": "sentiment",
+  "description": "Classify each item as positive, negative, or neutral.",
+  "input": "record",
+  "questions": {
+    "sentiment": {
+      "type": "choice",
+      "instructions": "What is the overall sentiment of this text?",
+      "criteria": {
+        "positive": "Favorable, pleased, or satisfied",
+        "negative": "Unfavorable, frustrated, or dissatisfied",
+        "neutral": "Neither clearly positive nor clearly negative"
+      }
+    }
+  }
+}

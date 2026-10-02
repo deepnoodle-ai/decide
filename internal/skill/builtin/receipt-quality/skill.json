@@ -1,0 +1,15 @@
+{
+  "name": "receipt-quality",
+  "description": "Check whether each image shows a readable receipt.",
+  "input": "image",
+  "questions": {
+    "receipt": {
+      "type": "noul",
+      "instructions": "Is a receipt visible in the attached image?"
+    },
+    "readable": {
+      "type": "noul",
+      "instructions": "Can the merchant, total, and date be read from the receipt image?"
+    }
+  }
+}
