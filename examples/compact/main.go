@@ -48,4 +48,8 @@ func main() {
 		fmt.Printf("%-5s %-8s needed %.2f  %.40s\n", d.Action, d.Cause, d.Scores.Needed, transcript[d.Index].Text)
 	}
 	fmt.Printf("%d -> %d bytes, %d request(s)\n", res.Before, res.After, res.Requests)
+	fmt.Println("retained context:")
+	for _, text := range res.Apply(transcript) {
+		fmt.Println(text)
+	}
 }

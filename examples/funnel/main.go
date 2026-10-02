@@ -1,5 +1,5 @@
 // Command funnel picks tools for a request in two stages: skim every tool's
-// one-line summary in one request, then re-check the two best with their
+// one-line summary in one request, then re-check up to two survivors with their
 // full descriptions, one request each.
 //
 //	TYPESAFE_API_KEY=... go run ./examples/funnel
@@ -25,12 +25,12 @@ var tools = []tool{
 	{"notes", "Personal notes", "Search and edit the user's plain-text notes."},
 }
 
-func fits(it funnel.Item[tool], stage string) float64 {
+func fits(it funnel.Item[tool], stage string) (float64, error) {
 	a, err := funnel.AnswerAs[*decide.NoulAnswer](it, stage, "fits")
 	if err != nil {
-		log.Fatal(err)
+		return 0, err
 	}
-	return a.Noul
+	return a.Noul, nil
 }
 
 func main() {
@@ -47,8 +47,11 @@ func main() {
 				return map[string]decide.Question{"fits": decide.Noul(
 					"Is the tool '" + it.Value.name + ": " + it.Value.summary + "' needed for this request?")}, nil
 			}, 0),
-			Keep:  func(it funnel.Item[tool]) (bool, error) { return fits(it, "skim") >= 0.3, nil },
-			Rank:  func(it funnel.Item[tool]) (float64, error) { return fits(it, "skim"), nil },
+			Keep: func(it funnel.Item[tool]) (bool, error) {
+				p, err := fits(it, "skim")
+				return p >= 0.3, err
+			},
+			Rank:  func(it funnel.Item[tool]) (float64, error) { return fits(it, "skim") },
 			Limit: 2,
 		},
 		funnel.Stage[tool]{
@@ -58,7 +61,10 @@ func main() {
 				req.Questions["fits"] = decide.Noul("Is this tool needed to complete the request?")
 				return req, nil
 			}),
-			Keep: func(it funnel.Item[tool]) (bool, error) { return fits(it, "check") >= 0.5, nil },
+			Keep: func(it funnel.Item[tool]) (bool, error) {
+				p, err := fits(it, "check")
+				return p >= 0.5, err
+			},
 		})
 	if err != nil {
 		log.Fatal(err)
@@ -69,7 +75,7 @@ func main() {
 			fmt.Printf("%-8s dropped at %s (%s) %v\n", it.Value.name, it.Drop.Stage, it.Drop.Cause, it.Drop.Err)
 			continue
 		}
-		fmt.Printf("%-8s kept: skim %.2f, check %.2f\n", it.Value.name, fits(it, "skim"), fits(it, "check"))
+		fmt.Printf("%-8s kept\n", it.Value.name)
 	}
 	for _, r := range res.Stages {
 		fmt.Printf("stage %-5s in %d, out %d, failed %d, %d input tokens\n", r.Name, r.In, r.Out, r.Failed, r.InputTokens)

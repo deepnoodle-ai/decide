@@ -1,14 +1,12 @@
-// Command calibrate asks the model whether each of ten labeled messages is
-// urgent, fits an allow cutoff on the first half, and reports how that
-// cutoff does on the second half.
+// Command calibrate fits a cutoff on saved, labeled answers and checks it
+// on separate held-out cases. It runs offline with invented fixture data.
 //
-//	TYPESAFE_API_KEY=... go run ./examples/calibrate
+//	go run ./examples/calibrate
 //
-// Ten cases illustrate the API; they are too few to choose a real cutoff.
+// Six cases illustrate the API; they are too few to choose a real cutoff.
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -18,62 +16,49 @@ import (
 	"github.com/deepnoodle-ai/decide/patterns/gate"
 )
 
-var messages = []struct{ text, urgent string }{
-	{"Production is down.", "true"},
-	{"Can you add dark mode?", "false"},
-	{"Payments fail for every user.", "true"},
-	{"Thanks for the fix.", "false"},
-	{"I prefer the old menu.", "false"},
-	{"The API returns 500 for every request.", "true"},
-	{"Question about my invoice.", "false"},
-	{"Our data export leaked customer emails.", "true"},
-	{"Love the new release!", "false"},
-	{"Nobody on the team can log in.", "true"},
-}
-
 func main() {
-	client, err := decide.NewClient()
+	question, err := json.Marshal(decide.Noul("Does this message need an immediate response?"))
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	question := decide.Noul("Does this message need an immediate response?")
-	var cases []calibrate.Case
-	var model string
-	for i, m := range messages {
-		req := decide.NewRequest(m.text)
-		urgent := decide.Ask(req, "urgent", question)
-		resp, err := client.SystemOne(context.Background(), req)
-		if err != nil {
-			log.Fatal(err)
-		}
-		a, err := urgent.From(resp)
-		if err != nil {
-			log.Fatal(err)
-		}
-		state, _ := json.Marshal(m.text)
-		answer, _ := json.Marshal(a)
-		cases = append(cases, calibrate.Case{
-			ID: fmt.Sprint(i), State: state, Answer: answer, Label: m.urgent,
-		})
-		model = resp.Model
-	}
-
-	questionJSON, _ := json.Marshal(question)
 	fit := calibrate.Dataset{
-		QuestionKey: "urgent", Question: questionJSON, Model: model, Cases: cases[:5],
+		QuestionKey: "urgent", Question: question, Model: "fixture-model",
+		Cases: []calibrate.Case{
+			fixture("f1", "Production is down.", 0.9, "true"),
+			fixture("f2", "Can you add dark mode?", 0.8, "false"),
+			fixture("f3", "Payments fail for every user.", 0.7, "true"),
+		},
 	}
-	heldout := fit
-	heldout.Cases = cases[5:]
+	heldout := fit // same question and model, different cases
+	heldout.Cases = []calibrate.Case{
+		fixture("h1", "Nobody can log in.", 0.95, "true"),
+		fixture("h2", "Question about my invoice.", 0.92, "false"),
+		fixture("h3", "Love the new release!", 0.2, "false"),
+	}
 
-	// Allow only when no fit case above the cutoff was mislabeled.
+	// Require at least one allowed fit case and no errors among allowed fit cases.
+	// Held-out errors can still occur; fitting does not guarantee future accuracy.
 	a, err := calibrate.Fit(fit, heldout, calibrate.Config{
 		Measure: gate.MeasureNoul, NoulTarget: "true", MaxError: 0, MinAllowed: 1, ECEBins: 5,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("model %s: allow when noul >= %.2f\n", a.Model, a.Cutoff)
-	fmt.Printf("held-out: %d of %d allowed, %d wrong\n",
+	fmt.Printf("flag urgent when noul >= %.2f\n", a.Cutoff)
+	fmt.Printf("held-out: %d of %d flagged, %d wrong\n",
 		a.Baseline.Allowed, a.Baseline.Count, a.Baseline.Errors)
+}
+
+// In real use, save State and Answer from requests to one resolved model
+// version, then obtain labels independently of the model's predictions.
+func fixture(id, text string, p float64, label string) calibrate.Case {
+	state, err := json.Marshal(text)
+	if err != nil {
+		log.Fatal(err)
+	}
+	answer, err := json.Marshal(&decide.NoulAnswer{Noul: p})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return calibrate.Case{ID: id, State: state, Answer: answer, Label: label}
 }

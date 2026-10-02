@@ -97,11 +97,9 @@ evidence. They work with the shared client API rather than a specific model.
 | [`patterns/funnel`](patterns/funnel) | Screen items in stages while retaining answers and drop reasons. | [`examples/funnel`](examples/funnel) |
 | [`patterns/compact`](patterns/compact) | Keep whole context segments or supplied short forms under a budget. | [`examples/compact`](examples/compact) |
 
-Run the email selection example with `TYPESAFE_API_KEY` set:
-
-```sh
-go run ./examples/pick
-```
+See the [example guide](examples/README.md) for run commands, request counts,
+and the pattern each program demonstrates. Calibration runs offline; the
+other command examples require `TYPESAFE_API_KEY`.
 
 ## Choose a backend
 
