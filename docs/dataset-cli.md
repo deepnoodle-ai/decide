@@ -178,9 +178,10 @@ For a codebase, first inspect the selection and then bound your first experiment
 
 ```sh
 decide sources list ./repo --include '**/*.{go,ts,tsx}' --exclude '**/*_test.go'
-decide plan builtin/code-risk ./repo --include '**/*.{go,ts,tsx}' --limit 5
+decide plan builtin/code-risk ./repo --include '**/*.{go,ts,tsx}' \
+  --exclude '**/*_test.go' --limit 5
 decide run builtin/code-risk ./repo --include '**/*.{go,ts,tsx}' \
-  --workers 4 --max-requests 100 --snapshot copy
+  --exclude '**/*_test.go' --workers 4 --max-requests 100 --snapshot copy
 ```
 
 The attempt ceiling is a deliberate stopping point, not a record limit. Reopen
