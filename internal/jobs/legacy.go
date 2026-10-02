@@ -1,7 +1,6 @@
 package jobs
 
 import (
-	"bufio"
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
 	"errors"
@@ -24,18 +23,26 @@ func readEvidence(id, dir string, fn func(Result) error) error {
 	return DecodeEvidence(f, fn)
 }
 
-// DecodeEvidence reads result JSONL or legacy envelopes using the same validation as inspection and collection patterns.
+// DecodeEvidence reads a stream of result JSON values or legacy envelopes using
+// the same validation as inspection and collection patterns. It retains one
+// record at a time. A record can exceed the input item limit because it contains
+// original data and prepared state for every stage; consumers bound collections.
 func DecodeEvidence(reader io.Reader, fn func(Result) error) error {
 	var e error
-	sc := bufio.NewScanner(reader)
-	sc.Buffer(make([]byte, 4096), 16<<20)
+	dec := json.NewDecoder(reader)
 	i := 0
-	for sc.Scan() {
+	for {
+		var raw json.RawMessage
+		if e = dec.Decode(&raw); errors.Is(e, io.EOF) {
+			return nil
+		} else if e != nil {
+			return fmt.Errorf("record %d: %w", i+1, e)
+		}
 		var probe struct {
 			Version int `json:"typesafe_cli"`
 		}
-		if e = jsonv2.Unmarshal(sc.Bytes(), &probe); e != nil {
-			return fmt.Errorf("line %d: %w", i+1, e)
+		if e = jsonv2.Unmarshal(raw, &probe); e != nil {
+			return fmt.Errorf("record %d: %w", i+1, e)
 		}
 		var r Result
 		if probe.Version != 0 {
@@ -58,7 +65,7 @@ func DecodeEvidence(reader io.Reader, fn func(Result) error) error {
 					Result         json.RawMessage            `json:"result"`
 				} `json:"runs"`
 			}
-			if e = jsonv2.Unmarshal(sc.Bytes(), &old); e != nil {
+			if e = jsonv2.Unmarshal(raw, &old); e != nil {
 				return e
 			}
 			if old.ID == "" || len(old.Runs) == 0 || len(old.Data) == 0 {
@@ -82,7 +89,7 @@ func DecodeEvidence(reader io.Reader, fn func(Result) error) error {
 				r.Error = r.Stages[len(r.Stages)-1].Error
 			}
 		} else {
-			if e = jsonv2.Unmarshal(sc.Bytes(), &r); e != nil {
+			if e = jsonv2.Unmarshal(raw, &r); e != nil {
 				return e
 			}
 			if r.Version != 1 {
@@ -103,5 +110,4 @@ func DecodeEvidence(reader io.Reader, fn func(Result) error) error {
 		}
 		i++
 	}
-	return sc.Err()
 }

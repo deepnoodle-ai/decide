@@ -119,9 +119,12 @@ decide run builtin/receipt-quality ./scans \
 
 Quote include/exclude globs so Decide evaluates them relative to each source
 root. Globs support `**` and braces. Exclusions win. Directory traversal honors
-ancestor and nested `.gitignore` and `.ignore` rules. Symlinks are skipped unless
+ancestor and nested `.gitignore`, `.ignore`, and `.decideignore` rules
+(in that order within each directory). Symlinks are skipped unless
 `--follow-symlinks` is supplied; cycles are rejected or skipped. `.git` is not a
-dataset. Use `--no-ignore` to override ignore rules explicitly.
+dataset. Directory walks skip non-regular entries, such as FIFOs, sockets, and
+devices; supplying one directly returns an error before opening it. Ignore files
+must also be regular files. Use `--no-ignore` to override ignore rules explicitly.
 
 `--format auto|json|jsonl|text|lines|image` overrides interpretation. `text` means
 one whole file; `lines` means individual lines. A JSON array remains one item
@@ -307,8 +310,12 @@ Interrupted preparation is marked `preparation-incomplete` and cannot execute-re
 restart it from the original sources. This is essential for unread stdin. Once
 prepared, stdin and remote snapshots are durable. `--snapshot refs` verifies local
 source digests on resume; `--snapshot copy` uses the retained inputs independently.
-Both retain consumed inputs on disk. Images are assets addressed by digest instead
-of repeated base64 payloads in every output record.
+Both retain consumed inputs on disk. Saved evidence is decoded one record at a
+time, without applying the input-item byte limit to the whole result. Original
+data plus prepared states for multiple stages can make a result much larger than
+its input. Reading one such record requires memory proportional to that record;
+collection and workbench retention budgets still apply. Images are assets
+addressed by digest instead of repeated base64 payloads in every output record.
 
 `--order completion` is the dataset default. `--order input` exports persisted
 results in input order after execution, keeping the reorder buffer off the heap.

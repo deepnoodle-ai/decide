@@ -358,6 +358,11 @@ func walkDirectory(ctx context.Context, root, dir string, opts Options, rules []
 			}
 			continue
 		}
+		// Devices, sockets and pipes are not dataset items. In particular,
+		// opening a FIFO for reading can wait indefinitely for a writer.
+		if !info.Mode().IsRegular() {
+			continue
+		}
 		if len(opts.Include) > 0 && !matches(opts.Include, rel) {
 			continue
 		}
@@ -383,7 +388,7 @@ func readFile(ctx context.Context, path, relative string, opts Options, seen map
 	if seen[path] || covered(path, seen) {
 		return nil
 	}
-	f, err := os.Open(path)
+	f, err := openRegularFile(path)
 	if err != nil {
 		return err
 	}
@@ -472,8 +477,8 @@ func digest(data []byte) string { sum := sha256.Sum256(data); return hex.EncodeT
 
 func directoryRules(dir string, max int64) ([]ignoreRule, error) {
 	var out []ignoreRule
-	for _, name := range []string{".gitignore", ".decideignore"} {
-		f, err := os.Open(filepath.Join(dir, name))
+	for _, name := range []string{".gitignore", ".ignore", ".decideignore"} {
+		f, err := openRegularFile(filepath.Join(dir, name))
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}

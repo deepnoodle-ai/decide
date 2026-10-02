@@ -385,3 +385,30 @@ func TestManifestMultipleSelectionsOfSameDirectory(t *testing.T) {
 		t.Fatalf("manifest selections %+v", items)
 	}
 }
+
+func TestIgnoreFilesApplyAncestorNestedAndNoIgnoreRules(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repo, ".git"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	write(t, repo, ".ignore", "ancestor.txt\n")
+	write(t, repo, "tree/ancestor.txt", "ancestor excluded")
+	write(t, repo, "tree/nested/.ignore", "nested.txt\n!keep.txt\n")
+	write(t, repo, "tree/nested/nested.txt", "nested excluded")
+	write(t, repo, "tree/nested/keep.txt", "included")
+	write(t, repo, "tree/plain.txt", "included")
+	o := DefaultOptions()
+	o.Sources = []string{filepath.Join(repo, "tree")}
+	o.Include = []string{"**/*.txt"}
+	var paths []string
+	for _, item := range collect(t, o, nil) {
+		paths = append(paths, item.Source.Path)
+	}
+	if !reflect.DeepEqual(paths, []string{"nested/keep.txt", "plain.txt"}) {
+		t.Fatalf("ignore selection: %v", paths)
+	}
+	o.NoIgnore = true
+	if items := collect(t, o, nil); len(items) != 4 {
+		t.Fatalf("--no-ignore selected %d items, want 4", len(items))
+	}
+}

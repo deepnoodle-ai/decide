@@ -486,3 +486,68 @@ func TestCloudflareConnectionDefaultsFrozen(t *testing.T) {
 		t.Fatalf("%+v %v", normalizedAgain, e)
 	}
 }
+
+func TestExportAndDecodeEvidenceAboveInputItemLimit(t *testing.T) {
+	o := testOptions(t)
+	o.SkillDefinition.State = "file"
+	o.SkillDefinition.Inputs = []string{"text"}
+	file := filepath.Join(t.TempDir(), "large.txt")
+	// Each item is below the default 16 MiB limit, but original data plus
+	// prepared file state produces a saved record above that limit.
+	content := strings.Repeat("x", 10<<20)
+	if err := os.WriteFile(file, []byte(content), 0600); err != nil {
+		t.Fatal(err)
+	}
+	o.Sources.Sources = []string{file}
+	o.Sources.Format = "text"
+	o.NewClient = serverClient(t, func(w http.ResponseWriter, r *http.Request) { okay(w) })
+	sum, err := Run(t.Context(), o, nil, nil)
+	if err != nil || sum.Completed != 1 {
+		t.Fatalf("run: %+v %v", sum, err)
+	}
+	var exported bytes.Buffer
+	if err := Export(sum.ID, o.RunDir, &exported); err != nil {
+		t.Fatal(err)
+	}
+	if exported.Len() <= 16<<20 {
+		t.Fatalf("test record too small: %d", exported.Len())
+	}
+	count := 0
+	if err := DecodeEvidence(&exported, func(r Result) error {
+		count++
+		var data string
+		if err := json.Unmarshal(r.Data, &data); err != nil || data != content {
+			t.Fatalf("original data did not round trip: %v", err)
+		}
+		var state struct {
+			Content string `json:"content"`
+		}
+		if len(r.Stages) != 1 {
+			t.Fatalf("stages=%d", len(r.Stages))
+		}
+		if err := json.Unmarshal(r.Stages[0].State, &state); err != nil || state.Content != content {
+			t.Fatalf("prepared state did not round trip: %v", err)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("decoded=%d", count)
+	}
+}
+
+func TestDecodeEvidenceRejectsTruncatedAndDuplicateRecords(t *testing.T) {
+	for _, text := range []string{
+		`{"decide_run":1,"id":"a","status":"complete"`,
+		`{"decide_run":1,"id":"a","id":"b","status":"complete"}`,
+	} {
+		if err := DecodeEvidence(strings.NewReader(text), nil); err == nil {
+			t.Fatalf("accepted invalid evidence: %s", text)
+		}
+	}
+	stop := errors.New("stop after first record")
+	if err := DecodeEvidence(strings.NewReader("{\"decide_run\":1,\"id\":\"a\",\"status\":\"complete\"}\ninvalid"), func(Result) error { return stop }); !errors.Is(err, stop) {
+		t.Fatalf("decoder read past callback stop: %v", err)
+	}
+}
