@@ -237,7 +237,20 @@ func (p *jsParser) statement(s, e, depth int, prefix string, parent int) {
 				p.importLines(s, e)
 				return
 			}
-		case "interface", "enum", "namespace", "module", "type":
+		case "namespace", "module":
+			// A namespace holds functions; a module "name" only declarations.
+			if n := p.toks[k+1]; n.kind == 'n' || n.kind == 'k' {
+				for j := k + 1; j <= e; j++ {
+					if p.toks[j].depth == depth && p.is(j, "{") {
+						p.statements(j+1, p.close(j), depth+1, prefix+p.text(k+1, j)+".", t.line)
+						return
+					}
+				}
+			}
+			if !p.is(k+1, ".") && !p.is(k+1, "=") && !p.is(k+1, "(") {
+				return
+			}
+		case "interface", "enum", "type":
 			// A declaration, unless the word is a name: "module.exports".
 			if !p.is(k+1, ".") && !p.is(k+1, "=") && !p.is(k+1, "(") {
 				return

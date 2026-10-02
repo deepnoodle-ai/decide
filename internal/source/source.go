@@ -557,7 +557,7 @@ func structureOf(path string, lines []string, md bool) structure {
 		return markdownStructure(lines)
 	}
 	if lang := languageOf(path); lang != nil {
-		if c, err := lang.scan(strings.Join(lines, "\n")); err == nil {
+		if c, err := lang.find(strings.Join(lines, "\n")); err == nil {
 			return codeStructure(lines, c)
 		}
 	}
@@ -569,7 +569,7 @@ func structureOf(path string, lines []string, md bool) structure {
 func (w *walker) functions(label, data string, lang *language, explicit bool) error {
 	data = strings.ReplaceAll(data, "\r\n", "\n")
 	lines := strings.Split(data, "\n")
-	c, err := lang.scan(data)
+	c, err := lang.find(data)
 	if err != nil {
 		w.lost = append(w.lost, label)
 		return w.text(label, data, false, skill.EachFile, explicit)

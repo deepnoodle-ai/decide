@@ -183,7 +183,7 @@ func (a *App) run(c *cli.Context) error {
 		return err
 	}
 	fmt.Fprintf(c.Stderr(), "%s\n", dim(fmt.Sprintf("Running %s on %s · %s %s", s.Name, found, provider, model)))
-	if hint := eachHint(found, c.String("each") != "", paths); hint != "" {
+	if hint := eachHint(found, c.String("each") != "", s.Each, paths); hint != "" {
 		fmt.Fprintln(c.Stderr(), dim(hint))
 	}
 	fmt.Fprintln(c.Stderr())
@@ -386,7 +386,7 @@ func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source
 	if total > shown {
 		fmt.Fprintf(w, "  %s\n", dim(fmt.Sprintf("… and %d more", total-shown)))
 	}
-	if hint := eachHint(found, c.String("each") != "", paths); hint != "" {
+	if hint := eachHint(found, c.String("each") != "", s.Each, paths); hint != "" {
 		fmt.Fprintf(w, "\n%s\n", dim(hint))
 	}
 	fmt.Fprintf(w, "\nand ask each one:\n\n")
@@ -531,15 +531,18 @@ func (t *tally) String() string {
 	return s
 }
 
-// eachHint points out --each when the run did not choose the unit, so splitting
-// a file or not is never a surprise.
-func eachHint(t *tally, chosen bool, paths []string) string {
+// eachHint points out --each when the data chose the unit, so splitting
+// a file or not is never a surprise. For code, it points out --each
+// function even when the skill chose whole files.
+func eachHint(t *tally, chosen bool, skillEach string, paths []string) string {
 	if chosen || len(paths) == 0 || slices.Equal(paths, []string{"-"}) {
 		return ""
 	}
 	switch {
 	case t.code > 0 && t.code*2 >= t.units[skill.EachFile]:
 		return "Each file is one item. To judge each function instead, add --each function."
+	case skillEach != "":
+		return ""
 	case t.units[skill.EachFile] > 0:
 		return "Each file is one item. To judge each section or paragraph instead, add --each section or --each paragraph."
 	case t.units[skill.EachLine] > 0:

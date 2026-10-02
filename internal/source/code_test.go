@@ -16,7 +16,7 @@ import (
 // line when comments come first, as "(from N)".
 func units(t *testing.T, path, src string) []string {
 	t.Helper()
-	c, err := languageOf(path).scan(src)
+	c, err := languageOf(path).find(src)
 	if err != nil {
 		t.Fatalf("%s: %v", path, err)
 	}
@@ -93,10 +93,12 @@ class Store(Base):
 
 
 x = 1
-if __name__ == "__main__":
-    def main(): pass
+try:
+    import fast
+except ImportError:
+    def fast(): pass
 `
-	want := []string{"load 6-15 (from 5)", "Store.__init__ 21-23", "Store.save 25-26", "Store.Meta.ordering 29-29"}
+	want := []string{"load 6-15 (from 5)", "Store.__init__ 21-23", "Store.save 25-26", "Store.Meta.ordering 29-29", "fast 36-36"}
 	if got := units(t, "a.py", src); !reflect.DeepEqual(got, want) {
 		t.Fatalf("units:\n%q\nwant\n%q", got, want)
 	}
@@ -136,10 +138,17 @@ func TestJavaScriptFunctions(t *testing.T) {
 		"})\n" + // 31
 		"function result(): { a: string }[] {\n" + // 32
 		"  return <p>Don't {\"}\"} stop</p>\n" + // 33
-		"}\n" // 34
+		"}\n" + // 34
+		"namespace Util.Text {\n" + // 35
+		"  export function trim(s: string) { return s }\n" + // 36
+		"}\n" + // 37
+		"declare module \"x\" {\n" + // 38
+		"  function y(): void\n" + // 39
+		"}\n" // 40
 	want := []string{
 		"over 7-9", "Widget.handler 14-16", "Widget.name 18-19", "Widget.#hidden 20-20",
 		"Widget.[Symbol.iterator] 21-21", "add 25-25", "module.exports 28-28", `app.get "/users" 29-31`, "result 32-34",
+		"Util.Text.trim 36-36",
 	}
 	if got := units(t, "a.tsx", src); !reflect.DeepEqual(got, want) {
 		t.Fatalf("units:\n%q\nwant\n%q", got, want)
@@ -233,7 +242,7 @@ func TestScannersNoticeWhenLost(t *testing.T) {
 		"A.java": "class A { void f() { }",
 		"a.go":   "package a\nfunc f( {}\n",
 	} {
-		if _, err := languageOf(path).scan(src); !errors.Is(err, errLost) {
+		if _, err := languageOf(path).find(src); !errors.Is(err, errLost) {
 			t.Errorf("%s: err = %v", path, err)
 		}
 	}
@@ -328,4 +337,43 @@ func TestLargeCodeFilesBreakBetweenFunctions(t *testing.T) {
 	if want := []string{"1-7 one, two", "10-11 three"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("parts = %v, want %v", got, want)
 	}
+}
+
+// fixtures are sources in each language, for tests that break them.
+var fixtures = map[string]string{
+	"a.go":   "package a\n\nimport \"os\"\n\n// F runs.\nfunc (s *S[T]) F() {\n\tos.Exit(1)\n}\n\nvar h = func() {}\n",
+	"a.py":   "import os\n\n@dec\nclass A(B):\n    \"\"\"Doc.\"\"\"\n    async def m(self, a={}) -> None:\n        x = f\"{a!r}\"\n\ndef g(\n    x,\n) -> int:\n    return 1\n",
+	"a.tsx":  "import x from \"x\"\n@dec()\nexport default class extends B<{ a: 1 }> {\n  #p = () => {}\n  get x(): T { return `${a}` }\n}\ndescribe(\"d\", () => {\n  it(\"t\", async () => { await f(/}/) })\n})\nnamespace N { export const f = () => <p>Don't</p> }\n",
+	"A.java": "package p;\nimport q.R;\n@Ann(1)\npublic class A<T> {\n  @Test\n  <R> List<R> m() throws E { return null; }\n  enum K { X { void y() {} }; void k() {} }\n  @interface N { String[] v() default {}; }\n  record P(int x) { P { } }\n}\n",
+}
+
+func TestUnfinishedFilesNeverFail(t *testing.T) {
+	for path, src := range fixtures {
+		n := 0
+		for i := 0; i <= len(src); i++ {
+			c, err := languageOf(path).find(src[:i])
+			if err != nil && !errors.Is(err, errLost) {
+				t.Fatalf("%s cut at %d: %v", path, i, err)
+			}
+			n += len(c.fns)
+		}
+		if n == 0 {
+			t.Errorf("%s: found no functions in any prefix", path)
+		}
+	}
+}
+
+func FuzzFunctions(f *testing.F) {
+	for path, src := range fixtures {
+		f.Add(path[strings.LastIndex(path, "."):], src)
+	}
+	f.Fuzz(func(t *testing.T, ext, src string) {
+		lang := languageOf("x" + ext)
+		if lang == nil {
+			return
+		}
+		if _, err := lang.find(src); err != nil && !errors.Is(err, errLost) {
+			t.Fatal(err)
+		}
+	})
 }

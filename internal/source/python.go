@@ -33,6 +33,12 @@ func pyFunctions(src string) (code, error) {
 	return p.code, nil
 }
 
+// compound are the statements whose blocks can define functions.
+var compound = map[string]bool{
+	"if": true, "elif": true, "else": true, "try": true, "except": true, "finally": true,
+	"with": true, "for": true, "while": true, "async": true,
+}
+
 type pyLine struct {
 	tok    int // the index of its first token
 	indent int
@@ -78,6 +84,9 @@ func (p *pyParser) block(a, b int, prefix string, parent int) {
 			p.fns = append(p.fns, p.fn(prefix+p.toks[k+1].val, start, last, parent))
 		case first.val == "class":
 			p.block(i+1, j, prefix+p.toks[k+1].val+".", first.line)
+		case first.kind == 'k' && compound[first.val]:
+			// Functions defined under if TYPE_CHECKING:, in a try, and so on.
+			p.block(i+1, j, prefix, parent)
 		case prefix == "" && (first.val == "import" || first.val == "from") && first.kind == 'k':
 			for n := first.line; n <= p.endLine(last); n++ {
 				p.imports = append(p.imports, n)

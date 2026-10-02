@@ -99,6 +99,32 @@ func (c code) context(lines []string, f fn) string {
 	return strings.TrimRight(b.String(), "\n")
 }
 
+// find finds the functions in a source file. A scanner that fails, or
+// finds lines outside the file, has lost track of its structure: the file
+// may be unfinished or not parse.
+func (l *language) find(src string) (c code, err error) {
+	defer func() {
+		if recover() != nil {
+			c, err = code{}, errLost
+		}
+	}()
+	if c, err = l.scan(src); err != nil {
+		return code{}, errLost
+	}
+	n := strings.Count(src, "\n") + 1
+	for _, f := range c.fns {
+		if f.lead < 1 || f.lead > f.start || f.start > f.end || f.end > n || f.parent > n {
+			return code{}, errLost
+		}
+	}
+	for _, i := range c.imports {
+		if i < 1 || i > n {
+			return code{}, errLost
+		}
+	}
+	return c, nil
+}
+
 // codeStructure breaks a source file between functions, and names each
 // part by the function it is in. A function too large for one part is cut
 // after blank lines.
