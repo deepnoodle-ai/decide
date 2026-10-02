@@ -9,7 +9,14 @@
 
 **Ask typed questions about your data. Get answers with probabilities.**
 
-[![decide triaging and routing five support tickets in the terminal](https://files.deepnoodle.ai/images/decide/decide-cli-demo-2026-10-02-80col.gif)](https://files.deepnoodle.ai/videos/decide/decide-cli-demo-2026-10-02-80col.mp4)
+[![decide triaging and routing three support tickets in the terminal](https://files.deepnoodle.ai/images/decide/decide-cli-demo-2026-10-02-short.gif)](https://files.deepnoodle.ai/videos/decide/decide-cli-demo-2026-10-02-short.mp4)
+
+```sh
+brew install deepnoodle-ai/tap/decide
+```
+
+Or `go install github.com/deepnoodle-ai/decide/cmd/decide@latest`, or
+download a binary from the [releases](https://github.com/deepnoodle-ai/decide/releases).
 
 Decide asks yes-or-no (`noul`), multiple-choice (`choice`), and scale
 (`score`) questions about files, folders, JSON records, and text. Each
@@ -33,13 +40,6 @@ Clef's weights are [open on Hugging Face](https://huggingface.co/Cloudflare/clef
 under Apache 2.0.
 
 ## Try it
-
-```sh
-brew install deepnoodle-ai/tap/decide
-```
-
-Or `go install github.com/deepnoodle-ai/decide/cmd/decide@latest`, or
-download a binary from the [releases](https://github.com/deepnoodle-ai/decide/releases).
 
 **With Jev,** the default, set your TypeSafe API key:
 
