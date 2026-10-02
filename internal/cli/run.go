@@ -373,7 +373,7 @@ func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source
 	w := c.Stdout()
 	fmt.Fprintf(w, "%s would look at %s:\n\n", bold(s.Name), found)
 	for _, it := range items {
-		line := "  " + it.Label
+		line := "  " + clean(it.Label)
 		if preview := previewOf(it.Value, 60); preview != "" {
 			line += "  " + dim(preview)
 		}

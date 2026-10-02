@@ -123,9 +123,9 @@ func (p *printer) item(it item) error {
 		}
 		line := p.summary(a, v)
 		if w := it.where[q.Key]; w != "" {
-			line += "  " + dim(w)
+			line += "  " + dim(clean(w))
 		}
-		fmt.Fprintf(&b, "%s%-*s  %s\n", gutter, p.width, q.Key, line)
+		fmt.Fprintf(&b, "%s%-*s  %s\n", gutter, p.width, clean(q.Key), line)
 		if p.details {
 			p.distribution(&b, a)
 		}
@@ -157,7 +157,7 @@ func (p *printer) summary(a answer, v verdict) string {
 		ans, figure = track(a.Score, top, v), v.style(fmt.Sprintf("%.1f of %d", a.Score, top))
 		note = legend(a, int(math.Round(a.Score)))
 	default:
-		return value("(answer type " + a.Type + ")")
+		return value("(answer type " + clean(a.Type) + ")")
 	}
 	s := pad(ans, p.answers) + "  " + figure
 	if note != "" {

@@ -134,7 +134,7 @@ func (a *App) runsView(c *cli.Context) error {
 	}
 	if !c.Bool("json") {
 		fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Run %s · %s on %s · %s",
-			r.ID, r.Skill.Name, strings.Join(r.Sources, ", "), humanize.Time(r.Created))))
+			r.ID, r.Skill.Name, clean(strings.Join(r.Sources, ", ")), humanize.Time(r.Created))))
 	}
 	write := itemWriter(c, r.Skill)
 	for _, it := range group(results, marksOf(r.Skill)) {
