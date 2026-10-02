@@ -45,7 +45,7 @@ previews the selected items and prepared state without model calls.
 - Configured compositions retain stage results and distinguish drops from failures.
 - Cloudflare images are validated before submission and are retained as run assets.
 - Provider selection does not leak TypeSafe environment defaults into Cloudflare.
-- Batch commands never prompt. Dataset runs default to readable summaries;
+- Batch commands never prompt. Dataset runs default to readable per-item decisions and summaries;
   explicit `--jsonl` emits full evidence with diagnostics on stderr.
 
 ### Recover and inspect

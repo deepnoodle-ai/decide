@@ -11,6 +11,7 @@ import (
 )
 
 type Options struct {
+	Color              string                         `json:"-"`
 	JSONL              bool                           `json:"-"`
 	Details            bool                           `json:"-"`
 	Progress           string                         `json:"progress,omitempty"`

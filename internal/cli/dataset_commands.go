@@ -67,7 +67,8 @@ func bindExecution(fs *flag.FlagSet, o *jobs.Options, params *repeated) {
 	fs.StringVar(&o.RunDir, "run-dir", o.RunDir, "durable run directory")
 	fs.StringVar(&o.Output, "output", o.Output, "write full result JSONL to a new file")
 	fs.BoolVar(&o.JSONL, "jsonl", false, "emit full result JSONL to stdout (run)")
-	fs.BoolVar(&o.Details, "details", false, "show readable per-item answers (run)")
+	fs.BoolVar(&o.Details, "details", false, "show confidence and probability distributions (run)")
+	fs.StringVar(&o.Color, "color", "auto", "auto, always, or never (human run output)")
 	fs.StringVar(&o.Progress, "progress", "auto", "stderr summaries: auto, plain, or none")
 }
 
@@ -227,6 +228,9 @@ func (a *App) datasetOptions(command string, args []string) (jobs.Options, int, 
 	if o.Progress != "auto" && o.Progress != "plain" && o.Progress != "none" {
 		return o, a.fail(errors.New("progress must be auto, plain, or none")), false
 	}
+	if o.Color != "auto" && o.Color != "always" && o.Color != "never" {
+		return o, a.fail(errors.New("color must be auto, always, or never")), false
+	}
 	if o.JSONL && o.Details {
 		return o, a.fail(errors.New("choose --details or --jsonl, not both")), false
 	}
@@ -278,14 +282,15 @@ func (a *App) runDataset(ctx context.Context, command string, args []string) int
 		defer file.Close()
 		w = file
 	}
+	printer := newResultPrinter(a.Out, o.Color, o.Details)
 	summary, e := jobs.Run(ctx, o, a.In, func(r jobs.Result) error {
 		if file != nil || o.JSONL {
 			if err := writeJSON(w, r); err != nil {
 				return err
 			}
 		}
-		if o.Details {
-			return writeResultDetails(a.Out, r)
+		if !o.JSONL {
+			return printer.result(r)
 		}
 		return nil
 	})
@@ -296,7 +301,7 @@ func (a *App) runDataset(ctx context.Context, command string, args []string) int
 		fmt.Fprintf(a.Err, "Evidence: %s\nNext: decide inspect %s\n", summary.Path, summary.ID)
 	}
 	if !o.JSONL && summary.ID != "" {
-		if err := writeRunSummary(a.Out, summary); err != nil {
+		if err := printer.summary(summary); err != nil {
 			return a.fail(err)
 		}
 	}
@@ -560,6 +565,8 @@ func (a *App) runRuns(ctx context.Context, args []string) int {
 	fs.StringVar(&o.RunDir, "run-dir", o.RunDir, "durable run directory")
 	fs.StringVar(&o.Output, "output", "", "export to a new file")
 	fs.BoolVar(&o.JSONL, "jsonl", false, "emit full result JSONL (resume)")
+	fs.BoolVar(&o.Details, "details", false, "show confidence and distributions (resume)")
+	fs.StringVar(&o.Color, "color", "auto", "auto, always, or never (resume)")
 	fs.IntVar(&o.Workers, "workers", o.Workers, "resume request concurrency")
 	fs.IntVar(&o.MaxRequests, "max-requests", o.MaxRequests, "resume total request ceiling")
 	operands, e := parseOperands(fs, args[1:])
@@ -628,6 +635,13 @@ func (a *App) runRuns(ctx context.Context, args []string) int {
 		}
 		return a.offlineFailure(jobs.Export(id, o.RunDir, w))
 	case "resume":
+		if o.Color != "auto" && o.Color != "always" && o.Color != "never" {
+			return a.fail(errors.New("color must be auto, always, or never"))
+		}
+		if o.JSONL && o.Details {
+			return a.fail(errors.New("choose --details or --jsonl, not both"))
+		}
+		printer := newResultPrinter(a.Out, o.Color, o.Details)
 		o.NewClient = a.NewClient // Only explicitly supplied execution overrides are forwarded.
 		visited := map[string]bool{}
 		fs.Visit(func(f *flag.Flag) { visited[f.Name] = true })
@@ -641,12 +655,12 @@ func (a *App) runRuns(ctx context.Context, args []string) int {
 			if o.JSONL {
 				return writeJSON(a.Out, r)
 			}
-			return nil
+			return printer.result(r)
 		})
 		if o.JSONL {
 			fmt.Fprintf(a.Err, "Run %s: %s · %d complete · %d failed · %d uncertain\n", s.ID, s.Status, s.Completed, s.Failed, s.Uncertain)
 		} else if s.ID != "" {
-			if err := writeRunSummary(a.Out, s); err != nil {
+			if err := printer.summary(s); err != nil {
 				return a.fail(err)
 			}
 		}

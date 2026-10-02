@@ -329,18 +329,24 @@ addressed by digest instead of repeated base64 payloads in every output record.
 results in input order after execution, keeping the reorder buffer off the heap.
 `--rate-limit` bounds attempt admission per second; `--on-error stop` cancels further
 work after failure. `--output FILE` requires a new file and refuses to overwrite an
-existing source or export. By default, `run` and `runs resume` print a short summary with counts, the saved
-evidence path, and commands to inspect or export it. They do not print original
-inputs, questions, or response metadata. This behavior is consistent in terminals
-and pipes. Use `run --details` for readable per-item answers, or `--jsonl` for full
+existing source or export. By default, `run` and `runs resume` show decisions for each completed item, followed
+by a short summary and the saved evidence path. Noul answers show the probability
+of yes; scores show their weighted level and maximum (for example `2.70 / 4`);
+choices show the selected option and its probability. They do not print original
+inputs, questions, or raw response metadata. Use `--details` to add confidence
+and labeled probability distributions, or `--jsonl` for full
 result JSONL on stdout. JSONL mode sends summaries to stderr; `--progress none`
 suppresses those diagnostics. `--output FILE` writes full JSONL to a new file while
-keeping the terminal summary readable. `plan` and the original pipeline commands
+keeping per-item decisions readable in the terminal. Filenames are bold, labels
+muted, and decision values cyan in terminals. Automatic color respects `NO_COLOR`
+and `TERM=dumb`; pipes are plain text. `--color always|never|auto` overrides color
+selection. Color distinguishes values from labels; it does not classify risk or
+apply action thresholds. `plan` and the original pipeline commands
 retain their machine-readable output.
 
 ```sh
-decide run builtin/relevance passages.jsonl                 # short summary
-decide run builtin/relevance passages.jsonl --details       # per-item answers
+decide run builtin/relevance passages.jsonl                 # per-item decisions
+decide run builtin/relevance passages.jsonl --details       # confidence and distributions
 decide run builtin/relevance passages.jsonl --jsonl > results.jsonl
 decide run builtin/relevance passages.jsonl --output results.jsonl
 decide runs resume RUN_ID --jsonl > resumed-results.jsonl

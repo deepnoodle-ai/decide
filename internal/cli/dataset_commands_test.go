@@ -227,7 +227,7 @@ func TestRunSummaryDetailsAndExplicitJSONL(t *testing.T) {
 				if !strings.Contains(out.String(), "1 complete") || !strings.Contains(out.String(), "Saved evidence:") {
 					t.Fatalf("missing useful summary: %s", out)
 				}
-				if mode == "details" && !strings.Contains(out.String(), "noul=") {
+				if !strings.Contains(out.String(), "% yes") {
 					t.Fatalf("missing readable answers: %s", out)
 				}
 				if mode == "output" {

@@ -14,8 +14,8 @@ Take a look around
 Bring your data
   sources list|preview SOURCES...  files, directories, JSONL, images, URLs, stdin
   plan SKILL SOURCES...            preview prepared inputs; no model calls
-  run SKILL SOURCES...             run a dataset; print a short summary
-    --details                     readable per-item answers
+  run SKILL SOURCES...             run a dataset; show each item’s decisions
+    --details                     confidence and probability distributions
     --jsonl                       full evidence for scripts/pipes
     --output FILE                 full evidence in a new file
   runs list|show|watch|resume|export  reopen your judgment notebook
