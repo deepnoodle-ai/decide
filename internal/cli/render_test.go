@@ -170,32 +170,42 @@ func TestPrinterRemovesControlCharacters(t *testing.T) {
 func TestPrinterFitsTheTerminal(t *testing.T) {
 	defer func(on bool) { color.Enabled = on }(color.Enabled)
 	color.Enabled = false
+	const critical = "Critical; all of their work is stopped, or data was lost or exposed"
 	s := &template.Template{Questions: template.Questions{
 		{Key: "urgent", Raw: json.RawMessage(`{"type":"noul"}`)},
-		{Key: "impact", Raw: json.RawMessage(`{"type":"score","criteria":["None","Minor","Moderate","Major","Critical; all of their work is stopped, or data was lost or exposed"]}`)},
+		{Key: "impact", Raw: json.RawMessage(`{"type":"score","criteria":["None","Minor","Moderate","Major","` + critical + `"]}`)},
 	}}
 	urgent, _ := json.Marshal(answer{Type: "noul", Noul: 0.96})
 	impact, _ := json.Marshal(answer{Type: "score", Score: 3.6,
-		Legend: map[string]any{"4": "Critical; all of their work is stopped, or data was lost or exposed"}})
-	it := item{Result: runs.Result{Source: "tickets.txt:2", Status: "complete",
-		Input:   json.RawMessage(`"Checkout returns a 500 error for every customer since the deploy an hour ago."`),
-		Answers: map[string]json.RawMessage{"urgent": urgent, "impact": impact}}}
+		Probabilities: map[string]float64{"0": 0, "1": 0, "2": 0.05, "3": 0.3, "4": 0.65},
+		Legend:        map[string]any{"4": critical}})
+	answers := map[string]json.RawMessage{"urgent": urgent, "impact": impact}
+	input := json.RawMessage(`"Checkout returns a 500 error for every customer since the deploy an hour ago."`)
+	items := map[string]item{
+		"whole": {Result: runs.Result{Source: "tickets.txt:2", Status: "complete", Input: input, Answers: answers}},
+		"in parts": {Result: runs.Result{Source: "docs/guides/setup.md", Status: "complete", Input: input, Answers: answers},
+			parts: 3, where: map[string]string{"impact": "lines 120-188"}},
+	}
 
-	for _, cols := range []int{0, 60, 80} {
-		var b strings.Builder
-		p := newPrinter(&b, s, false)
-		p.cols = cols
-		if err := p.item(it); err != nil {
-			t.Fatal(err)
-		}
-		out := b.String()
-		for _, line := range strings.Split(out, "\n") {
-			if n := len([]rune(line)); cols > 0 && n > cols {
-				t.Errorf("cols %d: line is %d wide: %q", cols, n, line)
+	for name, it := range items {
+		for _, cols := range []int{0, 40, 60, 80} {
+			var b strings.Builder
+			p := newPrinter(&b, s, false)
+			p.cols = cols
+			if err := p.item(it); err != nil {
+				t.Fatal(err)
 			}
-		}
-		if whole := strings.Contains(out, "data was lost or exposed"); whole != (cols == 0) {
-			t.Errorf("cols %d: whole description = %v:\n%s", cols, whole, out)
+			out := b.String()
+			// At 40 columns the fixed columns alone are too wide, so only
+			// check that it prints.
+			for _, line := range strings.Split(out, "\n") {
+				if n := len([]rune(line)); cols >= 60 && n > cols {
+					t.Errorf("%s, cols %d: line is %d wide: %q", name, cols, n, line)
+				}
+			}
+			if whole := strings.Contains(out, critical); whole != (cols == 0) {
+				t.Errorf("%s, cols %d: whole description = %v:\n%s", name, cols, whole, out)
+			}
 		}
 	}
 }

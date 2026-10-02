@@ -94,16 +94,29 @@ func answerWidth(raw json.RawMessage) int {
 func (p *printer) item(it item) error {
 	res := it.Result
 	var b strings.Builder
-	b.WriteString(bold(clean(res.Source)))
-	room := 72
-	if p.cols > 0 {
-		room = min(room, p.cols-2)
-	}
-	if preview := previewOf(res.Input, room-len([]rune(clean(res.Source)))); preview != "" {
-		b.WriteString("  " + dim(preview))
-	}
+	source := clean(res.Source)
+	var parts string
 	if it.parts > 0 {
-		b.WriteString("  " + dim(fmt.Sprintf("judged in %d parts", it.parts)))
+		parts = fmt.Sprintf("judged in %d parts", it.parts)
+	}
+	b.WriteString(bold(source))
+	// The preview gets the room the source and parts leave. In a terminal
+	// it is left out when it would not fit.
+	room := max(72-len([]rune(source)), 24)
+	if p.cols > 0 {
+		room = p.cols - width(source) - 2
+		if parts != "" {
+			room -= width(parts) + 2
+		}
+		room = min(room, 72-len([]rune(source)))
+	}
+	if room >= 12 {
+		if preview := previewOf(res.Input, room); preview != "" {
+			b.WriteString("  " + dim(preview))
+		}
+	}
+	if parts != "" {
+		b.WriteString("  " + dim(parts))
 	}
 	b.WriteByte('\n')
 	if res.Status != "complete" {
@@ -126,10 +139,11 @@ func (p *printer) item(it item) error {
 		case matched:
 			gutter = good("●") + " "
 		}
-		line := p.summary(a, v)
-		if w := it.where[q.Key]; w != "" {
-			line += "  " + dim(clean(w))
+		where := clean(it.where[q.Key])
+		if where != "" {
+			where = "  " + where
 		}
+		line := p.summary(a, v, width(where)) + dim(where)
 		fmt.Fprintf(&b, "%s%-*s  %s\n", gutter, p.width, clean(q.Key), line)
 		if p.details {
 			p.distribution(&b, a)
@@ -142,8 +156,9 @@ func (p *printer) item(it item) error {
 
 // summary is the one-line form of an answer, styled by its verdict.
 // Every answer has the same columns: the answer (a word, or a track for a
-// score), a figure, and for scores the level's description.
-func (p *printer) summary(a answer, v verdict) string {
+// score), a figure, and for scores the level's description. In a terminal,
+// the description is shortened to leave reserve columns free at the end.
+func (p *printer) summary(a answer, v verdict, reserve int) string {
 	var ans, figure, note string
 	switch a.Type {
 	case "noul":
@@ -167,7 +182,7 @@ func (p *printer) summary(a answer, v verdict) string {
 	s := pad(ans, p.answers) + "  " + figure
 	if p.cols > 0 && note != "" {
 		// The gutter, key, answer, and figure come first.
-		room := p.cols - (2 + p.width + 2 + p.answers + 2 + len([]rune(stripANSI(figure))) + 2)
+		room := p.cols - (2 + p.width + 2 + p.answers + 2 + width(figure) + 2) - reserve
 		if room < 12 {
 			note = ""
 		} else {
@@ -408,8 +423,11 @@ func previewOf(input json.RawMessage, room int) string {
 	if json.Unmarshal(input, &text) != nil {
 		text = string(input)
 	}
-	return truncate(clean(text), max(room, 24))
+	return truncate(clean(text), room)
 }
+
+// width is the number of columns s takes, not counting color codes.
+func width(s string) int { return len([]rune(stripANSI(s))) }
 
 func truncate(s string, n int) string {
 	r := []rune(s)
