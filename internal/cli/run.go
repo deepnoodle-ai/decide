@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/fanout"
+	"github.com/deepnoodle-ai/decide/patterns/fanout"
 )
 
 type LiveBuilder func(context.Context, Envelope) (*decide.Request, error)

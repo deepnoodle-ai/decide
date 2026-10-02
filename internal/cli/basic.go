@@ -9,7 +9,7 @@ import (
 	"math"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/gate"
+	"github.com/deepnoodle-ai/decide/patterns/gate"
 )
 
 func (a *App) runBasic(ctx context.Context, command string, args []string) int {
@@ -31,7 +31,7 @@ func (a *App) runBasic(ctx context.Context, command string, args []string) int {
 		fs.StringVar(&rubricFile, "rubric", "", "named Score rubric JSON file")
 	}
 	if command == "check" {
-		fs.StringVar(&policyFile, "policy", "", "x/gate JSON policy file")
+		fs.StringVar(&policyFile, "policy", "", "patterns/gate JSON policy file")
 	}
 	if status, ok := a.parse(fs, args, o); !ok {
 		return status

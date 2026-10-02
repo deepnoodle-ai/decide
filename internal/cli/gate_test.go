@@ -12,7 +12,7 @@ import (
 	"testing"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/gate"
+	"github.com/deepnoodle-ai/decide/patterns/gate"
 )
 
 func offlineJSON(t *testing.T, value any) json.RawMessage {

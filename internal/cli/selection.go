@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/pick"
+	"github.com/deepnoodle-ai/decide/patterns/pick"
 )
 
 type pickInput struct {

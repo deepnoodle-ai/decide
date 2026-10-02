@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/deepnoodle-ai/decide/x/compact"
-	"github.com/deepnoodle-ai/decide/x/rank"
+	"github.com/deepnoodle-ai/decide/patterns/compact"
+	"github.com/deepnoodle-ai/decide/patterns/rank"
 )
 
 func (a *App) runPack(ctx context.Context, args []string) int {

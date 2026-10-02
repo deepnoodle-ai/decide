@@ -10,7 +10,7 @@ import (
 	"log"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/rank"
+	"github.com/deepnoodle-ai/decide/patterns/rank"
 )
 
 const query = "How do I recover an expired session?"

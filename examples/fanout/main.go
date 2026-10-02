@@ -10,7 +10,7 @@ import (
 	"log"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/fanout"
+	"github.com/deepnoodle-ai/decide/patterns/fanout"
 )
 
 const query = "How long should an access token live?"

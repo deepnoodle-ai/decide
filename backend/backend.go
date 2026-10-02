@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/cloudflare"
+	"github.com/deepnoodle-ai/decide/cloudflare"
 )
 
 // Provider identifies the service used by a client.

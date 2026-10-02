@@ -45,7 +45,7 @@ response and preserve its model, usage, request ID, and diagnostics.
 Consistency-only failures retain the answer or item together with an error;
 structural failures retain evidence without a selection. Neither operation
 applies an action threshold. Use the request API below for multiple questions
-or the experimental picker for reusable candidates and configurable keys.
+or `patterns/pick` for reusable candidates and configurable keys.
 
 ## Client
 
@@ -81,20 +81,21 @@ behavior, and transport. Environment defaults use `TYPESAFE_API_KEY`,
 The `github.com/deepnoodle-ai/decide/decidetest` package supplies a fake HTTP
 server, answer fixtures, request recording, and queued failures for tests.
 
-## Experimental packages
+## Decision patterns
 
-Packages under `x/` may change or be removed in any release.
+Packages under `patterns/` compose System One judgments and process their
+evidence. They work with the shared client API rather than a specific model.
 
 | Package | Purpose | Example |
 | --- | --- | --- |
-| [`x/pick`](x/pick) | Select an original item from caller-supplied candidates, or abstain. | [`examples/pick`](examples/pick) |
-| [`x/gate`](x/gate) | Apply explicit policies and return allow, review, or escalate with reasons. | [`examples/gate`](examples/gate) |
-| [`x/fanout`](x/fanout) | Run independent requests with bounded concurrency and ordered outcomes. | [`examples/fanout`](examples/fanout) |
-| [`x/rank`](x/rank) | Order candidates from judgments and take a prefix under a budget. | [`examples/rank`](examples/rank) |
-| [`x/calibrate`](x/calibrate) | Fit thresholds and compare labeled evidence offline. | [`examples/calibrate`](examples/calibrate) |
-| [`x/heads`](x/heads) | Ask selector and branch questions together; read the selected branch. | [`examples/heads`](examples/heads) |
-| [`x/funnel`](x/funnel) | Screen items in stages while retaining answers and drop reasons. | [`examples/funnel`](examples/funnel) |
-| [`x/compact`](x/compact) | Keep whole context segments or supplied short forms under a budget. | [`examples/compact`](examples/compact) |
+| [`patterns/pick`](patterns/pick) | Select an original item from caller-supplied candidates, or abstain. | [`examples/pick`](examples/pick) |
+| [`patterns/gate`](patterns/gate) | Apply explicit policies and return allow, review, or escalate with reasons. | [`examples/gate`](examples/gate) |
+| [`patterns/fanout`](patterns/fanout) | Run independent requests with bounded concurrency and ordered outcomes. | [`examples/fanout`](examples/fanout) |
+| [`patterns/rank`](patterns/rank) | Order candidates from judgments and take a prefix under a budget. | [`examples/rank`](examples/rank) |
+| [`patterns/calibrate`](patterns/calibrate) | Fit thresholds and compare labeled evidence offline. | [`examples/calibrate`](examples/calibrate) |
+| [`patterns/heads`](patterns/heads) | Ask selector and branch questions together; read the selected branch. | [`examples/heads`](examples/heads) |
+| [`patterns/funnel`](patterns/funnel) | Screen items in stages while retaining answers and drop reasons. | [`examples/funnel`](examples/funnel) |
+| [`patterns/compact`](patterns/compact) | Keep whole context segments or supplied short forms under a budget. | [`examples/compact`](examples/compact) |
 
 Run the email selection example with `TYPESAFE_API_KEY` set:
 
@@ -140,7 +141,7 @@ such as `decide.WithMaxRetries`, `decide.WithAttemptTimeout`, and `decide.WithLo
 to `backend.NewClient`. `decide.WithRequestModel("clef-flash")` can select the
 other Cloudflare model for a single request.
 
-The experimental `x/cloudflare` package also exposes `NewTransport` for
+The [`cloudflare`](cloudflare) package also exposes `NewTransport` for
 use with `decide.WithTransport` and an explicit `decide.WithModel`. It handles the
 Workers AI account-scoped routes, response envelope, and provider errors.
 HTTP failures expose `*decide.APIError` through `errors.As` and existing error

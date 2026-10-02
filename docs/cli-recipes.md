@@ -107,7 +107,7 @@ Compare stays offline and does not refit. It rejects mismatched questions
 or held-out cases; exit 1 means the measured change exceeds your tolerance.
 The demo allows a raw Brier score increase of 0.01. Use a representative
 labeled corpus and choose a meaningful tolerance for real evaluations.
-See [x/calibrate](../x/calibrate) for configuration and metrics.
+See [patterns/calibrate](../patterns/calibrate) for configuration and metrics.
 
 Every emitted live run records the resolved model, request ID, and usage.
 Inspect those alongside the answer rather than assuming a moving model

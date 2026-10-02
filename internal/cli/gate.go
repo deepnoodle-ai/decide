@@ -9,7 +9,7 @@ import (
 	"io"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/gate"
+	"github.com/deepnoodle-ai/decide/patterns/gate"
 )
 
 // evaluatePolicy retains the operational error separately from the decision:
@@ -53,7 +53,7 @@ func evaluatePolicy(run Run, rule gate.Rule) (gate.Decision, error) {
 
 func (a *App) runGate(ctx context.Context, args []string) int {
 	fs, options := a.offlineFlags("gate", false)
-	policyPath := fs.String("policy", "", "JSON x/gate policy file (required)")
+	policyPath := fs.String("policy", "", "JSON patterns/gate policy file (required)")
 	if err := ParseFlags(fs, args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0

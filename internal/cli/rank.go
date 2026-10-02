@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/deepnoodle-ai/decide/x/rank"
+	"github.com/deepnoodle-ai/decide/patterns/rank"
 )
 
 func (a *App) runRank(ctx context.Context, args []string) int {

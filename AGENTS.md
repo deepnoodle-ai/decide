@@ -8,9 +8,10 @@ Guidance for coding agents working in this repository.
 - Go 1.27 or later. The root package uses only the standard library.
 - Before v1, public APIs may change or be removed in any release.
 - The root client and `decidetest` follow semantic versioning after v1.
-- `backend` selects providers during client construction.
-- Packages under `x/` and the CLI are experimental.
-- The root package never imports `x/` or CLI packages.
+- `backend` selects providers; `cloudflare` implements the Workers AI transport.
+- Packages under `patterns/` compose judgments and process their evidence.
+- The CLI is experimental.
+- The root package never imports provider, pattern, or CLI packages.
 - Describe behavior in package comments, examples, and the README.
 
 ## Code
