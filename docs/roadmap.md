@@ -1,51 +1,64 @@
 # Roadmap
 
-Planned work, roughly in order. Each item is one pull request. Check items
+Planned work, grouped by area. Each item is one pull request. Check items
 off, or remove them, as they land.
 
-## Before the first release
+## Templates
 
 - [ ] **Templates.** Rename "skills" to "templates" (#30).
-- [ ] **`--fail-on`.** `decide run … --fail-on flagged|matched` exits 2 when
-      any item is flagged or matched, so CI and hooks can block on it.
-- [ ] **Token usage.** Show input tokens in the run summary, in `--json`
-      output, and in saved runs.
-- [ ] **`decide models`.** List models and confirm the credentials work.
-      Cloudflare can't list models, so verify the token instead.
-- [ ] **CSV and Markdown output.** `--format json|csv|md` on `run` and
-      `runs view`, keeping `--json` as a shorthand.
-- [ ] **Gateways.** Test Vercel AI Gateway and OpenRouter through
-      `TYPESAFE_BASE_URL`, then document them.
-- [ ] **Releases.** `decide --version`, release binaries and checksums for
-      each `v*` tag, and a formula in `deepnoodle-ai/homebrew-tap`.
-- [ ] **Install script.** `curl … | sh` that verifies the binary's checksum.
-- [ ] **Claude Code plugin.** An agent skill, installable from this
-      repository, that teaches agents to write templates and run decide.
-- [ ] **Demo and recipes.** A short README recording made with VHS, and
-      recipes for CI gates, pre-commit hooks, agents, and CSV exports.
-
-## Launch
-
-- [ ] Allow squash merges only.
-- [ ] Make the repository public.
-- [ ] Turn on private vulnerability reporting, secret scanning with push
-      protection, and Dependabot alerts.
-- [ ] Add the `TAP_GITHUB_TOKEN` secret and tag `v0.1.0`.
-- [ ] Add CI, Go Reference, and license badges to the README.
-
-## After launch
-
 - [ ] **`decide eval`.** Measure a template on labeled examples: agreement
       per question, confident mistakes, suggested thresholds, and
       `--fail-under` for CI. Ship examples with each built-in template.
       Propose the design before building it.
 - [ ] **Model pinning.** An optional `model` in `template.json`, and a
       warning when a resumed run is answered by a different model.
-- [ ] **MCP server.** `decide mcp`, with tools to run a template or ask a
-      question.
+
+## Running and results
+
+- [ ] **`--fail-on`.** `decide run … --fail-on flagged|matched` exits 2 when
+      any item is flagged or matched, so CI and hooks can block on it.
+- [ ] **Token usage.** Show input tokens in the run summary, in `--json`
+      output, and in saved runs.
+- [ ] **CSV and Markdown output.** `--format json|csv|md` on `run` and
+      `runs view`, keeping `--json` as a shorthand.
+- [ ] **Request cache.** An opt-in `--cache` that reuses identical requests.
+
+## Providers and credentials
+
+- [ ] **`decide models`.** List models and confirm the credentials work.
+      Cloudflare can't list models, so verify the token instead.
+- [ ] **Gateways.** Test Vercel AI Gateway and OpenRouter through
+      `TYPESAFE_BASE_URL`, then document them.
 - [ ] **Saved credentials.** `decide auth login`, so keys need not be
       exported in every shell.
-- [ ] **Request cache.** An opt-in `--cache` that reuses identical requests.
+
+## Agents
+
+- [ ] **Claude Code plugin.** An agent skill, installable from this
+      repository, that teaches agents to write templates and run decide.
+- [ ] **MCP server.** `decide mcp`, with tools to run a template or ask a
+      question.
+
+## Installing and releases
+
+- [ ] **Releases.** `decide --version`, release binaries and checksums for
+      each `v*` tag, and a formula in `deepnoodle-ai/homebrew-tap`.
+- [ ] **Install script.** `curl … | sh` that verifies the binary's checksum.
+
+## Docs
+
+- [ ] **Demo.** A short README recording made with VHS.
+- [ ] **Recipes.** CI gates, pre-commit hooks, agents, and CSV exports.
+- [ ] **Badges.** CI, Go Reference, and license, once the repository is
+      public.
+
+## Repository
+
+- [ ] Allow squash merges only.
+- [ ] Make the repository public.
+- [ ] Turn on private vulnerability reporting, secret scanning with push
+      protection, and Dependabot alerts.
+- [ ] Add the `TAP_GITHUB_TOKEN` secret and tag `v0.1.0`.
 
 ## Not planned
 
