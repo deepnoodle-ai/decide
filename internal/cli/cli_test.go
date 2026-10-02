@@ -478,3 +478,37 @@ func TestLargeRecordsAreJudgedInParts(t *testing.T) {
 	contains(t, out.stdout, "t.jsonl:1  {\"body\":\"hay hay hay\\nhay", "judged in 2 parts\n● relevant  yes     90%  part 1 of 2\n")
 	contains(t, out.stderr, "✓ 2 answered  ● 1 matched")
 }
+
+func TestSkillAndFileTextCannotControlTheTerminal(t *testing.T) {
+	h := setup(t)
+	h.write(".decide/skills/odd/skill.json", `{
+  "name": "odd",
+  "description": "Odd \u001b[31mskill",
+  "parameters": {"p": {"description": "A \u001b[2J parameter", "default": "x\u001b[0m"}},
+  "questions": {
+    "tone\u001b[31m": {
+      "type": "choice",
+      "instructions": "Pick one {{p}} \u001b]0;title\u0007",
+      "criteria": {"calm\u001b[31m": "Calm \u001b[1m", "angry": "Angry"}
+    },
+    "level": {"type": "score", "instructions": "Rate it", "criteria": ["low \u001b[31m", "high"]}
+  },
+  "flags": {"tone\u001b[31m": "calm\u001b[31m >= 60%"}
+}`)
+	h.write(".decide/skills/odd/SKILL.md", "Notes \x1b[31mhere\n")
+	h.write("in/a\x1b[31m.txt", "hello")
+	h.write("in/b\x1b[31m.bin", "\x00\x01\x02binary")
+	for _, args := range [][]string{
+		{"skills"},
+		{"skills", "show", "odd"},
+		{"run", "odd", "in", "--dry-run"},
+	} {
+		out := h.run("", args...)
+		if out.code != 0 {
+			t.Fatalf("%v: exit %d: %s", args, out.code, out.stderr)
+		}
+		if strings.ContainsAny(out.stdout+out.stderr, "\x1b\x07") {
+			t.Errorf("%v printed a control character:\n%q\n%q", args, out.stdout, out.stderr)
+		}
+	}
+}

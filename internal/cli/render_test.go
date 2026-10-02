@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"math"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/deepnoodle-ai/decide/internal/runs"
 	"github.com/deepnoodle-ai/decide/internal/skill"
+	"github.com/deepnoodle-ai/wonton/color"
 )
 
 func TestJudge(t *testing.T) {
@@ -138,5 +140,29 @@ func TestCollectorShowsFailedItemsWhenStopped(t *testing.T) {
 	c.finish()
 	if len(got) != 1 || got[0].Source != "a.md" || got[0].Status != "failed" || got[0].Error != "part 1 of 3 (lines 1-9): HTTP 413" {
 		t.Fatalf("finish emitted %+v", got)
+	}
+}
+
+func TestPrinterRemovesControlCharacters(t *testing.T) {
+	defer func(on bool) { color.Enabled = on }(color.Enabled)
+	color.Enabled = false
+	const esc = "\x1b[31m"
+	s := &skill.Skill{Questions: skill.Questions{
+		{Key: "tone" + esc, Raw: json.RawMessage(`{"type":"choice","criteria":["calm","angry"]}`)},
+		{Key: "odd", Raw: json.RawMessage(`{"type":"noul"}`)},
+	}}
+	tone, _ := json.Marshal(answer{Type: "choice", Choice: "calm" + esc,
+		Probabilities: map[string]float64{"calm" + esc: 0.7, "angry": 0.3}})
+	odd, _ := json.Marshal(answer{Type: "weird" + esc})
+	it := item{Result: runs.Result{Source: "a" + esc + ".md", Status: "complete",
+		Input:   json.RawMessage(`"hi` + `\u001b[2J"`),
+		Answers: map[string]json.RawMessage{"tone" + esc: tone, "odd": odd}},
+		where: map[string]string{"tone" + esc: "lines " + esc}}
+	var b strings.Builder
+	if err := newPrinter(&b, s, true).item(it); err != nil {
+		t.Fatal(err)
+	}
+	if out := b.String(); strings.ContainsRune(out, 0x1b) {
+		t.Fatalf("output contains an escape sequence:\n%q", out)
 	}
 }
