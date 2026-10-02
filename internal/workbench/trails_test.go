@@ -289,3 +289,59 @@ func TestModelSwitchKeepsFrozenSampleAndResetsProviderSettings(t *testing.T) {
 		t.Fatal("same-provider endpoint lost")
 	}
 }
+
+func TestJSONTrailReturnsToSelectedChildAndRecoversFromMappingError(t *testing.T) {
+	s := testScreen(t)
+	var rows []json.RawMessage
+	for i := 0; i < 245; i++ {
+		rows = append(rows, json.RawMessage(fmt.Sprintf(`{"value":%d}`, i)))
+	}
+	raw, err := json.Marshal(rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.jsonTrail = &jsonExplorer{Trail: []jsonFrame{{Raw: raw}}}
+	s.refreshJSON()
+	s.jsonKey(tui.KeyEvent{Rune: 'n'})
+	for range 37 {
+		s.jsonKey(tui.KeyEvent{Key: tui.KeyArrowDown})
+	}
+	s.jsonKey(tui.KeyEvent{Key: tui.KeyEnter})
+	s.jsonKey(tui.KeyEvent{Rune: 'm'})
+	if s.problem == "" {
+		t.Fatal("mapping scalar as array must fail")
+	}
+	s.jsonKey(tui.KeyEvent{Key: tui.KeyArrowLeft})
+	if s.jsonTrail.Index != 37 || s.jsonTrail.Trail[0].Offset != 100 || s.problem != "" {
+		t.Fatalf("parent selection not restored: %+v, problem=%q", s.jsonTrail, s.problem)
+	}
+	s.jsonKey(tui.KeyEvent{Rune: 'm'})
+	if s.problem == "" {
+		t.Fatal("mapping object as array must fail")
+	}
+	s.jsonKey(tui.KeyEvent{Rune: 'M'})
+	if s.problem != "" || s.jsonTrail != nil || !s.options.Sources.ItemsSet || s.options.Sources.Items != "" {
+		t.Fatal("successful root-array mapping must clear the earlier error")
+	}
+}
+
+func TestImportedEvidenceHasHonestCountAndSearchRecovery(t *testing.T) {
+	s := testScreen(t)
+	s.target = "imported.jsonl"
+	s.results = []jobs.Result{{ID: "row-1104", Status: "complete"}}
+	s.evidenceOffset = 1104
+	content := s.evidenceContent()
+	if !strings.Contains(content, "1105–1105") || !strings.Contains(content, "total unknown") || strings.Contains(content, "0 recorded outcomes") {
+		t.Fatalf("misleading imported evidence count: %s", content)
+	}
+	s.results = nil
+	s.filter = "missing ticket"
+	content = s.evidenceContent()
+	if !strings.Contains(content, `No matches for "missing ticket"`) || !strings.Contains(content, "clear it") || strings.Contains(content, "Run a sample") {
+		t.Fatalf("missing search recovery guidance: %s", content)
+	}
+	s.filter = ""
+	if content = s.evidenceContent(); !strings.Contains(content, "No saved outcomes") {
+		t.Fatalf("missing empty import guidance: %s", content)
+	}
+}

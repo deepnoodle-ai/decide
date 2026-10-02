@@ -15,9 +15,9 @@ type jsonBranch struct {
 	Raw           json.RawMessage
 }
 type jsonFrame struct {
-	Pointer string
-	Raw     json.RawMessage
-	Offset  int
+	Pointer       string
+	Raw           json.RawMessage
+	Offset, Index int
 }
 type jsonExplorer struct {
 	Trail       []jsonFrame
@@ -92,7 +92,9 @@ func (s *screen) refreshJSON() {
 		s.problem = err.Error()
 		return
 	}
-	j.Entries, j.Next, j.More, j.Index = rows, next, more, 0
+	j.Entries, j.Next, j.More = rows, next, more
+	j.Index = min(f.Index, max(0, len(rows)-1))
+	s.problem = ""
 }
 func (s *screen) jsonKey(e tui.KeyEvent) []tui.Cmd {
 	if e.Rune == 'q' {
@@ -126,6 +128,7 @@ func (s *screen) jsonKey(e tui.KeyEvent) []tui.Cmd {
 				s.problem = "Branch trail reached its memory/depth limit. ← goes up; map a shallower array with m."
 				return nil
 			}
+			j.Trail[len(j.Trail)-1].Index = j.Index
 			j.Trail = append(j.Trail, jsonFrame{Pointer: v.Pointer, Raw: v.Raw})
 			s.refreshJSON()
 		}
@@ -134,10 +137,12 @@ func (s *screen) jsonKey(e tui.KeyEvent) []tui.Cmd {
 	case 'n':
 		if j.More {
 			j.Trail[len(j.Trail)-1].Offset = j.Next
+			j.Trail[len(j.Trail)-1].Index = 0
 			s.refreshJSON()
 		}
 	case 'N':
 		j.Trail[len(j.Trail)-1].Offset = max(0, j.Trail[len(j.Trail)-1].Offset-100)
+		j.Trail[len(j.Trail)-1].Index = 0
 		s.refreshJSON()
 	case 'm', 'M', 'u', 'I':
 		if s.target != "" || s.busy {
@@ -163,6 +168,7 @@ func (s *screen) jsonKey(e tui.KeyEvent) []tui.Cmd {
 		}
 		s.sample, s.prepared = nil, nil
 		s.jsonTrail = nil
+		s.problem = ""
 		s.status = fmt.Sprintf("Mapping set to %q. p prepares the new items; j lets you keep exploring.", f.Pointer)
 	}
 	return nil

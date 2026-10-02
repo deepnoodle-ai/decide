@@ -8,7 +8,7 @@ Usage: decide COMMAND [options]
 Take a look around
   explore SOURCES...             open the interactive judgment workbench
   inspect RUN_OR_FILE            browse recorded answers and their evidence
-  skills list|show|new|edit|test  find a judgment or make one your own
+  skills list|show|new|edit|validate|test  find a judgment or make one your own
   patterns list|show             learn ways to compose judgments
 
 Bring your data

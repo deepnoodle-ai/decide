@@ -44,7 +44,7 @@ account, and profile so the next operation resolves the new provider's defaults.
 
 Follow the folder trail with `f`: Enter descends, Space selects a file or folder,
 and `.` adds the current directory. `g` cycles all-file, code, JSON, and image
-presets. Folder pages hold 100 entries; `n`/`N` move forward/back. Each page is
+presets, replacing the current include globs (including custom ones). Folder pages hold 100 entries; `n`/`N` move forward/back. Each page is
 sorted locally, and browsing skips symlinks and `.git`. Dataset ignore rules
 apply when previewing and running.
 
@@ -60,13 +60,39 @@ array into items; `M` expands the current array. Preview those rows, then use
 `u` to select their model state and `I` to select an ID field. Mappings use
 escaped JSON Pointers. Direct `m`/`u`/`I` editors are also available outside the
 browser; `-` in the items editor restores whole-document interpretation.
-Recorded evidence is read-only. JSON browsing retains 100 children per page and
+`decide inspect` is read-only. In an explore session, mappings selected from
+evidence affect the next preview; they never alter the saved run. JSON browsing
+retains 100 children per page and
 caps the nesting trail at 32 MiB / 64 levels; it does not load an unbounded tree.
 
 Evidence `n`/`N` reads next/previous saved pages, bounded by both records and bytes.
 `/` searches the entire artifact; matching results are paged too. Canceling a
-page/search retains the previous displayed evidence. Provider work and previews
-remain explicit actions.
+page/search retains the previous displayed evidence. Searches and page turns
+scan from the beginning of the saved file, so large artifacts can take time; Esc
+cancels without losing your place. Imported JSONL without a run summary shows an
+unknown total rather than counting the entire file before opening it. Provider
+work and previews remain explicit actions.
+
+### Workbench pocket guide
+
+| Goal | Keys |
+| --- | --- |
+| Switch notebook pages | `1` Sources, `2` Library, `3` Preview, `4` Evidence, `5` Compare |
+| Select local data | `f`, Enter to descend, Space to add, `.` to add this directory |
+| Add a path or URL; set globs | `a`; `i` include, `x` exclude |
+| Choose a judgment | Library arrows and Enter; `b` switches to patterns |
+| Prepare a small flight | `p`; `k` size, `z` first-items/seeded sample |
+| Explore nested records | `j`; Enter/left to descend/return, `n`/`N` child pages |
+| Map records, state, ID | `m` selected array, `M` current array, `u` state, `I` ID |
+| Adjust the experiment | `t` parameter, `v` questions, `o` model, `w` workers, `B` attempt budget |
+| Send and compare | `s` sends the prepared sample, `c` compares experiments |
+| Run the full selection | `r`, then explicitly confirm with `run` |
+| Browse saved answers | `n`/`N` pages, `/` search, Enter detail, left/right stages |
+| Keep or leave your notebook | `e` export to a new directory; `?` help, Esc back/cancel, `q` quit |
+
+After mapping an array, preview its rows again before selecting a row-relative
+state or ID pointer. Returning from a JSON branch restores the selected child
+and page, so you can follow neighboring records without starting over.
 
 ## One source or all these sources
 
@@ -125,7 +151,8 @@ and sampling use bounded memory and temporary disk storage. Local digests requir
 an additional streaming read of the source file.
 
 A manifest gives different sources their own mappings. Relative paths resolve
-against the manifest's directory:
+against the manifest's directory. Per-source mappings override global defaults
+from flags or the workbench; edit the manifest to change those explicit mappings:
 
 ```json
 {
@@ -144,6 +171,31 @@ decide plan builtin/ticket-routing --sources sources.json
 URLs support public query parameters. Userinfo, fragments, and recognized credential
 or signing query parameters are rejected without echoing their values. There is
 no implicit crawling, pagination, or remote skill execution.
+
+### A large codebase or a giant export
+
+For a codebase, first inspect the selection and then bound your first experiment:
+
+```sh
+decide sources list ./repo --include '**/*.{go,ts,tsx}' --exclude '**/*_test.go'
+decide plan builtin/code-risk ./repo --include '**/*.{go,ts,tsx}' --limit 5
+decide run builtin/code-risk ./repo --include '**/*.{go,ts,tsx}' \
+  --workers 4 --max-requests 100 --snapshot copy
+```
+
+The attempt ceiling is a deliberate stopping point, not a record limit. Reopen
+that run and raise its ceiling when ready. For a giant export, prefer JSONL,
+where each line is one record. Start with `--limit 5` to check the mapping, then
+use `--sample 50 --seed 42` to examine a reproducible slice of the whole selection.
+Use `--state /description --id-field /id` for records with those fields. For
+mixed layouts, use a source manifest rather than forcing one pointer onto every
+file. Remote sources fetch one response; provide each URL explicitly in a
+manifest when your dataset spans multiple pages.
+
+Full runs stage every selected input on disk before provider work. Allow space
+for snapshots, image assets, results, and temporary source-discovery or sampling
+files. Streaming ingestion bounds memory; it does not eliminate preparation time
+or disk usage. Choose a run directory with enough space using `--run-dir`.
 
 ## Make a skill your own
 

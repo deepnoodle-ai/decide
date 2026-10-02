@@ -209,10 +209,20 @@ func (s *screen) libraryContent() string {
 }
 func (s *screen) evidenceContent() string {
 	if len(s.results) == 0 {
+		if s.filter != "" {
+			return fmt.Sprintf("EVIDENCE NOTEBOOK\n\nNo matches for %q.\n/ changes the search; clear it to browse all saved evidence.\n%s", s.filter, s.status)
+		}
+		if s.target != "" {
+			return "EVIDENCE NOTEBOOK\n\nNo saved outcomes in this file.\nFailures and uncertain requests remain explicit when present."
+		}
 		return fmt.Sprintf("EVIDENCE NOTEBOOK\n\n%d outcomes received.\n%s\n\nRun a sample with s, or open recorded evidence with decide inspect.\nFailures and uncertain requests remain explicit.", s.totalResults, s.status)
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "EVIDENCE · matching records %d–%d · %d recorded outcomes\nFilter: %s · more pages: %t\n\n", s.evidenceOffset+1, s.evidenceOffset+len(s.results), s.totalResults, s.filter, s.evidenceMore)
+	count := fmt.Sprintf("%d recorded outcomes", s.totalResults)
+	if s.summary.ID == "" && s.target != "" {
+		count = "imported evidence · total unknown"
+	}
+	fmt.Fprintf(&b, "EVIDENCE · matching records %d–%d · %s\nFilter: %s · more pages: %t\n\n", s.evidenceOffset+1, s.evidenceOffset+len(s.results), count, s.filter, s.evidenceMore)
 	if !s.detail {
 		start := max(0, s.index-3)
 		end := min(len(s.results), start+7)
