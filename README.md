@@ -122,8 +122,7 @@ client, err := backend.NewClient(backend.Config{
 Then ask a question the same way with either one:
 
 ```go
-e, err := decide.Eval(ctx, client, ticket,
-	decide.Noul("Is this about billing?"))
+e, err := decide.Eval(ctx, client, ticket, decide.Noul("Is this about billing?"))
 if err != nil {
 	return err
 }
