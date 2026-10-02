@@ -186,6 +186,10 @@ func runStage[T any](
 	}
 
 	batches, failed, answered := st.Ask.plan(items, survivors)
+	// Shared items with no questions still complete the stage and reach Keep.
+	for _, i := range answered {
+		items[i].Answers[st.Name] = make(map[string]decide.Answer)
+	}
 	for _, i := range survivors {
 		if err := failed[i]; err != nil {
 			drop(i, CauseError, fmt.Errorf("funnel: stage %q questions: %w", st.Name, err))
