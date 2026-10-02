@@ -1,7 +1,6 @@
 {
   "name": "sentiment",
   "description": "Classify each item as positive, negative, or neutral.",
-  "input": "record",
   "questions": {
     "sentiment": {
       "type": "choice",

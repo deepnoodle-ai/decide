@@ -98,6 +98,8 @@ func TestValidateExplainsProblems(t *testing.T) {
 		`{"name":"x","description":"d","input":"record","questions":{"q":{"type":"noul"}}}`:                                 "needs instructions",
 		`{"name":"x","description":"d","input":"record","questions":{"q":{"type":"noul","instructions":"{{topic}}?"}}}`:     "not a declared parameter",
 		`{"name":"x","description":"d","input":"record","questions":{"q":{"type":"noul","instructions":"?"}},"extra":true}`: "unknown field",
+		`{"name":"x","description":"d","each":"page","questions":{"q":{"type":"noul","instructions":"?"}}}`:                 `each "page" must be one of file, line, paragraph, section`,
+		`{"name":"x","description":"d","input":"image","each":"file","questions":{"q":{"type":"noul","instructions":"?"}}}`: "has no each",
 	}
 	for body, want := range cases {
 		if _, err := parse([]byte(body), "test"); err == nil || !strings.Contains(err.Error(), want) {
@@ -174,5 +176,22 @@ func writeSkill(t *testing.T, dir, body string) {
 	}
 	if err := os.WriteFile(filepath.Join(dir, "skill.json"), []byte(body), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestInputsFromEarlierVersions(t *testing.T) {
+	for in, want := range map[string]string{
+		`"input":"file",`:   "text file",
+		`"input":"record",`: "text ",
+		``:                  "text ",
+		`"input":"image",`:  "image ",
+	} {
+		s, err := parse([]byte(`{"name":"x","description":"d",`+in+`"questions":{"q":{"type":"noul","instructions":"?"}}}`), "test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := string(s.Input) + " " + s.Each; got != want {
+			t.Errorf("%s: %q, want %q", in, got, want)
+		}
 	}
 }

@@ -132,9 +132,18 @@ func (a *App) runsView(c *cli.Context) error {
 		fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Run %s · %s on %s · %s",
 			r.ID, r.Skill.Name, strings.Join(r.Sources, ", "), humanize.Time(r.Created))))
 	}
-	write := resultWriter(c, r.Skill)
-	for _, res := range results {
-		if err := write(res); err != nil {
+	if c.Bool("json") {
+		write := resultWriter(c, r.Skill, nil)
+		for _, res := range results {
+			if err := write(res); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	p := newPrinter(c.Stdout(), r.Skill, c.Bool("details"), nil)
+	for _, it := range group(results, p.marks) {
+		if err := p.item(it); err != nil {
 			return err
 		}
 	}
@@ -168,6 +177,6 @@ func (a *App) runsResume(c *cli.Context) error {
 		return err
 	}
 	fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Resuming run %s: %s left · %s %s",
-		r.ID, count(r.Pending(), r.Skill.Input), r.Provider, r.Model)))
+		r.ID, humanize.PluralWord(r.Pending(), "request", "requests"), r.Provider, r.Model)))
 	return a.execute(c, r, client, c.Int("workers"))
 }

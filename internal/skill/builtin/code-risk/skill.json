@@ -1,7 +1,7 @@
 {
   "name": "code-risk",
   "description": "Rate each source file for risk and maintainability.",
-  "input": "file",
+  "each": "file",
   "parameters": {
     "focus": {
       "description": "The kinds of risk to look for",

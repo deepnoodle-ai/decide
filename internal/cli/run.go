@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,19 +24,24 @@ import (
 const runHelp = `Run a skill: ask its questions about each item in your data, show the
 answers, and save them as a run.
 
-What counts as an item depends on the skill:
-  file skills     each file in the folders you name (binary files are skipped)
-  record skills   each line of a text or JSONL file, or each element of a
-                  JSON array
-  image skills    each image file
+What counts as an item depends on your data:
+  JSONL, JSON, CSV     each record
+  .txt files, stdin    each line
+  other files          the whole file
+  images               each image, for image skills
+
+Choose another unit with --each file, line, paragraph, or section. A
+section is the text under a Markdown heading. An item too long to judge
+whole is judged in parts, and the parts' answers are combined.
 
 Folders are read recursively and skip files listed in .gitignore. With no
 files named, decide reads from stdin.
 
 Examples:
   decide run code-risk src --include '*.go' --limit 5
+  decide run relevance docs -p question="pricing"
+  decide run relevance CHANGELOG.md --each section -p question="tool calling"
   decide run ticket-routing tickets.jsonl --field body
-  decide run relevance notes.txt -p question="pricing"
   echo "This is great" | decide run sentiment
   decide run code-risk . --dry-run`
 
@@ -49,6 +55,7 @@ func (a *App) addRun(app *cli.App) {
 			cli.Strings("include", "i").Help("Only read files that match this pattern, like '*.go' (repeatable)"),
 			cli.Strings("exclude", "x").Help("Skip files that match this pattern (repeatable)"),
 			cli.Strings("param", "p").Help("Set a skill parameter, as name=value (repeatable)"),
+			cli.String("each").Enum(skill.Units...).Help("What one item is: file, line, paragraph, or section (default: depends on the data)"),
 			cli.String("field").Help("Ask about one field of each JSON record, like body or ticket.body"),
 			cli.String("items").Help("Where the records are inside a JSON file, like data.tickets"),
 			cli.Int("limit", "n").Help("Stop after this many items"),
@@ -99,10 +106,18 @@ func (a *App) run(c *cli.Context) error {
 	if len(paths) == 0 && a.interactiveStdin() {
 		return cli.Errorf("What should %s look at?", s.Name).
 			Hint(fmt.Sprintf("Name files or folders: decide run %s %s\nOr pipe in text:      echo \"some text\" | decide run %s",
-				s.Name, exampleData(s.Input), s.Name))
+				s.Name, exampleData(s), s.Name))
+	}
+	each := c.String("each")
+	if each != "" && s.Input == skill.Image {
+		return cli.Errorf("%s reads one image at a time, so --each does not apply", s.Name)
+	}
+	if each == "" {
+		each = s.Each
 	}
 	opts := source.Options{
 		Input:   s.Input,
+		Each:    each,
 		Include: c.Strings("include"),
 		Exclude: c.Strings("exclude"),
 		Field:   c.String("field"),
@@ -139,12 +154,16 @@ func (a *App) run(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
-	err = source.Walk(c.Context(), paths, c.Stdin(), opts, run.Add)
+	found := newTally()
+	err = source.Walk(c.Context(), paths, c.Stdin(), opts, func(it source.Item) error {
+		found.add(it)
+		return run.Add(it)
+	})
 	if err == nil && run.Total == 0 {
 		err = nothingFound(s, paths, opts)
 	}
 	if err == nil && run.Total > confirmAbove && !c.Bool("yes") && a.interactiveStdin() {
-		if !a.confirm(c, fmt.Sprintf("Run %s on %s? Each one is a model request. [y/N] ", s.Name, count(run.Total, s.Input))) {
+		if !a.confirm(c, fmt.Sprintf("Run %s on %s? That is %d model requests. [y/N] ", s.Name, found, run.Total)) {
 			run.Discard()
 			fmt.Fprintln(c.Stderr(), "\nNothing was sent. To start small, add --limit 20.")
 			if c.Context().Err() != nil {
@@ -160,16 +179,23 @@ func (a *App) run(c *cli.Context) error {
 		run.Discard()
 		return err
 	}
-	fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Running %s on %s · %s %s",
-		s.Name, count(run.Total, s.Input), provider, model)))
+	fmt.Fprintf(c.Stderr(), "%s\n", dim(fmt.Sprintf("Running %s on %s · %s %s", s.Name, found, provider, model)))
+	if hint := eachHint(found, c.String("each") != "" || s.Each != "", paths); hint != "" {
+		fmt.Fprintln(c.Stderr(), dim(hint))
+	}
+	fmt.Fprintln(c.Stderr())
 	return a.execute(c, run, client, workers)
 }
 
 // execute runs or resumes a run, printing each result and a summary.
 func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, workers int) error {
-	out := resultWriter(c, run.Skill)
+	saved, err := run.Results()
+	if err != nil {
+		return err
+	}
+	out := resultWriter(c, run.Skill, saved)
 	start := time.Now()
-	err := run.Execute(c.Context(), client, workers, out)
+	err = run.Execute(c.Context(), client, workers, out)
 	elapsed := time.Since(start)
 	var fatal *runs.FatalError
 	if errors.As(err, &fatal) {
@@ -223,32 +249,52 @@ func credentialHint(provider string) string {
 }
 
 // resultWriter prints results as text, or as JSON lines with --json.
-func resultWriter(c *cli.Context, s *skill.Skill) func(runs.Result) error {
+// saved holds the run's results from before, for combining parts.
+func resultWriter(c *cli.Context, s *skill.Skill, saved []runs.Result) func(runs.Result) error {
 	if c.Bool("json") {
 		enc := json.NewEncoder(c.Stdout())
 		return func(r runs.Result) error { return enc.Encode(r) }
 	}
-	return newPrinter(c.Stdout(), s, c.Bool("details")).result
+	return newPrinter(c.Stdout(), s, c.Bool("details"), saved).result
 }
 
 func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) {
-	parts := []string{good(fmt.Sprintf("✓ %d answered", run.Complete))}
-	if run.Failed > 0 {
-		parts = append(parts, failed(fmt.Sprintf("✗ %d failed", run.Failed)))
+	m := marksOf(run.Skill)
+	results, _ := run.Results()
+	var answered, failures int
+	var flaggedItems, matchedItems []string
+	for _, it := range group(results, m) {
+		if it.Status != "complete" {
+			failures++
+			continue
+		}
+		answered++
+		if m.has(it.Result, flagged) {
+			flaggedItems = append(flaggedItems, clean(it.Source))
+		}
+		if m.has(it.Result, matched) {
+			matchedItems = append(matchedItems, clean(it.Source))
+		}
 	}
-	if left := run.Total - run.Complete - run.Failed; left > 0 {
+	total := run.Items
+	if total == 0 {
+		total = run.Total // a run saved before items were counted
+	}
+	parts := []string{good(fmt.Sprintf("✓ %d answered", answered))}
+	if failures > 0 {
+		parts = append(parts, failed(fmt.Sprintf("✗ %d failed", failures)))
+	}
+	if left := total - answered - failures; left > 0 {
 		parts = append(parts, fmt.Sprintf("%d left", left))
 	}
-	m := marksOf(run.Skill)
-	flaggedItems, matchedItems := sources(run, m, flagged), sources(run, m, matched)
-	if len(m.flags) > 0 && run.Complete > 0 {
+	if len(m.flags) > 0 && answered > 0 {
 		if len(flaggedItems) == 0 {
 			parts = append(parts, good("nothing flagged"))
 		} else {
 			parts = append(parts, failed(fmt.Sprintf("! %d flagged", len(flaggedItems))))
 		}
 	}
-	if len(m.matches) > 0 && run.Complete > 0 {
+	if len(m.matches) > 0 && answered > 0 {
 		if len(matchedItems) == 0 {
 			parts = append(parts, "no matches")
 		} else {
@@ -286,25 +332,6 @@ func list(w io.Writer, label string, sources []string) {
 	fmt.Fprintf(w, "%s %s\n", dim(label), text)
 }
 
-// sources lists the items with an answer that has the verdict v, such as
-// flagged or matched.
-func sources(run *runs.Run, m marks, v verdict) []string {
-	if len(m.flags) == 0 && len(m.matches) == 0 {
-		return nil
-	}
-	results, err := run.Results()
-	if err != nil {
-		return nil
-	}
-	var out []string
-	for _, res := range results {
-		if res.Status == "complete" && m.has(res, v) {
-			out = append(out, clean(res.Source))
-		}
-	}
-	return out
-}
-
 func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source.Options) error {
 	if c.Bool("json") {
 		enc := json.NewEncoder(c.Stdout())
@@ -312,31 +339,39 @@ func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source
 	}
 	const shown = 20
 	var items []source.Item
-	total := 0
+	found := newTally()
 	err := source.Walk(c.Context(), paths, c.Stdin(), opts, func(it source.Item) error {
-		if total < shown {
+		if found.items() < shown {
 			items = append(items, it)
 		}
-		total++
+		found.add(it)
 		return nil
 	})
 	if err != nil {
 		return err
 	}
+	total := found.items()
 	if total == 0 {
 		return nothingFound(s, paths, opts)
 	}
 	w := c.Stdout()
-	fmt.Fprintf(w, "%s would look at %s:\n\n", bold(s.Name), count(total, s.Input))
+	fmt.Fprintf(w, "%s would look at %s:\n\n", bold(s.Name), found)
 	for _, it := range items {
 		line := "  " + it.Label
 		if preview := previewOf(it.Value, 60); preview != "" {
 			line += "  " + dim(preview)
 		}
+		if len(it.Parts) > 0 {
+			line += "  " + dim(fmt.Sprintf("in %d parts", len(it.Parts)))
+		}
 		fmt.Fprintln(w, line)
 	}
+
 	if total > shown {
 		fmt.Fprintf(w, "  %s\n", dim(fmt.Sprintf("… and %d more", total-shown)))
+	}
+	if hint := eachHint(found, c.String("each") != "" || s.Each != "", paths); hint != "" {
+		fmt.Fprintf(w, "\n%s\n", dim(hint))
 	}
 	fmt.Fprintf(w, "\nand ask each one:\n\n")
 	m := marksOf(s)
@@ -420,22 +455,84 @@ func paramError(err error) error {
 }
 
 // count says how many items there are, in the skill's terms.
-func count(n int, in skill.Input) string {
-	switch in {
-	case skill.File:
-		return humanize.PluralWord(n, "file", "files")
-	case skill.Image:
-		return humanize.PluralWord(n, "image", "images")
-	}
-	return humanize.PluralWord(n, "record", "records")
+// tally counts the items a walk finds, by unit, and the requests they
+// take.
+type tally struct {
+	units    map[string]int
+	inParts  int // items too large to judge whole
+	requests int
 }
 
-func exampleData(in skill.Input) string {
-	switch in {
-	case skill.File:
-		return "src"
-	case skill.Image:
+func newTally() *tally { return &tally{units: map[string]int{}} }
+
+func (t *tally) add(it source.Item) {
+	t.units[it.Unit]++
+	t.requests += max(len(it.Parts), 1)
+	if len(it.Parts) > 0 {
+		t.inParts++
+	}
+}
+
+func (t *tally) items() int {
+	n := 0
+	for _, c := range t.units {
+		n += c
+	}
+	return n
+}
+
+// unitNames lists units in the order a tally names them.
+var unitNames = [][3]string{
+	{skill.EachFile, "file", "files"},
+	{skill.EachSection, "section", "sections"},
+	{skill.EachParagraph, "paragraph", "paragraphs"},
+	{skill.EachLine, "line", "lines"},
+	{source.UnitRecord, "record", "records"},
+	{source.UnitImage, "image", "images"},
+}
+
+// String says what the items are, such as "3 files and 120 records" or
+// "41 paragraphs (1 judged in parts, 43 requests)".
+func (t *tally) String() string {
+	var parts []string
+	for _, u := range unitNames {
+		if n := t.units[u[0]]; n > 0 {
+			parts = append(parts, humanize.PluralWord(n, u[1], u[2]))
+		}
+	}
+	s := strings.Join(parts, ", ")
+	if len(parts) > 1 {
+		s = strings.Join(parts[:len(parts)-1], ", ") + " and " + parts[len(parts)-1]
+	}
+	if t.inParts > 0 {
+		s += fmt.Sprintf(" (%d judged in parts, %d requests)", t.inParts, t.requests)
+	}
+	return s
+}
+
+// eachHint points out --each when the data chose the unit, so splitting
+// a file or not is never a surprise.
+func eachHint(t *tally, chosen bool, paths []string) string {
+	if chosen || len(paths) == 0 || slices.Equal(paths, []string{"-"}) {
+		return ""
+	}
+	switch {
+	case t.units[skill.EachFile] > 0:
+		return "Each file is one item. To judge each section or paragraph instead, add --each section or --each paragraph."
+	case t.units[skill.EachLine] > 0:
+		return "Each line is one item. To judge each file as a whole instead, add --each file."
+	}
+	return ""
+}
+
+func exampleData(s *skill.Skill) string {
+	switch {
+	case s == nil:
+		return "data.jsonl"
+	case s.Input == skill.Image:
 		return "photos"
+	case s.Each == skill.EachFile:
+		return "src"
 	}
 	return "data.jsonl"
 }

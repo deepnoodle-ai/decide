@@ -1,7 +1,6 @@
 {
   "name": "relevance",
   "description": "Estimate how relevant each item is to a question you choose.",
-  "input": "record",
   "parameters": {
     "question": {
       "description": "The question or topic to match"

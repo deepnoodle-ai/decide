@@ -11,6 +11,7 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/decidetest"
+	"github.com/deepnoodle-ai/decide/internal/source"
 )
 
 type harness struct {
@@ -119,7 +120,7 @@ func TestRunFromStdinAndView(t *testing.T) {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
 	contains(t, out.stdout, "stdin:1", "I love it", "sentiment  positive  90%")
-	contains(t, out.stderr, "Running sentiment on 2 records", "✓ 2 answered", "decide runs view")
+	contains(t, out.stderr, "Running sentiment on 2 lines", "✓ 2 answered", "decide runs view")
 
 	out = h.run("", "runs")
 	contains(t, out.stdout, "sentiment", "2 answered")
@@ -190,7 +191,7 @@ func TestFailuresAndResume(t *testing.T) {
 	if out.code != 0 {
 		t.Fatalf("resume: exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stderr, "Resuming run", "1 record left", "✓ 2 answered")
+	contains(t, out.stderr, "Resuming run", "1 request left", "✓ 2 answered")
 	out = h.run("", "runs", "resume")
 	contains(t, out.stdout, "already has an answer")
 }
@@ -201,7 +202,7 @@ func TestPipedTextThatLooksLikeJSON(t *testing.T) {
 	if out.code != 0 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stdout, "2 records", "[WARN] disk full")
+	contains(t, out.stdout, "2 lines", "[WARN] disk full")
 }
 
 func TestHelpfulErrors(t *testing.T) {
@@ -295,5 +296,84 @@ func TestMatchedAnswers(t *testing.T) {
 	contains(t, out.stderr, "no matches")
 	if strings.Contains(out.stderr, "Matched:") {
 		t.Fatalf("listed matches without any:\n%s", out.stderr)
+	}
+}
+
+// partsServer answers code-risk questions by part: the part holding
+// "risky" is risky, and every part scores 3 of 4.
+func partsServer(h *harness) {
+	levels := []any{"0", "1", "2", "3", "4"}
+	h.server.Respond(func(req *decide.Request) (*decide.Response, error) {
+		state, _ := json.Marshal(req.State)
+		risk := 0.1
+		if strings.Contains(string(state), "risky") {
+			risk = 0.9
+		}
+		return &decide.Response{Answers: map[string]decide.Answer{
+			"risk":            decidetest.NoulAnswer(risk),
+			"maintainability": decidetest.ScoreAnswer(levels, 0, 0, 0, 1, 0),
+		}}, nil
+	})
+}
+
+func TestLargeFilesAreJudgedInParts(t *testing.T) {
+	h := setup(t)
+	defer func(n int) { source.MaxItemBytes = n }(source.MaxItemBytes)
+	source.MaxItemBytes = 20
+	h.write("src/a.go", "package a\n\nfunc risky() {}\n\nfunc fine() {}\n")
+	partsServer(h)
+
+	out := h.run("", "run", "code-risk", "src", "--dry-run")
+	contains(t, out.stdout, "1 file (1 judged in parts, 3 requests)", "src/a.go  in 3 parts")
+
+	out = h.run("", "run", "code-risk", "src")
+	if out.code != 0 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	// One answer for the file: flagged, because one part is.
+	contains(t, out.stdout, "src/a.go  judged in 3 parts\n", "! risk             yes           90%  lines 3-4\n")
+	contains(t, out.stderr, "Running code-risk on 1 file (1 judged in parts, 3 requests)", "✓ 1 answered  ! 1 flagged", "Flagged: src/a.go")
+	if strings.Count(out.stdout, "src/a.go") != 1 {
+		t.Fatalf("the parts printed separately:\n%s", out.stdout)
+	}
+	out = h.run("", "runs", "view")
+	contains(t, out.stdout, "src/a.go  judged in 3 parts\n", "lines 3-4")
+}
+
+func TestResumeCombinesNewAndSavedParts(t *testing.T) {
+	h := setup(t)
+	defer func(n int) { source.MaxItemBytes = n }(source.MaxItemBytes)
+	source.MaxItemBytes = 20
+	h.write("src/a.go", "package a\n\nfunc risky() {}\n\nfunc fine() {}\n")
+	partsServer(h)
+	h.server.FailNext(422)
+	out := h.run("", "run", "code-risk", "src", "--workers", "1")
+	if out.code != 1 {
+		t.Fatalf("exit %d", out.code)
+	}
+	contains(t, out.stdout, "✗ part 1 of 3 (lines 1-2)")
+	contains(t, out.stderr, "✗ 1 failed")
+
+	out = h.run("", "runs", "resume")
+	if out.code != 0 {
+		t.Fatalf("resume: exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stdout, "src/a.go  judged in 3 parts\n", "! risk             yes           90%  lines 3-4\n")
+	contains(t, out.stderr, "1 request left", "✓ 1 answered  ! 1 flagged")
+}
+
+func TestEachHintsAndErrors(t *testing.T) {
+	h := setup(t)
+	h.write("docs/guide.md", "# Guide\n\n## Install\n\nRun it.\n")
+	out := h.run("", "run", "relevance", "docs", "-p", "question=x", "--dry-run")
+	contains(t, out.stdout, "would look at 1 file:", "add --each section or --each paragraph")
+	out = h.run("", "run", "relevance", "docs", "-p", "question=x", "--each", "section", "--dry-run")
+	contains(t, out.stdout, "would look at 1 section:", "docs/guide.md#install  Guide › Install")
+	if strings.Contains(out.stdout, "add --each") {
+		t.Fatalf("hinted at --each after it was given:\n%s", out.stdout)
+	}
+	out = h.run("", "run", "receipt-quality", "docs", "--each", "file")
+	if out.code == 0 || !strings.Contains(out.stderr, "--each does not apply") {
+		t.Fatalf("image skill with --each: %d %s", out.code, out.stderr)
 	}
 }

@@ -78,13 +78,42 @@ model's confidence. Add `--json` to get one JSON line per item instead.
 
 ## What counts as an item
 
-Each skill reads one kind of input:
+Your data decides what one item is:
 
-| Skill input | One item is | Example skill |
+| Data | One item is |
+| --- | --- |
+| JSONL, JSON, or CSV | each record: a line, an element of an array, or a row named by the header |
+| a `.txt` file, or piped text | each line |
+| any other text file, such as Markdown or code | the whole file, sent with its path |
+| images, for an image skill such as `receipt-quality` | each image |
+
+Choose another unit with `--each`:
+
+| `--each` | One item is | Named like |
 | --- | --- | --- |
-| `file` | a whole text file, sent with its path | `code-risk` |
-| `record` | a line of text or JSONL, an element of a JSON array, or a JSON object | `sentiment`, `ticket-routing`, `relevance` |
-| `image` | a PNG, JPEG, or WebP file | `receipt-quality` |
+| `file` | the whole file, even a dataset | `notes.txt` |
+| `section` | the text under each Markdown heading | `README.md#install` |
+| `paragraph` | each paragraph or list item | `CHANGELOG.md:13` |
+| `line` | each line | `notes.txt:4` |
+
+```sh
+decide run relevance docs -p question="pricing"                    # which docs?
+decide run relevance docs --each section -p question="pricing"     # which sections?
+```
+
+The model sees each section or paragraph with the headings above it. A
+Markdown file's headings and code blocks are not paragraphs. Some skills
+choose a unit for you: `code-risk` reads whole files.
+
+An item too long to judge in one request, about 64 KB of text, is judged
+in parts, and the parts' answers are combined into one. An item is flagged
+when any part is, and the answer shows the lines of that part. Answers
+without a flag or match are averaged across the parts:
+
+```
+src/server.go  judged in 3 parts
+! risk             yes           88%  lines 412-655
+```
 
 Items are named by their path from the current folder, or, for a folder
 outside it, from that folder's name, such as `marker/app.py`. The model sees
@@ -165,7 +194,6 @@ A skill looks like this:
 {
   "name": "support-triage",
   "description": "Route each ticket to the team that should handle it.",
-  "input": "record",
   "parameters": {
     "product": {"description": "The product the tickets are about", "default": "Acme"}
   },
@@ -186,6 +214,10 @@ A skill looks like this:
   }
 }
 ```
+
+A skill reads text unless it says `"input": "image"`. Add `"each": "file"`
+(or `section`, `paragraph`, or `line`) to choose the unit its questions are
+written for; `--each` still overrides it.
 
 A `score` question lists its levels in order, lowest first:
 
