@@ -49,7 +49,7 @@ type Skill struct {
 	Parameters  map[string]Parameter `json:"parameters,omitempty"`
 	Questions   Questions            `json:"questions"`
 	Flags       map[string]Flag      `json:"flags,omitempty"`   // answers that need attention, by question
-	Matches     map[string]Flag      `json:"matches,omitempty"` // answers the user is looking for, by question
+	Matches     map[string]Match     `json:"matches,omitempty"` // answers the user is looking for, by question
 
 	Docs     string `json:"-"` // contents of SKILL.md
 	Location string `json:"-"` // BuiltIn, Project, or User

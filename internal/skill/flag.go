@@ -3,7 +3,6 @@ package skill
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -17,8 +16,7 @@ import (
 // not say. It sits above the 40–60% band where the model is unsure.
 const DefaultFlagAt = 0.6
 
-// Flag marks the answers to a question that need attention, or, in a
-// skill's matches, the answers the user is looking for. Each condition
+// Flag marks the answers to a question that need attention. Each condition
 // is a string: "yes" or "no" for a noul question, an option name for a
 // choice question, either one followed by a threshold such as ">= 80%", or
 // a comparison such as "<= 1.5" for a score question. A question is flagged
@@ -27,7 +25,27 @@ const DefaultFlagAt = 0.6
 // In skill.json a flag is a string, or a list of strings.
 type Flag []string
 
+// Match marks the answers to a question that someone is looking for. It is
+// written like a Flag.
+type Match []string
+
+// mark names a kind of condition in error messages.
+type mark struct{ noun, verb string }
+
+var (
+	flagMark  = mark{"flag", "flagged"}
+	matchMark = mark{"match", "matched"}
+)
+
 func (f *Flag) UnmarshalJSON(data []byte) error {
+	return unmarshalMark((*[]string)(f), data, flagMark)
+}
+
+func (m *Match) UnmarshalJSON(data []byte) error {
+	return unmarshalMark((*[]string)(m), data, matchMark)
+}
+
+func unmarshalMark(out *[]string, data []byte, k mark) error {
 	data = bytes.TrimSpace(data)
 	switch {
 	case len(data) > 0 && data[0] == '"':
@@ -35,25 +53,29 @@ func (f *Flag) UnmarshalJSON(data []byte) error {
 		if err := json.Unmarshal(data, &s); err != nil {
 			return err
 		}
-		*f = Flag{s}
+		*out = []string{s}
 		return nil
 	case len(data) > 0 && data[0] == '[':
 		var list []string
 		if err := json.Unmarshal(data, &list); err != nil {
-			return errors.New(`a flag list must hold strings, like ["negative", "mixed"]`)
+			return fmt.Errorf(`a %s list must hold strings, like ["negative", "mixed"]`, k.noun)
 		}
-		*f = list
+		*out = list
 		return nil
 	case len(data) > 0 && data[0] == '{':
-		return errors.New(`flag options are not supported yet; write a flag as a string like "yes" or "<= 1.5"`)
+		return fmt.Errorf(`%s options are not supported yet; write a %s as a string like "yes" or "<= 1.5"`, k.noun, k.noun)
 	}
-	return errors.New(`a flag must be a string like "yes" or "<= 1.5", or a list of strings`)
+	return fmt.Errorf(`a %s must be a string like "yes" or "<= 1.5", or a list of strings`, k.noun)
 }
 
-func (f Flag) MarshalJSON() ([]byte, error) {
-	var v any = []string(f)
-	if len(f) == 1 {
-		v = f[0]
+func (f Flag) MarshalJSON() ([]byte, error) { return marshalMark(f) }
+
+func (m Match) MarshalJSON() ([]byte, error) { return marshalMark(m) }
+
+func marshalMark(conds []string) ([]byte, error) {
+	var v any = conds
+	if len(conds) == 1 {
+		v = conds[0]
 	}
 	var b bytes.Buffer
 	enc := json.NewEncoder(&b)
@@ -99,13 +121,18 @@ var ops = []string{">=", "<=", ">", "<"} // two-character operators first
 
 // Conditions parses the flag for a question of type typ ("noul", "choice",
 // or "score").
-func (f Flag) Conditions(typ string) ([]Condition, error) {
-	if len(f) == 0 {
-		return nil, errors.New("flag is empty")
+func (f Flag) Conditions(typ string) ([]Condition, error) { return conditions(f, typ, flagMark) }
+
+// Conditions parses the match for a question of type typ.
+func (m Match) Conditions(typ string) ([]Condition, error) { return conditions(m, typ, matchMark) }
+
+func conditions(list []string, typ string, k mark) ([]Condition, error) {
+	if len(list) == 0 {
+		return nil, fmt.Errorf("%s is empty", k.noun)
 	}
-	out := make([]Condition, 0, len(f))
-	for _, s := range f {
-		c, err := parseCondition(s, typ)
+	out := make([]Condition, 0, len(list))
+	for _, s := range list {
+		c, err := parseCondition(s, typ, k)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +141,7 @@ func (f Flag) Conditions(typ string) ([]Condition, error) {
 	return out, nil
 }
 
-func parseCondition(s, typ string) (Condition, error) {
+func parseCondition(s, typ string, k mark) (Condition, error) {
 	s = strings.TrimSpace(s)
 	if typ == "score" {
 		for _, op := range ops {
@@ -125,7 +152,7 @@ func parseCondition(s, typ string) (Condition, error) {
 				}
 			}
 		}
-		return Condition{}, fmt.Errorf(`flag %q should compare the score, like "<= 1.5" or ">= 3"`, s)
+		return Condition{}, fmt.Errorf(`%s %q should compare the score, like "<= 1.5" or ">= 3"`, k.noun, s)
 	}
 	example := `"yes" or "no >= 80%"`
 	if typ == "choice" {
@@ -136,36 +163,36 @@ func parseCondition(s, typ string) (Condition, error) {
 	if m := thresholdPattern.FindStringSubmatch(s); m != nil {
 		v, err := strconv.ParseFloat(m[3], 64)
 		if err != nil || v > 100 {
-			return Condition{}, fmt.Errorf("flag %q should be %s", s, example)
+			return Condition{}, fmt.Errorf("%s %q should be %s", k.noun, s, example)
 		}
 		c = Condition{Answer: m[1], Op: m[2], Value: v / 100}
 	}
 	if c.Answer == "" || strings.ContainsAny(c.Answer, "<>=%") {
-		return Condition{}, fmt.Errorf("flag %q should be %s", s, example)
+		return Condition{}, fmt.Errorf("%s %q should be %s", k.noun, s, example)
 	}
 	return c, nil
 }
 
 // checkFlags validates each flag and match against the question it names.
 func (s *Skill) checkFlags(questions map[string]decide.Question) error {
-	if err := checkMarks("flags", s.Flags, questions); err != nil {
+	if err := checkMarks("flags", s.Flags, flagMark, questions); err != nil {
 		return err
 	}
-	return checkMarks("matches", s.Matches, questions)
+	return checkMarks("matches", s.Matches, matchMark, questions)
 }
 
-func checkMarks(field string, marks map[string]Flag, questions map[string]decide.Question) error {
-	for key, flag := range marks {
+func checkMarks[M ~[]string](field string, marks map[string]M, k mark, questions map[string]decide.Question) error {
+	for key, list := range marks {
 		q, ok := questions[key]
 		if !ok {
 			return fmt.Errorf("%s names %q, which is not a question", field, key)
 		}
-		conds, err := flag.Conditions(q.QuestionType())
+		conds, err := conditions(list, q.QuestionType(), k)
 		if err != nil {
 			return fmt.Errorf("question %q: %w", key, err)
 		}
 		for _, c := range conds {
-			if err := checkCondition(c, q); err != nil {
+			if err := checkCondition(c, q, k); err != nil {
 				return fmt.Errorf("question %q: %w", key, err)
 			}
 		}
@@ -173,11 +200,11 @@ func checkMarks(field string, marks map[string]Flag, questions map[string]decide
 	return nil
 }
 
-func checkCondition(c Condition, q decide.Question) error {
+func checkCondition(c Condition, q decide.Question, k mark) error {
 	switch q := q.(type) {
 	case *decide.NoulQuestion:
 		if c.Answer != "yes" && c.Answer != "no" {
-			return fmt.Errorf(`a yes-or-no question is flagged with "yes" or "no", not %q`, c.Answer)
+			return fmt.Errorf(`a yes-or-no question is %s with "yes" or "no", not %q`, k.verb, c.Answer)
 		}
 	case *decide.ChoiceQuestion:
 		keys := make([]string, len(q.Criteria))
@@ -185,11 +212,11 @@ func checkCondition(c Condition, q decide.Question) error {
 			keys[i] = o.Key
 		}
 		if !slices.Contains(keys, c.Answer) {
-			return fmt.Errorf("flag %q is not an option; the options are %s", c.Answer, strings.Join(keys, ", "))
+			return fmt.Errorf("%s %q is not an option; the options are %s", k.noun, c.Answer, strings.Join(keys, ", "))
 		}
 	case *decide.ScoreQuestion:
 		if top := len(q.Criteria) - 1; top > 0 && (c.Value < 0 || c.Value > float64(top)) {
-			return fmt.Errorf("flag %s %g is outside the scale of 0 to %d", c.Op, c.Value, top)
+			return fmt.Errorf("%s %s %g is outside the scale of 0 to %d", k.noun, c.Op, c.Value, top)
 		}
 	}
 	return nil

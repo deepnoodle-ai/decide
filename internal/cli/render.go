@@ -282,7 +282,9 @@ func (m marks) has(res runs.Result, v verdict) bool {
 
 // conditionsOf parses a skill's flags or matches. Skills are validated when
 // they load, so a flag that does not parse is ignored.
-func conditionsOf(s *skill.Skill, flags map[string]skill.Flag) map[string][]skill.Condition {
+func conditionsOf[F interface {
+	Conditions(typ string) ([]skill.Condition, error)
+}](s *skill.Skill, flags map[string]F) map[string][]skill.Condition {
 	out := map[string][]skill.Condition{}
 	for _, q := range s.Questions {
 		flag, ok := flags[q.Key]
