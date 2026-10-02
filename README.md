@@ -1,6 +1,15 @@
 # Decide
 
+[![Reference](https://img.shields.io/badge/reference-pkg.go.dev-00ADD8?style=flat-square&logo=go&logoColor=white&labelColor=2f363d)](https://pkg.go.dev/github.com/deepnoodle-ai/decide)
+[![Tests](https://img.shields.io/github/actions/workflow/status/deepnoodle-ai/decide/ci.yml?branch=main&style=flat-square&label=tests&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/deepnoodle-ai/decide?style=flat-square&label=release&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/releases)
+[![Go](https://img.shields.io/github/go-mod/go-version/deepnoodle-ai/decide?style=flat-square&labelColor=2f363d&color=00ADD8)](go.mod)
+[![Last commit](https://img.shields.io/github/last-commit/deepnoodle-ai/decide?style=flat-square&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/commits/main)
+[![License](https://img.shields.io/badge/license-Apache_2.0-00ADD8?style=flat-square&labelColor=2f363d)](LICENSE)
+
 **Ask typed questions about your data. Get answers with probabilities.**
+
+[![decide triaging and routing five support tickets in the terminal](https://files.deepnoodle.ai/images/decide/decide-cli-demo-2026-10-02-80col.gif)](https://files.deepnoodle.ai/videos/decide/decide-cli-demo-2026-10-02-80col.mp4)
 
 Decide asks yes-or-no (`noul`), multiple-choice (`choice`), and scale
 (`score`) questions about files, folders, JSON records, and text. Each
