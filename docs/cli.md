@@ -88,6 +88,7 @@ Your data decides what one item is:
 | a `.txt` file, or piped text | each line |
 | any other text file, such as Markdown or code | the whole file, sent with its path |
 | images, for an image template such as `receipt-quality` | each image |
+| a diff, such as `git diff` output or a `.patch` file | each hunk: a block of changed lines |
 
 Choose another unit with `--each`:
 
@@ -98,6 +99,7 @@ Choose another unit with `--each`:
 | `paragraph` | each paragraph or list item | `CHANGELOG.md:13` |
 | `function` | each function or method in Go, Python, JavaScript, TypeScript, or Java | `models.py#L88  User.save` |
 | `line` | each line | `notes.txt:4` |
+| `hunk` | each block of changed lines in a diff | `server.go:42` |
 
 ```sh
 decide run relevance docs -p question="pricing"                    # which docs?
@@ -153,6 +155,58 @@ Check what a run will look at before sending anything to the model:
 ```sh
 decide run code-risk . --dry-run
 ```
+
+## Diffs
+
+Pipe in a diff to judge what changed rather than whole files:
+
+```sh
+git diff main | decide run code-risk --each hunk     # which changes are risky?
+gh pr diff 42 | decide run code-risk                 # which changed files?
+git show HEAD | decide run sentiment --each line     # each added line
+decide run code-risk change.patch --fail-on flagged  # fail CI on a risky change
+```
+
+Decide reads a diff from `git diff`, `git show`, `git format-patch`,
+`gh pr diff`, or `diff -u`, and any file that ends in `.diff` or `.patch`.
+In a diff, one item is:
+
+| `--each` | One item is | Named like |
+| --- | --- | --- |
+| `hunk` (the default) | each block of changed lines | `server.go:42  func (h *Handler) Delete(id string) error {` |
+| `file` | every change to one file | `server.go` |
+| `line` | each added line | `server.go:43` |
+
+A template that reads whole files, such as `code-risk`, judges each changed
+file. Add `--each hunk` to judge each change on its own.
+
+An item is named by the file and the first changed line in the new
+version, followed by the function git found above the change, if any. The
+model sees the change in diff form, with `-` for removed lines and `+` for
+added ones, and whether the file was added, modified, or renamed.
+
+Decide skips deleted files, binary files, lockfiles such as `go.sum` and
+`package-lock.json`, and generated files that start with a `Code generated
+... DO NOT EDIT.` or `@generated` comment, and says which. Decide looks for
+that comment in the diff, and in the file on disk when the diff's change is
+further down. For a patch of files that are not on disk, leave out generated
+files with `--exclude`. `--include` and
+`--exclude` match the paths in the diff, and a lockfile or generated file
+that `--include` names is judged.
+
+A diff with nothing to judge, such as an empty one from `git diff` when
+nothing changed, or one that changes only lockfiles, is not an error:
+decide says so and exits 0, so a CI gate on that change passes.
+
+When a diff holds several commits, as from `git log -p` or `git
+format-patch`, each item's name ends with its commit, such as
+`server.go@1a2b3c4:42`. Decide does not read the combined diff that `git
+show` prints for a merge commit; diff against one side of it instead, such
+as `git diff main...feature`.
+
+A `.diff` or `.patch` file that you name is read as a diff. In a folder,
+such files are read as diffs only with `--each hunk`, and their items are
+named after the patch, such as `fixes/auth.patch: server.go:42`.
 
 ## Choosing your data
 
@@ -333,7 +387,7 @@ requests run at once (default 4).
 
 | Code | Meaning |
 | --- | --- |
-| 0 | Every item was answered. With `--fail-on`, none was flagged or matched. |
+| 0 | Every item was answered, or a diff had nothing to judge. With `--fail-on`, none was flagged or matched. |
 | 1 | An error, or some items failed or were not reached. This wins over 2, even if items were flagged. |
 | 2 | With `--fail-on`, at least one item was flagged or matched. |
 | 130 | Stopped with Ctrl-C. Resume with `decide runs resume`. |

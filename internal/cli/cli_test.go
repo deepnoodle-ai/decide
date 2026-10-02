@@ -340,6 +340,51 @@ func TestFailOn(t *testing.T) {
 	contains(t, out.stderr, "relevance never marks an item flagged")
 }
 
+func TestDiffInput(t *testing.T) {
+	h := setup(t)
+	diff := "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1,2 +1,2 @@ func A() {\n a\n-b\n+c\n@@ -9 +9 @@\n-x\n+y\n" +
+		"diff --git a/go.sum b/go.sum\n--- a/go.sum\n+++ b/go.sum\n@@ -1 +1 @@\n-a\n+b\n"
+	levels := []any{"0", "1", "2", "3", "4"}
+	h.server.Answer("risk", decidetest.NoulAnswer(0.9))
+	h.server.Answer("maintainability", decidetest.ScoreAnswer(levels, 0, 0, 0.1, 0.5, 0.4))
+	out := h.run(diff, "run", "code-risk", "--each", "hunk", "--fail-on", "flagged")
+	if out.code != 2 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "Skipped go.sum (lockfile)", "Running code-risk on 2 hunks", "Flagged: a.go:2, a.go:9")
+	contains(t, out.stdout, "a.go:2  func A() {\n")
+
+	// code-risk reads whole files, so a diff is judged by changed file.
+	out = h.run(diff, "run", "code-risk")
+	contains(t, out.stderr, "Running code-risk on 1 file")
+	if strings.Contains(out.stderr, "--each function") {
+		t.Errorf("a changed file is not a source file to split:\n%s", out.stderr)
+	}
+}
+
+func TestNothingToJudge(t *testing.T) {
+	h := setup(t)
+	lockOnly := "diff --git a/go.sum b/go.sum\n--- a/go.sum\n+++ b/go.sum\n@@ -1 +1 @@\n-a\n+b\n"
+	for name, stdin := range map[string]string{"empty diff": "", "skipped files": lockOnly} {
+		for _, extra := range [][]string{nil, {"--dry-run"}} {
+			args := append([]string{"run", "code-risk", "--fail-on", "flagged"}, extra...)
+			out := h.run(stdin, args...)
+			if out.code != 0 {
+				t.Errorf("%s %v: exit %d, want 0: %s", name, extra, out.code, out.stderr)
+			}
+			contains(t, out.stderr, "Nothing for code-risk to judge")
+		}
+	}
+	if len(h.server.Requests()) != 0 {
+		t.Errorf("sent %d requests", len(h.server.Requests()))
+	}
+	// A folder with nothing in it is still a mistake worth reporting.
+	h.write("empty/.keep", "")
+	if out := h.run("", "run", "code-risk", "empty"); out.code != 1 {
+		t.Errorf("empty folder: exit %d, want 1", out.code)
+	}
+}
+
 func TestMatchedAnswers(t *testing.T) {
 	h := setup(t)
 	h.write("notes.txt", "about tools\nabout pricing\n")

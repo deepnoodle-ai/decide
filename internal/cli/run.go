@@ -29,10 +29,13 @@ What counts as an item depends on your data:
   .txt files, stdin    each line
   other files          the whole file
   images               each image, for image templates
+  a diff               each hunk: a block of changed lines
 
 Choose another unit with --each file, line, paragraph, section, or
 function. A section is the text under a Markdown heading. A function is a
-function or method in Go, Python, JavaScript, TypeScript, or Java code. An
+function or method in Go, Python, JavaScript, TypeScript, or Java code. In
+a diff, such as git diff output or a .patch file, --each file judges each
+changed file and --each line each added line. An
 item too long to judge whole is judged in parts, and the parts' answers
 are combined.
 
@@ -46,6 +49,7 @@ Examples:
   decide run relevance CHANGELOG.md --each section -p question="tool calling"
   decide run ticket-routing tickets.jsonl --field body
   echo "This is great" | decide run sentiment
+  git diff main | decide run code-risk --each hunk
   decide run code-risk . --dry-run
 
 With --fail-on flagged, decide exits with code 2 when any item is flagged,
@@ -62,7 +66,7 @@ func (a *App) addRun(app *cli.App) {
 			cli.Strings("include", "i").Help("Only read files that match this pattern, like '*.go' (repeatable)"),
 			cli.Strings("exclude", "x").Help("Skip files that match this pattern (repeatable)"),
 			cli.Strings("param", "p").Help("Set a template parameter, as name=value (repeatable)"),
-			cli.String("each").Enum(template.Units...).Help("What one item is: file, line, paragraph, section, or function (default: depends on the data)"),
+			cli.String("each").Enum(template.Units...).Help("What one item is: file, line, paragraph, section, function, or hunk (default: depends on the data)"),
 			cli.String("field").Help("Ask about one field of each JSON record, like body or ticket.body"),
 			cli.String("items").Help("Where the records are inside a JSON file, like data.tickets"),
 			cli.Int("limit", "n").Help("Stop after this many items"),
@@ -138,8 +142,10 @@ func (a *App) run(c *cli.Context) error {
 		Sample:  sample,
 		Warn:    func(msg string) { fmt.Fprintln(c.Stderr(), dim(clean(msg))) },
 	}
+	changes := false
+	opts.Changes = func() { changes = true }
 	if c.Bool("dry-run") {
-		return a.dryRun(c, resolved, paths, opts)
+		return a.dryRun(c, resolved, paths, opts, &changes)
 	}
 
 	provider := c.String("provider")
@@ -171,6 +177,11 @@ func (a *App) run(c *cli.Context) error {
 		found.add(it)
 		return run.Add(it)
 	})
+	if err == nil && run.Total == 0 && changes {
+		run.Discard()
+		nothingToJudge(c, s)
+		return nil
+	}
 	if err == nil && run.Total == 0 {
 		err = nothingFound(s, paths, opts)
 	}
@@ -398,7 +409,7 @@ func list(w io.Writer, label string, sources []string) {
 	fmt.Fprintf(w, "%s %s\n", dim(label), text)
 }
 
-func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts source.Options) error {
+func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts source.Options, changes *bool) error {
 	if c.Bool("json") {
 		enc := json.NewEncoder(c.Stdout())
 		return source.Walk(c.Context(), paths, c.Stdin(), opts, func(it source.Item) error { return enc.Encode(it) })
@@ -417,6 +428,10 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 		return err
 	}
 	total := found.items()
+	if total == 0 && *changes {
+		nothingToJudge(c, s)
+		return nil
+	}
 	if total == 0 {
 		return nothingFound(s, paths, opts)
 	}
@@ -457,6 +472,15 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 	}
 	fmt.Fprintf(w, "\n%s\n", dim("Nothing was sent to the model. Remove --dry-run to run it."))
 	return nil
+}
+
+// nothingToJudge reports a diff, or empty input, with no changes for the
+// template to judge. That is not an error, so a CI gate on a change with
+// nothing to judge passes.
+func nothingToJudge(c *cli.Context, s *template.Template) {
+	if !c.Bool("json") {
+		fmt.Fprintf(c.Stderr(), "%s\n", dim(fmt.Sprintf("Nothing for %s to judge: no changes, or only changes it skips", s.Name)))
+	}
 }
 
 func nothingFound(s *template.Template, paths []string, opts source.Options) error {
@@ -535,7 +559,7 @@ func newTally() *tally { return &tally{units: map[string]int{}} }
 func (t *tally) add(it source.Item) {
 	t.units[it.Unit]++
 	t.requests += max(len(it.Parts), 1)
-	if it.Unit == template.EachFile && source.Language(it.Label) != "" {
+	if it.Unit == template.EachFile && !it.Diff && source.Language(it.Label) != "" {
 		t.code++
 	}
 	if len(it.Parts) > 0 {
@@ -555,6 +579,7 @@ func (t *tally) items() int {
 var unitNames = [][3]string{
 	{template.EachFile, "file", "files"},
 	{template.EachFunction, "function", "functions"},
+	{template.EachHunk, "hunk", "hunks"},
 	{template.EachSection, "section", "sections"},
 	{template.EachParagraph, "paragraph", "paragraphs"},
 	{template.EachLine, "line", "lines"},

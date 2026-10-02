@@ -74,6 +74,12 @@ type Options struct {
 	Limit   int    // stop after this many items
 	Sample  int    // pick this many items at random
 	Warn    func(msg string)
+
+	// Changes, when not nil, is called for each diff read, and for empty
+	// stdin, which is what git diff prints when nothing changed. A run
+	// that finds no items in them has nothing to judge, which is not an
+	// error.
+	Changes func()
 }
 
 // Item is one thing to evaluate.
@@ -84,6 +90,7 @@ type Item struct {
 	State json.RawMessage `json:"state,omitempty"` // what the model sees; empty when the item has parts
 	Parts []Part          `json:"parts,omitempty"` // the item cut into pieces, when it is too large to send whole
 	Image *ImageData      `json:"-"`
+	Diff  bool            `json:"-"` // a change read from a diff
 }
 
 // Part is one piece of an item too large to send whole.
@@ -118,6 +125,9 @@ func Walk(ctx context.Context, paths []string, stdin io.Reader, opts Options, fn
 	}
 	if opts.Warn == nil {
 		opts.Warn = func(string) {}
+	}
+	if opts.Changes == nil {
+		opts.Changes = func() {}
 	}
 	if len(paths) == 0 {
 		paths = []string{"-"}
@@ -184,6 +194,7 @@ type walker struct {
 	notCode int      // files skipped for want of functions: not source code
 	noFuncs int      // source files without functions
 	lost    []string // source files read whole because their functions could not be found
+	root    *string  // the git repository around the working directory, once looked for
 	seen    int
 	sample  []sampled
 }
@@ -405,6 +416,25 @@ func (w *walker) file(path, label string, explicit bool) error {
 		}
 		state, _ := json.Marshal(map[string]any{"path": label, "content_type": ctype})
 		return w.emit(Item{Label: label, Unit: UnitImage, State: state, Image: &ImageData{ContentType: ctype, Data: data}})
+	}
+	if formatOf(path) == diffText && (explicit || w.opts.Each == template.EachHunk) {
+		if info.Size() > MaxJSONBytes {
+			return skip("%s (larger than 64 MiB)", label)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if explicit {
+			return w.diff(data, label, "")
+		}
+		return w.diff(data, label, label+": ") // named after the patch, not the files in it
+	}
+	if w.opts.Each == template.EachHunk {
+		if explicit {
+			return errors.New(notDiff(label))
+		}
+		return nil
 	}
 	if w.opts.Each == template.EachFunction {
 		lang := languageOf(path)
@@ -670,6 +700,11 @@ func plural(n int, one, many string) string {
 	return many
 }
 
+// notDiff explains that --each hunk needs a diff.
+func notDiff(label string) string {
+	return fmt.Sprintf("%s is not a diff, so it has no hunks; pipe in a diff, such as: git diff | decide run ...", label)
+}
+
 func (w *walker) stdinItems() error {
 	if w.stdin == nil {
 		return errors.New("no input on stdin")
@@ -678,6 +713,24 @@ func (w *walker) stdinItems() error {
 		return errors.New("image templates read image files, not stdin")
 	}
 	br := bufio.NewReader(w.stdin)
+	peek, _ := br.Peek(64 << 10)
+	if len(bytes.TrimSpace(peek)) == 0 && len(peek) < 64<<10 {
+		w.opts.Changes()
+		return nil
+	}
+	if isDiff(peek) {
+		data, err := io.ReadAll(io.LimitReader(br, MaxJSONBytes+1))
+		if err != nil {
+			return err
+		}
+		if len(data) > MaxJSONBytes {
+			return errors.New("the diff on stdin is larger than 64 MiB")
+		}
+		return w.diff(data, "stdin", "")
+	}
+	if w.opts.Each == template.EachHunk {
+		return errors.New(notDiff("stdin"))
+	}
 	switch w.opts.Each {
 	case template.EachFunction:
 		return errors.New("--each function reads source files, not stdin")
@@ -708,6 +761,7 @@ const (
 	jsonl                  // each nonblank line is a JSON record
 	jsonDoc                // one JSON document; arrays are split into records
 	csvFile                // each row is a record, named by the header row
+	diffText               // a unified diff, one item per hunk unless --each says otherwise
 )
 
 // dataset reports whether the format holds records.
@@ -725,6 +779,8 @@ func formatOf(path string) format {
 		return lines
 	case ".md", ".markdown", ".mdx":
 		return markdown
+	case ".diff", ".patch":
+		return diffText
 	}
 	return document
 }

@@ -89,9 +89,10 @@ decide run code-risk src --include '*.go'
 decide run relevance docs --each section -p question="pricing"
 decide runs view --json > results.jsonl
 decide run code-risk src --fail-on flagged   # exit code 2 if anything is flagged
+git diff main | decide run code-risk --each hunk   # judge each change
 ```
 
-Decide reads JSONL, JSON, CSV, text, Markdown, source code, and images,
+Decide reads JSONL, JSON, CSV, text, Markdown, source code, diffs, and images,
 flags answers that need attention, and resumes stopped runs. You can write
 your own template in a few lines of JSON with `decide templates new`. The
 [CLI guide](docs/cli.md) covers it all.

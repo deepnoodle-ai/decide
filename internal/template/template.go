@@ -44,10 +44,11 @@ const (
 	EachParagraph = "paragraph"
 	EachSection   = "section"
 	EachFunction  = "function"
+	EachHunk      = "hunk" // one block of changes in a diff
 )
 
 // Units lists the values of --each and of a template's each.
-var Units = []string{EachFile, EachLine, EachParagraph, EachSection, EachFunction}
+var Units = []string{EachFile, EachLine, EachParagraph, EachSection, EachFunction, EachHunk}
 
 // Where a template was found.
 const (
