@@ -315,6 +315,15 @@ skills:
   export DECIDE_PROVIDER=cloudflare
   ```
 
+Any other service that speaks the Jev API works too, such as one you host
+yourself. Point decide at it with `TYPESAFE_BASE_URL`, along with
+`TYPESAFE_API_KEY` and a model name:
+
+```sh
+export TYPESAFE_BASE_URL=https://decisions.example.com
+decide run sentiment notes.txt --model my-model
+```
+
 Choose for one run with `--provider typesafe|cloudflare` and `--model NAME`,
 or for every run with `DECIDE_PROVIDER` and `DECIDE_MODEL`. `--workers` sets how many
 requests run at once (default 4).

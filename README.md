@@ -11,8 +11,9 @@ Use it as a command-line tool or as a Go library.
 
 Decide runs on **decision models**, which are built to answer typed
 questions rather than to generate text. TypeSafe calls them System One
-models. Decide supports Jev and Clef with the same commands and the same
-Go code, so you can switch between them without changing anything else:
+models. Decide works with the TypeSafe API, Cloudflare Workers AI, and any
+other service that speaks the Jev API, with the same commands and the same
+Go code. Switch between them without changing anything else:
 
 | | [Jev](https://docs.typesafe.ai/introduction) by TypeSafe | [Clef](https://developers.cloudflare.com/workers-ai/models/clef/) by Cloudflare |
 | --- | --- | --- |
@@ -45,7 +46,16 @@ export DECIDE_PROVIDER=cloudflare   # or pass --provider cloudflare
 echo "The new release fixed everything I cared about" | decide run sentiment
 ```
 
-Either way, you get a typed answer with its probability:
+**With another Jev-compatible service,** such as one you host yourself,
+set its address and a model name:
+
+```sh
+export TYPESAFE_API_KEY=...
+export TYPESAFE_BASE_URL=https://decisions.example.com
+echo "The new release fixed everything I cared about" | decide run sentiment --model my-model
+```
+
+Whichever you choose, you get a typed answer with its probability:
 
 ```
 Running sentiment on 1 line · typesafe jev-latest
@@ -92,10 +102,11 @@ go get github.com/deepnoodle-ai/decide
 Create a client for Jev:
 
 ```go
-client, err := decide.NewClient() // reads TYPESAFE_API_KEY
+client, err := decide.NewClient() // reads TYPESAFE_API_KEY and TYPESAFE_BASE_URL
 ```
 
-Or for Clef:
+For another Jev-compatible service, pass `decide.WithBaseURL` and
+`decide.WithModel`. Or create a client for Clef:
 
 ```go
 client, err := backend.NewClient(backend.Config{
