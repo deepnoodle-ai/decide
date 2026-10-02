@@ -1,0 +1,16 @@
+{
+  "name": "relevance",
+  "description": "Estimate how relevant each item is to a question you choose.",
+  "input": "record",
+  "parameters": {
+    "question": {
+      "description": "The question or topic to match"
+    }
+  },
+  "questions": {
+    "relevant": {
+      "type": "noul",
+      "instructions": "Is this item relevant to: {{question}}?"
+    }
+  }
+}

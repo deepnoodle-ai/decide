@@ -1,6 +1,8 @@
 # Dataset CLI
 
-Status: Approved
+Status: Superseded. The CLI was simplified to skills, runs, and
+`decide run`; see [the CLI guide](../cli.md). Source manifests, URL sources,
+patterns, profiles, and most tuning flags were removed.
 The current scope is command-only. Interactive experimentation is deferred.
 
 ## Boundaries
