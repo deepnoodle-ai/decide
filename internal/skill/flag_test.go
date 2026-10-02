@@ -11,19 +11,19 @@ import (
 
 const flagSkill = `{"name":"x","description":"d","input":"record","questions":{
 	"risky": {"type":"noul","instructions":"?"},
-	"mood": {"type":"choice","instructions":"?","criteria":{"good":"g","bad":"b","mixed":"m"}},
+	"mood": {"type":"choice","instructions":"?","criteria":{"good":"g","bad":"b","mixed":"m","very bad":"v"}},
 	"clarity": {"type":"score","instructions":"?","criteria":["a","b","c","d","e"]}},
 	"flags": %s}`
 
 func TestFlagsParse(t *testing.T) {
 	s, err := parse([]byte(strings.Replace(flagSkill, "%s",
-		`{"risky": "yes >= 80%", "mood": ["bad", "mixed > 50%"], "clarity": "<= 1.5"}`, 1)), "test")
+		`{"risky": "yes >= 80%", "mood": ["bad", "mixed > 50%", "very bad", "very bad>=90%"], "clarity": "<= 1.5"}`, 1)), "test")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for key, want := range map[string][]Condition{
 		"risky":   {{Answer: "yes", Op: ">=", Value: 0.8}},
-		"mood":    {{Answer: "bad", Op: ">=", Value: DefaultFlagAt}, {Answer: "mixed", Op: ">", Value: 0.5}},
+		"mood":    {{Answer: "bad", Op: ">=", Value: DefaultFlagAt}, {Answer: "mixed", Op: ">", Value: 0.5}, {Answer: "very bad", Op: ">=", Value: DefaultFlagAt}, {Answer: "very bad", Op: ">=", Value: 0.9}},
 		"clarity": {{Op: "<=", Value: 1.5}},
 	} {
 		typ := map[string]string{"risky": "noul", "mood": "choice", "clarity": "score"}[key]
@@ -43,7 +43,7 @@ func TestFlagsParse(t *testing.T) {
 	enc.SetEscapeHTML(false)
 	enc.Encode(s.Flags)
 	b := buf.Bytes()
-	if !strings.Contains(string(b), `"risky":"yes >= 80%"`) || !strings.Contains(string(b), `"mood":["bad","mixed > 50%"]`) {
+	if !strings.Contains(string(b), `"risky":"yes >= 80%"`) || !strings.Contains(string(b), `"mood":["bad","mixed > 50%","very bad","very bad>=90%"]`) {
 		t.Fatalf("marshal = %s", b)
 	}
 }
@@ -54,7 +54,7 @@ func TestFlagsExplainProblems(t *testing.T) {
 		`{"risky": "maybe"}`:       `"yes" or "no", not "maybe"`,
 		`{"risky": "yes >= 180%"}`: `should be "yes" or "no >= 80%"`,
 		`{"risky": "yes <= 20%"}`:  `should be "yes" or "no >= 80%"`,
-		`{"mood": "angry"}`:        "the options are good, bad, mixed",
+		`{"mood": "angry"}`:        "the options are good, bad, mixed, very bad",
 		`{"clarity": "low"}`:       `like "<= 1.5"`,
 		`{"clarity": ">= 7"}`:      "outside the scale of 0 to 4",
 		`{"risky": {"if": "yes"}}`: "not supported yet",

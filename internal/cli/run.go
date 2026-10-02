@@ -240,7 +240,7 @@ func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) {
 		parts = append(parts, fmt.Sprintf("%d left", left))
 	}
 	flagged := flaggedSources(run)
-	if flagged != nil {
+	if flagged != nil && run.Complete > 0 {
 		if len(flagged) == 0 {
 			parts = append(parts, good("nothing flagged"))
 		} else {

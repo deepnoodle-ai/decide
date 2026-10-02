@@ -57,7 +57,8 @@ marker/app.py
 Flagged: marker/Makefile, marker/app.py
 ```
 
-`decide skills show SKILL` says when each question is flagged.
+`decide skills show SKILL` says when each question is flagged. A yes-or-no
+answer between 40% and 60% is yellow in every skill: the model is unsure.
 
 Add `--details` to see the full probability of every option and the
 model's confidence. Add `--json` to get one JSON line per item instead.

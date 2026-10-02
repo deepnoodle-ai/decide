@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -91,6 +92,8 @@ func (c Condition) Holds(prob func(answer string) float64, score float64) bool {
 	return false
 }
 
+var thresholdPattern = regexp.MustCompile(`^(.*?)\s*(>=|>)\s*([0-9.]+)\s*%$`)
+
 var ops = []string{">=", "<=", ">", "<"} // two-character operators first
 
 // Conditions parses the flag for a question of type typ ("noul", "choice",
@@ -127,24 +130,16 @@ func parseCondition(s, typ string) (Condition, error) {
 	if typ == "choice" {
 		example = `an option name, like "negative" or "negative >= 80%"`
 	}
-	answer, rest, _ := strings.Cut(s, " ")
-	c := Condition{Answer: answer, Op: ">=", Value: DefaultFlagAt}
-	if rest = strings.TrimSpace(rest); rest != "" {
-		op := ""
-		for _, o := range []string{">=", ">"} {
-			if r, ok := strings.CutPrefix(rest, o); ok {
-				op, rest = o, strings.TrimSpace(r)
-				break
-			}
-		}
-		pct, ok := strings.CutSuffix(rest, "%")
-		v, err := strconv.ParseFloat(strings.TrimSpace(pct), 64)
-		if op == "" || !ok || err != nil || v < 0 || v > 100 {
+	// The threshold comes last, so option names may contain spaces.
+	c := Condition{Answer: s, Op: ">=", Value: DefaultFlagAt}
+	if m := thresholdPattern.FindStringSubmatch(s); m != nil {
+		v, err := strconv.ParseFloat(m[3], 64)
+		if err != nil || v > 100 {
 			return Condition{}, fmt.Errorf("flag %q should be %s", s, example)
 		}
-		c.Op, c.Value = op, v/100
+		c = Condition{Answer: m[1], Op: m[2], Value: v / 100}
 	}
-	if answer == "" {
+	if c.Answer == "" || strings.ContainsAny(c.Answer, "<>=%") {
 		return Condition{}, fmt.Errorf("flag %q should be %s", s, example)
 	}
 	return c, nil
