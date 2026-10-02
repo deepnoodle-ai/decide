@@ -340,6 +340,25 @@ func TestFailOn(t *testing.T) {
 	contains(t, out.stderr, "relevance never marks an item flagged")
 }
 
+func TestDiffInput(t *testing.T) {
+	h := setup(t)
+	diff := "diff --git a/a.go b/a.go\n--- a/a.go\n+++ b/a.go\n@@ -1,2 +1,2 @@ func A() {\n a\n-b\n+c\n@@ -9 +9 @@\n-x\n+y\n" +
+		"diff --git a/go.sum b/go.sum\n--- a/go.sum\n+++ b/go.sum\n@@ -1 +1 @@\n-a\n+b\n"
+	levels := []any{"0", "1", "2", "3", "4"}
+	h.server.Answer("risk", decidetest.NoulAnswer(0.9))
+	h.server.Answer("maintainability", decidetest.ScoreAnswer(levels, 0, 0, 0.1, 0.5, 0.4))
+	out := h.run(diff, "run", "code-risk", "--each", "hunk", "--fail-on", "flagged")
+	if out.code != 2 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "Skipped go.sum (lockfile)", "Running code-risk on 2 hunks", "Flagged: a.go:2, a.go:9")
+	contains(t, out.stdout, "a.go:2  func A() {\n")
+
+	// code-risk reads whole files, so a diff is judged by changed file.
+	out = h.run(diff, "run", "code-risk")
+	contains(t, out.stderr, "Running code-risk on 1 file")
+}
+
 func TestMatchedAnswers(t *testing.T) {
 	h := setup(t)
 	h.write("notes.txt", "about tools\nabout pricing\n")

@@ -88,6 +88,7 @@ Your data decides what one item is:
 | a `.txt` file, or piped text | each line |
 | any other text file, such as Markdown or code | the whole file, sent with its path |
 | images, for an image template such as `receipt-quality` | each image |
+| a diff, such as `git diff` output or a `.patch` file | each hunk: a block of changed lines |
 
 Choose another unit with `--each`:
 
@@ -98,6 +99,7 @@ Choose another unit with `--each`:
 | `paragraph` | each paragraph or list item | `CHANGELOG.md:13` |
 | `function` | each function or method in Go, Python, JavaScript, TypeScript, or Java | `models.py#L88  User.save` |
 | `line` | each line | `notes.txt:4` |
+| `hunk` | each block of changed lines in a diff | `server.go:42` |
 
 ```sh
 decide run relevance docs -p question="pricing"                    # which docs?
@@ -153,6 +155,41 @@ Check what a run will look at before sending anything to the model:
 ```sh
 decide run code-risk . --dry-run
 ```
+
+## Diffs
+
+Pipe in a diff to judge what changed rather than whole files:
+
+```sh
+git diff main | decide run code-risk --each hunk     # which changes are risky?
+gh pr diff 42 | decide run code-risk                 # which changed files?
+git show HEAD | decide run sentiment --each line     # each added line
+decide run code-risk change.patch --fail-on flagged  # fail CI on a risky change
+```
+
+Decide reads a diff from `git diff`, `git show`, `git format-patch`,
+`gh pr diff`, or `diff -u`, and any file that ends in `.diff` or `.patch`.
+In a diff, one item is:
+
+| `--each` | One item is | Named like |
+| --- | --- | --- |
+| `hunk` (the default) | each block of changed lines | `server.go:42  func (h *Handler) Delete(id string) error {` |
+| `file` | every change to one file | `server.go` |
+| `line` | each added line | `server.go:43` |
+
+A template that reads whole files, such as `code-risk`, judges each changed
+file. Add `--each hunk` to judge each change on its own.
+
+An item is named by the file and the first changed line in the new
+version, followed by the function git found above the change, if any. The
+model sees the change in diff form, with `-` for removed lines and `+` for
+added ones, and whether the file was added, modified, or renamed.
+
+Decide skips deleted files, binary files, lockfiles such as `go.sum` and
+`package-lock.json`, and generated files marked `Code generated ... DO NOT
+EDIT.` or `@generated`, and says which. `--include` and `--exclude` match
+the paths in the diff, and a lockfile or generated file that `--include`
+names is judged.
 
 ## Choosing your data
 

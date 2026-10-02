@@ -15,6 +15,10 @@ off, or remove them, as they land.
 
 ## Running and results
 
+- [x] **Diff input.** `git diff | decide run …` judges each hunk, changed
+      file, or added line, and skips lockfiles and generated files.
+- [ ] **Changed functions.** `--each function` on a diff judges the whole
+      function around each change.
 - [x] **`--fail-on`.** `decide run … --fail-on flagged|matched` exits 2 when
       any item is flagged or matched, so CI and hooks can block on it. Exit
       1 keeps meaning an error, as with `terraform plan -detailed-exitcode`.

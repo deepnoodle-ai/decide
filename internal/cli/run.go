@@ -29,10 +29,13 @@ What counts as an item depends on your data:
   .txt files, stdin    each line
   other files          the whole file
   images               each image, for image templates
+  a diff               each hunk: a block of changed lines
 
 Choose another unit with --each file, line, paragraph, section, or
 function. A section is the text under a Markdown heading. A function is a
-function or method in Go, Python, JavaScript, TypeScript, or Java code. An
+function or method in Go, Python, JavaScript, TypeScript, or Java code. In
+a diff, such as git diff output or a .patch file, --each file judges each
+changed file and --each line each added line. An
 item too long to judge whole is judged in parts, and the parts' answers
 are combined.
 
@@ -46,6 +49,7 @@ Examples:
   decide run relevance CHANGELOG.md --each section -p question="tool calling"
   decide run ticket-routing tickets.jsonl --field body
   echo "This is great" | decide run sentiment
+  git diff main | decide run code-risk --each hunk
   decide run code-risk . --dry-run
 
 With --fail-on flagged, decide exits with code 2 when any item is flagged,
@@ -62,7 +66,7 @@ func (a *App) addRun(app *cli.App) {
 			cli.Strings("include", "i").Help("Only read files that match this pattern, like '*.go' (repeatable)"),
 			cli.Strings("exclude", "x").Help("Skip files that match this pattern (repeatable)"),
 			cli.Strings("param", "p").Help("Set a template parameter, as name=value (repeatable)"),
-			cli.String("each").Enum(template.Units...).Help("What one item is: file, line, paragraph, section, or function (default: depends on the data)"),
+			cli.String("each").Enum(template.Units...).Help("What one item is: file, line, paragraph, section, function, or hunk (default: depends on the data)"),
 			cli.String("field").Help("Ask about one field of each JSON record, like body or ticket.body"),
 			cli.String("items").Help("Where the records are inside a JSON file, like data.tickets"),
 			cli.Int("limit", "n").Help("Stop after this many items"),
@@ -555,6 +559,7 @@ func (t *tally) items() int {
 var unitNames = [][3]string{
 	{template.EachFile, "file", "files"},
 	{template.EachFunction, "function", "functions"},
+	{template.EachHunk, "hunk", "hunks"},
 	{template.EachSection, "section", "sections"},
 	{template.EachParagraph, "paragraph", "paragraphs"},
 	{template.EachLine, "line", "lines"},

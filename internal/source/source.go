@@ -406,6 +406,22 @@ func (w *walker) file(path, label string, explicit bool) error {
 		state, _ := json.Marshal(map[string]any{"path": label, "content_type": ctype})
 		return w.emit(Item{Label: label, Unit: UnitImage, State: state, Image: &ImageData{ContentType: ctype, Data: data}})
 	}
+	if formatOf(path) == diffText {
+		if info.Size() > MaxJSONBytes {
+			return skip("%s (larger than 64 MiB)", label)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return w.diff(data, label)
+	}
+	if w.opts.Each == template.EachHunk {
+		if explicit {
+			return errors.New(notDiff(label))
+		}
+		return nil
+	}
 	if w.opts.Each == template.EachFunction {
 		lang := languageOf(path)
 		if lang == nil {
@@ -670,6 +686,11 @@ func plural(n int, one, many string) string {
 	return many
 }
 
+// notDiff explains that --each hunk needs a diff.
+func notDiff(label string) string {
+	return fmt.Sprintf("%s is not a diff, so it has no hunks; pipe in a diff, such as: git diff | decide run ...", label)
+}
+
 func (w *walker) stdinItems() error {
 	if w.stdin == nil {
 		return errors.New("no input on stdin")
@@ -678,6 +699,19 @@ func (w *walker) stdinItems() error {
 		return errors.New("image templates read image files, not stdin")
 	}
 	br := bufio.NewReader(w.stdin)
+	if peek, _ := br.Peek(64 << 10); isDiff(peek) {
+		data, err := io.ReadAll(io.LimitReader(br, MaxJSONBytes+1))
+		if err != nil {
+			return err
+		}
+		if len(data) > MaxJSONBytes {
+			return errors.New("the diff on stdin is larger than 64 MiB")
+		}
+		return w.diff(data, "stdin")
+	}
+	if w.opts.Each == template.EachHunk {
+		return errors.New(notDiff("stdin"))
+	}
 	switch w.opts.Each {
 	case template.EachFunction:
 		return errors.New("--each function reads source files, not stdin")
@@ -708,6 +742,7 @@ const (
 	jsonl                  // each nonblank line is a JSON record
 	jsonDoc                // one JSON document; arrays are split into records
 	csvFile                // each row is a record, named by the header row
+	diffText               // a unified diff, one item per hunk unless --each says otherwise
 )
 
 // dataset reports whether the format holds records.
@@ -725,6 +760,8 @@ func formatOf(path string) format {
 		return lines
 	case ".md", ".markdown", ".mdx":
 		return markdown
+	case ".diff", ".patch":
+		return diffText
 	}
 	return document
 }

@@ -1,0 +1,438 @@
+package source
+
+import (
+	"encoding/json"
+	"fmt"
+	"path"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
+
+	"github.com/deepnoodle-ai/decide/internal/template"
+)
+
+// Kinds of change to a file in a diff.
+const (
+	changeAdded    = "added"
+	changeModified = "modified"
+	changeDeleted  = "deleted"
+	changeRenamed  = "renamed"
+)
+
+// diffFile is one file in a unified diff.
+type diffFile struct {
+	oldPath, newPath string
+	change           string
+	binary           bool
+	headers          bool // the --- and +++ lines were read
+	hunks            []hunk
+}
+
+// path is the file's name after the change, or before it for a deletion.
+func (f *diffFile) path() string {
+	if f.change == changeDeleted {
+		return f.oldPath
+	}
+	return f.newPath
+}
+
+// hunk is one @@ block. lines keep their first character: ' ' for context,
+// '+' for an added line, '-' for a removed one, and '\' for "\ No newline
+// at end of file".
+type hunk struct {
+	header             string // the @@ line
+	context            string // the text after the second @@, often the enclosing function
+	oldStart, newStart int
+	lines              []string
+}
+
+// text is the hunk as it appears in the diff, from its @@ line.
+func (h hunk) text() string { return h.header + "\n" + strings.Join(h.lines, "\n") }
+
+var hunkHeader = regexp.MustCompile(`^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@ ?(.*)$`)
+
+// isDiff reports whether text looks like a unified diff, such as the
+// output of git diff, git show, git format-patch, or diff -u. It looks at
+// the first line and for a file header followed by a hunk.
+func isDiff(peek []byte) bool {
+	text := string(peek)
+	first, _, _ := strings.Cut(strings.TrimLeft(text, "\r\n\t "), "\n")
+	starts := false
+	for _, p := range []string{"diff ", "--- ", "Index: ", "commit ", "From "} {
+		if strings.HasPrefix(first, p) {
+			starts = true
+		}
+	}
+	if !starts {
+		return false
+	}
+	lines := strings.Split(text, "\n")
+	for i := 0; i+2 < len(lines); i++ {
+		if strings.HasPrefix(lines[i], "diff --git ") {
+			return true
+		}
+		if strings.HasPrefix(lines[i], "--- ") && strings.HasPrefix(lines[i+1], "+++ ") && hunkHeader.MatchString(lines[i+2]) {
+			return true
+		}
+	}
+	return false
+}
+
+// parseDiff reads the files and hunks of a unified diff. Text outside
+// files and hunks, such as a commit message, is ignored.
+func parseDiff(data string) []*diffFile {
+	lines := strings.Split(strings.ReplaceAll(data, "\r\n", "\n"), "\n")
+	var files []*diffFile
+	var cur *diffFile
+	start := func(f *diffFile) {
+		files = append(files, f)
+		cur = f
+	}
+	for i := 0; i < len(lines); i++ {
+		line := lines[i]
+		switch {
+		case strings.HasPrefix(line, "diff --git "):
+			old, new := gitPaths(strings.TrimPrefix(line, "diff --git "))
+			start(&diffFile{oldPath: old, newPath: new, change: changeModified})
+		case cur != nil && strings.HasPrefix(line, "new file mode"):
+			cur.change = changeAdded
+		case cur != nil && strings.HasPrefix(line, "deleted file mode"):
+			cur.change = changeDeleted
+		case cur != nil && strings.HasPrefix(line, "rename from "):
+			cur.oldPath, cur.change = unquotePath(strings.TrimPrefix(line, "rename from ")), changeRenamed
+		case cur != nil && strings.HasPrefix(line, "rename to "):
+			cur.newPath, cur.change = unquotePath(strings.TrimPrefix(line, "rename to ")), changeRenamed
+		case cur != nil && (strings.HasPrefix(line, "Binary files ") || line == "GIT binary patch"):
+			cur.binary = true
+		case strings.HasPrefix(line, "--- ") && i+1 < len(lines) && strings.HasPrefix(lines[i+1], "+++ "):
+			old := headerPath(strings.TrimPrefix(line, "--- "))
+			new := headerPath(strings.TrimPrefix(lines[i+1], "+++ "))
+			i++
+			// git writes a diff --git line first; diff -u starts here.
+			if cur == nil || cur.headers {
+				start(&diffFile{oldPath: old, newPath: new, change: changeModified})
+			}
+			switch {
+			case old == "/dev/null":
+				cur.change = changeAdded
+			case new == "/dev/null":
+				cur.change = changeDeleted
+			}
+			if old != "/dev/null" {
+				cur.oldPath = old
+			}
+			if new != "/dev/null" {
+				cur.newPath = new
+			}
+			cur.headers = true
+		case cur != nil:
+			m := hunkHeader.FindStringSubmatch(line)
+			if m == nil {
+				continue
+			}
+			h := hunk{header: line, context: strings.TrimSpace(m[5])}
+			h.oldStart, _ = strconv.Atoi(m[1])
+			h.newStart, _ = strconv.Atoi(m[3])
+			oldLeft, newLeft := count(m[2]), count(m[4])
+			for i+1 < len(lines) && (oldLeft > 0 || newLeft > 0 || strings.HasPrefix(lines[i+1], `\`)) {
+				i++
+				l := lines[i]
+				switch {
+				case l == "":
+					// Some tools drop the space of an empty context line.
+					l = " "
+					oldLeft--
+					newLeft--
+				case l[0] == ' ':
+					oldLeft--
+					newLeft--
+				case l[0] == '-':
+					oldLeft--
+				case l[0] == '+':
+					newLeft--
+				case l[0] == '\\':
+				default:
+					i-- // the diff ended early
+					oldLeft, newLeft = 0, 0
+					continue
+				}
+				h.lines = append(h.lines, l)
+			}
+			cur.hunks = append(cur.hunks, h)
+		}
+	}
+	return files
+}
+
+// count reads a hunk's line count, which is 1 when the diff leaves it out.
+func count(s string) int {
+	if s == "" {
+		return 1
+	}
+	n, _ := strconv.Atoi(s)
+	return n
+}
+
+// gitPaths reads the paths in a "diff --git a/x b/y" line. It is a fallback
+// for files whose diff has no --- and +++ lines, such as a pure rename or a
+// binary file.
+func gitPaths(s string) (old, new string) {
+	if strings.HasPrefix(s, `"`) {
+		if q, err := strconv.QuotedPrefix(s); err == nil {
+			old = unquotePath(q)
+			return strings.TrimPrefix(old, "a/"), strings.TrimPrefix(unquotePath(strings.TrimSpace(s[len(q):])), "b/")
+		}
+	}
+	// Without quotes, the two paths are usually the same, so split in the
+	// middle: "a/x b/x".
+	if n := len(s); n%2 == 1 && s[:n/2] == "a/"+s[n/2+3:] && s[n/2:n/2+3] == " b/" {
+		p := s[2 : n/2]
+		return p, p
+	}
+	if a, b, ok := strings.Cut(s, " b/"); ok {
+		return strings.TrimPrefix(a, "a/"), b
+	}
+	return s, s
+}
+
+// headerPath reads the path in a --- or +++ line, without git's a/ or b/
+// and without the timestamp diff -u adds after a tab.
+func headerPath(s string) string {
+	s, _, _ = strings.Cut(s, "\t")
+	s = unquotePath(strings.TrimSpace(s))
+	if s == "/dev/null" {
+		return s
+	}
+	if strings.HasPrefix(s, "a/") || strings.HasPrefix(s, "b/") {
+		return s[2:]
+	}
+	return s
+}
+
+// unquote reads a path git quoted because it has unusual characters.
+func unquotePath(s string) string {
+	if strings.HasPrefix(s, `"`) {
+		if u, err := strconv.Unquote(s); err == nil {
+			return u
+		}
+	}
+	return s
+}
+
+// lockfiles are generated by package managers and too long to judge.
+var lockfiles = []string{
+	"go.sum", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock", "bun.lockb",
+	"Cargo.lock", "Gemfile.lock", "poetry.lock", "uv.lock", "Pipfile.lock", "composer.lock", "flake.lock",
+}
+
+// skipReason says why a file in a diff is not judged, or "" to judge it.
+func (f *diffFile) skipReason() string {
+	switch {
+	case f.binary:
+		return "binary file"
+	case f.change == changeDeleted:
+		return "deleted"
+	case slices.Contains(lockfiles, path.Base(f.path())):
+		return "lockfile"
+	case f.generated():
+		return "generated"
+	case len(f.hunks) == 0 && f.change == changeRenamed:
+		return "renamed only"
+	case len(f.hunks) == 0:
+		return "no changed lines"
+	}
+	return ""
+}
+
+// generated reports whether an added line marks the file as generated, as
+// in Go's "Code generated ... DO NOT EDIT." or "@generated".
+func (f *diffFile) generated() bool {
+	for _, h := range f.hunks {
+		for _, l := range h.lines {
+			if l[0] != '+' && l[0] != ' ' {
+				continue
+			}
+			if strings.Contains(l, "@generated") || strings.Contains(l, "Code generated") && strings.Contains(l, "DO NOT EDIT") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// diffState is what the model sees of a change.
+type diffState struct {
+	Path     string `json:"path"`
+	OldPath  string `json:"old_path,omitempty"`
+	Language string `json:"language,omitempty"`
+	Change   string `json:"change"`
+	Lines    string `json:"lines,omitempty"` // lines in the new version of the file
+	Part     string `json:"part,omitempty"`
+	Diff     string `json:"diff"` // the change in unified diff form
+}
+
+// diff makes items of a unified diff: each hunk, each changed file, or
+// each added line.
+func (w *walker) diff(data []byte, label string) error {
+	each := w.opts.Each
+	switch each {
+	case "":
+		each = template.EachHunk
+	case template.EachHunk, template.EachFile, template.EachLine:
+	case template.EachFunction:
+		return fmt.Errorf("--each function does not read diffs yet; use --each hunk or --each file")
+	default:
+		return fmt.Errorf("%s is a diff, so --each %s does not apply; use --each hunk, file, or line", label, each)
+	}
+	files := parseDiff(string(data))
+	if len(files) == 0 {
+		return fmt.Errorf("%s has no changes", label)
+	}
+	var skipped []string
+	for _, f := range files {
+		p := f.path()
+		if len(w.opts.Exclude) > 0 && match(w.opts.Exclude, p) {
+			continue
+		}
+		included := len(w.opts.Include) > 0 && match(w.opts.Include, p)
+		if len(w.opts.Include) > 0 && !included {
+			continue
+		}
+		// A lockfile or generated file named by --include is judged anyway.
+		if why := f.skipReason(); why != "" && !(included && (why == "lockfile" || why == "generated")) {
+			skipped = append(skipped, fmt.Sprintf("%s (%s)", p, why))
+			continue
+		}
+		var err error
+		switch each {
+		case template.EachHunk:
+			err = w.hunks(f)
+		case template.EachFile:
+			err = w.diffFile(f)
+		case template.EachLine:
+			err = w.addedLines(f)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	if n := len(skipped); n > 0 {
+		names := strings.Join(skipped[:min(n, 3)], ", ")
+		if n > 3 {
+			names += fmt.Sprintf(", and %d more", n-3)
+		}
+		w.opts.Warn("Skipped " + names)
+	}
+	return nil
+}
+
+func (f *diffFile) state(lines, part, diff string) diffState {
+	s := diffState{Path: f.path(), Language: strings.TrimPrefix(path.Ext(f.path()), "."), Change: f.change,
+		Lines: lines, Part: part, Diff: diff}
+	if f.change == changeRenamed {
+		s.OldPath = f.oldPath
+	}
+	return s
+}
+
+// newLines says which lines of the new file a hunk covers, such as "40-52".
+func (h hunk) newLines() string {
+	n := 0
+	for _, l := range h.lines {
+		if l[0] == ' ' || l[0] == '+' {
+			n++
+		}
+	}
+	if n <= 1 {
+		return strconv.Itoa(h.newStart)
+	}
+	return fmt.Sprintf("%d-%d", h.newStart, h.newStart+n-1)
+}
+
+// firstChange is the line number, in the new file, of a hunk's first added
+// or removed line, so an item's name points at the change rather than at
+// the context above it.
+func (h hunk) firstChange() int {
+	n := h.newStart
+	for _, l := range h.lines {
+		switch l[0] {
+		case '+', '-':
+			return max(n, 1)
+		case ' ':
+			n++
+		}
+	}
+	return max(h.newStart, 1)
+}
+
+func (w *walker) hunks(f *diffFile) error {
+	for _, h := range f.hunks {
+		label := fmt.Sprintf("%s:%d", f.path(), h.firstChange())
+		value, _ := json.Marshal(h.context)
+		if h.context == "" {
+			value = nil
+		}
+		it := Item{Label: label, Unit: template.EachHunk, Value: value}
+		if err := w.emitDiff(&it, f, h.newLines(), append([]string{h.header}, h.lines...)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *walker) diffFile(f *diffFile) error {
+	var lines []string
+	for _, h := range f.hunks {
+		lines = append(lines, h.header)
+		lines = append(lines, h.lines...)
+	}
+	it := Item{Label: f.path(), Unit: template.EachFile}
+	return w.emitDiff(&it, f, "", lines)
+}
+
+// emitDiff sets an item's state to the diff lines, cut into parts at hunks,
+// then between lines, when they are too large for one request.
+func (w *walker) emitDiff(it *Item, f *diffFile, where string, lines []string) error {
+	text := strings.Join(lines, "\n")
+	budget := budget(f.path())
+	if jsonSize(text) <= budget {
+		it.State, _ = json.Marshal(f.state(where, "", text))
+		return w.emit(*it)
+	}
+	st := structure{breaks: map[int]bool{}, section: func(int, int) string { return "" }}
+	for i, l := range lines {
+		if strings.HasPrefix(l, "@@") {
+			st.breaks[i+1] = true
+		}
+	}
+	parts := split(lines, 1, len(lines), st, budget)
+	for i, p := range parts {
+		state, _ := json.Marshal(f.state(where, fmt.Sprintf("%d of %d", i+1, len(parts)), p.text))
+		it.Parts = append(it.Parts, Part{Size: len(p.text), State: state})
+	}
+	return w.emit(*it)
+}
+
+func (w *walker) addedLines(f *diffFile) error {
+	for _, h := range f.hunks {
+		n := h.newStart
+		for _, l := range h.lines {
+			switch l[0] {
+			case ' ':
+				n++
+			case '+':
+				text := strings.TrimSpace(l[1:])
+				if text != "" {
+					value, _ := json.Marshal(text)
+					state, _ := json.Marshal(f.state(strconv.Itoa(n), "", l))
+					if err := w.emit(Item{Label: fmt.Sprintf("%s:%d", f.path(), n), Unit: template.EachLine, Value: value, State: state}); err != nil {
+						return err
+					}
+				}
+				n++
+			}
+		}
+	}
+	return nil
+}
