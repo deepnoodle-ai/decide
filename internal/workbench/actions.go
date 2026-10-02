@@ -142,6 +142,32 @@ func (s *screen) submit(value string) {
 	}
 	s.problem = ""
 	switch mode {
+	case "model":
+		provider, model := s.options.Provider, strings.TrimSpace(value)
+		if p, m, ok := strings.Cut(model, ":"); ok {
+			provider, model = p, m
+		}
+		if (provider != "typesafe" && provider != "cloudflare") || strings.TrimSpace(model) == "" {
+			s.problem = "use typesafe:MODEL or cloudflare:MODEL, or just a model ID"
+			return
+		}
+		if provider != s.options.Provider {
+			s.options.BaseURL, s.options.AccountID, s.options.Profile = "", "", ""
+		}
+		s.options.Provider, s.options.Model = provider, model
+		s.status = "Model selected: " + provider + " / " + model + ". s tries it on the same frozen sample."
+	case "workers", "request budget":
+		n, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil || n < 0 || (mode == "workers" && (n < 1 || n > 64)) {
+			s.problem = "workers: 1–64; request budget: nonnegative (0 is unlimited)"
+			return
+		}
+		if mode == "workers" {
+			s.options.Workers = n
+		} else {
+			s.options.MaxRequests = n
+		}
+		s.status = "Execution setting updated. Your frozen sample stays ready."
 	case "sample size":
 		n, err := strconv.Atoi(strings.TrimSpace(value))
 		if err != nil || n < 1 || n > 200 {

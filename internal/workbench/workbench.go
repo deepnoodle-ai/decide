@@ -475,6 +475,28 @@ func (s *screen) key(e tui.KeyEvent) []tui.Cmd {
 		}
 	case 'o':
 		if s.target == "" && !s.busy {
+			model := s.options.Model
+			if model == "" {
+				if s.options.Provider == "cloudflare" {
+					model = "clef"
+				} else {
+					model = "jev-latest"
+				}
+			}
+			s.begin("model", s.options.Provider+":"+model)
+			return []tui.Cmd{tui.Focus("editor")}
+		}
+	case 'w', 'B':
+		if s.target == "" && !s.busy {
+			mode, value := "workers", fmt.Sprint(s.options.Workers)
+			if e.Rune == 'B' {
+				mode, value = "request budget", fmt.Sprint(s.options.MaxRequests)
+			}
+			s.begin(mode, value)
+			return []tui.Cmd{tui.Focus("editor")}
+		}
+	case 'O':
+		if s.target == "" && !s.busy {
 			o := cloneOptions(s.options)
 			o.Sources = jobs.DefaultOptions().Sources
 			s.begin("execution", pretty(o))

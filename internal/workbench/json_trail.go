@@ -175,7 +175,7 @@ func (s *screen) jsonContent() string {
 		path = "(root)"
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "JSON BRANCHES\n%s\n\nEnter opens · ← goes up · n/N pages · Esc returns\nm selected array · M this array · u state · I stable ID\n\n", path)
+	fmt.Fprintf(&b, "JSON BRANCHES\n%s\n\nEnter opens · ← goes up · n/N pages · Esc returns\nm selected array · M this array · u state · I record ID\n\n", path)
 	start := max(0, j.Index-4)
 	end := min(len(j.Entries), start+max(5, s.height-15))
 	for i := start; i < end; i++ {

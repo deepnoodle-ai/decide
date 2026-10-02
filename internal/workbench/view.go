@@ -69,6 +69,13 @@ func (s *screen) editorView() tui.View {
 	hint := "Edit JSON · Ctrl-S validates and saves · Esc discards · Enter adds a line"
 	placeholder := "Type here"
 	switch s.edit {
+	case "model":
+		hint = "Provider:model · Enter chooses · same sample stays frozen · Esc returns"
+		placeholder = "typesafe:jev-latest or cloudflare:clef-flash"
+	case "workers":
+		hint = "Concurrent provider requests · 1–64 workers · Enter sets · Esc returns"
+	case "request budget":
+		hint = "Maximum provider attempts, including retries · 0 is unlimited · Enter sets"
 	case "add source":
 		hint = "One path or URL · Enter adds · a adds another · Esc returns"
 		placeholder = "./src or https://example.com/tickets.jsonl"
@@ -89,7 +96,7 @@ func (s *screen) editorView() tui.View {
 	case "state pointer":
 		hint = "State inside each item · JSON Pointer, e.g. /ticket/description · empty uses whole item"
 	case "id pointer":
-		hint = "Stable ID inside each item · JSON Pointer, e.g. /id · empty uses source identity"
+		hint = "Record ID field · JSON Pointer, e.g. /id · empty uses source identity"
 
 	case "filter":
 		hint = "Filter source, status, questions, or answers · Enter applies · Esc returns"
@@ -145,7 +152,11 @@ func (s *screen) content() string {
 		for i, img := range p.Item.Images {
 			fmt.Fprintf(&b, "Image %d: %s · %d bytes (asset retained in run)\n", i+1, img.ContentType, len(img.Data))
 		}
-		fmt.Fprintf(&b, "Source: %s\nID: %s\nDigest: %s\nFormat: %s · %d bytes · %d images\n\nPREPARED STATE\n%s\n\nQUESTIONS\n%s", p.Item.Source.URI, p.Item.ID, p.Item.Source.Digest, p.Item.Source.Format, p.Item.Source.SizeBytes, len(p.Item.Images), previewJSON(p.State), pretty(p.Questions))
+		state := previewJSON(p.State)
+		if !s.detail && len(p.State) > 4<<10 {
+			state = jsonShape(p.State) + "\nLarge state kept intact. j explores branches; Enter shows a raw preview."
+		}
+		fmt.Fprintf(&b, "Source: %s\nID: %s\nDigest: %s\nFormat: %s · %d bytes · %d images\n\nPREPARED STATE\n%s\n\nQUESTIONS\n%s", p.Item.Source.URI, p.Item.ID, p.Item.Source.Digest, p.Item.Source.Format, p.Item.Source.SizeBytes, len(p.Item.Images), state, pretty(p.Questions))
 		return b.String()
 	case 3:
 		return s.evidenceContent()
@@ -165,7 +176,7 @@ func (s *screen) judgmentInfo() string {
 	return fmt.Sprintf("Skill: %s\n%s\nt  Edit parameters · v  Edit questions", s.skill.Name, s.skill.Description)
 }
 func executionInfo(o jobs.Options) string {
-	return fmt.Sprintf("Provider: %s · Model: %s\nWorkers: %d · Max requests: %d (0 unlimited)\nSnapshot: %s · Run directory: %s", o.Provider, o.Model, o.Workers, o.MaxRequests, o.Snapshot, o.RunDir)
+	return fmt.Sprintf("Provider: %s · Model: %s\nWorkers: %d · Max requests: %d (0 unlimited)\no model · w workers · B budget · O advanced\nSnapshot: %s · Run directory: %s", o.Provider, o.Model, o.Workers, o.MaxRequests, o.Snapshot, o.RunDir)
 }
 func (s *screen) libraryContent() string {
 	if s.patternLibrary {
@@ -193,7 +204,7 @@ func (s *screen) libraryContent() string {
 	for _, p := range s.patterns {
 		fmt.Fprintf(&b, "%s [%s] — %s\n", p.Name, p.Type, p.Description)
 	}
-	b.WriteString("\nConfigure patterns with decide patterns show NAME; enter its path\nas Pattern in execution settings (o). Pattern runs retain stage evidence.")
+	b.WriteString("\nConfigure patterns with decide patterns show NAME; enter its path\nas Pattern in advanced execution settings (O). Pattern runs retain stage evidence.")
 	return b.String()
 }
 func (s *screen) evidenceContent() string {
@@ -372,7 +383,8 @@ const helpText = `FIELD NOTES
 ↑/↓ select   Enter detail   ←/→ stage   PgUp/PgDn scroll
 / search evidence across its artifact   n/N next/previous saved page
 e export to a new directory
-o execution settings   Esc cancel/edit back   q or Ctrl-C quit
+o provider:model   w workers   B request budget   O advanced execution JSON
+Esc cancel/edit back   q or Ctrl-C quit
 
 Samples call models only when you press s. Full runs require typing run.
 Preview reads your sources, including URLs, but never calls a model.

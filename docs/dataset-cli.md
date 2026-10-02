@@ -37,6 +37,11 @@ Use `a` to add a source, `i`/`x` for include/exclude globs, and `t` for a
 the field guide. Advanced editors expose source, execution, and question JSON.
 The notebook keeps bounded evidence windows while full results remain on disk.
 
+`o` chooses `provider:model`, `w` sets concurrency, and `B` sets the request-attempt
+budget (0 means unlimited). These keep your frozen sample ready for comparison.
+`O` opens advanced execution JSON. Changing providers clears the old endpoint,
+account, and profile so the next operation resolves the new provider's defaults.
+
 Follow the folder trail with `f`: Enter descends, Space selects a file or folder,
 and `.` adds the current directory. `g` cycles all-file, code, JSON, and image
 presets. Folder pages hold 100 entries; `n`/`N` move forward/back. Each page is
@@ -108,6 +113,9 @@ preserves original `data` separately. Explicit IDs are qualified by source ident
 so independent files do not collide. Provenance includes URI, relative display
 path, format, digest, and line/index location. Text-code skills also prepare
 path, language, and content in model state.
+Result IDs also incorporate record location and content. An ID field does not
+promise identity across changed or reordered source records; comparisons reuse
+the original frozen items.
 
 Whole-document JSON, text, and image inputs are bounded by `--max-item-bytes`
 (default 16 MiB). Each source is bounded by `--max-source-bytes` (default 1 GiB).

@@ -259,3 +259,33 @@ func TestCanceledSearchRetainsPriorPageAndFilter(t *testing.T) {
 		t.Fatal("canceled search replaced prior evidence")
 	}
 }
+
+func TestEvidenceSearchIncludesValidationFailures(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "evidence.jsonl")
+	raw := `{"decide_run":1,"id":"invalid","status":"complete","data":{},"stages":[{"name":"map","state":{},"questions":{"ok":{"type":"noul","instructions":"Does this work?"}},"response":{"answers":{"ok":{"type":"noul","noul":2}}}}]}`
+	if err := os.WriteFile(path, []byte(raw+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	p, _, err := loadEvidencePage(t.Context(), path, "", "failed", 0)
+	if err != nil || len(p.Results) != 1 || p.Results[0].Status != "failed" {
+		t.Fatalf("%+v %v", p, err)
+	}
+}
+
+func TestModelSwitchKeepsFrozenSampleAndResetsProviderSettings(t *testing.T) {
+	s := testScreen(t)
+	s.sample = []jobs.Prepared{{Item: dataset.Item{ID: "frozen-item"}}}
+	s.options.BaseURL = "https://old-provider.example"
+	s.options.Profile = "old-profile"
+	s.begin("model", "")
+	s.submit("cloudflare:clef-flash")
+	if s.problem != "" || s.options.Provider != "cloudflare" || s.options.Model != "clef-flash" || s.options.BaseURL != "" || s.options.Profile != "" || len(s.sample) != 1 || s.sample[0].Item.ID != "frozen-item" {
+		t.Fatalf("%s %+v", s.problem, s.options)
+	}
+	s.options.BaseURL = "https://cloudflare.example"
+	s.begin("model", "")
+	s.submit("clef")
+	if s.options.BaseURL != "https://cloudflare.example" {
+		t.Fatal("same-provider endpoint lost")
+	}
+}

@@ -35,6 +35,7 @@ func loadEvidencePage(ctx context.Context, target, dir, filter string, start int
 		if err := ctx.Err(); err != nil {
 			return err
 		}
+		r = checkedResult(r)
 		if !matches(r, filter) {
 			return nil
 		}
@@ -42,7 +43,6 @@ func loadEvidencePage(ctx context.Context, target, dir, filter string, start int
 			seen++
 			return nil
 		}
-		r = checkedResult(r)
 		n := resultBytes(r)
 		if n > 16<<20 {
 			r = compactResult(r)
