@@ -43,3 +43,21 @@ func TestJudge(t *testing.T) {
 		}
 	}
 }
+
+func TestTrack(t *testing.T) {
+	for _, tc := range []struct {
+		score float64
+		top   int
+		want  string
+	}{
+		{0, 4, "────────────"},
+		{0.9, 4, "━━╸─────────"},
+		{2.5, 4, "━━━━━━━╸────"},
+		{4, 4, "━━━━━━━━━━━━"},
+		{1, 0, "────────────"},
+	} {
+		if got := stripANSI(track(tc.score, tc.top, plain)); got != tc.want {
+			t.Errorf("track(%g, %d) = %q, want %q", tc.score, tc.top, got, tc.want)
+		}
+	}
+}

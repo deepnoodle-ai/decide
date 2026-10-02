@@ -81,7 +81,7 @@ func (p *printer) result(res runs.Result) error {
 		if v == flagged {
 			gutter = failed("!") + " "
 		}
-		fmt.Fprintf(&b, "%s%-*s  %s\n", gutter, p.width, q.Key, v.style(p.summary(a)))
+		fmt.Fprintf(&b, "%s%-*s  %s\n", gutter, p.width, q.Key, p.summary(a, v))
 		if p.details {
 			p.distribution(&b, a)
 		}
@@ -91,8 +91,21 @@ func (p *printer) result(res runs.Result) error {
 	return err
 }
 
-// summary is the one-line form of an answer.
-func (p *printer) summary(a answer) string {
+// summary is the one-line form of an answer, styled by its verdict.
+func (p *printer) summary(a answer, v verdict) string {
+	if a.Type == "score" {
+		top := levels(a) - 1
+		s := track(a.Score, top, v) + " " + v.style(fmt.Sprintf("%.1f of %d", a.Score, top))
+		if label := legend(a, int(math.Round(a.Score))); label != "" {
+			s += "  " + dim(label)
+		}
+		return s
+	}
+	return v.style(p.text(a))
+}
+
+// text is the words for a yes-or-no or choice answer.
+func (p *printer) text(a answer) string {
 	switch a.Type {
 	case "noul":
 		switch {
@@ -104,13 +117,6 @@ func (p *printer) summary(a answer) string {
 		return fmt.Sprintf("unsure  %s yes", percent(a.Noul))
 	case "choice":
 		return fmt.Sprintf("%s  %s", clean(a.Choice), percent(a.Probabilities[a.Choice]))
-	case "score":
-		top := levels(a) - 1
-		s := fmt.Sprintf("%.1f of %d", a.Score, top)
-		if label := legend(a, int(math.Round(a.Score))); label != "" {
-			s += "  " + label
-		}
-		return s
 	}
 	return "(answer type " + a.Type + ")"
 }
@@ -242,6 +248,27 @@ func isFlagged(flags map[string][]skill.Condition, res runs.Result) bool {
 		}
 	}
 	return false
+}
+
+// trackWidth is the number of cells in a score's track.
+const trackWidth = 12
+
+// track draws a score as a line filled in half-cell steps, such as
+// "━━━━━━━╸────" for 2.5 of 4. Heavy and light lines tell the filled part
+// from the rest when color is off.
+func track(score float64, top int, v verdict) string {
+	halves := 0
+	if top > 0 {
+		halves = max(0, min(2*trackWidth, int(math.Round(score/float64(top)*2*trackWidth))))
+	}
+	filled := strings.Repeat("━", halves/2)
+	if halves%2 == 1 {
+		filled += "╸"
+	}
+	if filled != "" {
+		filled = v.style(filled)
+	}
+	return filled + dim(strings.Repeat("─", trackWidth-(halves+1)/2))
 }
 
 func cmpFloat(x, y float64) int {

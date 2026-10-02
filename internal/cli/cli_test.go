@@ -256,7 +256,7 @@ func TestFlaggedAnswers(t *testing.T) {
 	if out.code != 0 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stdout, "! risk             yes  88%", "  maintainability  3.3 of 4")
+	contains(t, out.stdout, "! risk             yes  88%", "  maintainability  ━━━━━━━━━━── 3.3 of 4  3")
 	contains(t, out.stderr, "! 1 flagged", "Flagged: src/a.go")
 
 	h.server.Answer("risk", decidetest.NoulAnswer(0.5))
