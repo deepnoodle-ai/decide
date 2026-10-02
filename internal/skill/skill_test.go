@@ -28,7 +28,7 @@ func TestBuiltinsAreValid(t *testing.T) {
 			t.Errorf("%s: location %q, docs %d bytes", s.Name, s.Location, len(s.Docs))
 		}
 	}
-	if got := strings.Join(names, ","); got != "code-risk,receipt-quality,relevance,sentiment,ticket-routing" {
+	if got := strings.Join(names, ","); got != "code-risk,receipt-quality,relevance,sentiment,ticket-routing,triage" {
 		t.Fatalf("builtins = %s", got)
 	}
 }
@@ -75,7 +75,7 @@ func TestBrokenSkillDoesNotHideOthers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(all) != 5 || len(broken) != 1 || !strings.Contains(broken[0].Error(), "skill.json:3:3") {
+	if len(all) != 6 || len(broken) != 1 || !strings.Contains(broken[0].Error(), "skill.json:3:3") {
 		t.Fatalf("List = %d skills, broken %v", len(all), broken)
 	}
 }
@@ -155,17 +155,17 @@ func TestCreate(t *testing.T) {
 	}
 
 	from, _ := Load("ticket-routing")
-	if _, err := Create("triage", from, true); err != nil {
+	if _, err := Create("my-triage", from, true); err != nil {
 		t.Fatal(err)
 	}
-	s, err := Load("triage")
+	s, err := Load("my-triage")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if s.Location != Project || s.Docs != from.Docs || string(s.Questions[0].Raw) == "" {
 		t.Fatalf("copy = %+v", s)
 	}
-	data, _ := os.ReadFile(filepath.Join(ProjectDir, "triage", "skill.json"))
+	data, _ := os.ReadFile(filepath.Join(ProjectDir, "my-triage", "skill.json"))
 	if strings.Index(string(data), "billing") > strings.Index(string(data), "other") {
 		t.Fatal("copy reordered choice options")
 	}
