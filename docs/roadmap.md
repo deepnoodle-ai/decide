@@ -89,7 +89,8 @@ off, or remove them, as they land.
 - [ ] Make the repository public.
 - [ ] Turn on private vulnerability reporting, secret scanning with push
       protection, and Dependabot alerts.
-- [ ] Add the `TAP_GITHUB_TOKEN` secret and tag `v0.1.0`.
+- [x] Add the `TAP_GITHUB_TOKEN` secret.
+- [ ] Tag `v0.1.0`, as [releasing](releasing.md) describes.
 
 ## Not planned
 
