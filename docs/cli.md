@@ -429,16 +429,21 @@ a column such as `queue_probability`. A cell that starts with `=`, `+`, `-`,
 or `@` starts with `'`, so a spreadsheet does not read it as a formula.
 
 The Markdown report lists flagged, matched, and failed items first, and
-collapses the rest. Each table shows up to 100 items.
+collapses the rest. Each table shows up to 100 items. When a diff has
+nothing to judge, the report says so, so a pull request comment made from
+it does not go stale.
 
 With `--format github`, each flagged item becomes a warning on its file
 and line, which GitHub shows on the pull request's changes, and each
-matched item becomes a notice. With `--fail-on flagged`, flagged items are
-errors instead, since they fail the job. Run decide from the top of the
+matched item becomes a notice. The items that `--fail-on` names are errors
+instead, since they fail the job. Run decide from the top of the
 repository so the files' paths match. In a GitHub Actions job, decide also
-adds the Markdown report to the job's summary page. GitHub shows only the
-first few annotations of each type for a step, so the summary is where to
-see them all. [Recipes](recipes.md) has workflows to copy.
+adds the Markdown report to the job's summary page. GitHub shows at most
+10 annotations of each kind for a step, so the summary is the place to see
+more. [Recipes](recipes.md) has workflows to copy.
+
+`runs resume` prints the items answered before the run stopped as well
+as the new ones, so its output covers the whole run in every format.
 
 ## Exit codes
 

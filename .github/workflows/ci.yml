@@ -52,5 +52,5 @@ jobs:
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
-          version: "~> v2"
+          version: v2.15.3 # brews is deprecated; upgrade deliberately
           args: check

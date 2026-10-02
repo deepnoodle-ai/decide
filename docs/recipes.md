@@ -16,7 +16,7 @@ an export. See the [CLI guide](cli.md) for every flag.
 
 This workflow judges each function a pull request changes with
 `code-risk`. Each flagged function shows up as a warning on the pull
-request's changes, and the job's summary page lists every answer. The job
+request's changes, and the job's summary page lists the answers. The job
 passes either way, so the results are advice and never block a merge.
 
 Add your TypeSafe API key as a repository secret named `TYPESAFE_API_KEY`,
@@ -70,8 +70,8 @@ A few things to know:
   requests from forks, so the `if:` skips the step for them rather than
   failing. Don't switch to `pull_request_target` to get around this: it
   runs with your secrets and can be tricked into running the fork's code.
-- **Annotations.** GitHub shows only the first few warnings of each step on
-  the pull request. The job summary lists them all.
+- **Annotations.** GitHub shows at most 10 warnings for each step on the
+  pull request. The job summary lists up to 100 items in each table.
 - **Cost.** Each judged item is one request, or more for a very long one.
   A diff judges only what changed, and decide skips lockfiles and
   generated files. Add `--limit 200` to cap a large pull request.
@@ -96,16 +96,23 @@ permissions:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
         run: |
+          marker='<!-- decide code-risk -->'
+          echo "$marker" > decide.md
           git diff "origin/$BASE...HEAD" |
-            decide run code-risk --each function --format md > decide.md
-          if [ -s decide.md ]; then
-            gh pr comment "$PR" --body-file decide.md --edit-last --create-if-none
+            decide run code-risk --each function --format md >> decide.md
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n 1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@decide.md
+          else
+            gh pr comment "$PR" --body-file decide.md
           fi
 ```
 
-The report lists flagged items first and collapses the rest. When the
-pull request changes nothing decide judges, the report is empty and no
-comment is posted.
+The first line of the comment is a hidden marker, so each push updates
+the same comment, whatever else comments on the pull request. The report
+lists flagged items first and collapses the rest. When a push leaves
+nothing for decide to judge, the report says so.
 
 ## Block a merge
 
@@ -191,7 +198,10 @@ decide:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   script:
     - apk add --no-cache curl git
-    - curl -fsSL https://github.com/deepnoodle-ai/decide/releases/latest/download/decide_linux_amd64.tar.gz | tar -xz -C /usr/local/bin decide
+    - base=https://github.com/deepnoodle-ai/decide/releases/latest/download
+    - curl -fsSLO "$base/decide_linux_amd64.tar.gz" -O "$base/checksums.txt"
+    - grep ' decide_linux_amd64.tar.gz$' checksums.txt | sha256sum -c -
+    - tar -xzf decide_linux_amd64.tar.gz -C /usr/local/bin decide
     - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
     - git diff "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME...HEAD" | decide run code-risk --each function --format md > decide.md
   artifacts:
