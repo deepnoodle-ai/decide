@@ -23,8 +23,9 @@ const (
 	DefaultVerbatim = "Given the state, is the exact full text of this segment needed, rather than its short form?"
 )
 
-// Limits are request size limits in estimated tokens: the whole request, and
-// the state plus the longest question.
+// Limits are request size limits in estimated tokens: the complete serialized
+// request, including JSON framing and the client's model, and the state plus
+// the longest question.
 type Limits struct {
 	Request          int
 	StateAndQuestion int
@@ -108,7 +109,13 @@ func Compact(ctx context.Context, client *decide.Client, segs []Segment, cfg Con
 		return nil, err
 	}
 
-	batches, scores, err := pack(segs, cfg)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	batches, scores, err := pack(segs, cfg, client.DefaultModel())
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -149,6 +156,9 @@ func Compact(ctx context.Context, client *decide.Client, segs []Segment, cfg Con
 		}
 	}
 	res.Models = slices.Sorted(maps.Keys(models))
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	return res.decide(segs, scores, cfg.Rule)
 }
 
@@ -180,7 +190,7 @@ func verbatimKey(i int) string { return strconv.Itoa(i) + ".verbatim" }
 
 // pack builds the requests. Segments too large to ask about get an unscored
 // ErrTooLarge in scores and are not sent.
-func pack(segs []Segment, cfg Config) ([]*batch, []Scores, error) {
+func pack(segs []Segment, cfg Config, model string) ([]*batch, []Scores, error) {
 	scores := make([]Scores, len(segs))
 	stateJSON, err := json.Marshal(cfg.Focus)
 	if err != nil {
@@ -193,7 +203,13 @@ func pack(segs []Segment, cfg Config) ([]*batch, []Scores, error) {
 
 	var batches []*batch
 	var cur *batch
-	used := 0
+	requestSize := func(req *decide.Request) (int, error) {
+		b, err := json.Marshal(req)
+		if err != nil {
+			return 0, fmt.Errorf("compact: encode request: %w", err)
+		}
+		return cfg.Estimate(string(b)), nil
+	}
 	for i, s := range segs {
 		if s.Pinned {
 			continue
@@ -205,28 +221,45 @@ func pack(segs []Segment, cfg Config) ([]*batch, []Scores, error) {
 			qs[verbatimKey(i)] = decide.Noul(map[string]string{
 				"question": cfg.Verbatim, "segment": s.Text, "short_form": s.Short})
 		}
-		cost, longest := 0, 0
+		longest := 0
 		for key, q := range qs {
 			b, err := json.Marshal(q)
 			if err != nil {
 				return nil, nil, fmt.Errorf("compact: segment %d: %w", i, err)
 			}
 			c := cfg.Estimate(strconv.Quote(key) + ":" + string(b))
-			cost += c
 			longest = max(longest, c)
 		}
-		if state+longest > cfg.Limits.StateAndQuestion || state+cost > cfg.Limits.Request {
-			scores[i].Err = fmt.Errorf("%w: segment %d is about %d tokens with the state", ErrTooLarge, i, state+cost)
+		// Freeze the serialized focus and model so packing counts the same
+		// request fields that the client sends.
+		req := decide.NewRequest(json.RawMessage(stateJSON), decide.WithRequestModel(model))
+		maps.Copy(req.Questions, qs)
+		cost, err := requestSize(req)
+		if err != nil {
+			return nil, nil, err
+		}
+		if state+longest > cfg.Limits.StateAndQuestion || cost > cfg.Limits.Request {
+			scores[i].Err = fmt.Errorf("%w: segment %d request is about %d tokens", ErrTooLarge, i, cost)
 			continue
 		}
-		if cur == nil || state+used+cost > cfg.Limits.Request {
-			cur = &batch{req: decide.NewRequest(cfg.Focus)}
-			batches = append(batches, cur)
-			used = 0
+		if cur != nil {
+			maps.Copy(cur.req.Questions, qs)
+			cost, err = requestSize(cur.req)
+			if err != nil {
+				return nil, nil, err
+			}
+			if cost > cfg.Limits.Request {
+				for key := range qs {
+					delete(cur.req.Questions, key)
+				}
+				cur = nil
+			}
 		}
-		maps.Copy(cur.req.Questions, qs)
+		if cur == nil {
+			cur = &batch{req: req}
+			batches = append(batches, cur)
+		}
 		cur.segs = append(cur.segs, i)
-		used += cost
 	}
 	return batches, scores, nil
 }

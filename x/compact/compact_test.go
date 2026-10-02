@@ -144,13 +144,20 @@ func TestCompactPacking(t *testing.T) {
 		{Text: "a", Size: 1}, {Text: "b", Size: 1}, {Text: "c", Size: 1},
 		{Text: "huge", Size: 1},
 	}
-	// Each question estimates to 10, the state to 5; "huge" to 100.
+	// Each question estimates to 10, request framing and state to 5;
+	// anything containing "huge" estimates to 100.
 	estimate := func(s string) int {
 		switch {
 		case s == `"f"`:
 			return 5
 		case strings.Contains(s, "huge"):
 			return 100
+		}
+		var req struct {
+			Questions map[string]json.RawMessage `json:"questions"`
+		}
+		if json.Unmarshal([]byte(s), &req) == nil && req.Questions != nil {
+			return 5 + 10*len(req.Questions)
 		}
 		return 10
 	}
