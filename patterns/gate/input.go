@@ -18,7 +18,7 @@ type Kind uint8
 const (
 	KindMissing   Kind = iota // no answer under this name (the zero value)
 	KindFailed                // answer present but unusable; Err says why
-	KindAbstained             // an patterns/pick abstain, reported by the caller
+	KindAbstained             // an abstention from patterns/pick, reported by the caller
 	KindNoul
 	KindChoice
 	KindScore
@@ -93,7 +93,7 @@ func Missing(name string) Input { return Input{Name: name, Kind: KindMissing} }
 // Failed returns an input whose answer is present but unusable.
 func Failed(name string, err error) Input { return Input{Name: name, Kind: KindFailed, Err: err} }
 
-// Abstained returns an input for an patterns/pick abstain, so that rules route it
+// Abstained returns an input for an abstention from patterns/pick, so that rules route it
 // to OnMissing.
 func Abstained(name string) Input { return Input{Name: name, Kind: KindAbstained} }
 

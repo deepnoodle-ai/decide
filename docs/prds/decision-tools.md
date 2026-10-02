@@ -1,5 +1,11 @@
 # Decision tools in Go and shell pipelines
 
+> Historical record of the original implementation plan. Package promotion
+> supersedes its experimental-package layout and graduation exclusions.
+> The old `x/` paths below are historical, not current imports. Use
+> `backend`, `cloudflare`, and `patterns/<name>` instead. See the
+> [README](../../README.md) for current APIs and the pre-v1 policy.
+
 Status: Approved
 Updated: 2026-10-01
 

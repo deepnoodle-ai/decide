@@ -1,5 +1,11 @@
 # decide: experimental composable judgment CLI
 
+> Historical record of the original implementation plan. Package promotion
+> supersedes its experimental-package layout and graduation exclusions.
+> The old `x/` paths below are historical, not current imports. Use
+> `backend`, `cloudflare`, and `patterns/<name>` instead. See the
+> [README](../../README.md) for current APIs and the pre-v1 policy.
+
 Status: accepted
 Date: 2026-10-01
 PRD: [cli](../prds/decision-tools.md)
