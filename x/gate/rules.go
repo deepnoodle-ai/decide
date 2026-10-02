@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"strconv"
 )
 
@@ -336,6 +337,7 @@ func (r Compose) eval(in Inputs, path string) Decision {
 		} else {
 			d = child.Evaluate(in)
 			p := path + "/custom[" + strconv.Itoa(i) + "]"
+			d.Readings = slices.Clone(d.Readings)
 			for j := range d.Readings {
 				d.Readings[j].Rule = joinPath(p, d.Readings[j].Rule)
 			}

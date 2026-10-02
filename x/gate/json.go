@@ -6,6 +6,7 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"reflect"
 )
 
 // Rules as data. Each built-in has MarshalJSON (value receiver, "type"
@@ -213,6 +214,16 @@ type composeWire struct {
 func (r Compose) MarshalJSON() ([]byte, error) {
 	w := composeWire{Type: "compose", Name: r.Name, Rules: make([]jsontext.Value, 0, len(r.Rules))}
 	for i, child := range r.Rules {
+		if child == nil {
+			return nil, fmt.Errorf("gate: encode compose: rule %d is nil", i)
+		}
+		v := reflect.ValueOf(child)
+		switch v.Kind() {
+		case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+			if v.IsNil() {
+				return nil, fmt.Errorf("gate: encode compose: rule %d is a nil %T", i, child)
+			}
+		}
 		m, ok := child.(json.Marshaler)
 		if !ok {
 			return nil, fmt.Errorf("gate: encode compose: rule %d (%T) is not a json.Marshaler", i, child)

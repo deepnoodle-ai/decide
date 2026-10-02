@@ -1,11 +1,57 @@
 package gate_test
 
 import (
+	"encoding/json"
+	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/deepnoodle-ai/decide/x/gate"
 )
+
+type sharedReadingsRule struct {
+	readings []gate.Reading
+}
+
+func (r sharedReadingsRule) Evaluate(gate.Inputs) gate.Decision {
+	return gate.Decision{Outcome: gate.Allow, Rule: "original", Readings: r.readings}
+}
+
+func TestComposeOwnsCustomReadings(t *testing.T) {
+	readings := []gate.Reading{{Rule: "original", Input: "q", Value: .9}}
+	want := append([]gate.Reading(nil), readings...)
+	rule := gate.Compose{Rules: []gate.Rule{sharedReadingsRule{readings}}}
+	check := func() {
+		t.Helper()
+		d := rule.Evaluate(gate.Inputs{})
+		if len(d.Readings) != 1 || d.Readings[0].Rule != "compose/custom[0]/original" {
+			t.Errorf("unexpected reading paths: %+v", d.Readings)
+		}
+	}
+	check()
+	check()
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Go(func() {
+			for range 20 {
+				check()
+			}
+		})
+	}
+	wg.Wait()
+	if !reflect.DeepEqual(readings, want) {
+		t.Fatalf("custom readings changed: %+v", readings)
+	}
+}
+
+func TestComposeMarshalRejectsNilChildren(t *testing.T) {
+	for _, child := range []gate.Rule{nil, (*gate.Bands)(nil)} {
+		if _, err := json.Marshal(gate.Compose{Rules: []gate.Rule{child}}); err == nil {
+			t.Fatalf("marshaled nil child %T", child)
+		}
+	}
+}
 
 func TestInputsOwnProbabilityMaps(t *testing.T) {
 	probabilities := map[string]float64{"yes": .9, "no": .1}
