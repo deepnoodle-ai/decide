@@ -37,6 +37,32 @@ Use `a` to add a source, `i`/`x` for include/exclude globs, and `t` for a
 the field guide. Advanced editors expose source, execution, and question JSON.
 The notebook keeps bounded evidence windows while full results remain on disk.
 
+Follow the folder trail with `f`: Enter descends, Space selects a file or folder,
+and `.` adds the current directory. `g` cycles all-file, code, JSON, and image
+presets. Folder pages hold 100 entries; `n`/`N` move forward/back. Each page is
+sorted locally, and browsing skips symlinks and `.git`. Dataset ignore rules
+apply when previewing and running.
+
+Preview starts with the first five items. `k` changes the flight size (1–200),
+and `z` switches between first-items and seeded random sampling. Random sampling
+scans the selection; first-items stops parsing after its limit. Local digest
+calculation still reads each consumed file completely. `--sample N` starts the
+workbench in seeded mode. Batch `plan` and `run` keep their existing sampling rules.
+
+In Preview or Evidence, `j` opens **JSON branches**. Enter opens a child, left
+goes up, and `n`/`N` page through large arrays/objects. `m` expands the selected
+array into items; `M` expands the current array. Preview those rows, then use
+`u` to select their model state and `I` to select an ID field. Mappings use
+escaped JSON Pointers. Direct `m`/`u`/`I` editors are also available outside the
+browser; `-` in the items editor restores whole-document interpretation.
+Recorded evidence is read-only. JSON browsing retains 100 children per page and
+caps the nesting trail at 32 MiB / 64 levels; it does not load an unbounded tree.
+
+Evidence `n`/`N` reads next/previous saved pages, bounded by both records and bytes.
+`/` searches the entire artifact; matching results are paged too. Canceling a
+page/search retains the previous displayed evidence. Provider work and previews
+remain explicit actions.
+
 ## One source or all these sources
 
 ```sh

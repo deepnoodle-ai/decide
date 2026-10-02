@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/deepnoodle-ai/decide/internal/catalog"
@@ -29,9 +30,16 @@ func (s *screen) currentOptions() jobs.Options {
 }
 func (s *screen) preview() tui.Cmd {
 	o := s.currentOptions()
-	o.Sources.Sample = sampleSize(o)
-	o.Sources.Limit = 0
-	s.status = "Preparing a small tasting flight. No model calls."
+	n := sampleSize(o)
+	if s.randomSample {
+		o.Sources.Sample = n
+	} else {
+		o.Sources.Sample = 0
+		if o.Sources.Limit == 0 || o.Sources.Limit > n {
+			o.Sources.Limit = n
+		}
+	}
+	s.status = "Preparing " + s.sampleLabel() + ". No model calls."
 	return s.background(func(ctx context.Context) update {
 		var prepared []jobs.Prepared
 		var bytes int64
@@ -70,6 +78,7 @@ func (s *screen) run(full bool) []tui.Cmd {
 	sample := append([]jobs.Prepared(nil), s.sample...)
 	runtime := s.runtime
 	s.results = nil
+	s.filter = ""
 	s.totalResults = 0
 	s.tab = 3
 	s.index = 0
@@ -79,7 +88,14 @@ func (s *screen) run(full bool) []tui.Cmd {
 		mode = "full"
 		o.Sources.Sample = 0
 	} else {
-		o.Sources.Sample = sampleSize(o)
+		if s.randomSample {
+			o.Sources.Sample = sampleSize(o)
+		} else {
+			o.Sources.Sample = 0
+			if o.Sources.Limit == 0 || o.Sources.Limit > sampleSize(o) {
+				o.Sources.Limit = sampleSize(o)
+			}
+		}
 	}
 	s.status = "Running " + mode + " judgments. Esc cancels; evidence stays on disk."
 	cmd := s.background(func(ctx context.Context) update {
@@ -102,8 +118,19 @@ func (s *screen) run(full bool) []tui.Cmd {
 		} else {
 			sum, err = jobs.RunPrepared(ctx, o, sample, callback)
 		}
-		return update{kind: "run", summary: sum, results: results, err: err, message: mode, options: o}
+		var page *evidencePage
+		if sum.Path != "" && ctx.Err() == nil {
+			p, _, e := loadEvidencePage(ctx, sum.Path, o.RunDir, "", 0)
+			if e == nil {
+				page = p
+				results = p.Results
+			}
+		}
+		return update{kind: "run", summary: sum, results: results, page: page, err: err, message: mode, options: o}
 	})
+	if !full {
+		s.expectedOutcomes = len(sample)
+	}
 	return []tui.Cmd{cmd}
 }
 
@@ -115,6 +142,43 @@ func (s *screen) submit(value string) {
 	}
 	s.problem = ""
 	switch mode {
+	case "sample size":
+		n, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil || n < 1 || n > 200 {
+			s.problem = "choose 1–200 items for your tasting flight"
+			return
+		}
+		s.options.Sources.Sample = n
+		s.sample, s.prepared = nil, nil
+		s.status = fmt.Sprintf("Flight size: %d. p prepares your next experiment.", n)
+	case "items pointer", "state pointer", "id pointer":
+		if mode == "items pointer" && value == "-" {
+			s.options.Sources.Items, s.options.Sources.ItemsSet = "", false
+			s.sample, s.prepared = nil, nil
+			s.status = "Whole-document mode restored. p prepares a fresh preview."
+			s.edit = ""
+			return
+		}
+		if value != "" && !strings.HasPrefix(value, "/") {
+			s.problem = "JSON pointers start with /; empty selects the root"
+			return
+		}
+		d := s.options.Sources
+		switch mode {
+		case "items pointer":
+			d.Items, d.ItemsSet = value, true
+		case "state pointer":
+			d.State = value
+		case "id pointer":
+			d.IDField = value
+		}
+		if err := dataset.ValidateSources(d); err != nil {
+			s.problem = err.Error()
+			return
+		}
+		s.options.Sources = d
+		s.sample, s.prepared = nil, nil
+		s.status = "Mapping updated. p follows your new data trail."
 	case "add source":
 		source := strings.TrimSpace(value)
 		if source == "" {
@@ -243,18 +307,12 @@ func (s *screen) submit(value string) {
 		s.pending = s.run(true)
 		return
 	case "filter":
-		s.filter = value
-		s.index = 0
-		s.scroll = 0
-		target, dir, filter := s.target, s.options.RunDir, value
+		target := s.target
 		if target == "" {
 			target = s.summary.Path
 		}
 		if target != "" {
-			s.pending = []tui.Cmd{s.background(func(ctx context.Context) update {
-				r, sum, err := loadEvidence(ctx, target, dir, filter)
-				return update{kind: "inspect", results: r, summary: sum, err: err}
-			})}
+			s.pending = s.loadPage(0, value, nil)
 		}
 	case "export":
 		if strings.TrimSpace(value) == "" {

@@ -86,7 +86,7 @@ func TestNarrowRenderKeepsHelpAndError(t *testing.T) {
 	s.height = 20
 	s.problem = "source file does not exist"
 	text := tui.SprintScreen(s.View(), tui.WithWidth(40)).Text()
-	for _, want := range []string{"field notebook", "Sources", "source file", "Esc cancel"} {
+	for _, want := range []string{"field notebook", "1 Src", "source file", "f browse", "q quit"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("missing %q in:\n%s", want, text)
 		}

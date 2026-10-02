@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 
+	"github.com/deepnoodle-ai/decide/internal/dataset"
 	"github.com/deepnoodle-ai/decide/internal/jobs"
 	"github.com/deepnoodle-ai/wonton/tui"
 )
@@ -19,7 +21,19 @@ func (s *screen) View() tui.View {
 	if s.target != "" {
 		title = "decide / evidence notebook"
 	}
-	header := tui.Stack(tui.Text(" %s", title).Bold().Fg(amber), tui.Text(" 1 Sources  2 Library  3 Preview  4 Evidence  5 Compare  ? Help").Fg(muted).Wrap(), tui.Divider()).Gap(0)
+	labels := []string{"1 Sources", "2 Library", "3 Preview", "4 Evidence", "5 Compare", "? Help"}
+	if s.width < 70 {
+		labels = []string{"1 Src", "2 Lib", "3 Peek", "4 Log", "5 Mix", "?"}
+	}
+	var tabs []tui.View
+	for i, label := range labels {
+		t := tui.Text("%s", label).Fg(muted)
+		if i == s.tab {
+			t.Bold().Fg(amber).Underline()
+		}
+		tabs = append(tabs, t)
+	}
+	header := tui.Stack(tui.Text(" %s", title).Bold().Fg(amber), tui.Group(tabs...).Gap(2), tui.Divider()).Gap(0)
 	var body tui.View
 	if s.edit != "" {
 		body = s.editorView()
@@ -32,10 +46,22 @@ func (s *screen) View() tui.View {
 		message = s.problem
 		color = tui.ColorRed
 	} else if s.busy {
-		message = "Working · " + s.status
+		count := fmt.Sprintf("%d outcomes", s.totalResults)
+		if s.expectedOutcomes > 0 {
+			count = fmt.Sprintf("%d/%d outcomes", s.totalResults, s.expectedOutcomes)
+		}
+		message = fmt.Sprintf("%s · %s · %s", s.status, time.Since(s.started).Round(time.Second), count)
 		color = amber
 	}
-	footer := tui.Stack(tui.Divider(), tui.Text(" %s", clean(message)).Fg(color).Wrap(), tui.Text(" p preview · s sample · r full · e export · Esc cancel · q quit").Fg(muted).Wrap()).Gap(0)
+	var feedback tui.View = tui.Text(" %s", clean(message)).Fg(color).Wrap()
+	if s.busy && s.problem == "" {
+		feedback = tui.Group(tui.Loading(s.frame).Fg(amber), feedback).Gap(1)
+	}
+	keys := s.shortcuts()
+	if s.edit == "" && !strings.Contains(keys, "q quit") {
+		keys += " · q quit"
+	}
+	footer := tui.Stack(tui.Divider(), feedback, tui.Text(" %s", keys).Fg(muted).Wrap()).Gap(0)
 	return tui.Height(max(1, s.height), tui.PaddingLTRB(1, 0, 1, 0, tui.Stack(header, body, footer).Gap(0)))
 }
 func (s *screen) editorView() tui.View {
@@ -55,6 +81,15 @@ func (s *screen) editorView() tui.View {
 	case "parameter":
 		hint = "NAME=VALUE · Enter validates · Esc returns"
 		placeholder = "focus=authorization"
+	case "sample size":
+		hint = "How many bites? 1–200 items · Enter sets · Esc returns"
+		placeholder = "5"
+	case "items pointer":
+		hint = "Array pointer, e.g. /export/tickets · empty expands root · - keeps whole document"
+	case "state pointer":
+		hint = "State inside each item · JSON Pointer, e.g. /ticket/description · empty uses whole item"
+	case "id pointer":
+		hint = "Stable ID inside each item · JSON Pointer, e.g. /id · empty uses source identity"
 
 	case "filter":
 		hint = "Filter source, status, questions, or answers · Enter applies · Esc returns"
@@ -82,6 +117,12 @@ func (s *screen) editorView() tui.View {
 	return tui.Stack(tui.Text("%s", s.edit).Bold().Fg(amber), tui.Text("%s", hint).Wrap().Fg(muted), guidance, field).Gap(1)
 }
 func (s *screen) content() string {
+	if s.jsonTrail != nil {
+		return s.jsonContent()
+	}
+	if s.tab == 0 && s.browser != nil {
+		return s.browserContent()
+	}
 	switch s.tab {
 	case 0:
 		return s.sourceContent()
@@ -96,9 +137,9 @@ func (s *screen) content() string {
 		fmt.Fprintf(&b, "TASTING FLIGHT · %d prepared items\n\n", len(s.prepared))
 		if !s.detail {
 			for i, p := range s.prepared {
-				fmt.Fprintf(&b, "%s %s\n", cursor(i, s.index), sourceName(p.Item.Source.URI, p.Item.Source.Path, p.Item.ID))
+				fmt.Fprintf(&b, "%s %s%s\n", cursor(i, s.index), sourceName(p.Item.Source.URI, p.Item.Source.Path, p.Item.ID), sourceLocation(p.Item.Source))
 			}
-			b.WriteString("\n↑/↓ choose · Enter opens prepared state · s runs this sample\n\n")
+			b.WriteString("\n↑/↓ choose · j explores nested JSON · s runs this sample\n\n")
 		}
 		p := s.prepared[min(s.index, len(s.prepared)-1)]
 		for i, img := range p.Item.Images {
@@ -160,15 +201,15 @@ func (s *screen) evidenceContent() string {
 		return fmt.Sprintf("EVIDENCE NOTEBOOK\n\n%d outcomes received.\n%s\n\nRun a sample with s, or open recorded evidence with decide inspect.\nFailures and uncertain requests remain explicit.", s.totalResults, s.status)
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "EVIDENCE · %d shown · %d outcomes this session\nFilter: %s\n\n", len(s.results), s.totalResults, s.filter)
+	fmt.Fprintf(&b, "EVIDENCE · matching records %d–%d · %d recorded outcomes\nFilter: %s · more pages: %t\n\n", s.evidenceOffset+1, s.evidenceOffset+len(s.results), s.totalResults, s.filter, s.evidenceMore)
 	if !s.detail {
 		start := max(0, s.index-3)
 		end := min(len(s.results), start+7)
 		for i := start; i < end; i++ {
 			r := s.results[i]
-			fmt.Fprintf(&b, "%s %-10s %s\n", cursor(i, s.index), r.Status, sourceName(r.Source.URI, r.Source.Path, r.ID))
+			fmt.Fprintf(&b, "%s %-10s %s%s\n", cursor(i, s.index), r.Status, sourceName(r.Source.URI, r.Source.Path, r.ID), sourceLocation(r.Source))
 		}
-		b.WriteString("\n↑/↓ select · Enter expands · ←/→ stage · PgUp/PgDn scroll · / filter\n\n")
+		b.WriteString("\n↑/↓ select · n/N pages · j JSON · ←/→ stage · / search all evidence\n\n")
 	}
 	r := s.results[min(s.index, len(s.results)-1)]
 	fmt.Fprintf(&b, "%s\nSource: %s\nStatus: %s\n%s\n", r.ID, r.Source.URI, r.Status, r.Error)
@@ -295,20 +336,33 @@ func distributionText(raw json.RawMessage) string {
 			fmt.Fprintf(&b, "%s: %v\n", path, x)
 		}
 	}
-	visit("", v)
+	if obj, ok := v.(map[string]any); ok && obj["answers"] != nil {
+		visit("answers", obj["answers"])
+	} else {
+		visit("", v)
+	}
 	return b.String()
 }
 
 const helpText = `FIELD NOTES
 
-1 Sources   a adds one file, directory, or URL; repeat for more sources.
+1 Sources   f opens a folder trail; Enter descends; Space selects a file
+            or folder; . adds the current folder. n/N turns folder pages.
+            a adds one file, directory, or URL; repeat for more sources.
+            g cycles all/code/JSON/image file presets.
             i adds an include glob; x adds an exclude glob.
             ↑/↓ selects a source; d removes it from the selection.
             A opens advanced source JSON (format, pointers, bounds).
             Use globs such as **/*.go; exclusions win.
 2 Library   Browse reusable skills; Enter picks; t edits NAME=VALUE; T opens parameter JSON;
             v edits question JSON. Ctrl-S validates and saves edits.
-3 Preview   p selects and freezes at most 200 sample items, offline.
+3 Preview   p freezes first items by default, offline. z switches to seeded
+            sampling (scans the selection). k chooses 1–200 items.
+            j explores nested JSON without decoding every branch at once.
+            Enter opens; left goes up; n/N pages; m expands selected array;
+            M expands the current array; u selects state; I selects an ID.
+            m/u/I outside the explorer edit JSON pointers directly.
+            Empty items pointer expands the root; - keeps a whole document.
             Inspect prepared state, source provenance and questions.
 4 Evidence  s sends the frozen sample to a model. r explicitly starts
             the full selection. Both preserve durable run artifacts.
@@ -316,13 +370,16 @@ const helpText = `FIELD NOTES
             Keep the sample, change questions/parameters/model, rerun.
 
 ↑/↓ select   Enter detail   ←/→ stage   PgUp/PgDn scroll
-/ filter evidence across its artifact   e export to a new directory
+/ search evidence across its artifact   n/N next/previous saved page
+e export to a new directory
 o execution settings   Esc cancel/edit back   q or Ctrl-C quit
 
 Samples call models only when you press s. Full runs require typing run.
 Preview reads your sources, including URLs, but never calls a model.
 Closing cancels outstanding work and preserves resumable artifacts.
-The screen keeps at most 200 records / 16 MiB; filters scan saved evidence.
+The screen keeps at most 200 records / 16 MiB; pages and searches read saved evidence.
+Folder and JSON browsers retain 100 children per page; nested JSON trails
+have a 32 MiB / 64-level bound. Folder browsing skips symlinks and .git.
 Comparison history is capped at 32 MiB. JSONL records are capped at 16 MiB.
 Exports include evidence, skill configuration, options and a batch command.
 Images need the Cloudflare provider (Clef/Clef-flash); TypeSafe rejects
@@ -332,11 +389,14 @@ Credentials are read at execution and never saved in the notebook.`
 
 func (s *screen) sourceContent() string {
 	var b strings.Builder
-	b.WriteString("SOURCE TRAIL\n\na Add a file, directory, or URL · i Include glob · x Exclude glob\n↑/↓ Select · d Remove selected source · A Advanced source JSON\n\n")
+	fmt.Fprintf(&b, "SOURCE TRAIL · %d source roots\n\nf Browse folders · Enter opens selected source · a Add path or URL\ng File presets · i Include glob · x Exclude glob · d Remove source\n\n", len(s.options.Sources.Sources))
 	if len(s.options.Sources.Sources) == 0 {
-		b.WriteString("Your notebook is open. Where shall we look?\nPress a and try ./src, tickets.jsonl, or an HTTP URL.\n")
+		b.WriteString("Your notebook is open. Where shall we look?\nf follows the folder trail. Space picks files; . takes a whole folder.\nOr a adds ./src, tickets.jsonl, or a public HTTP URL.\n")
 	} else {
-		for i, source := range s.options.Sources.Sources {
+		start := max(0, s.index-3)
+		end := min(len(s.options.Sources.Sources), start+max(4, s.height-18))
+		for i := start; i < end; i++ {
+			source := s.options.Sources.Sources[i]
 			fmt.Fprintf(&b, "%s %s\n", cursor(i, s.index), source)
 		}
 	}
@@ -344,6 +404,7 @@ func (s *screen) sourceContent() string {
 	if d.Manifest != "" {
 		fmt.Fprintf(&b, "Manifest: %s\n", d.Manifest)
 	}
+	fmt.Fprintf(&b, "\nTASTING PLAN\n%s · k changes size · z switches strategy\nItems: %q (expand: %t) · State: %q · ID: %q\nm/u/I edit mappings · j explores JSON after preview\n", s.sampleLabel(), d.Items, d.ItemsSet, d.State, d.IDField)
 	fmt.Fprintf(&b, "\nInclude: %s\nExclude: %s\nFormat: %s\n\n%s\n\n%s\n\np previews up to %d prepared items, without model calls.\nDirectories honor ignore files; exclusions win.\nImages: Cloudflare Clef/Clef-flash required; TypeSafe has no image input.\nSource limits: %d bytes/item, %d bytes/source. Sample cap: 64 MiB.\n", listOrAll(d.Include, "all files"), listOrAll(d.Exclude, "none"), d.Format, s.judgmentInfo(), executionInfo(s.options), sampleSize(s.options), d.MaxItemBytes, d.MaxSourceBytes)
 	return b.String()
 }
@@ -352,6 +413,42 @@ func listOrAll(v []string, fallback string) string {
 		return fallback
 	}
 	return strings.Join(v, ", ")
+}
+func sourceLocation(s dataset.Source) string {
+	if s.Line > 0 {
+		return fmt.Sprintf(":L%d", s.Line)
+	}
+	if s.Format == "json" {
+		return fmt.Sprintf(" [item %d]", s.Index)
+	}
+	return ""
+}
+func (s *screen) shortcuts() string {
+	if s.busy {
+		return "Esc stop work · 1–5 switch pages · q quit"
+	}
+	if s.edit != "" {
+		return "Enter apply · Esc discard · q types into this field"
+	}
+	if s.jsonTrail != nil {
+		return "Enter open · ← up · m/M items · u state · I ID · n/N pages · Esc back"
+	}
+	if s.browser != nil {
+		return "Enter open · Space select · . whole folder · ← up · n/N pages · Esc back"
+	}
+	switch s.tab {
+	case 0:
+		return "f browse · g presets · k size · z strategy · p preview · ? field guide"
+	case 1:
+		return "↑/↓ browse · Enter choose · b patterns · t tune · p preview · ? help"
+	case 2:
+		return "j JSON branches · s sample · z strategy · k size · r full · ? help"
+	case 3:
+		return "n/N pages · / search · j JSON · e export · c compare · q quit"
+	case 4:
+		return "t tune · s rerun same sample · e pack notebook · q quit"
+	}
+	return "1–5 pages · p preview · s sample · Esc back · q quit"
 }
 func parameterInfo(s *screen) string {
 	var b strings.Builder
