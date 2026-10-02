@@ -314,7 +314,8 @@ func plainParagraphs(lines []string) []piece {
 // lines a part may start on, and the section a line falls in.
 type structure struct {
 	breaks  map[int]bool
-	section func(line int) string
+	section func(start, end int) string // what lines start to end are part of
+	within  *structure                  // where to cut a span between breaks that is too large; nil to cut between lines
 }
 
 // markdownStructure breaks a Markdown file between blocks, and names each
@@ -325,7 +326,7 @@ func markdownStructure(lines []string) structure {
 	for _, b := range blocks {
 		s.breaks[b.start] = true
 	}
-	s.section = func(line int) string {
+	s.section = func(line, _ int) string {
 		var path []string
 		for _, b := range blocks {
 			if b.start > line {
@@ -340,7 +341,7 @@ func markdownStructure(lines []string) structure {
 
 // plainStructure breaks text after blank lines.
 func plainStructure(lines []string) structure {
-	s := structure{breaks: map[int]bool{}, section: func(int) string { return "" }}
+	s := structure{breaks: map[int]bool{}, section: func(int, int) string { return "" }}
 	for i := 2; i <= len(lines); i++ {
 		if strings.TrimSpace(lines[i-2]) == "" {
 			s.breaks[i] = true
@@ -387,7 +388,10 @@ func split(lines []string, start, end int, st structure, budget int) []piece {
 	var cur *segment
 	emit := func() {
 		if cur != nil && strings.TrimSpace(span(lines, cur.start, cur.end)) != "" {
-			out = append(out, piece{start: cur.start, end: cur.end, section: section(cur.start), text: span(lines, cur.start, cur.end)})
+			for strings.TrimSpace(lines[cur.end-1]) == "" {
+				cur.end--
+			}
+			out = append(out, piece{start: cur.start, end: cur.end, section: section(cur.start, cur.end), text: span(lines, cur.start, cur.end)})
 		}
 		cur = nil
 	}
@@ -400,6 +404,10 @@ func split(lines []string, start, end int, st structure, budget int) []piece {
 		if s.size <= budget {
 			c := s
 			cur = &c
+			continue
+		}
+		if st.within != nil {
+			out = append(out, split(lines, s.start, s.end, *st.within, budget)...)
 			continue
 		}
 		// A segment over the budget is cut between lines, and a line over
@@ -416,7 +424,7 @@ func split(lines []string, start, end int, st structure, budget int) []piece {
 				continue
 			}
 			for _, chunk := range chunks(lines[i-1], budget) {
-				out = append(out, piece{start: i, end: i, section: section(i), text: chunk})
+				out = append(out, piece{start: i, end: i, section: section(i, i), text: chunk})
 			}
 		}
 	}

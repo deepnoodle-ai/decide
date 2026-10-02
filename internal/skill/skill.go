@@ -41,10 +41,11 @@ const (
 	EachLine      = "line"
 	EachParagraph = "paragraph"
 	EachSection   = "section"
+	EachFunction  = "function"
 )
 
 // Units lists the values of --each and of a skill's each.
-var Units = []string{EachFile, EachLine, EachParagraph, EachSection}
+var Units = []string{EachFile, EachLine, EachParagraph, EachSection, EachFunction}
 
 // Where a skill was found.
 const (

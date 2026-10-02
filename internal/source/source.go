@@ -10,10 +10,15 @@
 //   - With Each, a text file is one item per file, line, paragraph, or
 //     Markdown section instead. Datasets are split into records unless
 //     Each is "file".
+//   - With Each "function", a source file in a language listed by
+//     Languages is one item per function or method. Other files are
+//     skipped. A file whose structure the scanner cannot follow is one
+//     item.
 //   - An image skill has one item per image file.
 //
 // An item too large to send whole is cut into parts, which the caller
-// judges separately and combines.
+// judges separately and combines. A source file is cut between its
+// functions.
 //
 // Directory walks skip hidden files and folders (such as .git and .env),
 // files ignored by .gitignore or .decideignore, symbolic links, and files a
@@ -61,7 +66,7 @@ var MaxItemBytes = 64 << 10
 // Options selects and shapes items.
 type Options struct {
 	Input   skill.Input
-	Each    string   // the unit: "file", "line", "paragraph", "section", or "" for the default
+	Each    string   // the unit: "file", "line", "paragraph", "section", "function", or "" for the default
 	Include []string // globs relative to each directory argument
 	Exclude []string
 	Items   string // path to the array of records in a JSON document
@@ -74,8 +79,8 @@ type Options struct {
 // Item is one thing to evaluate.
 type Item struct {
 	Label string          `json:"source"`          // where it came from, e.g. "src/main.go" or "tickets.jsonl:3"
-	Unit  string          `json:"unit"`            // "file", "line", "paragraph", "section", "record", or "image"
-	Value json.RawMessage `json:"input,omitempty"` // the original record, a paragraph's text, or a section's headings
+	Unit  string          `json:"unit"`            // "file", "line", "paragraph", "section", "function", "record", or "image"
+	Value json.RawMessage `json:"input,omitempty"` // the original record, a paragraph's text, a section's headings, or a function's name
 	State json.RawMessage `json:"state,omitempty"` // what the model sees; empty when the item has parts
 	Parts []Part          `json:"parts,omitempty"` // the item cut into pieces, when it is too large to send whole
 	Image *ImageData      `json:"-"`
@@ -145,6 +150,19 @@ func Walk(ctx context.Context, paths []string, stdin io.Reader, opts Options, fn
 		opts.Warn(fmt.Sprintf("%d %s no Markdown headings, so %s judged whole",
 			w.whole, plural(w.whole, "file has", "files have"), plural(w.whole, "it was", "each was")))
 	}
+	if w.notCode > 0 {
+		opts.Warn(fmt.Sprintf("Skipped %d %s not in %s", w.notCode, plural(w.notCode, "file", "files"), orList(Languages())))
+	}
+	if w.noFuncs > 0 {
+		opts.Warn(fmt.Sprintf("Skipped %d %s with no functions", w.noFuncs, plural(w.noFuncs, "file", "files")))
+	}
+	if n := len(w.lost); n > 0 {
+		names := strings.Join(w.lost[:min(n, 3)], ", ")
+		if n > 3 {
+			names += fmt.Sprintf(", and %d more", n-3)
+		}
+		opts.Warn(fmt.Sprintf("Could not find the functions in %s, so %s judged whole", names, plural(n, "it was", "each was")))
+	}
 	// Report sampled items in input order.
 	slices.SortFunc(w.sample, func(a, b sampled) int { return a.order - b.order })
 	for _, s := range w.sample {
@@ -156,15 +174,18 @@ func Walk(ctx context.Context, paths []string, stdin io.Reader, opts Options, fn
 }
 
 type walker struct {
-	ctx    context.Context
-	opts   Options
-	stdin  io.Reader
-	emit   func(Item) error
-	names  map[string]string // label for each path argument
-	count  int
-	whole  int // files read whole for want of sections
-	seen   int
-	sample []sampled
+	ctx     context.Context
+	opts    Options
+	stdin   io.Reader
+	emit    func(Item) error
+	names   map[string]string // label for each path argument
+	count   int
+	whole   int      // files read whole for want of sections
+	notCode int      // files skipped for want of functions: not source code
+	noFuncs int      // source files without functions
+	lost    []string // source files read whole because their functions could not be found
+	seen    int
+	sample  []sampled
 }
 
 // sampler keeps a uniform random sample (reservoir sampling). The seed is
@@ -385,6 +406,27 @@ func (w *walker) file(path, label string, explicit bool) error {
 		state, _ := json.Marshal(map[string]any{"path": label, "content_type": ctype})
 		return w.emit(Item{Label: label, Unit: UnitImage, State: state, Image: &ImageData{ContentType: ctype, Data: data}})
 	}
+	if w.opts.Each == skill.EachFunction {
+		lang := languageOf(path)
+		if lang == nil {
+			if explicit {
+				return fmt.Errorf("%s is not in %s, so decide cannot find its functions; use --each file", label, orList(Languages()))
+			}
+			w.notCode++
+			return nil
+		}
+		if info.Size() > MaxFileBytes {
+			return skip("%s (larger than 1 MiB)", label)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if isBinary(data) {
+			return skip("%s (binary file)", label)
+		}
+		return w.functions(label, string(data), lang, explicit)
+	}
 	f := formatOf(path)
 	each := w.opts.Each
 	if each == "" && f == lines {
@@ -481,7 +523,7 @@ func (w *walker) text(label, data string, md bool, each string, explicit bool) e
 		return w.emit(Item{Label: label, Unit: skill.EachFile, State: state})
 	}
 	it := Item{Label: label, Unit: skill.EachFile}
-	parts := split(lines, 1, len(lines), structureOf(lines, md), budget)
+	parts := split(lines, 1, len(lines), structureOf(label, lines, md), budget)
 	for i, p := range parts {
 		state, _ := json.Marshal(partState{Path: label, Language: lang, Section: p.section, Lines: p.lines(),
 			Part: fmt.Sprintf("%d of %d", i+1, len(parts)), Content: p.text})
@@ -508,11 +550,68 @@ func preview(text string) string {
 	return text
 }
 
-func structureOf(lines []string, md bool) structure {
+// structureOf says where a file at path may be cut: between Markdown
+// blocks, between functions, or after blank lines.
+func structureOf(path string, lines []string, md bool) structure {
 	if md {
 		return markdownStructure(lines)
 	}
+	if lang := languageOf(path); lang != nil {
+		if c, err := lang.find(strings.Join(lines, "\n")); err == nil {
+			return codeStructure(lines, c)
+		}
+	}
 	return plainStructure(lines)
+}
+
+// functions makes an item of each function in a source file. A file whose
+// functions cannot be found is one item.
+func (w *walker) functions(label, data string, lang *language, explicit bool) error {
+	data = strings.ReplaceAll(data, "\r\n", "\n")
+	lines := strings.Split(data, "\n")
+	c, err := lang.find(data)
+	if err != nil {
+		w.lost = append(w.lost, label)
+		return w.text(label, data, false, skill.EachFile, explicit)
+	}
+	if len(c.fns) == 0 {
+		if explicit {
+			return fmt.Errorf("%s has no functions; use --each file", label)
+		}
+		w.noFuncs++
+		return nil
+	}
+	ext := strings.TrimPrefix(filepath.Ext(label), ".")
+	for _, f := range c.fns {
+		context := c.context(lines, f)
+		text := span(lines, f.lead, f.end)
+		value, _ := json.Marshal(f.name)
+		it := Item{Label: fmt.Sprintf("%s#L%d", label, f.start), Unit: skill.EachFunction, Value: value}
+		budget := max(budget(label)-jsonSize(context)-jsonSize(f.name), 16)
+		if jsonSize(text) <= budget {
+			it.State, _ = json.Marshal(partState{Path: label, Language: ext, Function: f.name,
+				Lines: piece{start: f.lead, end: f.end}.lines(), Context: context, Content: text})
+		} else {
+			parts := split(lines, f.lead, f.end, plainStructure(lines), budget)
+			for i, p := range parts {
+				state, _ := json.Marshal(partState{Path: label, Language: ext, Function: f.name, Lines: p.lines(),
+					Part: fmt.Sprintf("%d of %d", i+1, len(parts)), Context: context, Content: p.text})
+				it.Parts = append(it.Parts, Part{Lines: p.lines(), Size: len(p.text), State: state})
+			}
+		}
+		if err := w.emit(it); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// orList joins "Go, Python, and Java" as "Go, Python, or Java".
+func orList(and string) string {
+	if i := strings.LastIndex(and, " and "); i >= 0 {
+		return and[:i] + " or " + and[i+len(" and "):]
+	}
+	return and
 }
 
 func hasHeadings(lines []string) bool {
@@ -528,9 +627,11 @@ func hasHeadings(lines []string) bool {
 type partState struct {
 	Path     string `json:"path"`
 	Language string `json:"language,omitempty"`
+	Function string `json:"function,omitempty"`
 	Section  string `json:"section,omitempty"`
 	Lines    string `json:"lines,omitempty"`
 	Part     string `json:"part,omitempty"`
+	Context  string `json:"context,omitempty"` // code the content needs to be read, such as its imports
 	Content  string `json:"content"`
 }
 
@@ -549,7 +650,7 @@ func (w *walker) piece(label, unit, path string, p piece, lines []string, md boo
 		value, _ = json.Marshal(preview(p.text)) // each part's result keeps a copy
 	}
 	it := Item{Label: label, Unit: unit, Value: value}
-	parts := split(lines, p.start, p.end, structureOf(lines, md), budget)
+	parts := split(lines, p.start, p.end, structureOf(path, lines, md), budget)
 	for i, part := range parts {
 		section := part.section
 		if section == "" {
@@ -578,6 +679,8 @@ func (w *walker) stdinItems() error {
 	}
 	br := bufio.NewReader(w.stdin)
 	switch w.opts.Each {
+	case skill.EachFunction:
+		return errors.New("--each function reads source files, not stdin")
 	case skill.EachFile, skill.EachParagraph, skill.EachSection:
 		data, err := io.ReadAll(io.LimitReader(br, MaxFileBytes+1))
 		if err != nil {

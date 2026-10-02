@@ -98,7 +98,7 @@ func TestSkills(t *testing.T) {
 	contains(t, out.stdout, "triage", "(user)")
 
 	out = h.run("", "skills", "show", "code-risk")
-	contains(t, out.stdout, "Does the code or configuration", "flagged when", "the score is 1.5 or lower", "yes is 60% or more likely")
+	contains(t, out.stdout, "Does this code or configuration", "flagged when", "the score is 1.5 or lower", "yes is 60% or more likely")
 
 	h.write(".decide/skills/broken/skill.json", `{"name": "broken",}`)
 	out = h.run("", "skills")
@@ -331,13 +331,13 @@ func TestLargeFilesAreJudgedInParts(t *testing.T) {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
 	// One answer for the file: flagged, because one part is.
-	contains(t, out.stdout, "src/a.go  judged in 3 parts\n", "! risk             yes           90%  lines 3-4\n")
+	contains(t, out.stdout, "src/a.go  judged in 3 parts\n", "! risk             yes           90%  lines 3\n")
 	contains(t, out.stderr, "Running code-risk on 1 file (1 judged in parts, 3 requests)", "✓ 1 answered  ! 1 flagged", "Flagged: src/a.go")
 	if strings.Count(out.stdout, "src/a.go") != 1 {
 		t.Fatalf("the parts printed separately:\n%s", out.stdout)
 	}
 	out = h.run("", "runs", "view")
-	contains(t, out.stdout, "src/a.go  judged in 3 parts\n", "lines 3-4")
+	contains(t, out.stdout, "src/a.go  judged in 3 parts\n", "lines 3")
 }
 
 func TestResumeCombinesNewAndSavedParts(t *testing.T) {
@@ -351,14 +351,14 @@ func TestResumeCombinesNewAndSavedParts(t *testing.T) {
 	if out.code != 1 {
 		t.Fatalf("exit %d", out.code)
 	}
-	contains(t, out.stdout, "✗ part 1 of 3 (lines 1-2)")
+	contains(t, out.stdout, "✗ part 1 of 3 (lines 1)")
 	contains(t, out.stderr, "✗ 1 failed")
 
 	out = h.run("", "runs", "resume")
 	if out.code != 0 {
 		t.Fatalf("resume: exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stdout, "src/a.go  judged in 3 parts\n", "! risk             yes           90%  lines 3-4\n")
+	contains(t, out.stdout, "src/a.go  judged in 3 parts\n", "! risk             yes           90%  lines 3\n")
 	contains(t, out.stderr, "1 request left", "✓ 1 answered  ! 1 flagged")
 }
 
@@ -375,6 +375,21 @@ func TestEachHintsAndErrors(t *testing.T) {
 	out = h.run("", "run", "receipt-quality", "docs", "--each", "file")
 	if out.code == 0 || !strings.Contains(out.stderr, "--each does not apply") {
 		t.Fatalf("image skill with --each: %d %s", out.code, out.stderr)
+	}
+}
+
+func TestEachFunction(t *testing.T) {
+	h := setup(t)
+	h.write("src/store.py", "class Store:\n    def save(self):\n        pass\n\n    def load(self):\n        pass\n")
+	h.write("src/notes.md", "# Notes\n")
+	out := h.run("", "run", "code-risk", "src", "--dry-run")
+	contains(t, out.stdout, "would look at 2 files:", "To judge each function instead, add --each function.")
+	out = h.run("", "run", "code-risk", "src", "--each", "function", "--dry-run")
+	contains(t, out.stdout, "would look at 2 functions:", "src/store.py#L2  Store.save", "src/store.py#L5  Store.load")
+	contains(t, out.stderr, "Skipped 1 file not in Go, Python, JavaScript, TypeScript, or Java")
+	out = h.run("", "run", "code-risk", "src/notes.md", "--each", "function")
+	if out.code == 0 || !strings.Contains(out.stderr, "use --each file") {
+		t.Fatalf("Markdown with --each function: %d %s", out.code, out.stderr)
 	}
 }
 
@@ -399,7 +414,7 @@ func TestPartsCountAsOneItem(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.stdout), &it); err != nil {
 		t.Fatal(err)
 	}
-	if it.Source != "src/a.go" || it.Parts != 3 || it.Where["risk"] != "lines 3-4" || it.Part != nil {
+	if it.Source != "src/a.go" || it.Parts != 3 || it.Where["risk"] != "lines 3" || it.Part != nil {
 		t.Fatalf("item = %+v", it)
 	}
 	out = h.run("", "runs", "view", "--json")
@@ -424,7 +439,7 @@ func TestFailedPartsDoNotStopTheRun(t *testing.T) {
 	if out.code != 1 || strings.Contains(out.stderr, "Stopped because") {
 		t.Fatalf("exit %d:\n%s", out.code, out.stderr)
 	}
-	contains(t, out.stdout, "✗ part 1 of 6 (lines 1-2)", "src/b.go")
+	contains(t, out.stdout, "✗ part 1 of 6 (lines 1)", "src/b.go")
 	contains(t, out.stderr, "✓ 1 answered  ✗ 1 failed")
 }
 
