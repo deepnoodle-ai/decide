@@ -31,7 +31,7 @@ A skill is a skill.json file with a name, a description, an input type
 copy an existing skill with --from.
 
 Examples:
-  decide skills new support-triage --from ticket-routing
+  decide skills new my-routing --from ticket-routing
   decide skills new my-skill --project`).
 		AddArg(&cli.Arg{Name: "name", Description: "A name for the new skill, like my-triage", Required: true}).
 		Flags(
