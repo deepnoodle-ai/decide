@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/backend"
 	"github.com/deepnoodle-ai/decide/decidetest"
-	"github.com/deepnoodle-ai/decide/x/backend"
 )
 
 const testKey = "backend-test-key-00000000"
