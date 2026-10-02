@@ -7,8 +7,7 @@ folders, JSON records, and text. Each answer comes back typed, with a
 probability, so a script or a program can act on it directly. There is no
 prose to parse.
 
-Use it as a command-line tool, pointed at your data, or as a Go library
-in your own code.
+Use it as a command-line tool or as a Go library.
 
 Decide runs on [System One](https://docs.typesafe.ai/introduction) models,
 which are built to answer typed questions rather than to generate text:
