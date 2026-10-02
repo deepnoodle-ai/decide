@@ -52,14 +52,8 @@ func (a *App) commands() *wonton.App {
 	app := wonton.New("decide").Description("Apply decision models to datasets and save results.").Long(helpText).
 		SetStdin(a.In).SetStdout(a.Out).SetStderr(a.Err).ForceInteractive(false).
 		SetColorEnabled(newResultPrinter(a.Out, "auto", false).color)
-	for _, entry := range []struct{ name, description string }{
-		{"run", "Show each item's decisions and save the run"},
-		{"plan", "Preview inputs and questions without model calls"},
-	} {
-		binding := a.datasetCommand(entry.name)
-		binding.attach(app.Command(entry.name).Description(entry.description).
-			Args("skill-or-source?...").Long("Usage: decide " + entry.name + " SKILL SOURCES... [flags]\nUse --skill NAME or --pattern NAME to choose the judgment with a flag.\nFiles, directories, URLs, and '-' for stdin can be mixed."))
-	}
+	a.runCommand().attach(app.Command("run").Description("Evaluate input items and save results; --plan previews inputs").
+		Args("skill-or-source?...").Long("Usage: decide run SKILL SOURCES... [flags]\nUse --skill NAME or --pattern NAME to choose the judgment with a flag.\nFiles, directories, URLs, and '-' for stdin can be mixed.\nAdd --plan to preview prepared inputs and questions without model calls."))
 	sources := app.Group("sources").Description("List and preview selected input data")
 	for _, op := range []string{"list", "preview"} {
 		binding := a.sourcesCommand(op)

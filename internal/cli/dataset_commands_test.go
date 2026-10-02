@@ -31,7 +31,7 @@ func TestDatasetCommandsPreviewAndPrepareWithoutClient(t *testing.T) {
 		t.Fatal(e)
 	}
 	a, out, diagnostics := coreApp(t, "", nil)
-	for _, args := range [][]string{{"sources", "list", file}, {"sources", "preview", file}, {"plan", "builtin/code-risk", file, "--param", "focus=unsafe writes"}} {
+	for _, args := range [][]string{{"sources", "list", file}, {"sources", "preview", file}, {"run", "--plan", "builtin/code-risk", file, "--param", "focus=unsafe writes"}} {
 		out.Reset()
 		diagnostics.Reset()
 		if code := a.Run(t.Context(), args); code != 0 {
@@ -121,7 +121,7 @@ func TestRootArraySourceFlagAndErrorStream(t *testing.T) {
 	if bytes.Count(out.Bytes(), []byte{'\n'}) != 2 {
 		t.Fatal(out.String())
 	}
-	for _, args := range [][]string{{"plan", "builtin/code-risk", path, "--wat"}, {"run", "builtin/relevance", "--workers", "zero"}, {"sources", "list", "--format", "oops", path}} {
+	for _, args := range [][]string{{"run", "--plan", "builtin/code-risk", path, "--wat"}, {"run", "builtin/relevance", "--workers", "zero"}, {"sources", "list", "--format", "oops", path}} {
 		out.Reset()
 		diagnostics.Reset()
 		if code := a.Run(t.Context(), args); code != 2 {
@@ -300,5 +300,36 @@ func TestRemovedInteractiveCommandsAreNotAdvertisedOrDispatched(t *testing.T) {
 		if code := a.Run(t.Context(), []string{command}); code != 2 || !strings.Contains(diagnostics.String(), "unknown command") {
 			t.Fatalf("command remains: %s, code=%d %s", command, code, diagnostics)
 		}
+	}
+}
+
+func TestRunPlanPreviewsWithoutClientOrSavedRun(t *testing.T) {
+	dir := datasetEnvironment(t)
+	file := filepath.Join(dir, "code.go")
+	if err := os.WriteFile(file, []byte("package main"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TYPESAFE_API_KEY", "")
+	t.Setenv("CLOUDFLARE_AUTH_TOKEN", "")
+	for _, args := range [][]string{
+		{"run", "--plan", "code-risk", file},
+		{"run", "code-risk", file, "--plan"},
+		{"run", "--pattern", "map", file, "--plan"},
+	} {
+		a, out, diagnostics := coreApp(t, "", nil)
+		a.NewClient = func() (*decide.Client, error) { t.Fatal("plan constructed a provider client"); return nil, nil }
+		if code := a.Run(t.Context(), args); code != 0 {
+			t.Fatalf("%v: exit=%d stderr=%s", args, code, diagnostics)
+		}
+		var prepared jobs.Prepared
+		if err := json.Unmarshal(out.Bytes(), &prepared); err != nil || len(prepared.Questions) == 0 {
+			t.Fatalf("invalid prepared input: %v %s", err, out)
+		}
+		if !strings.Contains(diagnostics.String(), "Prepared 1 items. No model calls.") {
+			t.Fatal(diagnostics.String())
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "runs")); !os.IsNotExist(err) {
+		t.Fatalf("plan created run artifacts: %v", err)
 	}
 }

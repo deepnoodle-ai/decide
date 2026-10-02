@@ -8,7 +8,7 @@ List saved runs: decide runs list
 View results:    decide runs view RUN_ID
 
 Skills define the questions. Run applies them to files, directories, JSONL,
-images, URLs, or stdin and saves the answers. Use plan to check prepared inputs
+images, URLs, or stdin and saves the answers. Use --plan to check prepared inputs
 before model calls. Patterns configure how judgments are combined or processed,
 using run --pattern.
 

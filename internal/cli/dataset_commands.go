@@ -160,16 +160,17 @@ func resolveConnection(o *jobs.Options) error {
 	return nil
 }
 
-func (a *App) datasetCommand(command string) *commandBinding {
+func (a *App) runCommand() *commandBinding {
 	o := envOptions()
-	fs := a.flags(command)
+	fs := a.flags("run")
 	var params []string
 	bindExecution(fs, &o, &params)
+	plan := fs.Bool("plan", false, "preview prepared inputs and questions without model calls or saved runs")
 	return fs.run(func(ctx context.Context, operands []string) int {
 		markSourceFlags(fs, &o.Sources)
 		if o.Skill == "" && o.Pattern == "" {
 			if len(operands) == 0 {
-				return a.fail(errors.New("choose a skill: decide skills list; then decide " + command + " SKILL SOURCES..."))
+				return a.fail(errors.New("choose a skill: decide skills list; then decide run SKILL SOURCES..."))
 			}
 			o.Skill = operands[0]
 			operands = operands[1:]
@@ -198,13 +199,13 @@ func (a *App) datasetCommand(command string) *commandBinding {
 			}
 		}
 		o.NewClient = a.NewClient
-		return a.executeDataset(ctx, command, o)
+		return a.executeDataset(ctx, o, *plan)
 
 	})
 }
 
-func (a *App) executeDataset(ctx context.Context, command string, o jobs.Options) int {
-	if command == "plan" {
+func (a *App) executeDataset(ctx context.Context, o jobs.Options, plan bool) int {
+	if plan {
 		summary, e := jobs.Plan(ctx, o, a.In, func(p jobs.Prepared) error { return writeJSON(a.Out, p) })
 		if e != nil {
 			return a.offlineFailure(e)

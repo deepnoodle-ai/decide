@@ -13,7 +13,7 @@ import (
 func TestWontonHelpCoversEveryCommandWithoutModelCalls(t *testing.T) {
 	datasetEnvironment(t)
 	commands := []string{
-		"", "run", "plan", "sources", "sources list", "sources preview",
+		"", "run", "sources", "sources list", "sources preview",
 		"skills", "skills list", "skills show", "skills new", "skills edit", "skills validate", "skills test",
 		"patterns", "patterns list", "patterns show", "runs", "runs list", "runs view", "runs show", "runs watch", "runs resume", "runs export",
 	}
@@ -104,7 +104,7 @@ func TestMainHelpHasOneStandardJudgmentWorkflow(t *testing.T) {
 	if code := a.Run(t.Context(), []string{"--help"}); code != 0 {
 		t.Fatalf("exit=%d: %s", code, diagnostics)
 	}
-	for _, name := range []string{"judge", "grep", "label", "score", "check", "pick", "join", "rank", "pack", "gate", "eval", "explore", "inspect"} {
+	for _, name := range []string{"judge", "grep", "label", "score", "check", "pick", "join", "rank", "pack", "gate", "eval", "explore", "inspect", "plan"} {
 		if strings.Contains(out.String(), "\n  "+name+" ") {
 			t.Fatalf("main help advertises competing workflow %q: %s", name, out)
 		}
@@ -118,7 +118,7 @@ func TestMainHelpHasOneStandardJudgmentWorkflow(t *testing.T) {
 
 func TestRemovedPrimitiveCommandsAreNotDispatched(t *testing.T) {
 	datasetEnvironment(t)
-	for _, name := range []string{"judge", "grep", "label", "score", "check", "pick", "join", "rank", "pack", "gate", "eval"} {
+	for _, name := range []string{"judge", "grep", "label", "score", "check", "pick", "join", "rank", "pack", "gate", "eval", "plan"} {
 		a, out, diagnostics := coreApp(t, "", nil)
 		if code := a.Run(t.Context(), []string{name}); code != 2 || out.Len() != 0 || !strings.Contains(diagnostics.String(), "unknown command") {
 			t.Fatalf("%s: exit=%d stdout=%s stderr=%s", name, code, out, diagnostics)

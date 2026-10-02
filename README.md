@@ -20,7 +20,7 @@ decide runs view RUN_ID
 `run` shows compact per-item decisions and saves the full evidence automatically.
 `runs view` reads an old run without making model calls. Add `--details` for
 confidence and labeled probability distributions, or `--jsonl` for full evidence.
-`plan` previews prepared inputs without model calls. Skills define questions;
+`run --plan` previews prepared inputs without model calls. Skills define questions;
 patterns compose them through `run --pattern`.
 
 Before v1, public APIs may change or be removed in any release.
@@ -218,7 +218,7 @@ decide --help
 
 Use `decide run SKILL SOURCES...` to apply a judgment. Discover questions with
 `decide skills list`; read saved work with `decide runs list` and `decide runs view`.
-Use `plan` or `sources preview` to check inputs before model calls. Compositions
+Use `run --plan` or `sources preview` to check inputs before model calls. Compositions
 use the same execution command: `decide run --pattern NAME SOURCES...`.
 
 The CLI uses Wonton's `cli` framework, `env` configuration, and inline `tui`

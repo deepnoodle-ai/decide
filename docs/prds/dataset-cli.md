@@ -24,7 +24,7 @@ durable runs, and readable saved results. Interactive interfaces are deferred. T
 
 ### Select a code tree
 
-`decide plan code-risk . --include '**/*.go' --exclude '**/*_test.go'`
+`decide run --plan code-risk . --include '**/*.go' --exclude '**/*_test.go'`
 previews the selected items and prepared state without model calls.
 
 - Directory selection is deterministic; exclusions win; ignore files apply by default.

@@ -14,7 +14,7 @@ decide runs list
 decide runs view RUN_ID
 ```
 
-Sources, library browsing, and `plan` need no model credentials. Plan prints
+Sources, library browsing, and `run --plan` need no model credentials. `run --plan` prints
 prepared-item JSONL and a stderr count. Public HTTP sources still perform HTTP
 reads. Random sampling scans the selected sources; `--limit 5` stops after the
 first five items instead.
@@ -71,7 +71,7 @@ until explicitly expanded:
 
 ```sh
 decide sources preview records.json --items ''
-decide plan builtin/ticket-routing export.json --items /tickets \
+decide run --plan builtin/ticket-routing export.json --items /tickets \
   --state /description --id-field /id
 decide sources preview 'https://example.com/export.json?page=1' --items /tickets
 ```
@@ -107,7 +107,7 @@ from flags; edit the manifest to change those explicit mappings:
 ```
 
 ```sh
-decide plan builtin/ticket-routing --sources sources.json
+decide run --plan builtin/ticket-routing --sources sources.json
 ```
 
 URLs support public query parameters. Userinfo, fragments, and recognized credential
@@ -120,7 +120,7 @@ For a codebase, first inspect the selection and then bound your first experiment
 
 ```sh
 decide sources list ./repo --include '**/*.{go,ts,tsx}' --exclude '**/*_test.go'
-decide plan builtin/code-risk ./repo --include '**/*.{go,ts,tsx}' \
+decide run --plan builtin/code-risk ./repo --include '**/*.{go,ts,tsx}' \
   --exclude '**/*_test.go' --limit 5
 decide run builtin/code-risk ./repo --include '**/*.{go,ts,tsx}' \
   --exclude '**/*_test.go' --workers 4 --max-requests 100 --snapshot copy
@@ -273,7 +273,7 @@ keeping per-item decisions readable in the terminal. Filenames are bold, labels
 muted, and decision values cyan in terminals. Automatic color respects `NO_COLOR`
 and `TERM=dumb`; pipes are plain text. `--color always|never|auto` overrides color
 selection. Color distinguishes values from labels; it does not classify risk or
-apply action thresholds. `plan` emits prepared inputs as JSONL.
+apply action thresholds. `run --plan` emits prepared inputs as JSONL.
 
 ```sh
 decide run builtin/relevance passages.jsonl                 # per-item decisions

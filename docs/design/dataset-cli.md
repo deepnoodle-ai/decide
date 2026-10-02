@@ -90,11 +90,11 @@ models, answer keys, thresholds, and limits; `gate` has `policy` and source `run
 An item dropped by screening remains an exported outcome. Failed answers never
 become a successful drop. Collection patterns validate saved questions and answers.
 
-`plan`, `run`, `sources list`, and `sources preview` share source arguments and
-flags. `plan` and `run` additionally accept a skill operand or `--pattern` and
+`run`, `sources list`, and `sources preview` share source arguments and
+flags. `run` additionally accepts a skill operand or `--pattern` and
 typed `--param` values. Execution flags select provider, model, profile, workers,
 rate, timeout, retries, request ceilings, snapshot policy, and artifact directory.
-`plan` emits prepared-item JSONL. `run` defaults to readable per-item decisions and a short summary;
+`run --plan` emits prepared-item JSONL. `run` defaults to readable per-item decisions and a short summary;
 `--details` adds confidence and labeled probability distributions, `--jsonl` emits full evidence and stderr
 diagnostics, and `--output` writes full evidence to a file. `runs resume` also
 shows each newly completed item’s decisions. The behavior is explicit and independent of terminal detection, except that automatic color requires a terminal.

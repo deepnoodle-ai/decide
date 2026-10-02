@@ -17,7 +17,7 @@ func TestInterruptExitsWithStdinPipeHeldOpen(t *testing.T) {
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v %s", err, output)
 	}
-	cmd := exec.Command(binary, "plan", "relevance", "-", "--format", "jsonl")
+	cmd := exec.Command(binary, "run", "--plan", "relevance", "-", "--format", "jsonl")
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		t.Fatal(err)
