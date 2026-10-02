@@ -80,6 +80,9 @@ Matched: notes.txt:12, notes.txt:15, notes.txt:22, notes.txt:28
 matched. A yes-or-no answer between 40% and 60% is yellow in every template:
 the model is unsure.
 
+In a terminal, decide shortens a long description or preview with `…` so
+each line fits the window. Piped output keeps every line whole.
+
 Add `--details` to see the full probability of every option and the
 model's confidence. Add `--json` to get one JSON line per item instead, or
 choose another [output format](#output-formats).

@@ -13,6 +13,8 @@ import (
 	"github.com/deepnoodle-ai/decide/internal/runs"
 	"github.com/deepnoodle-ai/decide/internal/template"
 	"github.com/deepnoodle-ai/wonton/cli"
+	"github.com/deepnoodle-ai/wonton/tty"
+	"golang.org/x/term"
 )
 
 // Formats that run, runs view, and runs resume print results in.
@@ -60,7 +62,23 @@ func newOutput(c *cli.Context, format string, s *template.Template, failOn strin
 	case "github":
 		return &githubOutput{w: w, marks: marksOf(s), template: s, failOn: failOn}
 	}
-	return newPrinter(w, s, c.Bool("details"))
+	p := newPrinter(w, s, c.Bool("details"))
+	p.cols = termWidth(w)
+	return p
+}
+
+// termWidth is the width of the terminal w writes to, or 0 when w is not
+// a terminal, so piped output keeps whole lines.
+func termWidth(w io.Writer) int {
+	f, ok := w.(*os.File)
+	if !ok || !tty.IsTerminal(f) {
+		return 0
+	}
+	cols, _, err := term.GetSize(int(f.Fd()))
+	if err != nil {
+		return 0
+	}
+	return cols
 }
 
 func (p *printer) finish(*runs.Run) error { return nil }
