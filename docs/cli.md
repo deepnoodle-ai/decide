@@ -78,13 +78,64 @@ model's confidence. Add `--json` to get one JSON line per item instead.
 
 ## What counts as an item
 
-Each skill reads one kind of input:
+Your data decides what one item is:
 
-| Skill input | One item is | Example skill |
+| Data | One item is |
+| --- | --- |
+| JSONL, JSON, or CSV | each record: a line, an element of an array, or a row named by the header |
+| a `.txt` file, or piped text | each line |
+| any other text file, such as Markdown or code | the whole file, sent with its path |
+| images, for an image skill such as `receipt-quality` | each image |
+
+Choose another unit with `--each`:
+
+| `--each` | One item is | Named like |
 | --- | --- | --- |
-| `file` | a whole text file, sent with its path | `code-risk` |
-| `record` | a line of text or JSONL, an element of a JSON array, or a JSON object | `sentiment`, `ticket-routing`, `relevance` |
-| `image` | a PNG, JPEG, or WebP file | `receipt-quality` |
+| `file` | the whole file, even a dataset | `notes.txt` |
+| `section` | the text under each Markdown heading | `README.md#install` |
+| `paragraph` | each paragraph or list item | `CHANGELOG.md:13` |
+| `function` | each function or method in Go, Python, JavaScript, TypeScript, or Java | `models.py#L88  User.save` |
+| `line` | each line | `notes.txt:4` |
+
+```sh
+decide run relevance docs -p question="pricing"                    # which docs?
+decide run relevance docs --each section -p question="pricing"     # which sections?
+decide run code-risk src --each function                           # which functions?
+```
+
+The model sees each section or paragraph with the headings above it. A
+Markdown file's headings and code blocks are not paragraphs. Some skills
+choose a unit for you: `code-risk` reads whole files.
+
+With `--each function`, each function, method, and constructor is an item,
+named by its line and its name, such as `User.save`. The model sees it with
+the comments right above it, the file's imports, and the line that starts
+its class. In JavaScript and TypeScript, a top-level statement that holds a
+function, such as `app.get("/users", ...)`, is an item, and each test in a
+`describe` block is an item, such as `parser › it "reads a header"`. Code
+outside functions, such as constants, is not judged. Files in other
+languages are skipped. When decide cannot follow a file's structure, the
+whole file is one item, with a warning.
+
+An item too long to judge in one request, about 64 KB of text, is judged
+in parts, and the parts' answers are combined into one. A source file is
+cut between its functions, and a function too long for one request is cut
+at blank lines. An item is flagged
+when any part is, and the answer shows the lines of that part. Answers
+without a flag or match are averaged across the parts:
+
+```
+src/server.go  judged in 3 parts
+! risk             yes           88%  lines 412-655
+```
+
+A record too long for one request, such as a CSV row with a long field,
+is judged in parts the same way, and the answer names the part, such as
+`part 2 of 3`.
+
+With `--json`, such an item is still one line, with `parts` set to the
+number of parts and `where` giving, for each flagged or matched question,
+the part that decided it, such as `"lines 412-655"`.
 
 Items are named by their path from the current folder, or, for a folder
 outside it, from that folder's name, such as `marker/app.py`. The model sees
@@ -165,7 +216,6 @@ A skill looks like this:
 {
   "name": "support-triage",
   "description": "Route each ticket to the team that should handle it.",
-  "input": "record",
   "parameters": {
     "product": {"description": "The product the tickets are about", "default": "Acme"}
   },
@@ -186,6 +236,10 @@ A skill looks like this:
   }
 }
 ```
+
+A skill reads text unless it says `"input": "image"`. Add `"each": "file"`
+(or `section`, `paragraph`, `function`, or `line`) to choose the unit its
+questions are written for; `--each` still overrides it.
 
 A `score` question lists its levels in order, lowest first:
 

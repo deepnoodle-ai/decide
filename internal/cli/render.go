@@ -89,11 +89,16 @@ func answerWidth(raw json.RawMessage) int {
 	return len("unsure")
 }
 
-func (p *printer) result(res runs.Result) error {
+// item prints one item's answers.
+func (p *printer) item(it item) error {
+	res := it.Result
 	var b strings.Builder
 	b.WriteString(bold(clean(res.Source)))
 	if preview := previewOf(res.Input, 72-len(res.Source)); preview != "" {
 		b.WriteString("  " + dim(preview))
+	}
+	if it.parts > 0 {
+		b.WriteString("  " + dim(fmt.Sprintf("judged in %d parts", it.parts)))
 	}
 	b.WriteByte('\n')
 	if res.Status != "complete" {
@@ -116,7 +121,11 @@ func (p *printer) result(res runs.Result) error {
 		case matched:
 			gutter = good("●") + " "
 		}
-		fmt.Fprintf(&b, "%s%-*s  %s\n", gutter, p.width, q.Key, p.summary(a, v))
+		line := p.summary(a, v)
+		if w := it.where[q.Key]; w != "" {
+			line += "  " + dim(w)
+		}
+		fmt.Fprintf(&b, "%s%-*s  %s\n", gutter, p.width, q.Key, line)
 		if p.details {
 			p.distribution(&b, a)
 		}
@@ -219,15 +228,7 @@ func (v verdict) style(s string) string {
 // judge compares an answer with its question's flag and match conditions.
 // A flag outweighs a match.
 func judge(flag, match []skill.Condition, a answer) verdict {
-	prob := func(answer string) float64 {
-		if a.Type == "noul" {
-			if answer == "yes" {
-				return a.Noul
-			}
-			return 1 - a.Noul
-		}
-		return a.Probabilities[answer]
-	}
+	prob := probOf(a)
 	for _, c := range flag {
 		if c.Holds(prob, a.Score) {
 			return flagged
@@ -254,6 +255,20 @@ func judge(flag, match []skill.Condition, a answer) verdict {
 		v = near
 	}
 	return v
+}
+
+// probOf returns the probability of each answer: "yes" or "no", or a
+// choice option.
+func probOf(a answer) func(string) float64 {
+	return func(answer string) float64 {
+		if a.Type == "noul" {
+			if answer == "yes" {
+				return a.Noul
+			}
+			return 1 - a.Noul
+		}
+		return a.Probabilities[answer]
+	}
 }
 
 // marks are a skill's parsed flags and matches, by question.

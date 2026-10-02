@@ -77,7 +77,7 @@ func (a *App) skillsShow(c *cli.Context) error {
 	w := c.Stdout()
 	fmt.Fprintf(w, "%s  %s\n", bold(s.Name), dim("("+where(s)+")"))
 	fmt.Fprintf(w, "%s\n\n", s.Description)
-	fmt.Fprintf(w, "%s %s\n\n", bold("Reads:"), inputs[s.Input])
+	fmt.Fprintf(w, "%s %s\n\n", bold("Reads:"), reads(s))
 
 	fmt.Fprintf(w, "%s\n", bold("Questions"))
 	m := marksOf(s)
@@ -139,7 +139,7 @@ func (a *App) skillsShow(c *cli.Context) error {
 	}
 
 	fmt.Fprintf(w, "\n%s\n", bold("Run it"))
-	fmt.Fprintf(w, "  decide run %s %s%s\n", s.Name, exampleData(s.Input), exampleParams(s))
+	fmt.Fprintf(w, "  decide run %s %s%s\n", s.Name, exampleData(s), exampleParams(s))
 	if s.Location == skill.BuiltIn {
 		fmt.Fprintf(w, "\n%s\n", bold("Make your own version"))
 		fmt.Fprintf(w, "  decide skills new my-%s --from %s\n", s.Name, s.Name)
@@ -149,10 +149,15 @@ func (a *App) skillsShow(c *cli.Context) error {
 	return nil
 }
 
-var inputs = map[skill.Input]string{
-	skill.File:   "files, one item per file",
-	skill.Record: "records, one item per line of text or JSONL, or per JSON array element",
-	skill.Image:  "images, one item per PNG, JPEG, or WebP file",
+// reads says what a skill reads and what one item is.
+func reads(s *skill.Skill) string {
+	switch {
+	case s.Input == skill.Image:
+		return "images, one item per PNG, JPEG, or WebP file"
+	case s.Each != "":
+		return fmt.Sprintf("text, one item per %s (change it with --each)", s.Each)
+	}
+	return "text, one item per record of JSONL, JSON, or CSV, per line of .txt or stdin, and per file otherwise (change it with --each)"
 }
 
 func where(s *skill.Skill) string {
@@ -192,13 +197,6 @@ func (a *App) skillsNew(c *cli.Context) error {
 	fmt.Fprintf(w, "%s %s\n\n", good("Created"), path)
 	fmt.Fprintf(w, "Edit it to describe your questions, then check it with:\n")
 	fmt.Fprintf(w, "  decide skills show %s\n", name)
-	fmt.Fprintf(w, "  decide run %s %s --dry-run\n", name, exampleData(skillInput(from)))
+	fmt.Fprintf(w, "  decide run %s %s --dry-run\n", name, exampleData(from))
 	return nil
-}
-
-func skillInput(s *skill.Skill) skill.Input {
-	if s == nil {
-		return skill.Record
-	}
-	return s.Input
 }

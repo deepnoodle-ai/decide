@@ -30,7 +30,7 @@ func newRun(t *testing.T, texts ...string) *Run {
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = source.Walk(context.Background(), nil, strings.NewReader(strings.Join(texts, "\n")), source.Options{Input: skill.Record}, r.Add)
+	err = source.Walk(context.Background(), nil, strings.NewReader(strings.Join(texts, "\n")), source.Options{Input: skill.Text}, r.Add)
 	if err != nil {
 		t.Fatal(err)
 	}

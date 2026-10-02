@@ -53,7 +53,8 @@ type Run struct {
 	Created  time.Time         `json:"created"`
 	Updated  time.Time         `json:"updated"`
 	Status   string            `json:"status"`
-	Total    int               `json:"total"`
+	Total    int               `json:"total"` // requests: one per item, or one per part of a large item
+	Items    int               `json:"items,omitempty"`
 	Complete int               `json:"complete"`
 	Failed   int               `json:"failed"`
 
@@ -66,6 +67,7 @@ type Run struct {
 type Result struct {
 	Index     int                        `json:"index"`
 	Source    string                     `json:"source"`
+	Part      *Part                      `json:"part,omitempty"` // set when the result is for one part of an item
 	Input     json.RawMessage            `json:"input,omitempty"`
 	Status    string                     `json:"status"` // "complete" or "failed"
 	Answers   map[string]json.RawMessage `json:"answers,omitempty"`
@@ -74,9 +76,19 @@ type Result struct {
 	Error     string                     `json:"error,omitempty"`
 }
 
+// Part says which part of an item a result is for. The parts of an item
+// have consecutive indexes.
+type Part struct {
+	N     int    `json:"n"`               // from 1
+	Of    int    `json:"of"`              // how many parts the item has
+	Lines string `json:"lines,omitempty"` // the file's lines in this part, such as "120-260"; empty for a record
+	Size  int    `json:"size,omitempty"`  // the size of its text
+}
+
 type input struct {
 	Index       int             `json:"index"`
 	Source      string          `json:"source"`
+	Part        *Part           `json:"part,omitempty"`
 	Value       json.RawMessage `json:"input,omitempty"`
 	State       json.RawMessage `json:"state"`
 	Image       string          `json:"image,omitempty"`
@@ -109,9 +121,23 @@ func Create(r *Run) (*Run, error) {
 	return r, r.save()
 }
 
-// Add saves one item to the run.
+// Add saves one item to the run, as one input per part when it has parts.
 func (r *Run) Add(it source.Item) error {
-	in := input{Index: r.Total, Source: it.Label, Value: it.Value, State: it.State}
+	r.Items++
+	if len(it.Parts) == 0 {
+		return r.add(input{Index: r.Total, Source: it.Label, Value: it.Value, State: it.State}, it)
+	}
+	for i, p := range it.Parts {
+		in := input{Index: r.Total, Source: it.Label, Value: it.Value, State: p.State,
+			Part: &Part{N: i + 1, Of: len(it.Parts), Lines: p.Lines, Size: p.Size}}
+		if err := r.add(in, it); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Run) add(in input, it source.Item) error {
 	if it.Image != nil {
 		in.Image = filepath.Join("images", fmt.Sprintf("%d%s", r.Total, filepath.Ext(it.Label)))
 		in.ContentType = it.Image.ContentType
@@ -211,6 +237,9 @@ func load(dir string) (*Run, error) {
 		return nil, fmt.Errorf("%s: %w", dir, err)
 	}
 	r.Dir = dir
+	if r.Skill != nil {
+		r.Skill.Normalize() // runs saved before input was "text" or "image"
+	}
 	if r.Status != Running || !r.Active() {
 		r.settle()
 	}
@@ -368,8 +397,9 @@ func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, f
 		mu       sync.Mutex
 		fatal    error
 		lastErr  string // the error of the latest failures in a row
-		streak   int
-		order    []int // indexes sent to workers and not yet passed to fn
+		streak   int    // items, not parts, that failed in a row
+		lastItem = -1   // the item of the latest failure
+		order    []int  // indexes sent to workers and not yet passed to fn
 		waiting  = map[int]Result{}
 		fnFailed bool
 	)
@@ -423,13 +453,22 @@ func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, f
 			waiting[res.Index] = res
 			err = flush(false)
 		}
+		item := res.Index // the index of the item's first part
+		if res.Part != nil {
+			item -= res.Part.N - 1
+		}
 		switch {
 		case res.Status == "complete":
 			streak = 0
+		case item == lastItem:
+			// Another part of an item that already failed.
 		case res.Error == lastErr:
 			streak++
 		default:
 			lastErr, streak = res.Error, 1
+		}
+		if res.Status != "complete" {
+			lastItem = item
 		}
 		if err == nil && streak >= RepeatLimit {
 			err = &RepeatedError{Err: lastErr, Count: streak}
@@ -528,7 +567,7 @@ func (r *Run) count(status map[int]string) {
 }
 
 func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions map[string]decide.Question, in input) (Result, error) {
-	res := Result{Index: in.Index, Source: in.Source, Input: in.Value, Status: "failed"}
+	res := Result{Index: in.Index, Source: in.Source, Part: in.Part, Input: in.Value, Status: "failed"}
 	req := decide.NewRequest(in.State)
 	req.Questions = questions
 	if in.Image != "" {

@@ -65,15 +65,19 @@ func (a *App) runsList(c *cli.Context) error {
 
 // outcome describes how far a run got, in a few words.
 func outcome(r *runs.Run) string {
+	answered, failures, total := r.Complete, r.Failed, r.Total
+	if r.Items > 0 && r.Items != r.Total { // some items were judged in parts
+		answered, failures, total = progress(r, nil)
+	}
 	switch r.Status {
 	case runs.Complete:
-		return good(fmt.Sprintf("%d answered", r.Complete))
+		return good(fmt.Sprintf("%d answered", answered))
 	case runs.Partial:
-		return failed(fmt.Sprintf("%d of %d failed", r.Failed, r.Total))
+		return failed(fmt.Sprintf("%d of %d failed", failures, total))
 	case runs.Running:
-		return value(fmt.Sprintf("running %d/%d", r.Complete+r.Failed, r.Total))
+		return value(fmt.Sprintf("running %d/%d", answered+failures, total))
 	}
-	return fmt.Sprintf("stopped at %d/%d", r.Complete+r.Failed, r.Total)
+	return fmt.Sprintf("stopped at %d/%d", answered+failures, total)
 }
 
 // pad pads styled text to a visible width.
@@ -132,9 +136,9 @@ func (a *App) runsView(c *cli.Context) error {
 		fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Run %s · %s on %s · %s",
 			r.ID, r.Skill.Name, strings.Join(r.Sources, ", "), humanize.Time(r.Created))))
 	}
-	write := resultWriter(c, r.Skill)
-	for _, res := range results {
-		if err := write(res); err != nil {
+	write := itemWriter(c, r.Skill)
+	for _, it := range group(results, marksOf(r.Skill)) {
+		if err := write(it); err != nil {
 			return err
 		}
 	}
@@ -168,6 +172,6 @@ func (a *App) runsResume(c *cli.Context) error {
 		return err
 	}
 	fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Resuming run %s: %s left · %s %s",
-		r.ID, count(r.Pending(), r.Skill.Input), r.Provider, r.Model)))
+		r.ID, humanize.PluralWord(r.Pending(), "request", "requests"), r.Provider, r.Model)))
 	return a.execute(c, r, client, c.Int("workers"))
 }

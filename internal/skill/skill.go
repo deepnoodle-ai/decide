@@ -22,17 +22,30 @@ import (
 	"github.com/deepnoodle-ai/decide"
 )
 
-// Input says what one item is when a skill reads a dataset.
+// Input says what kind of content a skill reads.
 type Input string
 
 const (
-	// File treats each file as one item, sent with its path and contents.
-	File Input = "file"
-	// Record treats each JSONL line, JSON array element, or line of text as one item.
-	Record Input = "record"
-	// Image treats each image file as one item.
+	// Text reads text files, records, and stdin. The default.
+	Text Input = "text"
+	// Image reads PNG, JPEG, and WebP files, one item per image.
 	Image Input = "image"
 )
+
+// Units say how much of a text file is one item. The run's --each flag
+// chooses one, then the skill's Each, and otherwise the data does: a
+// dataset (JSONL, a JSON array, or CSV) has one item per record, a .txt
+// file or piped text one per line, and any other file is one item.
+const (
+	EachFile      = "file"
+	EachLine      = "line"
+	EachParagraph = "paragraph"
+	EachSection   = "section"
+	EachFunction  = "function"
+)
+
+// Units lists the values of --each and of a skill's each.
+var Units = []string{EachFile, EachLine, EachParagraph, EachSection, EachFunction}
 
 // Where a skill was found.
 const (
@@ -45,7 +58,8 @@ const (
 type Skill struct {
 	Name        string               `json:"name"`
 	Description string               `json:"description"`
-	Input       Input                `json:"input"`
+	Input       Input                `json:"input,omitempty"`
+	Each        string               `json:"each,omitempty"` // the default unit, such as "file"
 	Parameters  map[string]Parameter `json:"parameters,omitempty"`
 	Questions   Questions            `json:"questions"`
 	Flags       map[string]Flag      `json:"flags,omitempty"`   // answers that need attention, by question
@@ -210,10 +224,26 @@ func parse(data []byte, origin string) (*Skill, error) {
 		}
 		return nil, fmt.Errorf("%s: %w", origin, err)
 	}
+	s.Normalize()
 	if err := s.Validate(); err != nil {
 		return nil, fmt.Errorf("%s: %w", origin, err)
 	}
 	return &s, nil
+}
+
+// Normalize fills in the default input and reads the input values of
+// earlier versions: "file" is text read one file at a time, and "record"
+// is text.
+func (s *Skill) Normalize() {
+	switch s.Input {
+	case "", "record":
+		s.Input = Text
+	case "file":
+		s.Input = Text
+		if s.Each == "" {
+			s.Each = EachFile
+		}
+	}
 }
 
 // position formats a byte offset as ":line:column".
@@ -285,11 +315,16 @@ func (s *Skill) Validate() error {
 		return errors.New("description is required")
 	}
 	switch s.Input {
-	case File, Record, Image:
-	case "":
-		return errors.New(`input is required: "file", "record", or "image"`)
+	case Text:
+		if s.Each != "" && !slices.Contains(Units, s.Each) {
+			return fmt.Errorf("each %q must be one of %s", s.Each, strings.Join(Units, ", "))
+		}
+	case Image:
+		if s.Each != "" {
+			return errors.New("an image skill reads one image at a time, so it has no each")
+		}
 	default:
-		return fmt.Errorf(`input %q must be "file", "record", or "image"`, s.Input)
+		return fmt.Errorf(`input %q must be "text" or "image"`, s.Input)
 	}
 	if len(s.Questions) == 0 {
 		return errors.New("at least one question is required")
@@ -417,7 +452,6 @@ func (s *Skill) Decode() (map[string]decide.Question, error) {
 const Template = `{
   "name": %q,
   "description": "Describe what this skill decides about each item.",
-  "input": "record",
   "questions": {
     "relevant": {
       "type": "noul",

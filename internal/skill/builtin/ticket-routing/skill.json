@@ -1,7 +1,6 @@
 {
   "name": "ticket-routing",
   "description": "Route each support ticket to billing, engineering, or other.",
-  "input": "record",
   "questions": {
     "queue": {
       "type": "choice",
