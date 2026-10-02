@@ -539,7 +539,7 @@ func newTally() *tally { return &tally{units: map[string]int{}} }
 func (t *tally) add(it source.Item) {
 	t.units[it.Unit]++
 	t.requests += max(len(it.Parts), 1)
-	if it.Unit == template.EachFile && source.Language(it.Label) != "" {
+	if it.Unit == template.EachFile && !it.Diff && source.Language(it.Label) != "" {
 		t.code++
 	}
 	if len(it.Parts) > 0 {

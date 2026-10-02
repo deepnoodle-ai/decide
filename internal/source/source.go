@@ -84,6 +84,7 @@ type Item struct {
 	State json.RawMessage `json:"state,omitempty"` // what the model sees; empty when the item has parts
 	Parts []Part          `json:"parts,omitempty"` // the item cut into pieces, when it is too large to send whole
 	Image *ImageData      `json:"-"`
+	Diff  bool            `json:"-"` // a change read from a diff
 }
 
 // Part is one piece of an item too large to send whole.
@@ -406,7 +407,7 @@ func (w *walker) file(path, label string, explicit bool) error {
 		state, _ := json.Marshal(map[string]any{"path": label, "content_type": ctype})
 		return w.emit(Item{Label: label, Unit: UnitImage, State: state, Image: &ImageData{ContentType: ctype, Data: data}})
 	}
-	if formatOf(path) == diffText {
+	if formatOf(path) == diffText && (explicit || w.opts.Each == template.EachHunk) {
 		if info.Size() > MaxJSONBytes {
 			return skip("%s (larger than 64 MiB)", label)
 		}
@@ -414,7 +415,10 @@ func (w *walker) file(path, label string, explicit bool) error {
 		if err != nil {
 			return err
 		}
-		return w.diff(data, label)
+		if explicit {
+			return w.diff(data, label, "")
+		}
+		return w.diff(data, label, label+": ") // named after the patch, not the files in it
 	}
 	if w.opts.Each == template.EachHunk {
 		if explicit {
@@ -707,7 +711,7 @@ func (w *walker) stdinItems() error {
 		if len(data) > MaxJSONBytes {
 			return errors.New("the diff on stdin is larger than 64 MiB")
 		}
-		return w.diff(data, "stdin")
+		return w.diff(data, "stdin", "")
 	}
 	if w.opts.Each == template.EachHunk {
 		return errors.New(notDiff("stdin"))

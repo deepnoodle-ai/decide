@@ -357,6 +357,9 @@ func TestDiffInput(t *testing.T) {
 	// code-risk reads whole files, so a diff is judged by changed file.
 	out = h.run(diff, "run", "code-risk")
 	contains(t, out.stderr, "Running code-risk on 1 file")
+	if strings.Contains(out.stderr, "--each function") {
+		t.Errorf("a changed file is not a source file to split:\n%s", out.stderr)
+	}
 }
 
 func TestMatchedAnswers(t *testing.T) {

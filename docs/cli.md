@@ -186,10 +186,20 @@ model sees the change in diff form, with `-` for removed lines and `+` for
 added ones, and whether the file was added, modified, or renamed.
 
 Decide skips deleted files, binary files, lockfiles such as `go.sum` and
-`package-lock.json`, and generated files marked `Code generated ... DO NOT
-EDIT.` or `@generated`, and says which. `--include` and `--exclude` match
-the paths in the diff, and a lockfile or generated file that `--include`
-names is judged.
+`package-lock.json`, and generated files that start with a `Code generated
+... DO NOT EDIT.` or `@generated` comment, and says which. `--include` and
+`--exclude` match the paths in the diff, and a lockfile or generated file
+that `--include` names is judged.
+
+When a diff holds several commits, as from `git log -p` or `git
+format-patch`, each item's name ends with its commit, such as
+`server.go@1a2b3c4:42`. Decide does not read the combined diff that `git
+show` prints for a merge commit; diff against one side of it instead, such
+as `git diff main...feature`.
+
+A `.diff` or `.patch` file that you name is read as a diff. In a folder,
+such files are read as diffs only with `--each hunk`, and their items are
+named after the patch, such as `fixes/auth.patch: server.go:42`.
 
 ## Choosing your data
 
