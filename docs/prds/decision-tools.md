@@ -45,9 +45,24 @@ and reusable evidence.
   reasons, per-stage reports, and individual failures.
 - Score context segments with `x/compact` and retain whole source segments
   or caller-supplied short forms under an explicit budget.
-- Install `cmd/decide`. All eleven commands retain their existing input,
-  output, cancellation, exit-code, and bounded-memory contracts. Offline
-  commands work without constructing a model client.
+- Add `cmd/decide` with eleven commands: `judge` asks named typed questions;
+  `grep` filters by an explicit Noul threshold; `label` selects a taxonomy
+  option; `score` applies ordered rubrics; `pick` selects an original candidate
+  or abstains; `join` judges supplied pairs; `rank` orders saved answers;
+  `pack` selects whole strings within a byte budget; `gate` applies a saved
+  policy; `check` asks questions and sets a policy-based exit status; and
+  `eval` converts, fits, and compares labeled evidence.
+- The CLI reads JSONL by default and supports text lines for live commands.
+  Output records preserve original data and append named runs containing
+  actual request state, questions, response evidence, and individual errors.
+  Stdout carries results or help; stderr carries diagnostics. `rank`, `pack`,
+  `gate`, and all `eval` operations work without constructing a model client.
+- CLI cancellation stops network work and returns exit 130. Exit 0 means
+  completion; exit 1 means no grep match, a rejected check, or an evaluation
+  regression; exit 2 means usage, input, evaluation, or output failure.
+  Partial output is permitted on failure. Live commands default to ordered
+  32-record chunks, four workers, and a 1 MiB record limit. Collecting commands
+  default to 10,000 records or 64 MiB, with configurable limits.
 - Every package has package comments and a runnable example. Fake-backed
   examples and tests execute without provider credentials.
 

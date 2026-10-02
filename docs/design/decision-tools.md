@@ -64,7 +64,12 @@ type Decision[T any] struct {
 `Eval` asks one question under the fixed key `eval`. Type inference follows
 `QuestionFor[A]`, including external implementations. An internal adapter
 uses `NewAnswer` for decoding and forwards an optional `AnswerValidator`,
-so an external question needs no global answer registration. `Evaluation.Answer`
+so an external question needs no global answer registration. Before wrapping,
+`Eval` validates a request containing the original question. This preserves
+`Request.Validate` checks for concrete built-in question types. An empty
+Choice and a Score with fewer than two levels must fail before network work;
+a custom `QuestionFor` must still decode without global registration.
+`Evaluation.Answer`
 is the original typed answer. `Response` preserves model, usage, request ID,
 provider headers, and validation diagnostics. Batch callers keep using
 `NewRequest`, `Ask`, and `Client.SystemOne`.
@@ -80,10 +85,12 @@ model or add provider inputs, including embedded images.
 
 Both functions honor context cancellation before network work and reject
 nil context/client. They perform request and answer validation even when
-client-wide answer validation is disabled. Failures retain any response returned by `Client.SystemOne` but do not
-produce a selected item. The client discards responses on transport errors. Structural answer
-errors return a zero typed value; consistency-only errors return the full
-answer or selection with an error matching `ErrInconsistentAnswer`. Every validation failure in the
+client-wide answer validation is disabled. Request, transport, and structural
+answer failures produce no selected item or typed answer. Failures retain any
+response returned by `Client.SystemOne`; the client discards responses on
+transport errors. Consistency-only errors are the exception: they return the
+full answer or selection with an error matching `ErrInconsistentAnswer`, so
+`Decision.Picked` can be true alongside that error. Every validation failure in the
 response must be a consistency failure; a mixed structural/consistency
 error produces no selected item or typed answer. No error becomes a successful abstention. A canceled empty pick returns the
 context error, not a success.
