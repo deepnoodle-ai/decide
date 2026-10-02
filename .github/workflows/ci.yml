@@ -49,6 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: release notes
+        run: scripts/release-notes_test.sh
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
