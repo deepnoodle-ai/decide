@@ -44,7 +44,8 @@ Before v1, any API may change. The CLI is experimental.
 
 Keep the README, [docs/cli.md](docs/cli.md), package comments, and
 [examples/README.md](examples/README.md) in step with behavior in the same
-pull request. Track planned work in [docs/roadmap.md](docs/roadmap.md), and
+pull request. Add a user-visible change to `## [Unreleased]` in
+[CHANGELOG.md](CHANGELOG.md), in one to three lines. Track planned work in [docs/roadmap.md](docs/roadmap.md), and
 update it when an item lands or changes. Keep reviews out of the repository.
 
 ## Process

@@ -25,6 +25,8 @@ archives:
 checksum:
   name_template: checksums.txt
 
+# The release workflow passes the CHANGELOG.md section with --release-notes,
+# which replaces this. Do not set disable: true; that drops those notes too.
 changelog:
   use: github-native
 
