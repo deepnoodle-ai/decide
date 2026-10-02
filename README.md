@@ -73,11 +73,12 @@ Requires Go 1.27 or later. Run `decide` on its own for a tour.
 
 ## What you can ask
 
-Decide comes with five skills. A skill is a named set of questions.
+Decide comes with six skills. A skill is a named set of questions.
 
 | Skill | Asks about each item |
 | --- | --- |
 | `sentiment` | Is it positive, negative, or neutral? |
+| `triage` | Is this support request urgent, and how severe is its impact? |
 | `ticket-routing` | Does this support ticket belong to billing, engineering, or other? |
 | `relevance` | Is it relevant to a question you choose? |
 | `code-risk` | Could it cause security or data problems, and how maintainable is it? |
