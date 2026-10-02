@@ -194,6 +194,7 @@ type walker struct {
 	notCode int      // files skipped for want of functions: not source code
 	noFuncs int      // source files without functions
 	lost    []string // source files read whole because their functions could not be found
+	root    *string  // the git repository around the working directory, once looked for
 	seen    int
 	sample  []sampled
 }

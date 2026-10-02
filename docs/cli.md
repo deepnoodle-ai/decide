@@ -187,7 +187,10 @@ added ones, and whether the file was added, modified, or renamed.
 
 Decide skips deleted files, binary files, lockfiles such as `go.sum` and
 `package-lock.json`, and generated files that start with a `Code generated
-... DO NOT EDIT.` or `@generated` comment, and says which. `--include` and
+... DO NOT EDIT.` or `@generated` comment, and says which. Decide looks for
+that comment in the diff, and in the file on disk when the diff's change is
+further down. For a patch of files that are not on disk, leave out generated
+files with `--exclude`. `--include` and
 `--exclude` match the paths in the diff, and a lockfile or generated file
 that `--include` names is judged.
 

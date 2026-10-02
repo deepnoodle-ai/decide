@@ -1,9 +1,13 @@
 package source
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -197,7 +201,7 @@ func count(s string) int {
 
 // gitPaths reads the paths in a "diff --git a/x b/y" line. It is a fallback
 // for files whose diff has no --- and +++ lines, such as a pure rename or a
-// binary file.
+// binary file. It returns empty paths for a line it cannot read.
 func gitPaths(s string) (old, new string) {
 	if strings.HasPrefix(s, `"`) {
 		if q, err := strconv.QuotedPrefix(s); err == nil {
@@ -207,14 +211,14 @@ func gitPaths(s string) (old, new string) {
 	}
 	// Without quotes, the two paths are usually the same, so split in the
 	// middle: "a/x b/x".
-	if n := len(s); n%2 == 1 && s[:n/2] == "a/"+s[n/2+3:] && s[n/2:n/2+3] == " b/" {
-		p := s[2 : n/2]
+	if n, h := len(s), len(s)/2; n%2 == 1 && n >= 7 && s[h:h+3] == " b/" && s[:h] == "a/"+s[h+3:] {
+		p := s[2:h]
 		return p, p
 	}
-	if a, b, ok := strings.Cut(s, " b/"); ok {
-		return strings.TrimPrefix(a, "a/"), b
+	if a, b, ok := strings.Cut(s, " b/"); ok && strings.HasPrefix(a, "a/") && len(a) > 2 && b != "" {
+		return a[2:], b
 	}
-	return s, s
+	return "", ""
 }
 
 // headerPath reads the path in a --- or +++ line, without git's a/ or b/
@@ -248,7 +252,7 @@ var lockfiles = []string{
 }
 
 // skipReason says why a file in a diff is not judged, or "" to judge it.
-func (f *diffFile) skipReason() string {
+func (w *walker) skipReason(f *diffFile) string {
 	switch {
 	case f.binary:
 		return "binary file"
@@ -256,7 +260,7 @@ func (f *diffFile) skipReason() string {
 		return "deleted"
 	case slices.Contains(lockfiles, path.Base(f.path())):
 		return "lockfile"
-	case f.generated():
+	case w.generated(f):
 		return "generated"
 	case len(f.hunks) == 0 && f.change == changeRenamed:
 		return "renamed only"
@@ -271,8 +275,33 @@ func (f *diffFile) skipReason() string {
 var generatedMarker = regexp.MustCompile(`^\s*(//|#|/\*|\*|<!--|--)\s*(Code generated .* DO NOT EDIT\.|@generated\b)`)
 
 // generated reports whether the new version of the file starts with a
-// generated-code marker in its first five lines.
-func (f *diffFile) generated() bool {
+// generated-code marker in its first five lines: in the diff, or else in
+// the file on disk, when it is there.
+func (w *walker) generated(f *diffFile) bool {
+	if f.markedGenerated() {
+		return true
+	}
+	p, ok := w.local(f.newPath)
+	if !ok {
+		return false
+	}
+	fh, err := os.Open(p)
+	if err != nil {
+		return false
+	}
+	defer fh.Close()
+	sc := bufio.NewScanner(io.LimitReader(fh, 4096))
+	for n := 0; n < 5 && sc.Scan(); n++ {
+		if generatedMarker.MatchString(sc.Text()) {
+			return true
+		}
+	}
+	return false
+}
+
+// markedGenerated reports whether the diff shows a generated-code marker in
+// the new version's first five lines.
+func (f *diffFile) markedGenerated() bool {
 	for _, h := range f.hunks {
 		n := h.newStart
 		for _, l := range h.lines {
@@ -321,6 +350,11 @@ func (w *walker) diff(data []byte, label, prefix string) error {
 	if len(files) == 0 {
 		return nil // nothing changed
 	}
+	for _, f := range files {
+		if f.path() == "" {
+			return fmt.Errorf("%s has a diff --git line without the file's name", label)
+		}
+	}
 	if combined > 0 {
 		w.opts.Warn(fmt.Sprintf("Skipped %d combined %s from merge commits", combined, plural(combined, "diff", "diffs")))
 	}
@@ -345,7 +379,7 @@ func (w *walker) diff(data []byte, label, prefix string) error {
 			continue
 		}
 		// A lockfile or generated file named by --include is judged anyway.
-		if why := f.skipReason(); why != "" && !(included && (why == "lockfile" || why == "generated")) {
+		if why := w.skipReason(f); why != "" && !(included && (why == "lockfile" || why == "generated")) {
 			skipped = append(skipped, fmt.Sprintf("%s (%s)", p, why))
 			continue
 		}
@@ -480,4 +514,48 @@ func (w *walker) addedLines(f *diffFile) error {
 		}
 	}
 	return nil
+}
+
+// local finds a file that a diff names, in the working directory or at the
+// root of its git repository. The path comes from the diff, so it must stay
+// inside them, and a symbolic link is not followed.
+func (w *walker) local(name string) (string, bool) {
+	rel := path.Clean(name)
+	if rel == "" || rel == "." || path.IsAbs(rel) || filepath.IsAbs(filepath.FromSlash(rel)) || rel == ".." || strings.HasPrefix(rel, "../") {
+		return "", false
+	}
+	for _, dir := range []string{".", w.repoRoot()} {
+		if dir == "" {
+			continue
+		}
+		p := filepath.Join(dir, filepath.FromSlash(rel))
+		if info, err := os.Lstat(p); err == nil && info.Mode().IsRegular() {
+			return p, true
+		}
+	}
+	return "", false
+}
+
+// repoRoot finds the top of the git repository holding the working
+// directory, or returns "".
+func (w *walker) repoRoot() string {
+	if w.root != nil {
+		return *w.root
+	}
+	root := ""
+	if dir, err := os.Getwd(); err == nil {
+		for {
+			if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+				root = dir
+				break
+			}
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				break
+			}
+			dir = parent
+		}
+	}
+	w.root = &root
+	return root
 }
