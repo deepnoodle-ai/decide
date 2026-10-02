@@ -1,0 +1,19 @@
+{
+  "source": "Hand-written customer support thread. Labels by the author of x/compact, 2026-09-28: needed means the reply cannot be written correctly without it.",
+  "focus": "Task: write the reply to the customer's latest message, approving or denying the refund they asked for, following company policy.",
+  "segments": [
+    {"text": "customer (Mar 2): Hi, my order 55120 still hasn't shipped. It's been nine days.", "needed": false},
+    {"text": "agent (Mar 2): Sorry about the delay! Order 55120 is on a carrier backlog; it should ship within 48 hours.", "needed": false},
+    {"text": "customer (Mar 4): Got it, thanks. It arrived today.", "needed": false},
+    {"text": "internal note (Mar 4): Closed shipping ticket for 55120. No further action.", "needed": false},
+    {"text": "policy excerpt: Duplicate charges are refunded in full to the original payment method within 5 business days once billing confirms the duplicate. Refunds for change of mind are only allowed within 30 days of delivery.", "needed": true},
+    {"text": "customer (Mar 20): I was charged twice for order 55120, $84.00 each on Mar 1. Please refund the extra charge.", "needed": true},
+    {"text": "automatic reply (Mar 20): Thanks for contacting us! A member of our team will reply within one business day. Visit our help center for quick answers.", "needed": false},
+    {"text": "internal note (Mar 21, billing): Confirmed. Two captures of $84.00 on Mar 1 for order 55120 to the same Visa ending 4417. One is a duplicate.", "needed": true},
+    {"text": "customer (Mar 21): Also, how do I unsubscribe from the marketing emails?", "needed": false},
+    {"text": "agent (Mar 21): You can unsubscribe with the link at the bottom of any marketing email, or in Account > Notifications.", "needed": false},
+    {"text": "customer (Mar 22): Thanks, done. Also I forgot my password but I managed to reset it myself.", "needed": false},
+    {"text": "system (Mar 22): Customer satisfaction survey sent. Rating received: 4 of 5.", "needed": false},
+    {"text": "customer (Mar 23): Any update on the refund for the double charge?", "needed": true}
+  ]
+}

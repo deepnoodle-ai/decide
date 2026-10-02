@@ -139,6 +139,9 @@ func loggerForLevel(v string) (*slog.Logger, error) {
 	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level})), nil
 }
 
+// DefaultModel returns the model used when a request's Model is empty.
+func (c *Client) DefaultModel() string { return c.model }
+
 // String describes the client. It never includes the API key.
 func (c *Client) String() string {
 	return fmt.Sprintf("decide.Client{model: %s, transport: %s, max_retries: %d, attempt_timeout: %s, validate: %t}",
