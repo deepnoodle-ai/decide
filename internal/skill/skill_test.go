@@ -93,13 +93,15 @@ func TestLoadUnknown(t *testing.T) {
 
 func TestValidateExplainsProblems(t *testing.T) {
 	cases := map[string]string{
-		`{"name":"x","description":"d","input":"record","questions":{}}`:                                                    "at least one question",
-		`{"name":"x","description":"d","input":"rows","questions":{"q":{"type":"noul","instructions":"?"}}}`:                `input "rows"`,
-		`{"name":"x","description":"d","input":"record","questions":{"q":{"type":"noul"}}}`:                                 "needs instructions",
-		`{"name":"x","description":"d","input":"record","questions":{"q":{"type":"noul","instructions":"{{topic}}?"}}}`:     "not a declared parameter",
-		`{"name":"x","description":"d","input":"record","questions":{"q":{"type":"noul","instructions":"?"}},"extra":true}`: "unknown field",
-		`{"name":"x","description":"d","each":"page","questions":{"q":{"type":"noul","instructions":"?"}}}`:                 `each "page" must be one of file, line, paragraph, section`,
-		`{"name":"x","description":"d","input":"image","each":"file","questions":{"q":{"type":"noul","instructions":"?"}}}`: "has no each",
+		`{"name":"x","description":"d","input":"record","questions":{}}`:                                                           "at least one question",
+		`{"name":"x","description":"d","input":"rows","questions":{"q":{"type":"noul","instructions":"?"}}}`:                       `input "rows"`,
+		`{"name":"x","description":"d","input":"record","questions":{"q":{"type":"noul"}}}`:                                        "needs instructions",
+		`{"name":"x","description":"d","input":"record","questions":{"q":{"type":"noul","instructions":"{{topic}}?"}}}`:            "not a declared parameter",
+		`{"name":"x","description":"d","input":"record","questions":{"q":{"type":"noul","instructions":"?"}},"extra":true}`:        "unknown field",
+		`{"name":"x","description":"d","each":"page","questions":{"q":{"type":"noul","instructions":"?"}}}`:                        `each "page" must be one of file, line, paragraph, section`,
+		`{"name":"x","description":"d","input":"image","each":"file","questions":{"q":{"type":"noul","instructions":"?"}}}`:        "has no each",
+		`{"name":"x","description":"d","questions":{"q\u001b[2J":{"type":"noul","instructions":"?"}}}`:                             "must not contain control characters",
+		`{"name":"x","description":"d","questions":{"q":{"type":"choice","instructions":"?","criteria":{"a\u0007":"A","b":"B"}}}}`: "option",
 	}
 	for body, want := range cases {
 		if _, err := parse([]byte(body), "test"); err == nil || !strings.Contains(err.Error(), want) {

@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/deepnoodle-ai/decide"
 )
@@ -305,6 +306,10 @@ var (
 
 func validName(s string) bool { return namePattern.MatchString(s) }
 
+func hasControl(s string) bool {
+	return strings.ContainsFunc(s, unicode.IsControl)
+}
+
 // Validate checks that the skill is complete and that every question is a
 // valid yes/no (noul), choice, or score question.
 func (s *Skill) Validate() error {
@@ -335,6 +340,20 @@ func (s *Skill) Validate() error {
 		}
 	}
 	for _, q := range s.Questions {
+		if hasControl(q.Key) {
+			return fmt.Errorf("question %q must not contain control characters", q.Key)
+		}
+		var body struct {
+			Criteria json.RawMessage `json:"criteria"`
+		}
+		var options Questions
+		if json.Unmarshal(q.Raw, &body) == nil && json.Unmarshal(body.Criteria, &options) == nil {
+			for _, o := range options {
+				if hasControl(o.Key) {
+					return fmt.Errorf("question %q option %q must not contain control characters", q.Key, o.Key)
+				}
+			}
+		}
 		for _, m := range placeholderPattern.FindAllStringSubmatch(string(q.Raw), -1) {
 			if _, ok := s.Parameters[m[1]]; !ok {
 				return fmt.Errorf("question %q uses {{%s}}, which is not a declared parameter", q.Key, m[1])

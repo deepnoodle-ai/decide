@@ -486,14 +486,14 @@ func TestSkillAndFileTextCannotControlTheTerminal(t *testing.T) {
   "description": "Odd \u001b[31mskill",
   "parameters": {"p": {"description": "A \u001b[2J parameter", "default": "x\u001b[0m"}},
   "questions": {
-    "tone\u001b[31m": {
+    "tone": {
       "type": "choice",
       "instructions": "Pick one {{p}} \u001b]0;title\u0007",
-      "criteria": {"calm\u001b[31m": "Calm \u001b[1m", "angry": "Angry"}
+      "criteria": {"calm": "Calm \u001b[1m", "angry": "Angry"}
     },
     "level": {"type": "score", "instructions": "Rate it", "criteria": ["low \u001b[31m", "high"]}
   },
-  "flags": {"tone\u001b[31m": "calm\u001b[31m >= 60%"}
+  "flags": {"tone": "calm >= 60%"}
 }`)
 	h.write(".decide/skills/odd/SKILL.md", "Notes \x1b[31mhere\n")
 	h.write("in/a\x1b[31m.txt", "hello")
@@ -506,6 +506,18 @@ func TestSkillAndFileTextCannotControlTheTerminal(t *testing.T) {
 		out := h.run("", args...)
 		if out.code != 0 {
 			t.Fatalf("%v: exit %d: %s", args, out.code, out.stderr)
+		}
+		if strings.ContainsAny(out.stdout+out.stderr, "\x1b\x07") {
+			t.Errorf("%v printed a control character:\n%q\n%q", args, out.stdout, out.stderr)
+		}
+	}
+
+	h.write(".decide/skills/bad/skill.json", `{"name": "bad", "description": "Bad",
+  "questions": {"q\u001b[31m": {"type": "noul", "instructions": "?"}}}`)
+	for _, args := range [][]string{{"skills"}, {"skills", "show", "bad"}} {
+		out := h.run("", args...)
+		if !strings.Contains(out.stderr, "control characters") {
+			t.Errorf("%v did not reject the key: %q", args, out.stderr)
 		}
 		if strings.ContainsAny(out.stdout+out.stderr, "\x1b\x07") {
 			t.Errorf("%v printed a control character:\n%q\n%q", args, out.stdout, out.stderr)
