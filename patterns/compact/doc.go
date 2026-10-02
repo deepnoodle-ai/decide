@@ -5,6 +5,4 @@
 //
 // Select is pure and exported so a caller can run a recency baseline or
 // their own scores through the same budget logic.
-//
-// Design: https://github.com/deepnoodle-ai/decide/blob/main/docs/prds/decision-tools.md
 package compact

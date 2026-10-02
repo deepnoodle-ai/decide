@@ -1,4 +1,4 @@
-// Package gate turns System One answers into one of three outcomes: Allow,
+// Package gate turns decision-model answers into one of three outcomes: Allow,
 // Review, or Escalate. What review and escalate do is the caller's job.
 //
 // Thresholds must be measured on your own data. This package ships no
@@ -30,6 +30,4 @@
 //
 // A consistency failure from the client (decide.ErrInconsistentAnswer) is
 // Failed by default; pass [AcceptInconsistent] to read such answers anyway.
-//
-// Design: https://github.com/deepnoodle-ai/decide/blob/main/docs/prds/decision-tools.md
 package gate

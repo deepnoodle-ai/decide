@@ -1,4 +1,4 @@
-// Package pick asks a System One model to select an item from a caller's
+// Package pick asks a decision model to select an item from a caller's
 // candidate list and returns the original item.
 //
 // A Picker copies the candidate list and derives unique option keys. It

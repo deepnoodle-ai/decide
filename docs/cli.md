@@ -10,16 +10,18 @@ The CLI is experimental. Commands and file formats may change before v1.
 
 ```sh
 go install github.com/deepnoodle-ai/decide/cmd/decide@latest
-export TYPESAFE_API_KEY=...
+export TYPESAFE_API_KEY=...   # or use Clef; see Providers below
 
 echo "The new release fixed everything I cared about" | decide run sentiment
 ```
 
 ```
+Running sentiment on 1 line · typesafe jev-latest
+
 stdin:1  The new release fixed everything I cared about
   sentiment  positive  94%
 
-✓ 1 answered  1.2s
+✓ 1 answered  nothing flagged  1.2s
 Saved as run 20261002-153012-a1b2
 See these results again with: decide runs view 20261002-153012-a1b2
 ```
@@ -293,21 +295,37 @@ decide run my-routing tickets.jsonl --dry-run
 
 ## Providers
 
-Decide uses TypeSafe by default, with the `jev-latest` model:
+Decide runs on two decision models, through the same commands and
+skills:
+
+- **Jev** by [TypeSafe](https://docs.typesafe.ai/introduction), the
+  default, with the `jev-latest` model:
+
+  ```sh
+  export TYPESAFE_API_KEY=...
+  ```
+
+- **Clef** by [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/models/clef/),
+  with the `clef` model, or `clef-flash` for lower latency. Image skills
+  always use Clef.
+
+  ```sh
+  export CLOUDFLARE_AUTH_TOKEN=...
+  export CLOUDFLARE_ACCOUNT_ID=...
+  export DECIDE_PROVIDER=cloudflare
+  ```
+
+Any other service that speaks the Jev API works too, such as one you host
+yourself. Point decide at it with `TYPESAFE_BASE_URL`, along with
+`TYPESAFE_API_KEY` and a model name:
 
 ```sh
-export TYPESAFE_API_KEY=...
+export TYPESAFE_BASE_URL=https://decisions.example.com
+decide run sentiment notes.txt --model my-model
 ```
 
-Image skills use Cloudflare Workers AI, with the `clef` model:
-
-```sh
-export CLOUDFLARE_AUTH_TOKEN=...
-export CLOUDFLARE_ACCOUNT_ID=...
-```
-
-Choose explicitly with `--provider typesafe|cloudflare` and `--model NAME`,
-or set `DECIDE_PROVIDER` and `DECIDE_MODEL`. `--workers` sets how many
+Choose for one run with `--provider typesafe|cloudflare` and `--model NAME`,
+or for every run with `DECIDE_PROVIDER` and `DECIDE_MODEL`. `--workers` sets how many
 requests run at once (default 4).
 
 ## Exit codes
