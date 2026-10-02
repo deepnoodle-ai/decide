@@ -55,7 +55,8 @@ export TYPESAFE_BASE_URL=https://decisions.example.com
 echo "The new release fixed everything I cared about" | decide run sentiment --model my-model
 ```
 
-Whichever you choose, you get a typed answer with its probability:
+You get a typed answer with its probability. With Jev, the output looks
+like this; the first line names whichever provider and model you chose:
 
 ```
 Running sentiment on 1 line · typesafe jev-latest
