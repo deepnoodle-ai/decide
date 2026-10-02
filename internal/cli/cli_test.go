@@ -313,6 +313,25 @@ func TestFailOn(t *testing.T) {
 	}
 	contains(t, out.stderr, "Exiting with code 2 because 1 item was matched")
 
+	// A failed item wins over a flagged one: the run is not finished.
+	h.server.Answer("risk", decidetest.NoulAnswer(0.88))
+	h.write("src/b.go", "package b")
+	h.server.FailNext(422)
+	out = h.run("", "run", "code-risk", "src", "--fail-on", "flagged", "--workers", "1")
+	if out.code != 1 {
+		t.Fatalf("partial: exit %d, want 1: %s", out.code, out.stderr)
+	}
+	// Resuming with --fail-on finishes the run and then gates on it.
+	out = h.run("", "runs", "resume", "--fail-on", "flagged")
+	if out.code != 2 {
+		t.Fatalf("resume: exit %d, want 2: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "Exiting with code 2 because 2 items were flagged")
+	out = h.run("", "runs", "resume", "--fail-on", "flagged")
+	if out.code != 2 {
+		t.Fatalf("resume of a finished run: exit %d, want 2: %s", out.code, out.stderr)
+	}
+
 	// A template that never flags could never fail.
 	out = h.run("ok\n", "run", "relevance", "-p", "question=x", "--fail-on", "flagged")
 	if out.code != 1 {

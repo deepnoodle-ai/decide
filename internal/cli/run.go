@@ -70,7 +70,7 @@ func (a *App) addRun(app *cli.App) {
 			cli.Bool("dry-run").Help("Show what would be asked, without calling the model"),
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines"),
-			cli.String("fail-on").Enum("flagged", "matched").Help("Exit with code 2 when any item is flagged, or matched"),
+			cli.String("fail-on").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
 			cli.String("provider").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare").
 				Help("Model provider: typesafe or cloudflare (default: typesafe; cloudflare for images)"),
 			cli.String("model", "m").Env("DECIDE_MODEL").Help("Model name (default: the provider's default)"),
@@ -117,9 +117,8 @@ func (a *App) run(c *cli.Context) error {
 				s.Name, exampleData(s), s.Name))
 	}
 	failOn := c.String("fail-on")
-	if (failOn == "flagged" && len(s.Flags) == 0) || (failOn == "matched" && len(s.Matches) == 0) {
-		return cli.Errorf("%s never marks an item %s, so --fail-on %s would never fail", s.Name, failOn, failOn).
-			Hint(fmt.Sprintf("See what it marks with: decide templates show %s", s.Name))
+	if err := checkFailOn(s, failOn); err != nil {
+		return err
 	}
 	each := c.String("each")
 	if each != "" && s.Input == template.Image {
@@ -235,12 +234,29 @@ func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, work
 		return cli.Exit(130)
 	case run.Status != runs.Complete:
 		return cli.Exit(1)
-	case failOn != "" && marked[failOn] > 0:
-		fmt.Fprintln(c.Stderr(), dim(fmt.Sprintf("Exiting with code 2 because %s %s (--fail-on %s)",
-			humanize.PluralWord(marked[failOn], "item was", "items were"), failOn, failOn)))
-		return cli.Exit(2)
+	}
+	return failExit(c, failOn, marked)
+}
+
+// checkFailOn refuses --fail-on when the template never marks an item that
+// way, since the run could never fail.
+func checkFailOn(s *template.Template, failOn string) error {
+	if (failOn == "flagged" && len(s.Flags) == 0) || (failOn == "matched" && len(s.Matches) == 0) {
+		return cli.Errorf("%s never marks an item %s, so --fail-on %s would never fail", s.Name, failOn, failOn).
+			Hint(fmt.Sprintf("See what it marks with: decide templates show %s", s.Name))
 	}
 	return nil
+}
+
+// failExit exits with code 2 when failOn names a mark that count items
+// carry.
+func failExit(c *cli.Context, failOn string, marked map[string]int) error {
+	if failOn == "" || marked[failOn] == 0 {
+		return nil
+	}
+	fmt.Fprintln(c.Stderr(), dim(fmt.Sprintf("Exiting with code 2 because %s %s (--fail-on %s)",
+		humanize.PluralWord(marked[failOn], "item was", "items were"), failOn, failOn)))
+	return cli.Exit(2)
 }
 
 // confirmAbove is the number of items above which run asks before
@@ -299,6 +315,21 @@ func progress(run *runs.Run, each func(item)) (answered, failures, total int) {
 		total = run.Total // a run saved before items were counted
 	}
 	return answered, failures, total
+}
+
+// marked counts a run's "flagged" and "matched" items.
+func marked(run *runs.Run) map[string]int {
+	m := marksOf(run.Template)
+	counts := map[string]int{}
+	progress(run, func(it item) {
+		if m.has(it.Result, flagged) {
+			counts["flagged"]++
+		}
+		if m.has(it.Result, matched) {
+			counts["matched"]++
+		}
+	})
+	return counts
 }
 
 // summarize prints a run's summary and returns how many items were
