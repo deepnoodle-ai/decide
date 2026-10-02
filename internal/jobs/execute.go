@@ -16,8 +16,8 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/backend"
+	"github.com/deepnoodle-ai/decide/cloudflare"
 	"github.com/deepnoodle-ai/decide/internal/dataset"
-	"github.com/deepnoodle-ai/decide/x/cloudflare"
 )
 
 var errBudget = errors.New("request ceiling reached")

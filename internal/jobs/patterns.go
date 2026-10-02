@@ -9,10 +9,10 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/internal/catalog"
-	"github.com/deepnoodle-ai/decide/x/compact"
-	"github.com/deepnoodle-ai/decide/x/gate"
-	"github.com/deepnoodle-ai/decide/x/heads"
-	"github.com/deepnoodle-ai/decide/x/rank"
+	"github.com/deepnoodle-ai/decide/patterns/compact"
+	"github.com/deepnoodle-ai/decide/patterns/gate"
+	"github.com/deepnoodle-ai/decide/patterns/heads"
+	"github.com/deepnoodle-ai/decide/patterns/rank"
 )
 
 func collection(d definition) bool {

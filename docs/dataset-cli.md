@@ -150,7 +150,7 @@ Explicit bundle directories and manifest paths work too.
 Parameters have string, number, integer, boolean, or json types. Repeat
 `--param NAME=VALUE`. Placeholders substitute declared values within JSON values,
 without executing code. `state: "file"` prepares path/language/content;
-`state: "value"` uses the selected source value. An optional native `x/gate`
+`state: "value"` uses the selected source value. An optional native `patterns/gate`
 policy retains its decision. The `pattern` field is descriptive guidance;
 choose an executable pattern with `--pattern`.
 

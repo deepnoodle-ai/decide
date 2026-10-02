@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/rank"
+	"github.com/deepnoodle-ai/decide/patterns/rank"
 )
 
 func hasLimits(d definition) bool {

@@ -17,7 +17,7 @@ import (
 	"strings"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/x/gate"
+	"github.com/deepnoodle-ai/decide/patterns/gate"
 )
 
 const MaxConfigBytes = 1 << 20

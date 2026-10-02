@@ -16,9 +16,9 @@ import (
 	"time"
 
 	"github.com/deepnoodle-ai/decide"
+	"github.com/deepnoodle-ai/decide/cloudflare"
 	"github.com/deepnoodle-ai/decide/internal/catalog"
 	"github.com/deepnoodle-ai/decide/internal/dataset"
-	"github.com/deepnoodle-ai/decide/x/cloudflare"
 )
 
 func normalize(o Options) (Options, error) {
