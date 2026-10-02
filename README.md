@@ -88,6 +88,7 @@ Decide comes with six templates. A template is a named set of questions.
 decide run code-risk src --include '*.go'
 decide run relevance docs --each section -p question="pricing"
 decide runs view --json > results.jsonl
+decide run code-risk src --fail-on flagged   # exit code 2 if anything is flagged
 ```
 
 Decide reads JSONL, JSON, CSV, text, Markdown, source code, and images,

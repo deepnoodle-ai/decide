@@ -279,6 +279,67 @@ func TestFlaggedAnswers(t *testing.T) {
 	}
 }
 
+func TestFailOn(t *testing.T) {
+	h := setup(t)
+	h.write("src/a.go", "package a")
+	levels := []any{"0", "1", "2", "3", "4"}
+	h.server.Answer("maintainability", decidetest.ScoreAnswer(levels, 0, 0, 0.1, 0.5, 0.4))
+
+	h.server.Answer("risk", decidetest.NoulAnswer(0.88))
+	out := h.run("", "run", "code-risk", "src", "--fail-on", "flagged")
+	if out.code != 2 {
+		t.Fatalf("flagged: exit %d, want 2: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "! 1 flagged", "Exiting with code 2 because 1 item was flagged")
+
+	// Without --fail-on, flagged items still exit 0.
+	out = h.run("", "run", "code-risk", "src")
+	if out.code != 0 {
+		t.Fatalf("without --fail-on: exit %d, want 0", out.code)
+	}
+
+	// An answer close to flagged is not flagged.
+	h.server.Answer("risk", decidetest.NoulAnswer(0.5))
+	out = h.run("", "run", "code-risk", "src", "--fail-on", "flagged")
+	if out.code != 0 {
+		t.Fatalf("unsure: exit %d, want 0: %s", out.code, out.stderr)
+	}
+
+	// Matches fail the same way.
+	h.server.Answer("relevant", decidetest.NoulAnswer(0.9))
+	out = h.run("ok\n", "run", "relevance", "-p", "question=x", "--fail-on", "matched")
+	if out.code != 2 {
+		t.Fatalf("matched: exit %d, want 2: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "Exiting with code 2 because 1 item was matched")
+
+	// A failed item wins over a flagged one: the run is not finished.
+	h.server.Answer("risk", decidetest.NoulAnswer(0.88))
+	h.write("src/b.go", "package b")
+	h.server.FailNext(422)
+	out = h.run("", "run", "code-risk", "src", "--fail-on", "flagged", "--workers", "1")
+	if out.code != 1 {
+		t.Fatalf("partial: exit %d, want 1: %s", out.code, out.stderr)
+	}
+	// Resuming with --fail-on finishes the run and then gates on it.
+	out = h.run("", "runs", "resume", "--fail-on", "flagged")
+	if out.code != 2 {
+		t.Fatalf("resume: exit %d, want 2: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "Exiting with code 2 because 2 items were flagged")
+	out = h.run("", "runs", "resume", "--fail-on", "flagged")
+	if out.code != 2 {
+		t.Fatalf("resume of a finished run: exit %d, want 2: %s", out.code, out.stderr)
+	}
+
+	// A template that never flags could never fail.
+	out = h.run("ok\n", "run", "relevance", "-p", "question=x", "--fail-on", "flagged")
+	if out.code != 1 {
+		t.Fatalf("relevance: exit %d, want 1", out.code)
+	}
+	contains(t, out.stderr, "relevance never marks an item flagged")
+}
+
 func TestMatchedAnswers(t *testing.T) {
 	h := setup(t)
 	h.write("notes.txt", "about tools\nabout pricing\n")

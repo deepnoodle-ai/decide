@@ -32,6 +32,7 @@ func (a *App) addRuns(app *cli.App) {
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines"),
 			cli.Int("workers").Default(4).Help("How many requests to send at once"),
+			cli.String("fail-on").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
 		).
 		Run(a.runsResume)
 }
@@ -162,10 +163,14 @@ func (a *App) runsResume(c *cli.Context) error {
 	if r.Active() {
 		return cli.Errorf("Run %s is still running in another terminal", r.ID)
 	}
+	failOn := c.String("fail-on")
+	if err := checkFailOn(r.Template, failOn); err != nil {
+		return err
+	}
 	if r.Pending() == 0 {
 		fmt.Fprintf(c.Stdout(), "Every item in run %s already has an answer.\n", r.ID)
 		fmt.Fprintf(c.Stdout(), "%s decide runs view %s\n", dim("See them with:"), r.ID)
-		return nil
+		return failExit(c, failOn, marked(r))
 	}
 	client, err := a.NewClient(r.Provider, r.Model)
 	if err != nil {
@@ -173,5 +178,5 @@ func (a *App) runsResume(c *cli.Context) error {
 	}
 	fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Resuming run %s: %s left · %s %s",
 		r.ID, humanize.PluralWord(r.Pending(), "request", "requests"), r.Provider, r.Model)))
-	return a.execute(c, r, client, c.Int("workers"))
+	return a.execute(c, r, client, c.Int("workers"), failOn)
 }

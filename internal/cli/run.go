@@ -46,7 +46,11 @@ Examples:
   decide run relevance CHANGELOG.md --each section -p question="tool calling"
   decide run ticket-routing tickets.jsonl --field body
   echo "This is great" | decide run sentiment
-  decide run code-risk . --dry-run`
+  decide run code-risk . --dry-run
+
+With --fail-on flagged, decide exits with code 2 when any item is flagged,
+so a script or CI job can stop on the result. --fail-on matched does the
+same for matches.`
 
 func (a *App) addRun(app *cli.App) {
 	app.Command("run").
@@ -66,6 +70,7 @@ func (a *App) addRun(app *cli.App) {
 			cli.Bool("dry-run").Help("Show what would be asked, without calling the model"),
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines"),
+			cli.String("fail-on").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
 			cli.String("provider").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare").
 				Help("Model provider: typesafe or cloudflare (default: typesafe; cloudflare for images)"),
 			cli.String("model", "m").Env("DECIDE_MODEL").Help("Model name (default: the provider's default)"),
@@ -110,6 +115,10 @@ func (a *App) run(c *cli.Context) error {
 		return cli.Errorf("What should %s look at?", s.Name).
 			Hint(fmt.Sprintf("Name files or folders: decide run %s %s\nOr pipe in text:      echo \"some text\" | decide run %s",
 				s.Name, exampleData(s), s.Name))
+	}
+	failOn := c.String("fail-on")
+	if err := checkFailOn(s, failOn); err != nil {
+		return err
 	}
 	each := c.String("each")
 	if each != "" && s.Input == template.Image {
@@ -187,11 +196,13 @@ func (a *App) run(c *cli.Context) error {
 		fmt.Fprintln(c.Stderr(), dim(hint))
 	}
 	fmt.Fprintln(c.Stderr())
-	return a.execute(c, run, client, workers)
+	return a.execute(c, run, client, workers, failOn)
 }
 
-// execute runs or resumes a run, printing each result and a summary.
-func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, workers int) error {
+// execute runs or resumes a run, printing each result and a summary. With
+// failOn set to "flagged" or "matched", a complete run with such items
+// exits with code 2.
+func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, workers int, failOn string) error {
 	saved, err := run.Results()
 	if err != nil {
 		return err
@@ -217,14 +228,35 @@ func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, work
 	if err != nil && !errors.Is(err, context.Canceled) {
 		return err
 	}
-	summarize(c.Stderr(), run, elapsed)
+	marked := summarize(c.Stderr(), run, elapsed)
 	switch {
 	case c.Context().Err() != nil:
 		return cli.Exit(130)
 	case run.Status != runs.Complete:
 		return cli.Exit(1)
 	}
+	return failExit(c, failOn, marked)
+}
+
+// checkFailOn refuses --fail-on when the template never marks an item that
+// way, since the run could never fail.
+func checkFailOn(s *template.Template, failOn string) error {
+	if (failOn == "flagged" && len(s.Flags) == 0) || (failOn == "matched" && len(s.Matches) == 0) {
+		return cli.Errorf("%s never marks an item %s, so --fail-on %s would never fail", s.Name, failOn, failOn).
+			Hint(fmt.Sprintf("See what it marks with: decide templates show %s", s.Name))
+	}
 	return nil
+}
+
+// failExit exits with code 2 when failOn names a mark that count items
+// carry.
+func failExit(c *cli.Context, failOn string, marked map[string]int) error {
+	if failOn == "" || marked[failOn] == 0 {
+		return nil
+	}
+	fmt.Fprintln(c.Stderr(), dim(fmt.Sprintf("Exiting with code 2 because %s %s (--fail-on %s)",
+		humanize.PluralWord(marked[failOn], "item was", "items were"), failOn, failOn)))
+	return cli.Exit(2)
 }
 
 // confirmAbove is the number of items above which run asks before
@@ -285,7 +317,24 @@ func progress(run *runs.Run, each func(item)) (answered, failures, total int) {
 	return answered, failures, total
 }
 
-func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) {
+// marked counts a run's "flagged" and "matched" items.
+func marked(run *runs.Run) map[string]int {
+	m := marksOf(run.Template)
+	counts := map[string]int{}
+	progress(run, func(it item) {
+		if m.has(it.Result, flagged) {
+			counts["flagged"]++
+		}
+		if m.has(it.Result, matched) {
+			counts["matched"]++
+		}
+	})
+	return counts
+}
+
+// summarize prints a run's summary and returns how many items were
+// "flagged" and "matched".
+func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) map[string]int {
 	m := marksOf(run.Template)
 	var flaggedItems, matchedItems []string
 	answered, failures, total := progress(run, func(it item) {
@@ -333,6 +382,7 @@ func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) {
 	default:
 		fmt.Fprintf(w, "%s decide runs view %s\n", dim("See these results again with:"), run.ID)
 	}
+	return map[string]int{"flagged": len(flaggedItems), "matched": len(matchedItems)}
 }
 
 // list prints the first few sources after a label, such as "Flagged:".

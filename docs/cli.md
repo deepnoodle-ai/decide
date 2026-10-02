@@ -333,6 +333,21 @@ requests run at once (default 4).
 
 | Code | Meaning |
 | --- | --- |
-| 0 | Every item was answered. |
-| 1 | An error, or some items failed or were not reached. |
+| 0 | Every item was answered. With `--fail-on`, none was flagged or matched. |
+| 1 | An error, or some items failed or were not reached. This wins over 2, even if items were flagged. |
+| 2 | With `--fail-on`, at least one item was flagged or matched. |
 | 130 | Stopped with Ctrl-C. Resume with `decide runs resume`. |
+
+Add `--fail-on flagged` to stop a script or CI job when something needs
+attention, or `--fail-on matched` when something you are looking for turns
+up:
+
+```sh
+decide run code-risk src --fail-on flagged
+```
+
+An answer close to being flagged (yellow) does not count. The template's
+`flags` or `matches` set the line: to fail at a different probability,
+copy the template with `decide templates new` and change them. When a
+run stops early, finish it with `decide runs resume --fail-on flagged` to
+gate on the whole run.

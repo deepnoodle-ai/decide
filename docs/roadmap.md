@@ -15,7 +15,7 @@ off, or remove them, as they land.
 
 ## Running and results
 
-- [ ] **`--fail-on`.** `decide run … --fail-on flagged|matched` exits 2 when
+- [x] **`--fail-on`.** `decide run … --fail-on flagged|matched` exits 2 when
       any item is flagged or matched, so CI and hooks can block on it. Exit
       1 keeps meaning an error, as with `terraform plan -detailed-exitcode`.
 - [ ] **Token usage and cost.** Show input tokens and an estimated cost in
