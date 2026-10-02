@@ -129,7 +129,7 @@ func TestResolveParameters(t *testing.T) {
 
 	code, _ := Load("code-risk")
 	r, _ = code.Resolve(nil)
-	if !strings.Contains(string(r.Questions[0].Raw), "plausible authorization, data loss") {
+	if !strings.Contains(string(r.Questions[0].Raw), "risk authorization flaws, data loss") {
 		t.Fatalf("default not applied: %s", r.Questions[0].Raw)
 	}
 }

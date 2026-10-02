@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -238,11 +239,27 @@ func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) {
 	if left := run.Total - run.Complete - run.Failed; left > 0 {
 		parts = append(parts, fmt.Sprintf("%d left", left))
 	}
+	flagged := flaggedSources(run)
+	if flagged != nil {
+		if len(flagged) == 0 {
+			parts = append(parts, good("nothing flagged"))
+		} else {
+			parts = append(parts, failed(fmt.Sprintf("! %d flagged", len(flagged))))
+		}
+	}
 	line := strings.Join(parts, "  ")
 	if elapsed > 0 {
 		line += "  " + dim(humanize.DurationShort(elapsed.Round(100*time.Millisecond)))
 	}
 	fmt.Fprintln(w, line)
+	if len(flagged) > 0 {
+		const shown = 5
+		list := strings.Join(flagged[:min(len(flagged), shown)], ", ")
+		if len(flagged) > shown {
+			list += fmt.Sprintf(", and %d more", len(flagged)-shown)
+		}
+		fmt.Fprintf(w, "%s %s\n", dim("Flagged:"), list)
+	}
 	fmt.Fprintf(w, "%s %s\n", dim("Saved as run"), run.ID)
 	switch run.Status {
 	case runs.Interrupted:
@@ -252,6 +269,26 @@ func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) {
 	default:
 		fmt.Fprintf(w, "%s decide runs view %s\n", dim("See these results again with:"), run.ID)
 	}
+}
+
+// flaggedSources lists the items with an answer that needs attention, or
+// returns nil when the skill has no flags.
+func flaggedSources(run *runs.Run) []string {
+	flags := flagsOf(run.Skill)
+	if len(flags) == 0 {
+		return nil
+	}
+	results, err := run.Results()
+	if err != nil {
+		return nil
+	}
+	out := []string{}
+	for _, res := range results {
+		if res.Status == "complete" && isFlagged(flags, res) {
+			out = append(out, clean(res.Source))
+		}
+	}
+	return out
 }
 
 func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source.Options) error {
@@ -288,6 +325,7 @@ func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source
 		fmt.Fprintf(w, "  %s\n", dim(fmt.Sprintf("… and %d more", total-shown)))
 	}
 	fmt.Fprintf(w, "\nand ask each one:\n\n")
+	flags := flagsOf(s)
 	for _, q := range s.Questions {
 		var body struct {
 			Instructions any `json:"instructions"`
@@ -295,6 +333,9 @@ func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source
 		json.Unmarshal(q.Raw, &body)
 		fmt.Fprintf(w, "  %s  %s\n", bold(q.Key), dim("("+describe(q.Raw)+")"))
 		fmt.Fprint(w, wrap(fmt.Sprint(body.Instructions), 72, "    "))
+		if when := flagText(flags[q.Key]); when != "" {
+			fmt.Fprintf(w, "    %s %s\n", dim("flagged when"), when)
+		}
 	}
 	fmt.Fprintf(w, "\n%s\n", dim("Nothing was sent to the model. Remove --dry-run to run it."))
 	return nil
@@ -382,9 +423,21 @@ func exampleData(in skill.Input) string {
 	return "data.jsonl"
 }
 
+// displayPaths names the data a run read, shortening the home directory
+// to ~.
 func displayPaths(paths []string) []string {
 	if len(paths) == 0 {
 		return []string{"stdin"}
 	}
-	return paths
+	home, _ := os.UserHomeDir()
+	out := make([]string, len(paths))
+	for i, p := range paths {
+		out[i] = p
+		if abs, err := filepath.Abs(p); err == nil && home != "" {
+			if rel, err := filepath.Rel(home, abs); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+				out[i] = filepath.Join("~", rel)
+			}
+		}
+	}
+	return out
 }

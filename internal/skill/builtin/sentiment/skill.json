@@ -12,5 +12,8 @@
         "neutral": "Neither clearly positive nor clearly negative"
       }
     }
+  },
+  "flags": {
+    "sentiment": "negative"
   }
 }
