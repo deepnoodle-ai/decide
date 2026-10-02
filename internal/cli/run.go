@@ -127,7 +127,7 @@ func (a *App) run(c *cli.Context) error {
 		Items:   c.String("items"),
 		Limit:   limit,
 		Sample:  sample,
-		Warn:    func(msg string) { fmt.Fprintln(c.Stderr(), dim(msg)) },
+		Warn:    func(msg string) { fmt.Fprintln(c.Stderr(), dim(clean(msg))) },
 	}
 	if c.Bool("dry-run") {
 		return a.dryRun(c, resolved, paths, opts)
@@ -396,8 +396,8 @@ func (a *App) dryRun(c *cli.Context, s *skill.Skill, paths []string, opts source
 			Instructions any `json:"instructions"`
 		}
 		json.Unmarshal(q.Raw, &body)
-		fmt.Fprintf(w, "  %s  %s\n", bold(q.Key), dim("("+describe(q.Raw)+")"))
-		fmt.Fprint(w, wrap(fmt.Sprint(body.Instructions), 72, "    "))
+		fmt.Fprintf(w, "  %s  %s\n", bold(clean(q.Key)), dim("("+describe(q.Raw)+")"))
+		fmt.Fprint(w, wrap(clean(fmt.Sprint(body.Instructions)), 72, "    "))
 		if when := flagText(m.flags[q.Key]); when != "" {
 			fmt.Fprintf(w, "    %s %s\n", dim("flagged when"), when)
 		}

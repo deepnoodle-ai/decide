@@ -328,7 +328,7 @@ func flagText(conds []skill.Condition) string {
 			continue
 		}
 		bound := map[string]string{">=": "%s or more likely", ">": "more than %s likely"}[c.Op]
-		parts[i] = c.Answer + " is " + fmt.Sprintf(bound, percent(c.Value))
+		parts[i] = clean(c.Answer) + " is " + fmt.Sprintf(bound, percent(c.Value))
 	}
 	return strings.Join(parts, ", or ")
 }
@@ -413,6 +413,17 @@ func clean(s string) string {
 	}), " ")
 }
 
+// printable removes control characters but keeps spacing and tabs, for
+// text whose layout matters.
+func printable(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) && r != '\t' {
+			return -1
+		}
+		return r
+	}, s)
+}
+
 func friendlyError(msg string) string {
 	msg = strings.TrimPrefix(msg, "decide: ")
 	if msg == "" {
@@ -438,17 +449,17 @@ func describe(raw json.RawMessage) string {
 			for i, o := range opts {
 				keys[i] = o.Key
 			}
-			return "one of " + strings.Join(keys, ", ")
+			return clean("one of " + strings.Join(keys, ", "))
 		}
 		var list []string
 		json.Unmarshal(q.Criteria, &list)
-		return "one of " + strings.Join(list, ", ")
+		return clean("one of " + strings.Join(list, ", "))
 	case "score":
 		var levels []json.RawMessage
 		json.Unmarshal(q.Criteria, &levels)
 		return fmt.Sprintf("a score from 0 to %d", max(len(levels)-1, 0))
 	}
-	return q.Type
+	return clean(q.Type)
 }
 
 // wrap breaks text into lines of at most width runes, each with indent.

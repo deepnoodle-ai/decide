@@ -57,10 +57,10 @@ func (a *App) skillsList(c *cli.Context) error {
 		if s.Location != skill.BuiltIn {
 			where = "  " + dim("("+s.Location+")")
 		}
-		fmt.Fprintf(w, "  %-*s  %s%s\n", width, s.Name, s.Description, where)
+		fmt.Fprintf(w, "  %-*s  %s%s\n", width, s.Name, clean(s.Description), where)
 	}
 	for _, err := range broken {
-		fmt.Fprintf(c.Stderr(), "\n%s\n", failed("Could not load a skill: "+err.Error()))
+		fmt.Fprintf(c.Stderr(), "\n%s\n", failed("Could not load a skill: "+clean(err.Error())))
 	}
 	fmt.Fprintf(w, "\n%s  decide skills show sentiment\n", dim("Learn about one:"))
 	fmt.Fprintf(w, "%s          echo \"I love it\" | decide run sentiment\n", dim("Try one:"))
@@ -76,7 +76,7 @@ func (a *App) skillsShow(c *cli.Context) error {
 	s := original.With(nil) // show questions with default values filled in
 	w := c.Stdout()
 	fmt.Fprintf(w, "%s  %s\n", bold(s.Name), dim("("+where(s)+")"))
-	fmt.Fprintf(w, "%s\n\n", s.Description)
+	fmt.Fprintf(w, "%s\n\n", clean(s.Description))
 	fmt.Fprintf(w, "%s %s\n\n", bold("Reads:"), reads(s))
 
 	fmt.Fprintf(w, "%s\n", bold("Questions"))
@@ -87,14 +87,14 @@ func (a *App) skillsShow(c *cli.Context) error {
 			Criteria     json.RawMessage `json:"criteria"`
 		}
 		json.Unmarshal(q.Raw, &body)
-		fmt.Fprintf(w, "\n  %s  %s\n", value(q.Key), dim("answered "+describe(q.Raw)))
-		fmt.Fprint(w, wrap(fmt.Sprint(body.Instructions), 72, "    "))
+		fmt.Fprintf(w, "\n  %s  %s\n", value(clean(q.Key)), dim("answered "+describe(q.Raw)))
+		fmt.Fprint(w, wrap(clean(fmt.Sprint(body.Instructions)), 72, "    "))
 		var levels []any
 		var options skill.Questions // a choice's options, in order
 		switch {
 		case json.Unmarshal(body.Criteria, &levels) == nil:
 			for i, l := range levels {
-				fmt.Fprintf(w, "    %s %s\n", dim(fmt.Sprintf("%d", i)), fmt.Sprint(l))
+				fmt.Fprintf(w, "    %s %s\n", dim(fmt.Sprintf("%d", i)), clean(fmt.Sprint(l)))
 			}
 		case json.Unmarshal(body.Criteria, &options) == nil:
 			width := 0
@@ -104,7 +104,7 @@ func (a *App) skillsShow(c *cli.Context) error {
 			for _, o := range options {
 				var desc any
 				json.Unmarshal(o.Raw, &desc)
-				fmt.Fprintf(w, "    %s  %s\n", dim(fmt.Sprintf("%-*s", width, o.Key)), fmt.Sprint(desc))
+				fmt.Fprintf(w, "    %s  %s\n", dim(fmt.Sprintf("%-*s", width, clean(o.Key))), clean(fmt.Sprint(desc)))
 			}
 		}
 		if when := flagText(m.flags[q.Key]); when != "" {
@@ -119,9 +119,9 @@ func (a *App) skillsShow(c *cli.Context) error {
 		fmt.Fprintf(w, "\n%s\n", bold("Parameters"))
 		for _, name := range s.ParameterNames() {
 			p := s.Parameters[name]
-			fmt.Fprintf(w, "\n  %s  %s\n", value(name), p.Description)
+			fmt.Fprintf(w, "\n  %s  %s\n", value(name), clean(p.Description))
 			if p.Default != "" {
-				fmt.Fprintf(w, "    %s %s\n", dim("default:"), p.Default)
+				fmt.Fprintf(w, "    %s %s\n", dim("default:"), clean(p.Default))
 			} else {
 				fmt.Fprintf(w, "    %s\n", dim("required"))
 			}
@@ -134,7 +134,7 @@ func (a *App) skillsShow(c *cli.Context) error {
 				fmt.Fprintln(w)
 				continue
 			}
-			fmt.Fprintf(w, "  %s\n", line)
+			fmt.Fprintf(w, "  %s\n", printable(line))
 		}
 	}
 
@@ -144,7 +144,7 @@ func (a *App) skillsShow(c *cli.Context) error {
 		fmt.Fprintf(w, "\n%s\n", bold("Make your own version"))
 		fmt.Fprintf(w, "  decide skills new my-%s --from %s\n", s.Name, s.Name)
 	} else {
-		fmt.Fprintf(w, "\n%s\n  %s\n", bold("Edit it"), filepath.Join(s.Dir, "skill.json"))
+		fmt.Fprintf(w, "\n%s\n  %s\n", bold("Edit it"), clean(filepath.Join(s.Dir, "skill.json")))
 	}
 	return nil
 }
