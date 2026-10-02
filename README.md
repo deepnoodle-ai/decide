@@ -3,9 +3,7 @@
 [![Reference](https://img.shields.io/badge/reference-pkg.go.dev-00ADD8?style=flat-square&logo=go&logoColor=white&labelColor=2f363d)](https://pkg.go.dev/github.com/deepnoodle-ai/decide)
 [![Tests](https://img.shields.io/github/actions/workflow/status/deepnoodle-ai/decide/ci.yml?branch=main&style=flat-square&label=tests&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/deepnoodle-ai/decide?style=flat-square&label=release&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/releases)
-[![Go](https://img.shields.io/github/go-mod/go-version/deepnoodle-ai/decide?style=flat-square&labelColor=2f363d&color=00ADD8)](go.mod)
 [![Last commit](https://img.shields.io/github/last-commit/deepnoodle-ai/decide?style=flat-square&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/commits/main)
-[![License](https://img.shields.io/badge/license-Apache_2.0-00ADD8?style=flat-square&labelColor=2f363d)](LICENSE)
 
 **A Go library and CLI for [Jev](https://docs.typesafe.ai/introduction)
 and Jev-compatible APIs.**
@@ -16,7 +14,14 @@ and Jev-compatible APIs.**
   about files, folders, JSON records, diffs, and text from your shell or
   CI. [Jump to the CLI.](#try-it)
 
-[![decide triaging and routing five support tickets in the terminal](https://files.deepnoodle.ai/images/decide/decide-cli-demo-2026-10-02-80col.gif)](https://files.deepnoodle.ai/videos/decide/decide-cli-demo-2026-10-02-80col.mp4)
+[![decide triaging and routing three support tickets in the terminal](https://files.deepnoodle.ai/images/decide/decide-cli-demo-2026-10-02-short.gif)](https://files.deepnoodle.ai/videos/decide/decide-cli-demo-2026-10-02-short.mp4)
+
+```sh
+brew install deepnoodle-ai/tap/decide
+```
+
+Or `go install github.com/deepnoodle-ai/decide/cmd/decide@latest`, or
+download a binary from the [releases](https://github.com/deepnoodle-ai/decide/releases).
 
 Jev is a **decision model**: it answers typed questions instead of
 generating text. Decide asks yes-or-no (`noul`), multiple-choice
@@ -37,13 +42,6 @@ Clef's weights are [open on Hugging Face](https://huggingface.co/Cloudflare/clef
 under Apache 2.0.
 
 ## Try it
-
-```sh
-brew install deepnoodle-ai/tap/decide
-```
-
-Or `go install github.com/deepnoodle-ai/decide/cmd/decide@latest`, or
-download a binary from the [releases](https://github.com/deepnoodle-ai/decide/releases).
 
 **With Jev,** the default, set your TypeSafe API key:
 
