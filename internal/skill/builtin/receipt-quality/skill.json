@@ -11,5 +11,9 @@
       "type": "noul",
       "instructions": "Can the merchant, total, and date be read from the receipt image?"
     }
+  },
+  "flags": {
+    "receipt": "no",
+    "readable": "no"
   }
 }

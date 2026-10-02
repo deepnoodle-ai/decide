@@ -97,7 +97,7 @@ func TestSkills(t *testing.T) {
 	contains(t, out.stdout, "triage", "(user)")
 
 	out = h.run("", "skills", "show", "code-risk")
-	contains(t, out.stdout, "plausible authorization, data loss")
+	contains(t, out.stdout, "Does the code or configuration", "flagged when", "the score is 1.5 or lower", "yes is 60% or more likely")
 
 	h.write(".decide/skills/broken/skill.json", `{"name": "broken",}`)
 	out = h.run("", "skills")
@@ -157,7 +157,7 @@ func TestRunFilesWithParameters(t *testing.T) {
 	if len(reqs) != 1 {
 		t.Fatalf("sent %d requests", len(reqs))
 	}
-	contains(t, string(reqs[0].Body), "plausible SQL injection risk", `"path":"src/main.go"`)
+	contains(t, string(reqs[0].Body), "risk SQL injection?", `"path":"src/main.go"`)
 }
 
 func TestDryRunMakesNoCalls(t *testing.T) {
@@ -244,4 +244,36 @@ func TestMissingCredentials(t *testing.T) {
 		t.Fatalf("exit %d", code)
 	}
 	contains(t, stderr.String(), "TYPESAFE_API_KEY is not set", "export TYPESAFE_API_KEY", "--dry-run")
+}
+
+func TestFlaggedAnswers(t *testing.T) {
+	h := setup(t)
+	h.write("src/a.go", "package a")
+	levels := []any{"0", "1", "2", "3", "4"}
+	h.server.Answer("risk", decidetest.NoulAnswer(0.88))
+	h.server.Answer("maintainability", decidetest.ScoreAnswer(levels, 0, 0, 0.1, 0.5, 0.4))
+	out := h.run("", "run", "code-risk", "src")
+	if out.code != 0 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	// Answers and figures line up in columns across questions.
+	contains(t, out.stdout,
+		"! risk             yes           88%\n",
+		"  maintainability  ━━━━━━━━━━──  3.3 of 4  3\n")
+	contains(t, out.stderr, "! 1 flagged", "Flagged: src/a.go")
+
+	h.server.Answer("risk", decidetest.NoulAnswer(0.5))
+	out = h.run("", "run", "code-risk", "src")
+	contains(t, out.stdout, "  risk             unsure        50% yes\n")
+	contains(t, out.stderr, "nothing flagged")
+
+	h.server.Answer("risk", decidetest.NoulAnswer(0.1))
+	out = h.run("", "run", "code-risk", "src")
+	contains(t, out.stdout, "  risk             no            90%\n")
+
+	// Skills without flags do not mention them.
+	out = h.run("ok\n", "run", "relevance", "-p", "question=x")
+	if strings.Contains(out.stderr, "flagged") {
+		t.Fatalf("relevance has no flags:\n%s", out.stderr)
+	}
 }

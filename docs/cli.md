@@ -39,9 +39,26 @@ Each question has one of three types, and its answer has a probability:
 
 | Type | Asks | Shown as |
 | --- | --- | --- |
-| `noul` | a yes-or-no question | `risk  12% yes` |
+| `noul` | a yes-or-no question | `risk  no  88%`, or `unsure  52% yes` between 40% and 60% |
 | `choice` | which one of several options fits | `queue  billing  91%` |
-| `score` | where something falls on a scale | `maintainability  2.7 of 4  Clear responsibilities…` |
+| `score` | where something falls on a scale | `maintainability  ━━━━━━━━────  2.7 of 4  Clear responsibilities…` |
+
+Some skills flag the answers that need attention, such as a file that is
+probably risky. A flagged answer is red and marked with `!`, an answer
+close to being flagged is yellow, and the others are green. The summary
+lists the flagged items:
+
+```
+marker/app.py
+! risk             yes           82%
+  maintainability  ━━━━━━━─────  2.4 of 4  Understandable with some friction
+
+✓ 5 answered  ! 2 flagged  500ms
+Flagged: marker/Makefile, marker/app.py
+```
+
+`decide skills show SKILL` says when each question is flagged. A yes-or-no
+answer between 40% and 60% is yellow in every skill: the model is unsure.
 
 Add `--details` to see the full probability of every option and the
 model's confidence. Add `--json` to get one JSON line per item instead.
@@ -55,6 +72,10 @@ Each skill reads one kind of input:
 | `file` | a whole text file, sent with its path | `code-risk` |
 | `record` | a line of text or JSONL, an element of a JSON array, or a JSON object | `sentiment`, `ticket-routing`, `relevance` |
 | `image` | a PNG, JPEG, or WebP file | `receipt-quality` |
+
+Items are named by their path from the current folder, or, for a folder
+outside it, from that folder's name, such as `marker/app.py`. The model sees
+the same name.
 
 Folders are read recursively. Decide skips hidden files and folders (such as
 `.git` and `.env`), files listed in `.gitignore` or `.decideignore`, binary
@@ -162,6 +183,28 @@ A `score` question lists its levels in order, lowest first:
   "criteria": ["Confusing", "Understandable", "Very clear"]
 }
 ```
+
+### Flags
+
+`flags` says which answers need attention, by question:
+
+```json
+"flags": {
+  "urgent": "yes",
+  "team": "engineering >= 80%",
+  "clarity": "<= 0.5"
+}
+```
+
+| Question type | Flag | Flagged when |
+| --- | --- | --- |
+| `noul` | `"yes"` or `"no"` | that answer is 60% or more likely |
+| `choice` | an option name | that option is 60% or more likely |
+| `noul` or `choice` | `"yes >= 80%"` | that answer is at least as likely as you say |
+| `score` | `"<= 1.5"`, `">= 3"`, `"< 2"`, `"> 2"` | the score passes the line |
+
+A list such as `["negative", "mixed"]` flags an item when any one holds.
+Answers to questions without a flag are never flagged.
 
 Write instructions about one item at a time, and treat the item as
 evidence rather than instructions. An optional `SKILL.md` next to

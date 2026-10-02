@@ -48,6 +48,7 @@ type Skill struct {
 	Input       Input                `json:"input"`
 	Parameters  map[string]Parameter `json:"parameters,omitempty"`
 	Questions   Questions            `json:"questions"`
+	Flags       map[string]Flag      `json:"flags,omitempty"` // answers that need attention, by question
 
 	Docs     string `json:"-"` // contents of SKILL.md
 	Location string `json:"-"` // BuiltIn, Project, or User
@@ -309,8 +310,11 @@ func (s *Skill) Validate() error {
 	for name := range s.Parameters {
 		values[name] = "example"
 	}
-	_, err := s.With(values).Decode()
-	return err
+	questions, err := s.With(values).Decode()
+	if err != nil {
+		return err
+	}
+	return s.checkFlags(questions)
 }
 
 // With returns a copy of the skill with {{name}} placeholders replaced by
@@ -440,11 +444,14 @@ func Create(name string, from *Skill, project bool) (string, error) {
 	if from != nil {
 		c := *from
 		c.Name = name
-		b, err := json.MarshalIndent(&c, "", "  ")
-		if err != nil {
+		var b bytes.Buffer
+		enc := json.NewEncoder(&b)
+		enc.SetEscapeHTML(false) // keep flags like "<= 1.5" readable
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(&c); err != nil {
 			return "", err
 		}
-		data = append(b, '\n')
+		data = b.Bytes()
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err

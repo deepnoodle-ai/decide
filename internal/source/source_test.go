@@ -210,3 +210,48 @@ func TestLimitAndSample(t *testing.T) {
 		}
 	}
 }
+
+func TestLabelsOutsideWorkingDirectory(t *testing.T) {
+	outside := filepath.Join(t.TempDir(), "marker")
+	if err := os.MkdirAll(filepath.Join(outside, "pkg"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"app.py", "pkg/util.py"} {
+		if err := os.WriteFile(filepath.Join(outside, name), []byte("x = 1"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tree(t, map[string]string{"main.go": "package main"})
+	paths := []string{outside, filepath.Join(outside, "app.py"), "main.go"}
+	items, _ := walk(t, paths, "", Options{Input: skill.File})
+	want := []string{"marker/app.py", "marker/pkg/util.py", "app.py", "main.go"}
+	if got := labels(items); !reflect.DeepEqual(got, want) {
+		t.Fatalf("labels = %v, want %v", got, want)
+	}
+	if !strings.Contains(string(items[0].State), `"path":"marker/app.py"`) {
+		t.Fatalf("state = %s", items[0].State)
+	}
+}
+
+func TestLabelsTellOutsideFoldersApart(t *testing.T) {
+	outside := t.TempDir()
+	for _, name := range []string{"a/src/x.py", "b/src/x.py"} {
+		p := filepath.Join(outside, name)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("x = 1"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tree(t, map[string]string{"main.go": "package main"})
+	if err := os.Symlink(filepath.Join(outside, "a/src/x.py"), "link.py"); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+	paths := []string{filepath.Join(outside, "a/src"), filepath.Join(outside, "b/src"), "link.py"}
+	items, _ := walk(t, paths, "", Options{Input: skill.File})
+	want := []string{"a/src/x.py", "b/src/x.py", "link.py"}
+	if got := labels(items); !reflect.DeepEqual(got, want) {
+		t.Fatalf("labels = %v, want %v", got, want)
+	}
+}

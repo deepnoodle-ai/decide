@@ -21,6 +21,13 @@ func dim(s string) string    { return color.ApplyDim(s) }
 func value(s string) string  { return color.Cyan.Apply(s) }
 func failed(s string) string { return color.Red.Apply(s) }
 func good(s string) string   { return color.Green.Apply(s) }
+func warn(s string) string   { return color.Yellow.Apply(s) }
+
+// A yes-or-no answer between these probabilities is shown as unsure.
+const (
+	unsureAbove = 0.4
+	unsureBelow = 0.6
+)
 
 // answer is the stored JSON form of a noul, choice, or score answer.
 type answer struct {
@@ -39,14 +46,47 @@ type printer struct {
 	skill   *skill.Skill
 	details bool
 	width   int // width of the question-name column
+	answers int // width of the answer column
+	flags   map[string][]skill.Condition
 }
 
 func newPrinter(w io.Writer, s *skill.Skill, details bool) *printer {
-	p := &printer{w: w, skill: s, details: details}
+	p := &printer{w: w, skill: s, details: details, flags: flagsOf(s)}
 	for _, q := range s.Questions {
 		p.width = max(p.width, len(q.Key))
+		p.answers = max(p.answers, answerWidth(q.Raw))
 	}
 	return p
+}
+
+// answerWidth is the widest answer a question can have, so the figures
+// after the answers line up across questions and items.
+func answerWidth(raw json.RawMessage) int {
+	var q struct {
+		Type     string          `json:"type"`
+		Criteria json.RawMessage `json:"criteria"`
+	}
+	json.Unmarshal(raw, &q)
+	switch q.Type {
+	case "score":
+		return trackWidth
+	case "choice":
+		var opts skill.Questions
+		w := 0
+		if json.Unmarshal(q.Criteria, &opts) == nil {
+			for _, o := range opts {
+				w = max(w, len([]rune(o.Key)))
+			}
+		} else {
+			var list []string
+			json.Unmarshal(q.Criteria, &list)
+			for _, o := range list {
+				w = max(w, len([]rune(o)))
+			}
+		}
+		return min(w, 24)
+	}
+	return len("unsure")
 }
 
 func (p *printer) result(res runs.Result) error {
@@ -68,7 +108,12 @@ func (p *printer) result(res runs.Result) error {
 		if err := json.Unmarshal(raw, &a); err != nil {
 			continue
 		}
-		fmt.Fprintf(&b, "  %-*s  %s\n", p.width, q.Key, value(p.summary(a)))
+		v := judge(p.flags[q.Key], a)
+		gutter := "  "
+		if v == flagged {
+			gutter = failed("!") + " "
+		}
+		fmt.Fprintf(&b, "%s%-*s  %s\n", gutter, p.width, q.Key, p.summary(a, v))
 		if p.details {
 			p.distribution(&b, a)
 		}
@@ -78,22 +123,35 @@ func (p *printer) result(res runs.Result) error {
 	return err
 }
 
-// summary is the one-line form of an answer.
-func (p *printer) summary(a answer) string {
+// summary is the one-line form of an answer, styled by its verdict.
+// Every answer has the same columns: the answer (a word, or a track for a
+// score), a figure, and for scores the level's description.
+func (p *printer) summary(a answer, v verdict) string {
+	var ans, figure, note string
 	switch a.Type {
 	case "noul":
-		return fmt.Sprintf("%s yes", percent(a.Noul))
+		switch {
+		case a.Noul >= unsureBelow:
+			ans, figure = v.style("yes"), v.style(percent(a.Noul))
+		case a.Noul <= unsureAbove:
+			ans, figure = v.style("no"), v.style(percent(1-a.Noul))
+		default:
+			ans, figure = v.style("unsure"), v.style(percent(a.Noul)+" yes")
+		}
 	case "choice":
-		return fmt.Sprintf("%s  %s", clean(a.Choice), percent(a.Probabilities[a.Choice]))
+		ans, figure = v.style(clean(a.Choice)), v.style(percent(a.Probabilities[a.Choice]))
 	case "score":
 		top := levels(a) - 1
-		s := fmt.Sprintf("%.1f of %d", a.Score, top)
-		if label := legend(a, int(math.Round(a.Score))); label != "" {
-			s += "  " + label
-		}
-		return s
+		ans, figure = track(a.Score, top, v), v.style(fmt.Sprintf("%.1f of %d", a.Score, top))
+		note = legend(a, int(math.Round(a.Score)))
+	default:
+		return value("(answer type " + a.Type + ")")
 	}
-	return "(answer type " + a.Type + ")"
+	s := pad(ans, p.answers) + "  " + figure
+	if note != "" {
+		s += "  " + dim(note)
+	}
+	return s
 }
 
 func (p *printer) distribution(b *strings.Builder, a answer) {
@@ -125,6 +183,125 @@ func (p *printer) distribution(b *strings.Builder, a answer) {
 		}
 	}
 	fmt.Fprintf(b, "%s%s\n", indent, dim("confidence "+percent(a.Confidence)))
+}
+
+// verdict is how an answer reads against its question's flag.
+type verdict int
+
+const (
+	plain   verdict = iota // no flag, and nothing to point out
+	clear                  // the flag does not apply
+	near                   // the model is unsure, or a flagged answer is possible
+	flagged                // the answer needs attention
+)
+
+func (v verdict) style(s string) string {
+	switch v {
+	case clear:
+		return good(s)
+	case near:
+		return warn(s)
+	case flagged:
+		return failed(s)
+	}
+	return value(s)
+}
+
+// judge compares an answer with its question's flag conditions.
+func judge(conds []skill.Condition, a answer) verdict {
+	prob := func(answer string) float64 {
+		if a.Type == "noul" {
+			if answer == "yes" {
+				return a.Noul
+			}
+			return 1 - a.Noul
+		}
+		return a.Probabilities[answer]
+	}
+	v := plain
+	if len(conds) > 0 {
+		v = clear
+	}
+	for _, c := range conds {
+		if c.Holds(prob, a.Score) {
+			return flagged
+		}
+		if c.Answer != "" && prob(c.Answer) > unsureAbove {
+			v = near
+		}
+	}
+	if a.Type == "noul" && a.Noul > unsureAbove && a.Noul < unsureBelow {
+		v = near
+	}
+	return v
+}
+
+// flagsOf parses a skill's flags. Skills are validated when they load, so
+// a flag that does not parse is ignored.
+func flagsOf(s *skill.Skill) map[string][]skill.Condition {
+	out := map[string][]skill.Condition{}
+	for _, q := range s.Questions {
+		flag, ok := s.Flags[q.Key]
+		if !ok {
+			continue
+		}
+		var body struct {
+			Type string `json:"type"`
+		}
+		json.Unmarshal(q.Raw, &body)
+		if conds, err := flag.Conditions(body.Type); err == nil {
+			out[q.Key] = conds
+		}
+	}
+	return out
+}
+
+// flagText describes flag conditions in words, like "yes is 60% or more
+// likely" or "the score is 1.5 or lower".
+func flagText(conds []skill.Condition) string {
+	parts := make([]string, len(conds))
+	for i, c := range conds {
+		if c.Answer == "" {
+			bound := map[string]string{">=": "%s or higher", ">": "above %s", "<=": "%s or lower", "<": "below %s"}[c.Op]
+			parts[i] = "the score is " + fmt.Sprintf(bound, strconv.FormatFloat(c.Value, 'g', -1, 64))
+			continue
+		}
+		bound := map[string]string{">=": "%s or more likely", ">": "more than %s likely"}[c.Op]
+		parts[i] = c.Answer + " is " + fmt.Sprintf(bound, percent(c.Value))
+	}
+	return strings.Join(parts, ", or ")
+}
+
+// isFlagged reports whether any answer in a result needs attention.
+func isFlagged(flags map[string][]skill.Condition, res runs.Result) bool {
+	for key, conds := range flags {
+		var a answer
+		if raw, ok := res.Answers[key]; ok && json.Unmarshal(raw, &a) == nil && judge(conds, a) == flagged {
+			return true
+		}
+	}
+	return false
+}
+
+// trackWidth is the number of cells in a score's track.
+const trackWidth = 12
+
+// track draws a score as a line filled in half-cell steps, such as
+// "━━━━━━━╸────" for 2.5 of 4. Heavy and light lines tell the filled part
+// from the rest when color is off.
+func track(score float64, top int, v verdict) string {
+	halves := 0
+	if top > 0 {
+		halves = max(0, min(2*trackWidth, int(math.Round(score/float64(top)*2*trackWidth))))
+	}
+	filled := strings.Repeat("━", halves/2)
+	if halves%2 == 1 {
+		filled += "╸"
+	}
+	if filled != "" {
+		filled = v.style(filled)
+	}
+	return filled + dim(strings.Repeat("─", trackWidth-(halves+1)/2))
 }
 
 func cmpFloat(x, y float64) int {

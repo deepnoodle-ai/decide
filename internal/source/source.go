@@ -26,6 +26,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -87,7 +88,7 @@ func Walk(ctx context.Context, paths []string, stdin io.Reader, opts Options, fn
 	if len(paths) == 0 {
 		paths = []string{"-"}
 	}
-	w := &walker{ctx: ctx, opts: opts, stdin: stdin}
+	w := &walker{ctx: ctx, opts: opts, stdin: stdin, names: names(paths)}
 	switch {
 	case opts.Sample > 0:
 		w.emit = w.sampler(opts.Sample)
@@ -126,6 +127,7 @@ type walker struct {
 	opts   Options
 	stdin  io.Reader
 	emit   func(Item) error
+	names  map[string]string // label for each path argument
 	count  int
 	seen   int
 	sample []sampled
@@ -169,16 +171,94 @@ func (w *walker) path(p string) error {
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("%s is not a regular file", p)
 		}
-		return w.file(p, filepath.ToSlash(filepath.Clean(p)), true)
+		return w.file(p, w.names[p], true)
 	}
 	rules, err := ancestorRules(p)
 	if err != nil {
 		return err
 	}
-	return w.dir(p, p, rules)
+	return w.dir(w.names[p], p, p, rules)
 }
 
-func (w *walker) dir(root, dir string, rules []rule) error {
+// names chooses how labels name each path argument: by its path from the
+// working directory when it is inside it, and otherwise by its last
+// elements, as many as it takes to tell the arguments apart, so
+// ~/code/marker shows as "marker". Labels are also sent to the model, so
+// they never reveal the home directory.
+func names(paths []string) map[string]string {
+	out := map[string]string{}
+	outside := map[string][]string{} // argument -> elements of its absolute path
+	for _, p := range paths {
+		if p == "-" {
+			continue
+		}
+		if rel, ok := inside(p); ok {
+			out[p] = rel
+			continue
+		}
+		abs, err := filepath.Abs(p)
+		if err != nil {
+			abs = p
+		}
+		outside[p] = strings.Split(filepath.ToSlash(abs), "/")
+	}
+	for depth := 1; len(outside) > 0; depth++ {
+		label := func(p string) string {
+			e := outside[p]
+			return path.Join(e[max(0, len(e)-depth):]...)
+		}
+		owners := map[string]map[string]bool{} // label -> the paths it would name
+		for p, e := range outside {
+			if owners[label(p)] == nil {
+				owners[label(p)] = map[string]bool{}
+			}
+			owners[label(p)][path.Join(e...)] = true
+		}
+		for p, e := range outside {
+			if l := label(p); len(owners[l]) == 1 || depth >= len(e) {
+				out[p] = l
+				delete(outside, p)
+			}
+		}
+	}
+	return out
+}
+
+// inside returns p relative to the working directory, if it is inside it.
+func inside(p string) (string, bool) {
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return "", false
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", false
+	}
+	if rel, ok := under(wd, abs); ok {
+		return rel, true
+	}
+	// The working directory may be reached through a link, as /tmp is on
+	// macOS. Links are resolved only here, so a linked file inside the
+	// project keeps the name it was given.
+	rwd, err1 := filepath.EvalSymlinks(wd)
+	rabs, err2 := filepath.EvalSymlinks(abs)
+	if err1 != nil || err2 != nil {
+		return "", false
+	}
+	return under(rwd, rabs)
+}
+
+func under(dir, p string) (string, bool) {
+	rel, err := filepath.Rel(dir, p)
+	if err != nil {
+		return "", false
+	}
+	rel = filepath.ToSlash(rel)
+	return rel, rel != ".." && !strings.HasPrefix(rel, "../")
+}
+
+// dir walks a directory. prefix is the label of the path argument root.
+func (w *walker) dir(prefix, root, dir string, rules []rule) error {
 	local, err := dirRules(dir)
 	if err != nil {
 		return err
@@ -203,7 +283,7 @@ func (w *walker) dir(root, dir string, rules []rule) error {
 			continue
 		}
 		if e.IsDir() {
-			if err := w.dir(root, full, rules); err != nil {
+			if err := w.dir(prefix, root, full, rules); err != nil {
 				return err
 			}
 			continue
@@ -211,10 +291,7 @@ func (w *walker) dir(root, dir string, rules []rule) error {
 		if !e.Type().IsRegular() || (len(w.opts.Include) > 0 && !match(w.opts.Include, rel)) {
 			continue
 		}
-		label := filepath.ToSlash(filepath.Join(root, rel))
-		if root == "." {
-			label = rel
-		}
+		label := path.Join(prefix, rel)
 		if err := w.file(full, label, false); err != nil {
 			return err
 		}
