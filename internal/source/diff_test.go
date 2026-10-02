@@ -228,7 +228,7 @@ func TestDiffFiles(t *testing.T) {
 		}
 	}
 	err := Walk(context.Background(), nil, strings.NewReader(gitDiff), Options{Each: template.EachSection}, func(Item) error { return nil })
-	if err == nil || !strings.Contains(err.Error(), "use --each hunk, file, or line") {
+	if err == nil || !strings.Contains(err.Error(), "use --each hunk, function, file, or line") {
 		t.Errorf("--each section on a diff: err = %v", err)
 	}
 }
@@ -260,6 +260,88 @@ func TestGeneratedMarkersAreComments(t *testing.T) {
 		t.Fatalf("labels = %q, want %q", got, want)
 	}
 	if want := []string{"Skipped gen.py (generated)"}; !reflect.DeepEqual(warnings, want) {
+		t.Errorf("warnings = %q, want %q", warnings, want)
+	}
+}
+
+// shop.go is the new version of a file; shopDiff is the change that made it.
+const shop = `package shop
+
+import "fmt"
+
+// Price formats a price.
+func Price(cents int) string {
+	return fmt.Sprintf("$%d.%02d", cents/100, cents%100)
+}
+
+// Refund pays a customer back.
+func Refund(id string) error {
+	if id == "" {
+		return fmt.Errorf("no id")
+	}
+	return nil
+}
+`
+
+const shopDiff = `diff --git a/shop.go b/shop.go
+--- a/shop.go
++++ b/shop.go
+@@ -1,6 +1,6 @@
+ package shop
+
+-import "strconv"
++import "fmt"
+
+ // Price formats a price.
+ func Price(cents int) string {
+@@ -10,5 +10,7 @@ func Price(cents int) string {
+ // Refund pays a customer back.
+ func Refund(id string) error {
+-	check(id)
++	if id == "" {
++		return fmt.Errorf("no id")
++	}
+ 	return nil
+ }
+`
+
+func TestDiffFunctions(t *testing.T) {
+	tree(t, map[string]string{"shop.go": shop})
+	items, warnings := walk(t, nil, shopDiff, Options{Each: template.EachFunction})
+	// The import is outside any function, so its hunk is judged as a hunk.
+	if got, want := labels(items), []string{"shop.go:3", "shop.go#L11"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("labels = %q, want %q", got, want)
+	}
+	if items[0].Unit != template.EachHunk || items[1].Unit != template.EachFunction {
+		t.Errorf("units = %q, %q", items[0].Unit, items[1].Unit)
+	}
+	items = items[1:]
+	s := diffStates(t, items)[0]
+	want := " // Refund pays a customer back.\n func Refund(id string) error {\n-\tcheck(id)\n+\tif id == \"\" {\n" +
+		"+\t\treturn fmt.Errorf(\"no id\")\n+\t}\n \treturn nil\n }"
+	if s.Diff != want || s.Function != "Refund" || s.Lines != "10-16" || !strings.Contains(s.Context, `import "fmt"`) {
+		t.Errorf("state = %+v\ndiff:\n%s", s, s.Diff)
+	}
+	if string(items[0].Value) != `"Refund"` {
+		t.Errorf("value = %s", items[0].Value)
+	}
+	if len(warnings) != 0 {
+		t.Errorf("warnings = %q", warnings)
+	}
+}
+
+func TestDiffFunctionsNeedTheNewFile(t *testing.T) {
+	// An older version of the file: the diff does not describe it.
+	tree(t, map[string]string{"shop.go": strings.Replace(shop, "return nil", "return err", 1)})
+	items, warnings := walk(t, nil, shopDiff, Options{Each: template.EachFunction})
+	if got, want := labels(items), []string{"shop.go:3", "shop.go:12"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("labels = %q, want %q", got, want)
+	}
+	if items[0].Unit != template.EachHunk {
+		t.Errorf("unit = %q, want hunk", items[0].Unit)
+	}
+	want := []string{"The version of shop.go in the diff is not on disk, so it was judged by hunk"}
+	if !reflect.DeepEqual(warnings, want) {
 		t.Errorf("warnings = %q, want %q", warnings, want)
 	}
 }
@@ -369,5 +451,77 @@ func TestLocalStaysInside(t *testing.T) {
 	// A link that stays inside the repository is fine.
 	if _, ok := w.local("alias/real.go"); !ok {
 		t.Errorf("local(alias/real.go) refused")
+	}
+}
+
+func TestDiffFunctionsFromASubfolder(t *testing.T) {
+	tree(t, map[string]string{".git/HEAD": "ref: refs/heads/main\n", "shop.go": shop, "sub/x.txt": ""})
+	t.Chdir("sub")
+	items, _ := walk(t, nil, shopDiff, Options{Each: template.EachFunction})
+	if got, want := labels(items), []string{"shop.go:3", "shop.go#L11"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("labels = %q, want %q", got, want)
+	}
+}
+
+// abc.go after deleting B, which sat between A and C.
+const ac = `package abc
+
+func A() {}
+
+func C() {}
+`
+
+func TestDeletedFunctions(t *testing.T) {
+	tree(t, map[string]string{"abc.go": ac})
+	// Deleting B is a change outside A and C, so it is judged as a hunk.
+	deleteB := "diff --git a/abc.go b/abc.go\n--- a/abc.go\n+++ b/abc.go\n@@ -3,6 +3,4 @@\n func A() {}\n \n-func B() {}\n-\n func C() {}\n"
+	items, _ := walk(t, nil, deleteB, Options{Each: template.EachFunction})
+	if got, want := labels(items), []string{"abc.go:5"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("labels = %q, want %q", got, want)
+	}
+	if d := diffStates(t, items)[0].Diff; !strings.Contains(d, "-func B() {}") {
+		t.Errorf("diff = %q", d)
+	}
+
+	// A blank line added between functions is not judged on its own.
+	tree(t, map[string]string{"d.go": "package d\n\nfunc A() {}\n\n\nfunc C() {}\n"})
+	addBlank := "diff --git a/d.go b/d.go\n--- a/d.go\n+++ b/d.go\n@@ -3,3 +3,4 @@\n func A() {}\n+\n \n func C() {}\n"
+	items, warnings := walk(t, nil, addBlank, Options{Each: template.EachFunction})
+	if len(items) != 0 || len(warnings) != 0 {
+		t.Fatalf("labels = %q, warnings = %q, want none", labels(items), warnings)
+	}
+	tree(t, map[string]string{"abc.go": ac})
+
+	// Lines replaced at a function's first line are part of it.
+	renameC := "diff --git a/abc.go b/abc.go\n--- a/abc.go\n+++ b/abc.go\n@@ -5 +5 @@\n-func Old() {}\n+func C() {}\n"
+	items, _ = walk(t, nil, renameC, Options{Each: template.EachFunction})
+	if got, want := labels(items), []string{"abc.go#L5"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("labels = %q, want %q", got, want)
+	}
+	if d := diffStates(t, items)[0].Diff; d != "-func Old() {}\n+func C() {}" {
+		t.Errorf("diff = %q", d)
+	}
+
+	// A change that empties a file, or removes lines with no context, has
+	// no new version to find functions in, so each hunk is judged.
+	empty := "diff --git a/abc.go b/abc.go\n--- a/abc.go\n+++ b/abc.go\n@@ -1,5 +0,0 @@\n-package abc\n-\n-func A() {}\n-\n-func C() {}\n"
+	items, warnings = walk(t, nil, empty, Options{Each: template.EachFunction})
+	if len(items) != 1 || items[0].Unit != template.EachHunk || len(warnings) != 0 {
+		t.Fatalf("items = %q, warnings = %q", labels(items), warnings)
+	}
+}
+
+func TestDiffPathsStayInside(t *testing.T) {
+	tree(t, map[string]string{"repo/x.txt": "", "secret.go": "package s\n\nfunc Key() string { return \"hunter2\" }\n"})
+	t.Chdir("repo")
+	in := "diff --git a/x.go b/x.go\n--- a/../secret.go\n+++ b/../secret.go\n@@ -1 +1 @@\n package s\n"
+	items, warnings := walk(t, nil, in, Options{Each: template.EachFunction})
+	for _, s := range diffStates(t, items) {
+		if strings.Contains(s.Diff, "hunter2") {
+			t.Fatalf("read a file outside the folder: %+v", s)
+		}
+	}
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "not on disk") {
+		t.Errorf("warnings = %q", warnings)
 	}
 }
