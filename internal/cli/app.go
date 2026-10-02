@@ -1,4 +1,4 @@
-// Package cli implements the experimental dataset command-line interface.
+// Package cli implements the decide command.
 package cli
 
 import (
@@ -6,118 +6,103 @@ import (
 	"errors"
 	"io"
 	"os"
-	"strings"
 
 	"github.com/deepnoodle-ai/decide"
-	wonton "github.com/deepnoodle-ai/wonton/cli"
+	"github.com/deepnoodle-ai/decide/backend"
+	"github.com/deepnoodle-ai/wonton/cli"
+	"github.com/deepnoodle-ai/wonton/tty"
 )
 
+// App runs the decide command with the given input and output.
 type App struct {
-	In        io.Reader
-	Out, Err  io.Writer
-	NewClient func() (*decide.Client, error)
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
+
+	// NewClient connects to a provider. It defaults to reading credentials
+	// from the environment; tests replace it with a fake server.
+	NewClient func(provider, model string) (*decide.Client, error)
 }
 
+const overview = `Decide asks typed questions about your data and saves every answer.
+
+A skill is a set of questions, like "Is this file risky?" or "Which queue
+should this ticket go to?". Run a skill on files, folders, JSON, or text, and
+Decide shows each answer with its probability.
+
+Get started:
+  decide skills                       see the built-in skills
+  decide run sentiment reviews.txt    run a skill on each line of a file
+  decide runs view                    look at your latest results
+
+Set TYPESAFE_API_KEY before your first run.`
+
+// Run executes the command line and returns the exit code.
 func (a *App) Run(ctx context.Context, args []string) int {
-	if a.In == nil {
-		a.In = os.Stdin
+	if a.Stdin == nil {
+		a.Stdin = os.Stdin
 	}
-	if a.Out == nil {
-		a.Out = os.Stdout
+	if a.Stdout == nil {
+		a.Stdout = os.Stdout
 	}
-	if a.Err == nil {
-		a.Err = os.Stderr
+	if a.Stderr == nil {
+		a.Stderr = os.Stderr
 	}
-	if ctx.Err() != nil {
+	if a.NewClient == nil {
+		a.NewClient = connect
+	}
+	app := cli.New("decide").
+		Description("Ask typed questions about your data").
+		Long(overview).
+		SetStdin(a.Stdin).SetStdout(a.Stdout).SetStderr(a.Stderr).
+		ForceInteractive(false)
+	a.addRun(app)
+	a.addSkills(app)
+	a.addRuns(app)
+
+	err := app.ExecuteContext(ctx, args)
+	var exit *cli.ExitError
+	switch {
+	case err == nil || cli.IsHelpRequested(err):
+		return 0
+	case errors.As(err, &exit):
+		return exit.Code // the command already explained what happened
+	case ctx.Err() != nil:
 		return 130
 	}
-	framework := a.commands()
-	if err := framework.ExecuteContext(ctx, normalizeColorArgs(args)); err != nil {
-		if wonton.IsHelpRequested(err) {
-			return 0
-		}
-		if ctx.Err() != nil {
-			return 130
-		}
-		var commandError *wonton.ExitError
-		if errors.As(err, &commandError) {
-			return wonton.GetExitCode(err)
-		}
-		return a.fail(err)
-	}
-	return 0
+	app.PrintError(err)
+	return cli.GetExitCode(err)
 }
 
-func (a *App) commands() *wonton.App {
-	app := wonton.New("decide").Description("Apply decision models to datasets and save results.").Long(helpText).
-		SetStdin(a.In).SetStdout(a.Out).SetStderr(a.Err).ForceInteractive(false).
-		SetColorEnabled(newResultPrinter(a.Out, "auto", false).color)
-	a.runCommand().attach(app.Command("run").Description("Evaluate input items and save results; --plan previews inputs").
-		Args("skill-or-source?...").Long("Usage: decide run SKILL SOURCES... [flags]\nUse --skill NAME or --pattern NAME to choose the judgment with a flag.\nFiles, directories, URLs, and '-' for stdin can be mixed.\nAdd --plan to preview prepared inputs and questions without model calls."))
-	sources := app.Group("sources").Description("List and preview selected input data")
-	for _, op := range []string{"list", "preview"} {
-		binding := a.sourcesCommand(op)
-		binding.attach(sources.Command(op).Description(map[string]string{"list": "List selected input items", "preview": "Show input data (default: five items)"}[op]).Args("sources?..."))
-	}
-	for _, kind := range []string{"skills", "patterns"} {
-		group := app.Group(kind).Description(map[string]string{"skills": "List and manage reusable question definitions", "patterns": "List and show configurations for run --pattern"}[kind])
-		ops := []string{"list", "show"}
-		if kind == "skills" {
-			ops = append(ops, "new", "edit", "validate", "test")
-		}
-		for _, op := range ops {
-			binding := a.libraryCommand(kind, op)
-			descriptions := map[string]string{
-				"list": "List available skills", "show": "Show a skill's description, parameters, and documentation",
-				"new": "Create a skill by copying an existing one", "edit": "Edit a skill using VISUAL or EDITOR",
-				"validate": "Validate a skill's configuration", "test": "Validate a skill and its example inputs",
-			}
-			if kind == "patterns" {
-				descriptions = map[string]string{"list": "List available patterns", "show": "Print a pattern's configuration as JSON"}
-			}
-			command := group.Command(op).Description(descriptions[op])
-			if op == "list" {
-				command.Args()
-			} else {
-				command.Args("name")
-			}
-			binding.attach(command)
-		}
-		a.libraryCommand(kind, "list").attachGroup(group)
-	}
-	runs := app.Group("runs").Description("Read and manage saved runs")
-	for _, op := range []string{"list", "view", "show", "watch", "resume", "export"} {
-		binding := a.runsCommand(op)
-		command := runs.Command(op).Description(map[string]string{"list": "List saved runs", "view": "Read saved decisions without model calls", "show": "Show status and counts", "watch": "Watch run status", "resume": "Continue an interrupted run", "export": "Export full JSONL evidence"}[op])
-		if op == "list" {
-			command.Args()
-		} else {
-			command.Args("run-id")
-		}
-		binding.attach(command)
-	}
-	a.runsCommand("list").attachGroup(runs)
-	return app
+// interactiveStdin reports whether stdin is a terminal, where nobody is
+// piping data in.
+func (a *App) interactiveStdin() bool {
+	f, ok := a.Stdin.(*os.File)
+	return ok && tty.IsTerminal(f)
 }
 
-// Wonton reserves bare --color as a toggle. Keep Decide's three-way option
-// by passing it to Wonton in the unambiguous --color=MODE form.
-func normalizeColorArgs(args []string) []string {
-	normalized := make([]string, 0, len(args))
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
-		if arg == "--" {
-			return append(normalized, args[i:]...)
+// Default models, shown in output when no model is chosen.
+var defaultModels = map[string]string{"typesafe": "jev-latest", "cloudflare": "clef"}
+
+// connect builds a client from environment credentials.
+func connect(provider, model string) (*decide.Client, error) {
+	cfg := backend.Config{Provider: backend.Provider(provider), Model: model}
+	switch provider {
+	case "cloudflare":
+		cfg.APIKey = os.Getenv("CLOUDFLARE_AUTH_TOKEN")
+		cfg.AccountID = os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+		cfg.BaseURL = os.Getenv("CLOUDFLARE_BASE_URL")
+		if cfg.APIKey == "" || cfg.AccountID == "" {
+			return nil, cli.Error("Cloudflare credentials are not set").
+				Hint("Set your Workers AI API token and account ID:\n  export CLOUDFLARE_AUTH_TOKEN=...\n  export CLOUDFLARE_ACCOUNT_ID=...")
 		}
-		if arg == "--color" {
-			value := ""
-			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
-				i++
-				value = args[i]
-			}
-			arg += "=" + value
+	default:
+		cfg.APIKey = os.Getenv("TYPESAFE_API_KEY")
+		cfg.BaseURL = os.Getenv("TYPESAFE_BASE_URL")
+		if cfg.APIKey == "" {
+			return nil, cli.Error("TYPESAFE_API_KEY is not set").
+				Hint("Set your TypeSafe API key:\n  export TYPESAFE_API_KEY=...\nTo check your data first without a key, add --dry-run.")
 		}
-		normalized = append(normalized, arg)
 	}
-	return normalized
+	return backend.NewClient(cfg)
 }
