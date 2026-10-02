@@ -246,3 +246,22 @@ func TestUnfinishedRunsAreHidden(t *testing.T) {
 	}
 	r.Discard()
 }
+
+func TestRunsFromOlderVersionsAreReported(t *testing.T) {
+	r := newRun(t, "a")
+	path := filepath.Join(r.Dir, "run.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := bytes.Replace(data, []byte(`"template":`), []byte(`"skill":`), 1)
+	if err := os.WriteFile(path, old, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if all, err := List(); err != nil || len(all) != 0 {
+		t.Fatalf("List = %d runs, %v", len(all), err)
+	}
+	if _, err := Open(r.ID); err == nil || !strings.Contains(err.Error(), "older version of decide") {
+		t.Fatalf("Open(old run) = %v", err)
+	}
+}

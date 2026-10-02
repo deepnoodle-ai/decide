@@ -237,9 +237,10 @@ func load(dir string) (*Run, error) {
 		return nil, fmt.Errorf("%s: %w", dir, err)
 	}
 	r.Dir = dir
-	if r.Template != nil {
-		r.Template.Normalize() // runs saved before input was "text" or "image"
+	if r.Template == nil {
+		return nil, fmt.Errorf("%s was saved by an older version of decide; delete it", dir)
 	}
+	r.Template.Normalize() // runs saved before input was "text" or "image"
 	if r.Status != Running || !r.Active() {
 		r.settle()
 	}
