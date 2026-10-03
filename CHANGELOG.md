@@ -6,6 +6,11 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+### Added
+
+- **`command-risk` and `reply-check`.** Judge a shell command before it
+  runs, and check a coding agent's reply against the tools it ran.
+
 ### Changed
 
 - **Results fit the terminal.** In a terminal, a long score description or
