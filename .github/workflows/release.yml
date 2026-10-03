@@ -18,6 +18,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: The plugin's version matches the tag
+        run: |
+          want="${GITHUB_REF_NAME#v}"
+          have="$(jq -r .version plugin/.claude-plugin/plugin.json)"
+          if [ "$have" != "${want%%-*}" ]; then
+            echo "plugin/.claude-plugin/plugin.json says $have; set it to ${want%%-*} for $GITHUB_REF_NAME"
+            exit 1
+          fi
       - name: Release notes from CHANGELOG.md
         run: scripts/release-notes.sh "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
       - name: go test
