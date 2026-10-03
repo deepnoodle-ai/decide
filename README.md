@@ -166,6 +166,21 @@ covers asking several questions at once, `Pick`, and test fakes in
 rank, and funnel, build common decisions from answers. The
 [examples](examples) show each one in a short program.
 
+## Use it from Claude Code
+
+The decide plugin gives Claude a second opinion. It checks each shell
+command before it runs, content from outside before Claude acts on it, and
+each reply against what the turn's tools showed, and it gives Claude a
+judge tool for its own typed questions. In Claude Code:
+
+```text
+/plugin marketplace add deepnoodle-ai/decide
+/plugin install decide@decide
+```
+
+See [plugin/README.md](plugin/README.md) for what each check does and what
+it sends.
+
 ## Status
 
 Decide is young. Before v1, the library API and the CLI may change in any

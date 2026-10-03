@@ -51,10 +51,11 @@ off, or remove them, as they land.
 
 ## Agents
 
-- [ ] **Claude Code plugin.** An agent skill, installed from this repository
-      with `/plugin marketplace add deepnoodle-ai/decide`, that teaches
-      agents to write templates and run decide. Other agents can use its
-      `SKILL.md` directly.
+- [x] **Claude Code plugin.** Installed with `/plugin marketplace add
+      deepnoodle-ai/decide`: a command check, a content check, a reply
+      check, a judge tool, and a skill that teaches agents to write
+      templates and run decide. Other agents can use its `SKILL.md`
+      directly.
 - [ ] **MCP server.** `decide mcp`, with tools to run a template or ask a
       question.
 
@@ -78,8 +79,8 @@ off, or remove them, as they land.
 - [ ] **Demo.** A short README recording made with VHS.
 - [x] **Recipes.** GitHub Actions reviews, comments, and gates, issue
       labels, GitLab, pre-commit hooks, and CSV exports.
-- [ ] **Agent recipes.** Running decide from an agent, with the Claude
-      Code plugin.
+- [x] **Agent recipes.** The Claude Code plugin, and checking a command
+      before any agent runs it.
 - [ ] **Badges.** CI, Go Reference, and license, once the repository is
       public.
 

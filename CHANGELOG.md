@@ -10,6 +10,9 @@ may change the library API and the CLI.
 
 - **`command-risk` and `reply-check`.** Judge a shell command before it
   runs, and check a coding agent's reply against the tools it ran.
+- **A Claude Code plugin.** `/plugin marketplace add deepnoodle-ai/decide`
+  checks Claude's shell commands, content from outside, and replies, and
+  gives Claude a judge tool. Needs Claude Code 2.1.287 or later.
 
 ### Changed
 
