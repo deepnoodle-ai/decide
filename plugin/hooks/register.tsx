@@ -378,7 +378,10 @@ async function check($: EngineInterface, name: CheckName, input: Record<string, 
     if (await $.fs.exists(dir)) return fail($, name, now, `${dir} replaces decide's built-in ${template}. Remove it to turn the check back on.`)
   }
 
-  const { argv, init } = request(runner, { template, records: [input], field, timeoutMs })
+  // Past what decide reads, the input goes on unchecked; like a slow answer,
+  // it must not turn the check off.
+  const { argv, init, isTooLarge } = request(runner, { template, records: [input], field, timeoutMs })
+  if (isTooLarge) return skip($)
   let ran
   try {
     ran = await $.process.run(argv, init)

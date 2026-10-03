@@ -49,7 +49,7 @@ These go to the decision model's provider, with your key:
 - each shell command Claude runs;
 - each result the content check reads, whole: web pages, search results,
   `gh` and `curl` output, and every MCP tool's result, private connectors
-  included;
+  included. A result over 64 MiB goes on unchecked;
 - each final reply, with the first 800 characters of each tool result in
   that turn, up to 12,000 characters in all. A tool result can be a file's
   contents, such as a `.env` file Claude read.

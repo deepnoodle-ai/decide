@@ -71,13 +71,16 @@ ignored by git.
 ### How a check runs
 
 ```
-tool.call (Bash) ──▶ decide run command-risk --field command --json   (stdin: one JSONL record)
+tool.call (Bash) ──▶ decide run command-risk --field command --json   (stdin: a JSON array of one record)
                      env DECIDE_HOME=~/.decide/agent, timeout 10 s
         answer ◀──── {"index":0,"status":"complete","answers":{"destructive":{"noul":0.93},...}}
 ```
 
-Each check sends one JSONL record on stdin and reads one JSON line back. The
-module never runs a shell: `$.process.run` takes an argv.
+Each check sends a JSON array of one record on stdin and reads one JSON line
+back. decide reads an array up to 64 MiB and judges a long item whole, in
+parts; JSONL would stop at 1 MiB a line. A larger input goes on unchecked,
+and the check stays on. The module never runs a shell: `$.process.run`
+takes an argv.
 
 | Check | Hook | Template | Record | Flagged when | Action |
 | --- | --- | --- | --- | --- | --- |

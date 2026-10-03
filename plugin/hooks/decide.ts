@@ -43,18 +43,25 @@ export type Run = {
   timeoutMs: number
 }
 
-/** The longest text sent in one field; decide judges a long item in parts. */
-const MAX_FIELD = 200_000
+/** The most decide reads from stdin as one JSON document, in bytes. */
+const MAX_STDIN = 64 << 20
 
-/** The command for a run: its argv and what `$.process.run` takes beside it. */
+/**
+ * The command for a run: its argv and what `$.process.run` takes beside it.
+ * The records go as one JSON array, which decide reads up to 64 MiB, and it
+ * judges a long item whole, in parts. JSONL would stop at 1 MiB a line.
+ * Past 64 MiB, `isTooLarge` is set and the run should not start.
+ */
 export function request(runner: Runner, run: Run) {
-  const stdin = run.records.map(r => JSON.stringify(r, (k, v) => (typeof v === 'string' ? v.slice(0, MAX_FIELD) : v))).join('\n') + '\n'
+  // "[" alone on the first line makes decide read a document, not JSONL.
+  const stdin = `[\n${run.records.map(r => JSON.stringify(r)).join(',\n')}\n]\n`
   const field = run.field ? ['--field', run.field] : []
   return {
     argv: [runner.bin, 'run', run.template, ...field, '--json'],
     // decide reads .decide/templates in its working directory first. Running
     // it from the plugin's own folder keeps a repository's templates out.
     init: { stdin, cwd: runner.home, env: { DECIDE_HOME: runner.home }, timeoutMs: run.timeoutMs },
+    isTooLarge: stdin.length * 3 > MAX_STDIN && new TextEncoder().encode(stdin).length > MAX_STDIN,
   }
 }
 
