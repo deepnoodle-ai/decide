@@ -1,6 +1,6 @@
 # The decide plugin for Claude Code
 
-**Status:** In Review
+**Status:** In Review (revised after the PRD review)
 **Author:** Curtis Myzie, with Claude
 **Date:** 2026-10-02
 **Workflow:** Prototype → spec → build. A prototype mod ran live in Claude
@@ -49,7 +49,7 @@ plugin/
   hooks/register.tsx                every hook and every $ call
   hooks/decide.ts                   argv and stdin for a run; reading --json output
   hooks/judge.ts                    the judge tool's schema, input check, template, report
-  hooks/templates.ts                the built-in template names the plugin runs
+  hooks/templates.ts                the built-in templates the plugin runs, their questions and flags
   types/index.d.ts                  the $.state contract: the log and the band's notice
   skills/decide/SKILL.md            running decide and writing templates
   tests/register.test.ts            the use cases, with decide faked beneath the plugin
@@ -71,7 +71,7 @@ ignored by git.
 
 ```
 tool.call (Bash) ──▶ decide run command-risk --field command --json   (stdin: one JSONL record)
-                     env DECIDE_HOME=~/.decide/agent, timeout 30 s
+                     env DECIDE_HOME=~/.decide/agent, timeout 10 s
         answer ◀──── {"index":0,"status":"complete","answers":{"destructive":{"noul":0.93},...}}
 ```
 
@@ -80,20 +80,31 @@ module never runs a shell: `$.process.run` takes an argv.
 
 | Check | Hook | Template | Record | Flagged when | Action |
 | --- | --- | --- | --- | --- | --- |
-| Command | `tool.call` on `Bash`, before `next` | `command-risk`, `--field command` | `{"command"}` | `destructive` or `leak` ≥ threshold | see below |
-| Content | `tool.call` on WebFetch, WebSearch, `mcp__*` but our own, and Bash with `gh`, `curl`, `wget`, `http`; after `next` | `prompt-injection`, `--field text` | `{"text"}`, results of 80+ characters | `injection` or `hidden` ≥ threshold | add a `context` note to the result; toast |
-| Reply | `turn.complete`, main loop, reason `answer`, after a turn with tool calls | `reply-check` | `{"reply", "tools"}` | `overclaims` or `unverified` ≥ threshold | set the band's notice; toast |
+| Command | `tool.call` on `Bash`, before `next` | `command-risk`, `--field command` | `{"command"}` | `destructive` or `leak` ≥ 80% | see below |
+| Content | `tool.call` on WebFetch, WebSearch, `mcp__*` but our own, and Bash with `gh`, `curl`, `wget`, `http`; after `next` | `prompt-injection`, `--field text` | `{"text"}`, results of 80+ characters | `injection` or `hidden` ≥ 60% | add a `context` note to the result; toast |
+| Reply | `turn.complete`, main loop, reason `answer`, after a turn with tool calls, in an interactive terminal or desktop session | `reply-check` | `{"reply", "tools"}` | `overclaims` ≥ 70% or `unverified` ≥ 80% | set the band's notice; toast |
+
+The percentages are the templates' own flags. `hooks/templates.ts` repeats
+them, and a Go test holds the two in step (below).
 
 The command check's action, when flagged and `commands` is `ask`:
 
 1. Ask the engine what it would decide: `$.tool.check({ tool: 'Bash', input })`.
 2. `deny`: pass the call on; the engine refuses it.
-3. `ask`: put decide's line under the engine's dialog with `$.ui.notice`, and
-   pass the call on. One dialog.
-4. `allow` (a rule, `auto`, `bypassPermissions`): ask with `$.ui.ask`.
-   **Run it** passes the call on. Anything else returns `{ deny }` with
-   decide's reason and the person's words. A rejected ask (no one to ask,
-   as in `claude -p`) returns `{ deny }`.
+3. `ask`, in a mode where a person answers: put decide's line under the
+   engine's dialog with `$.ui.notice`, and pass the call on. One dialog.
+4. `allow` (a rule or `bypassPermissions`), or `ask` in `auto` mode, where
+   the auto-mode classifier answers instead of a person: ask with
+   `$.ui.ask`. **Run it** passes the call on (in `auto`, the classifier then
+   still decides). Anything else returns `{ deny }` with decide's reason and
+   the person's words. A rejected ask returns `{ deny }` that says the user
+   dismissed the question, or, in a session with no one at the prompt, that
+   no one could approve it.
+
+`tool.call` does not carry the permission mode. `classic.UserPromptSubmit`
+does, as `permission_mode`, so the plugin keeps the latest value. A mode
+switched mid-turn takes effect at the next prompt; before the first prompt
+the mode is unknown and the plugin asks itself, as in step 4.
 
 With `commands` set to `deny`, a flagged command returns `{ deny }` at once.
 
@@ -130,7 +141,7 @@ repeated question reuse its folder. Every question's instructions end with
 `reply-check` asks two `noul` questions about one JSON record:
 `overclaims` (the reply claims more than `tools` shows) and `unverified`
 (code changed and nothing checked it). It flags `overclaims` at 70% and
-`unverified` at 80% in the CLI. The plugin uses its own threshold.
+`unverified` at 80%, in the CLI and in the plugin alike.
 
 The instructions are the prototype's, tuned on the cases in the PRD, with
 the reply check rewritten to read the record's fields.
@@ -140,13 +151,19 @@ the reply check rewritten to read the record's fields.
 - `hooks/templates.ts` lists the template names the plugin runs. A Go test,
   `TestPluginTemplatesAreBuiltin` in `internal/template`, reads that file
   and loads each name as a built-in.
+- `hooks/templates.ts` also gives each question's flag. The same Go test
+  checks that each one matches the template's flag, and that a question the
+  plugin reads but never flags (`external`) has no flag.
 - `plugin.json`'s `version` is the decide release the plugin needs. Claude
-  Code updates an installed plugin only when this version changes, so a
-  user never gets a plugin that names templates their binary lacks, once
-  they upgrade decide. The release workflow fails when the tag is not
-  `v` + that version. docs/releasing.md says to set it.
-- When decide answers "not found" for a template, the plugin's one-line
-  notice says to upgrade decide.
+  Code updates an installed plugin when this version changes, and only
+  then; auto-update is off by default for third-party marketplaces, so most
+  users update by hand. The version therefore does not keep the two in step
+  by itself. It names what the plugin needs: when decide answers "no
+  template named" for one of its templates, the plugin's line reads "this
+  plugin needs decide 0.2.0 or later. Update it with: brew upgrade decide",
+  with the version read from `plugin.json`.
+- The release workflow fails when the tag is not `v` + that version.
+  docs/releasing.md says to set it.
 
 ### CI
 
@@ -155,6 +172,10 @@ the plugin is tested with, then `claude plugin validate .`,
 `claude plugin validate plugin`, and `claude plugin test plugin`. The tests
 fake `process.run`, so no provider key is needed. The pinned version is
 raised on purpose, like goreleaser's.
+
+`TestLiveDemoFlags` (`-tags live`) runs both templates on the demo
+fixtures against the real API and checks which lines are flagged. CI does
+not run it; it needs a key.
 
 ## Alternatives considered
 
@@ -181,9 +202,9 @@ raised on purpose, like goreleaser's.
 ## Tradeoffs and consequences
 
 - **Latency.** Every Bash call waits for one decide request before it runs,
-  and every turn with tools waits for one more at its end. Measured at about
-  0.2 s for one record (PRD Context). A slow provider makes every command
-  slow; the 30 s timeout then fails open.
+  and every turn with tools waits for one more at its end: 0.15–0.26 s and
+  0.19–0.56 s in the PRD's measurements. A hung provider holds one command
+  for the 10 s timeout; then the checks stay off for a minute.
 - **Requests and cost.** One request per Bash call, per screened result,
   and per turn with tools, on the person's own key.
 - **Two tool chains.** Claude Code's early-access mods API and TypeScript
@@ -217,24 +238,35 @@ raised on purpose, like goreleaser's.
 
 ## Failure modes
 
-| Failure | What the person sees | What happens |
-| --- | --- | --- |
-| decide is not on PATH | One transcript line: decide could not run; install with Homebrew | Checks skipped for the session |
-| No key, or a provider error | One line with decide's last error | Checks skipped while it fails |
-| decide is older than the plugin | One line: update decide | Checks skipped |
-| A request takes over 30 s | One line | That check is skipped |
-| A judge call fails | Claude reads the error | Claude goes on without it |
+Every failure of a check does the same thing: the action goes on, the
+status line reads `decide · not checking`, the first failure of the session
+writes one transcript line, and the checks stay off for a minute, then try
+again. The line says what to do:
+
+| Failure | The line |
+| --- | --- |
+| decide is not on PATH | decide could not run. Install it with: brew install deepnoodle-ai/tap/decide |
+| No key | decide's own error: TYPESAFE_API_KEY is not set |
+| A provider error | decide's own error |
+| decide is older than the plugin | this plugin needs decide 0.2.0 or later. Update it with: brew upgrade decide |
+| No answer within 10 s (commands) or 20 s (content, replies) | decide took longer than 10 seconds |
+
+A judge call that fails returns the error to Claude, which goes on without
+it. It does not turn the checks off.
 
 ## Rollout
 
-The plugin lands on main with version `0.2.0`, the next release. Until
-`v0.2.0` is tagged, users with `decide v0.1.0` see the "update decide"
-line. The release adds the two templates to Homebrew users and the plugin
-to marketplace users at once. The README and docs/recipes.md point to the
+The plugin lands on main with version `0.2.0`, the next release. Tag
+`v0.2.0` the day this merges: a marketplace install reads main, so until
+the tag a new user has decide 0.1.0 and sees the line that names 0.2.0,
+with no 0.2.0 to install. The README and docs/recipes.md point to the
 plugin; the roadmap item is checked off.
 
 ## Open questions
 
-- **Does `claude plugin test` run in CI without a Claude login?** The tests
-  call no model. Leaning yes; check it with a clean config directory during
-  the build, and drop the CI job to `validate` alone if not.
+- **Does `claude plugin test` run in CI without a Claude login?** Locally,
+  with an empty config directory and no keys, validate and test pass. Once,
+  after that run, a later run reported that mods were "turned off in this
+  process: the rollout switch was saved off", until one `claude -p` with
+  network access refreshed it. The PR's CI run settles it; if the switch
+  blocks a fresh runner, the job keeps `validate` and drops `test`.
