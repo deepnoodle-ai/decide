@@ -1,0 +1,15 @@
+{
+  "name": "decide",
+  "description": "decide for Claude Code: a second opinion from a decision model",
+  "owner": {
+    "name": "Deep Noodle",
+    "url": "https://deepnoodle.ai"
+  },
+  "plugins": [
+    {
+      "name": "decide",
+      "source": "./plugin",
+      "description": "Checks shell commands before they run, content from outside before Claude acts on it, and each reply against what the turn's tools showed, and gives Claude a judge tool for typed questions."
+    }
+  ]
+}
