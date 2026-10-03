@@ -52,7 +52,9 @@ export function request(runner: Runner, run: Run) {
   const field = run.field ? ['--field', run.field] : []
   return {
     argv: [runner.bin, 'run', run.template, ...field, '--json'],
-    init: { stdin, env: { DECIDE_HOME: runner.home }, timeoutMs: run.timeoutMs },
+    // decide reads .decide/templates in its working directory first. Running
+    // it from the plugin's own folder keeps a repository's templates out.
+    init: { stdin, cwd: runner.home, env: { DECIDE_HOME: runner.home }, timeoutMs: run.timeoutMs },
   }
 }
 
@@ -92,6 +94,11 @@ export function flaggedOf(answers: Record<string, Answer>, flags: Readonly<Recor
     .sort((a, b) => yes(answers, b) - yes(answers, a))
 }
 
+/** The questions the plugin reads that have no yes-or-no answer. */
+export function missingOf(answers: Record<string, Answer>, flags: Readonly<Record<string, number | null>>): string[] {
+  return Object.keys(flags).filter(name => answers[name]?.type !== 'noul')
+}
+
 /** The probability of yes, or 0 for a missing or non-yes-or-no answer. */
 export function yes(answers: Record<string, Answer>, name: string): number {
   const a = answers[name]
@@ -118,15 +125,32 @@ export function phrase(a: Answer): string {
   }
 }
 
+/** Terminal escape sequences: CSI (colors, cursor moves) and OSC (titles, links). */
+const ESCAPES = /\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b\][^\u0007\u001b]*(\u0007|\u001b\\)?/g
+
+/**
+ * Characters a terminal acts on or a reader cannot see: C0 and C1 controls,
+ * zero-width and bidirectional marks, invisible operators, the byte-order
+ * mark, the soft hyphen, and tag characters. Line breaks are handled apart.
+ */
+const UNSEEN = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u00ad\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff\u{e0000}-\u{e007f}]+/gu
+
 /**
  * A text on one line, cut to `max` characters, with control characters
  * removed: commands, tool output, and errors are not ours to print as is.
  */
 export function oneLine(text: string, max = 80): string {
-  const flat = text
-    .replace(/\u001b\[[0-9;?]*[ -/]*[@-~]/g, '')
-    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+  const flat = text.replace(ESCAPES, '').replace(UNSEEN, ' ').replace(/\s+/g, ' ').trim()
   return flat.length > max ? flat.slice(0, max - 1) + '…' : flat
+}
+
+/**
+ * A text as the person should see it in a dialog: its lines kept, control
+ * characters removed, and, past `max` characters, a note of how much is not
+ * shown, so the end of a long command cannot hide.
+ */
+export function printable(text: string, max = 2000): string {
+  const clean = text.replace(ESCAPES, '').replace(/\r\n?/g, '\n').replace(UNSEEN, ' ').trim()
+  if (clean.length <= max) return clean
+  return `${clean.slice(0, max)}\n… and ${clean.length - max} more characters, not shown here`
 }

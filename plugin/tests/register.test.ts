@@ -26,9 +26,9 @@ type Answers = (template: string, text: string) => Record<string, unknown> | und
  * by the template's name (or its folder's, for a path), one JSON line per
  * stdin record, and keeps each run with the text the model would read.
  */
-function fakeDecide(on: On, answers: Answers) {
-  const runs: { argv: readonly string[]; texts: string[]; home?: string; timeoutMs?: number }[] = []
-  const shown = session(on)
+function fakeDecide(on: On, answers: Answers, files: readonly string[] = []) {
+  const runs: { argv: readonly string[]; texts: string[]; home?: string; cwd?: string; timeoutMs?: number }[] = []
+  const shown = session(on, files)
   on('process.run', ($, e) => {
     const template = String(e.argv[2]).split('/').pop() ?? ''
     const at = e.argv.indexOf('--field')
@@ -38,7 +38,7 @@ function fakeDecide(on: On, answers: Answers) {
       .filter(Boolean)
       .map(l => JSON.parse(l) as Record<string, unknown>)
       .map(r => (field ? String(r[field]) : JSON.stringify(r)))
-    runs.push({ argv: e.argv, texts, home: e.init?.env?.DECIDE_HOME, timeoutMs: e.init?.timeoutMs })
+    runs.push({ argv: e.argv, texts, home: e.init?.env?.DECIDE_HOME, cwd: e.init?.cwd, timeoutMs: e.init?.timeoutMs })
     const stdout = texts
       .map((text, index) => JSON.stringify({ index, status: 'complete', answers: answers(template, text) ?? {} }))
       .join('\n')
@@ -47,14 +47,34 @@ function fakeDecide(on: On, answers: Answers) {
   return Object.assign(runs, { shown })
 }
 
-/** The session the engine would give the mod: its start, its registrations, and a screen. */
-function session(on: On) {
+/**
+ * The session the engine would give the plugin: its start, its
+ * registrations, a screen, and a file system where the plugin's folder
+ * exists and nothing else does, but for the paths in `files`.
+ */
+function session(on: On, files: readonly string[] = []) {
   mock.env(on, { HOME: '/home/me' })
   const clock = mock.clock(on)
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('tool.register', ($, e) => ({ value: { tool: `mcp__decide__${e.name}` } }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
-  const shown = { clock, notices: [] as string[], toasts: [] as string[], statuses: [] as (string | undefined)[] }
+  const shown = {
+    clock,
+    notices: [] as string[],
+    toasts: [] as string[],
+    statuses: [] as (string | undefined)[],
+    logged: [] as string[],
+    written: [] as { path: string; text: string }[],
+  }
+  on('fs.exists', ($, e) => ({ value: e.path === '/home/me/.decide/agent' || files.includes(e.path) }))
+  on('fs.write', ($, e) => {
+    shown.written.push({ path: e.path, text: e.text })
+    return { value: undefined }
+  })
+  on('ui.log', ($, e) => {
+    if (e.to !== 'debug') shown.logged.push(e.text)
+    return { value: undefined }
+  })
   on('ui.status', ($, e) => {
     shown.statuses.push(e.text)
     return { value: undefined }
@@ -135,14 +155,9 @@ describe('register', () => {
   })
 
   test('when decide cannot run, commands still run and the session hears it once', async ($, on) => {
-    session(on)
-    const logged: string[] = []
+    const { logged } = session(on)
     const ran: string[] = []
     on('process.run', () => ({ deny: 'decide: command not found' }))
-    on('ui.log', ($, e) => {
-      logged.push(e.text)
-      return { value: undefined }
-    })
     on('tool.call', { tool: 'Bash' }, ($, e) => {
       ran.push(e.command)
       return { result: { stdout: '', stderr: '', interrupted: false } }
@@ -153,7 +168,9 @@ describe('register', () => {
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't5' })
 
     expect(ran).toEqual(['rm -rf build', 'ls'])
-    expect(logged.filter(l => l.includes('decide is not answering'))).toHaveLength(1)
+    expect(logged).toEqual([
+      "decide's command check is off for now: decide could not run. Install it with: brew install deepnoodle-ai/tap/decide",
+    ])
   })
 
   test('fetched text that looks like prompt injection reaches Claude with a warning', async ($, on) => {
@@ -214,11 +231,7 @@ describe('register', () => {
           }
         : undefined,
     )
-    const written: { path: string; text: string }[] = []
-    on('fs.write', ($, e) => {
-      written.push({ path: e.path, text: e.text })
-      return { value: undefined }
-    })
+    const { written } = runs.shown
 
     await $.session.start(SESSION)
     const out = await $.tool.call({
@@ -349,21 +362,16 @@ describe('register', () => {
   })
 
   test('an old decide without the templates says to update it', async ($, on) => {
-    session(on)
-    const logged: string[] = []
+    const { logged } = session(on)
     on('process.run', () => ({
       value: { exitCode: 1, stdout: '', stderr: 'Error: There is no template named "command-risk"\n\nHint: See the templates with: decide templates\n', isStdoutTruncated: false, isStderrTruncated: false },
     }))
-    on('ui.log', ($, e) => {
-      logged.push(e.text)
-      return { value: undefined }
-    })
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't20' })
 
-    expect(logged).toEqual(['decide is not answering, so its checks are off for now: this plugin needs decide 0.2.0 or later. Update it with: brew upgrade decide'])
+    expect(logged).toEqual(["decide's command check is off for now: this plugin needs decide 0.2.0 or later. Update it with: brew upgrade decide"])
   })
 
   test('in auto mode, where a classifier answers Claude Code\'s asks, decide asks the person', async ($, on) => {
@@ -416,24 +424,136 @@ describe('register', () => {
     expect(runs.filter(r => r.argv[2] === 'reply-check')).toEqual([])
   })
 
-  test('after decide fails, the checks stay off for a minute and the status line says so', async ($, on) => {
+  test('after decide fails, that check stays off for a minute and the status line says so', async ($, on) => {
     const shown = session(on)
     let tries = 0
     on('process.run', () => {
       tries += 1
       return { deny: 'decide: no such file' }
     })
-    on('ui.log', () => ({ value: undefined }))
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't24' })
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't25' })
     expect(tries, 'the second command did not wait for decide').toBe(1)
-    expect(shown.statuses).toContain('decide · not checking')
+    expect(shown.statuses.at(-1)).toBe('decide · 0 checked · 2 not checked · a check is off: /decide')
 
     await shown.clock.advance(61_000)
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't26' })
     expect(tries, 'a minute later, the check tries again').toBe(2)
+  })
+
+  test('a template in the plugin\'s folder that would replace the built-in turns the check off, and says so', async ($, on) => {
+    const runs = fakeDecide(on, RISK, ['/home/me/.decide/agent/.decide/templates/command-risk'])
+    const ran: string[] = []
+    on('tool.call', { tool: 'Bash' }, ($, e) => {
+      ran.push(e.command)
+      return { result: { stdout: '', stderr: '', interrupted: false } }
+    })
+
+    await $.session.start(SESSION)
+    await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: 't30' })
+
+    expect(runs, 'decide was not asked').toEqual([])
+    expect(ran).toEqual(['rm -rf ~/work'])
+    expect(runs.shown.logged[0]).toContain("/home/me/.decide/agent/.decide/templates/command-risk replaces decide's built-in command-risk")
+  })
+
+  test('decide runs from the plugin\'s folder, so a repository\'s templates are not read', async ($, on) => {
+    const runs = fakeDecide(on, RISK)
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
+
+    await $.session.start(SESSION)
+    await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't31' })
+
+    expect(runs[0]?.cwd).toBe('/home/me/.decide/agent')
+    expect(runs[0]?.argv.slice(1, 3)).toEqual(['run', 'command-risk'])
+  })
+
+  test('answers without the questions the check reads turn it off instead of passing everything', async ($, on) => {
+    const runs = fakeDecide(on, () => ({ looks_fine: noul(0.99) }))
+    on('tool.check', () => ({ decision: 'allow' as const }))
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
+
+    await $.session.start(SESSION)
+    await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: 't32' })
+
+    expect(runs.shown.logged).toEqual([
+      "decide's command check is off for now: command-risk did not ask destructive, leak, external, so another template of that name may be replacing decide's built-in.",
+    ])
+  })
+
+  test('a slow content check skips that result but stays on; a slow command check turns off', async ($, on) => {
+    const shown = session(on)
+    let tries = 0
+    on('process.run', () => {
+      tries += 1
+      return { deny: 'timed out after 10000 ms' }
+    })
+    const page = 'x'.repeat(500)
+    on('tool.call', { tool: 'WebFetch' }, () => ({ result: { result: page }, text: page }))
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
+
+    await $.session.start(SESSION)
+    await $.tool.call({ tool: 'WebFetch', url: 'https://a.example/1', prompt: 'p', tool_use_id: 't33' })
+    await $.tool.call({ tool: 'WebFetch', url: 'https://a.example/2', prompt: 'p', tool_use_id: 't34' })
+    expect(tries, 'both pages were sent').toBe(2)
+    expect(shown.logged).toEqual([])
+
+    await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't35' })
+    await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't36' })
+    expect(tries, 'the second command did not wait').toBe(3)
+    expect(shown.logged).toEqual(["decide's command check is off for now: decide took longer than 10 seconds"])
+  })
+
+  test('a command Monitor runs is checked like a Bash command', async ($, on) => {
+    const runs = fakeDecide(on, RISK)
+    on('tool.check', () => ({ decision: 'allow' as const }))
+    on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => {
+      const q = (e.questions as { question: string }[])[0]!
+      return { result: { questions: e.questions, answers: { [q.question]: "Don't run it" } } }
+    })
+    on('tool.call', { tool: 'Monitor' }, () => ({ result: { taskId: 'm1', timeoutMs: 1000 } }))
+
+    await $.session.start(SESSION)
+    const out = await $.tool.call({ tool: 'Monitor', description: 'watch', timeout_ms: 1000, command: 'rm -rf ~/work && tail -f log', tool_use_id: 't37' })
+
+    expect(runs[0]?.texts).toEqual(['rm -rf ~/work && tail -f log'])
+    expect(String(out.text ?? out.deny)).toContain('The user chose not to run it')
+  })
+
+  test('the question shows the whole command, and says how much a long one leaves out', async ($, on) => {
+    fakeDecide(on, RISK)
+    let asked = ''
+    on('tool.check', () => ({ decision: 'allow' as const }))
+    on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => {
+      const q = (e.questions as { question: string }[])[0]!
+      asked = q.question
+      return { result: { questions: e.questions, answers: { [q.question]: "Don't run it" } } }
+    })
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
+
+    await $.session.start(SESSION)
+    const command = `echo ${'a'.repeat(2100)}\nrm -rf ~/work \u001b[2K`
+    await $.tool.call({ tool: 'Bash', command, tool_use_id: 't38' })
+
+    expect(asked).toMatch(/\n… and 1\d\d more characters, not shown here\n/)
+    expect(asked).not.toContain('\u001b')
+  })
+
+  test('a judge call over the size limit says to split it', async ($, on) => {
+    const runs = fakeDecide(on, RISK)
+
+    await $.session.start(SESSION)
+    const out = await $.tool.call({
+      tool: 'mcp__decide__judge',
+      tool_use_id: 't39',
+      items: ['x'.repeat(600_000), 'y'.repeat(600_000)],
+      questions: [{ name: 'ok', type: 'noul', question: 'Is it fine?' }],
+    })
+
+    expect(String(out.result)).toBe('Error: Judge at most 1,000,000 characters in one call. Split the items into several calls.')
+    expect(runs).toEqual([])
   })
 })

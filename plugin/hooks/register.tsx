@@ -2,19 +2,23 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Judgment, Notice } from '../types'
-import { flaggedOf, oneLine, outcomeOf, pct, request, yes } from './decide'
-import type { Answer, Outcome, Run, Runner } from './decide'
+import { flaggedOf, missingOf, oneLine, outcomeOf, pct, printable, request, yes } from './decide'
+import type { Answer, Runner } from './decide'
 import { DESCRIPTION, NAME, SCHEMA, hashOf, parse, report, templateOf } from './judge'
 import { TEMPLATES } from './templates'
+import type { Flags } from './templates'
 
 const log = atom({ plugin: 'decide', key: 'log' } as const, [] as readonly Judgment[])
 const notice = atom({ plugin: 'decide', key: 'notice' } as const, null as Notice | null)
+
+/** Tools that run a shell command Claude wrote. */
+const SHELLS = ['Bash', 'Monitor', /^PowerShell$/] as const
 
 /** Tools whose results come from outside the project and may carry instructions. */
 const UNTRUSTED = ['WebFetch', 'WebSearch', /^mcp__(?!decide__)/] as const
 
 /** Shell commands whose output usually comes from someone else: issues, pages, APIs. */
-const FETCHES = /(^|[\s|;&(])(gh|curl|wget|http|https)\s/
+const FETCHES = /(^|[\s|;&(`$/])(gh|curl|wget|http|https)(\s|$)/
 
 /** How much of a turn's tool calls the reply check reads, newest kept. */
 const EVIDENCE_CHARS = 12_000
@@ -31,7 +35,7 @@ const CHECK_MS = 20_000
 /** How long a judge call waits for decide. */
 const JUDGE_MS = 120_000
 
-/** After decide fails, how long the checks stay off before they try again. */
+/** After decide fails, how long that check stays off before it tries again. */
 const RETRY_MS = 60_000
 
 /** What the command check says, by question, when it flags one. */
@@ -39,6 +43,8 @@ const COMMAND_RISKS: Record<string, string> = {
   destructive: 'likely to destroy work that is hard to get back',
   leak: 'likely to expose secrets or private data',
 }
+
+type CheckName = keyof typeof TEMPLATES
 
 /** One tool call of the turn, as the reply check reads it. */
 type ToolCall = { tool: string; input: string; result: string; error?: true }
@@ -49,14 +55,18 @@ const config = { commands: 'ask', bin: 'decide' }
 /** The session as the checks need it: who can answer, where it draws, and its permission mode. */
 const session = { isInteractive: false, surface: null as string | null, mode: undefined as string | undefined }
 
-/** DECIDE_HOME for the plugin's runs, kept apart from the person's own. */
+/** DECIDE_HOME for the plugin's runs, and decide's working directory. */
 let home: string | undefined
 
-/** Whether this load has said that decide is not answering. */
-let isWarned = false
+/** Each check's state after a failure: until when it stays off, and why. */
+const health: Record<CheckName, { offUntil: number; reason: string }> = {
+  command: { offUntil: 0, reason: '' },
+  content: { offUntil: 0, reason: '' },
+  reply: { offUntil: 0, reason: '' },
+}
 
-/** Until when the checks stay off after decide failed, in milliseconds since the epoch. */
-let offUntil = 0
+/** How many actions went on without a check this session. */
+let unchecked = 0
 
 /** What the main loop's tools did this turn, for the reply check. */
 let calls: ToolCall[] = []
@@ -64,8 +74,7 @@ let calls: ToolCall[] = []
 export const register: Register = (on, options) => {
   config.commands = String(options.commands ?? 'ask')
   config.bin = String(options.decidePath ?? 'decide')
-  isWarned = false
-  offUntil = 0
+  for (const h of Object.values(health)) Object.assign(h, { offUntil: 0, reason: '' })
 
   on('session.start', async ($, e, next) => {
     session.isInteractive = e.isInteractive
@@ -97,12 +106,16 @@ export const register: Register = (on, options) => {
     if (typeof parsed === 'string') return { result: `Error: ${parsed}` }
 
     // The questions become a template, in a folder named by their hash.
+    const runner = await runnerOf($)
     const template = JSON.stringify(templateOf(parsed.questions), null, 2)
-    const dir = `${await runnerOf($).then(r => r.home)}/judge/${await hashOf(template)}`
+    const dir = `${runner.home}/judge/${await hashOf(template)}`
     await $.fs.write(`${dir}/template.json`, template + '\n')
 
-    const records = parsed.items.map(text => ({ text }))
-    const out = await run($, { template: dir, records, field: 'text', timeoutMs: JUDGE_MS }, { isJudge: true })
+    const { argv, init } = request(runner, { template: dir, records: parsed.items.map(text => ({ text })), field: 'text', timeoutMs: JUDGE_MS })
+    const out = await $.process
+      .run(argv, init)
+      .then(ran => outcomeOf(parsed.items.length, ran))
+      .catch(err => ({ isAnswered: false as const, reason: failureOf(err, JUDGE_MS) }))
     const text = report(parsed.items, parsed.questions, out)
     if (!out.isAnswered) return { result: `Error: ${text}` }
 
@@ -117,15 +130,17 @@ export const register: Register = (on, options) => {
   })
 
   // The command check: a second opinion on each shell command before it runs.
-  on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
-    if (config.commands === 'off') return next(e)
+  on('tool.call', { tool: SHELLS }, async ($, e, next) => {
+    const { tool, tool_use_id, agentId, ...input } = e as { tool: string; tool_use_id?: string; agentId?: string; command?: unknown }
+    const command = input.command
+    if (config.commands === 'off' || typeof command !== 'string' || !command.trim()) return next(e)
 
-    const { name, flags } = TEMPLATES.command
-    const answers = answersOf(await run($, { template: name, records: [{ command: e.command }], field: 'command', timeoutMs: COMMAND_MS }))
+    const answers = await check($, 'command', { command }, 'command', COMMAND_MS)
     if (answers === undefined) return next(e)
 
+    const { flags } = TEMPLATES.command
     const flagged = flaggedOf(answers, flags)
-    await record($, { kind: 'command', subject: oneLine(e.command), verdict: verdictOf(answers, flags), isFlagged: flagged.length > 0 })
+    await record($, { kind: 'command', subject: oneLine(command), verdict: verdictOf(answers, flags), isFlagged: flagged.length > 0 })
     if (flagged.length === 0) return next(e)
 
     const why = flagged.map(q => `${pct(yes(answers, q))} ${COMMAND_RISKS[q] ?? `likely: ${q}`}`).join(', and ')
@@ -136,12 +151,12 @@ export const register: Register = (on, options) => {
 
     // When Claude Code will put the call to the person, add decide's line to
     // that dialog. In auto mode its ask goes to a classifier, not a person.
-    const engine = await $.tool.check({ tool: 'Bash', input: { command: e.command } }).catch(() => undefined)
+    const engine = await $.tool.check({ tool, input }).catch(() => undefined)
     if (engine?.decision === 'deny') return next(e)
     if (engine?.decision === 'ask' && session.mode !== undefined && session.mode !== 'auto') {
-      if (e.tool_use_id) {
+      if (tool_use_id) {
         try {
-          $.ui.notice(e.tool_use_id, `decide: ${why}`)
+          $.ui.notice(tool_use_id, `decide: ${why}`)
         } catch {
           // The dialog draws without the line.
         }
@@ -149,10 +164,10 @@ export const register: Register = (on, options) => {
       return next(e)
     }
 
-    // Nobody else will ask the person: ask here.
+    // Nobody else will ask the person: ask here, with the whole command.
     let choice: string
     try {
-      choice = await $.ui.ask(`decide judged this command ${why}:\n\n  ${oneLine(e.command, 200)}\n\nRun it?`, {
+      choice = await $.ui.ask(`decide judged this command ${why}:\n\n${printable(command)}\n\nRun it?`, {
         header: 'decide',
         options: ['Run it', "Don't run it"],
       })
@@ -171,12 +186,12 @@ export const register: Register = (on, options) => {
     if (e.tool === 'Bash' && !FETCHES.test(e.command)) return ran
     if (ran.deny !== undefined || ran.isError || !ran.text || ran.text.length < 80) return ran
 
-    const { name, flags } = TEMPLATES.content
-    const answers = answersOf(await run($, { template: name, records: [{ text: ran.text }], field: 'text', timeoutMs: CHECK_MS }))
+    const answers = await check($, 'content', { text: ran.text }, 'text', CHECK_MS)
     if (answers === undefined) return ran
 
+    const { flags } = TEMPLATES.content
     const flagged = flaggedOf(answers, flags)
-    const tool = String(e.tool)
+    const tool = oneLine(String(e.tool), 60)
     const subject = e.tool === 'Bash' ? oneLine(e.command) : `${tool} ${oneLine(subjectOf(e), 60)}`
     await record($, { kind: 'content', subject, verdict: verdictOf(answers, flags), isFlagged: flagged.length > 0 })
     if (flagged.length === 0) return ran
@@ -213,10 +228,10 @@ export const register: Register = (on, options) => {
     const isShown = session.isInteractive && (session.surface === 'terminal' || session.surface === 'desktop')
     if (!isShown || e.agentId !== undefined || e.reason !== 'answer' || calls.length === 0 || !e.answer.trim()) return done
 
-    const { name, flags } = TEMPLATES.reply
-    const answers = answersOf(await run($, { template: name, records: [{ reply: e.answer, tools: newest(calls) }], timeoutMs: CHECK_MS }))
+    const answers = await check($, 'reply', { reply: e.answer, tools: newest(calls) }, undefined, CHECK_MS)
     if (answers === undefined) return done
 
+    const { flags } = TEMPLATES.reply
     const flagged = flaggedOf(answers, flags)
     await record($, { kind: 'reply', subject: oneLine(e.answer), verdict: verdictOf(answers, flags), isFlagged: flagged.length > 0 })
     if (flagged.length === 0) return done
@@ -253,9 +268,18 @@ export const register: Register = (on, options) => {
     const all = (await read($, log)) ?? []
     const { home } = await runnerOf($)
     const saved = `Every check is saved as a decide run. See them with: DECIDE_HOME=${home} decide runs`
+    const off = (Object.keys(health) as CheckName[])
+      .filter(name => health[name].reason)
+      .map(name => `The ${name} check is off: ${health[name].reason}`)
+    const skipped = unchecked ? [`${unchecked} action${unchecked === 1 ? '' : 's'} went on without a check.`] : []
     if (all.length === 0) {
       return {
-        text: `decide has checked nothing in this session yet. It checks shell commands before they run, content from outside, and Claude's replies.\n${saved}`,
+        text: [
+          "decide has checked nothing in this session yet. It checks shell commands before they run, content from outside, and Claude's replies.",
+          ...off,
+          ...skipped,
+          saved,
+        ].join('\n'),
       }
     }
     const rows = all.slice(-15).map(j => `${j.isFlagged ? '!' : ' '} ${j.kind.padEnd(7)} ${oneLine(j.subject, 50).padEnd(50)}  ${j.verdict}`)
@@ -266,6 +290,8 @@ export const register: Register = (on, options) => {
         '',
         ...rows,
         '',
+        ...off,
+        ...skipped,
         saved,
       ].join('\n'),
     }
@@ -298,70 +324,124 @@ export const register: Register = (on, options) => {
   })
 }
 
-/** Where decide runs, worked out once the session has an environment. */
+/**
+ * Where decide runs, worked out once the session has an environment. The
+ * folder is also decide's working directory, so it must exist.
+ */
 async function runnerOf($: EngineInterface): Promise<Runner> {
   if (home === undefined) {
     const own = await $.env.get('DECIDE_HOME')
-    home = own ? `${own}/agent` : `${(await $.env.get('HOME')) ?? '.'}/.decide/agent`
+    const dir = own ? `${own}/agent` : `${(await $.env.get('HOME')) ?? '.'}/.decide/agent`
+    if (!(await $.fs.exists(dir))) {
+      await $.fs.write(`${dir}/README.txt`, 'Runs and judge templates of the decide plugin for Claude Code.\n')
+    }
+    home = dir
   }
   return { bin: config.bin, home }
 }
 
 /**
- * Runs a decide template on each record. Never rejects, so a caller can fail
- * open. When decide fails, the checks stay off for a minute and the status
- * line says so; a judge call always tries.
+ * Runs one check's template on one record and returns its answers, or
+ * undefined when the action should go on unchecked. Never rejects.
+ *
+ * A check that cannot run turns itself off for a minute and says why. A
+ * slow answer to the content check does not: its input is someone else's,
+ * and must not be able to turn the check off.
  */
-async function run($: EngineInterface, r: Run, opts: { isJudge?: true } = {}): Promise<Outcome> {
+async function check($: EngineInterface, name: CheckName, input: Record<string, unknown>, field: string | undefined, timeoutMs: number): Promise<Record<string, Answer> | undefined> {
+  const { name: template, flags } = TEMPLATES[name]
+  const h = health[name]
   const now = await $.clock.now()
-  if (!opts.isJudge && now < offUntil) return { isAnswered: false, reason: 'off for now' }
+  if (now < h.offUntil) return skip($)
 
-  const { argv, init } = request(await runnerOf($), r)
-  let out: Outcome
+  // decide reads a template of the same name in these folders before its
+  // built-in one, so one there would replace the check.
+  const runner = await runnerOf($)
+  for (const dir of [`${runner.home}/.decide/templates/${template}`, `${runner.home}/templates/${template}`]) {
+    if (await $.fs.exists(dir)) return fail($, name, now, `${dir} replaces decide's built-in ${template}. Remove it to turn the check back on.`)
+  }
+
+  const { argv, init } = request(runner, { template, records: [input], field, timeoutMs })
+  let ran
   try {
-    out = outcomeOf(r.records.length, await $.process.run(argv, init))
+    ran = await $.process.run(argv, init)
   } catch (err) {
-    const reason = /timed out|timeout/i.test(String(err))
-      ? `decide took longer than ${init.timeoutMs / 1000} seconds`
-      : `${config.bin} could not run. Install it with: brew install deepnoodle-ai/tap/decide`
-    out = { isAnswered: false, reason }
+    const reason = failureOf(err, timeoutMs)
+    return isTimeout(err) && name === 'content' ? skip($) : fail($, name, now, reason)
   }
-  if (opts.isJudge) return out
 
-  if (out.isAnswered) {
-    offUntil = 0
-    return out
-  }
-  offUntil = now + RETRY_MS
-  let reason = out.reason
-  if (out.isOutdated) {
+  const out = outcomeOf(1, ran)
+  if (!out.isAnswered) {
+    if (!out.isOutdated) return fail($, name, now, out.reason)
     const manifest = await $.fs.read(`${$.plugin.root}/.claude-plugin/plugin.json`).catch(() => '{}')
     const version = String((JSON.parse(manifest) as { version?: unknown }).version ?? 'a newer version')
-    reason = `this plugin needs decide ${version} or later. Update it with: brew upgrade decide`
+    return fail($, name, now, `this plugin needs decide ${version} or later. Update it with: brew upgrade decide`)
   }
-  $.ui.status('decide · not checking')
-  if (!isWarned) $.ui.log(`decide is not answering, so its checks are off for now: ${oneLine(reason, 200)}`)
-  isWarned = true
-  return out
+  const item = out.items[0]
+  if (!item || 'error' in item) return fail($, name, now, item ? oneLine(item.error, 160) : 'decide gave no answer')
+
+  const missing = missingOf(item.answers, flags)
+  if (missing.length > 0) {
+    return fail($, name, now, `${template} did not ask ${missing.join(', ')}, so another template of that name may be replacing decide's built-in.`)
+  }
+  if (h.reason) {
+    Object.assign(h, { offUntil: 0, reason: '' })
+    await showStatus($)
+  }
+  return item.answers
 }
 
-/** The one item's answers, or undefined when decide gave none. */
-function answersOf(out: Outcome): Record<string, Answer> | undefined {
-  const item = out.isAnswered ? out.items[0] : undefined
-  return item && 'answers' in item ? item.answers : undefined
+/** One action goes on unchecked: count it, and show the count. */
+async function skip($: EngineInterface): Promise<undefined> {
+  unchecked += 1
+  await showStatus($)
+  return undefined
+}
+
+/** A check failed: turn it off for a minute, and say why when it first goes off. */
+async function fail($: EngineInterface, name: CheckName, now: number, reason: string): Promise<undefined> {
+  const h = health[name]
+  const isNew = !h.reason
+  Object.assign(h, { offUntil: now + RETRY_MS, reason: oneLine(reason, 200) })
+  if (isNew) $.ui.log(`decide's ${name} check is off for now: ${h.reason}`)
+  return skip($)
+}
+
+/** Why `$.process.run` rejected, in words that say what to do. */
+function failureOf(err: unknown, timeoutMs: number): string {
+  return isTimeout(err)
+    ? `decide took longer than ${timeoutMs / 1000} seconds`
+    : `${config.bin} could not run. Install it with: brew install deepnoodle-ai/tap/decide`
+}
+
+function isTimeout(err: unknown): boolean {
+  return /timed out|timeout/i.test(String(err))
 }
 
 /** The answers of a check, as /decide lists them: "destructive 94%, leak 3%". */
-function verdictOf(answers: Record<string, Answer>, flags: Readonly<Record<string, number | null>>): string {
+function verdictOf(answers: Record<string, Answer>, flags: Flags): string {
   return Object.keys(flags).map(q => `${q} ${pct(yes(answers, q))}`).join(', ')
 }
 
-/** Adds a judgment to the session's log, and the count to the status line. */
+/** Adds a judgment to the session's log, and updates the status line. */
 async function record($: EngineInterface, j: Omit<Judgment, 'at'>): Promise<void> {
   const entry = { ...j, at: await $.clock.now() }
-  const all = (await update($, log, prev => [...(prev ?? []), entry].slice(-200))) ?? []
+  await update($, log, prev => [...(prev ?? []), entry].slice(-200))
+  await showStatus($)
+}
+
+/** The status line: how much was checked, flagged, and let through unchecked. */
+async function showStatus($: EngineInterface): Promise<void> {
+  const all = (await read($, log)) ?? []
   const flagged = all.filter(x => x.isFlagged).length
-  $.ui.status(`decide · ${all.length} checked${flagged ? ` · ${flagged} flagged` : ''}`)
+  const isOff = Object.values(health).some(h => h.reason)
+  const parts = [
+    `${all.length} checked`,
+    flagged ? `${flagged} flagged` : '',
+    unchecked ? `${unchecked} not checked` : '',
+    isOff ? 'a check is off: /decide' : '',
+  ].filter(Boolean)
+  $.ui.status(`decide · ${parts.join(' · ')}`)
 }
 
 /** What a tool call was about, for a one-line label: its URL, query, path, or command. */

@@ -7,7 +7,7 @@ when the answer is likely.
 
 | Check | When | decide asks | When the answer is likely |
 | --- | --- | --- | --- |
-| Command | Before each shell command | Could it destroy work that is hard to get back, or expose secrets? (`command-risk`) | You choose whether it runs, even in a mode that would run it without asking. Claude reads why when it doesn't. |
+| Command | Before each shell command Claude runs with Bash or Monitor | Could it destroy work that is hard to get back, or expose secrets? (`command-risk`) | You choose whether it runs, even in a mode that would run it without asking. Claude reads why when it doesn't. |
 | Content | After WebFetch, WebSearch, an MCP tool, or a `gh`, `curl`, `wget`, or `http` command | Does it try to take over an AI agent, or hide text from a person? (`prompt-injection`) | Claude reads a warning beside the result, and you see a toast. |
 | Reply | When Claude's turn ends | Does the reply claim more than its tools showed? Did Claude change code without checking it? (`reply-check`) | A band above the prompt offers to ask Claude to recheck. |
 
@@ -42,20 +42,35 @@ DECIDE_HOME=~/.decide/agent decide runs
 To update the plugin, run `/plugin marketplace update decide`, or turn on
 auto-update for the marketplace in `/plugin`.
 
-## What it sends
+## What it sends and keeps
 
-Each shell command, each result the content check reads, and each final
-reply with up to 12,000 characters of that turn's tool calls go to the
-decision model's provider, with your key.
+These go to the decision model's provider, with your key:
+
+- each shell command Claude runs;
+- each result the content check reads, whole: web pages, search results,
+  `gh` and `curl` output, and every MCP tool's result, private connectors
+  included;
+- each final reply, with the first 800 characters of each tool result in
+  that turn, up to 12,000 characters in all. A tool result can be a file's
+  contents, such as a `.env` file Claude read.
+
+Each check is also saved on your disk as a decide run under
+`~/.decide/agent/runs`, readable only by you. Nothing removes them; delete
+the folder to clear them.
 
 ## What it is not
 
 A second opinion, not a sandbox. The command check judges the text of a
 command: `make clean` or a script can hide what it does. When decide cannot
 answer (it is not installed, the key is missing, or the provider fails),
-every check lets the action go on, says so once in the transcript, and
-shows `decide · not checking` in the status line. It tries again a minute
-later.
+the action goes on. The check says why in the transcript, the status line
+counts what went unchecked, and the check tries again a minute later.
+`/decide` lists any check that is off, and why.
+
+The plugin runs decide from `~/.decide/agent`, so a repository's
+`.decide/templates` cannot replace a check's template. A template of the
+same name in `~/.decide/agent/templates` or `~/.decide/agent/.decide/templates`
+would, so the plugin turns that check off and says so.
 
 ## Options
 

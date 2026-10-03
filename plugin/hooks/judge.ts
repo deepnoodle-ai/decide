@@ -3,9 +3,12 @@ import type { Outcome } from './decide'
 
 export const NAME = 'judge'
 
+/** The most text one judge call sends, across its items. */
+const MAX_CHARS = 1_000_000
+
 export const DESCRIPTION = `Ask an independent decision model (Jev, through the decide CLI) typed questions about one or more texts, and get back calibrated answers with probabilities instead of prose.
 
-Use it when what you do next depends on a judgment you would otherwise make by feel, and above all when the same judgment applies to many items: triaging issues, logs, or test failures; checking whether text meets a guideline; choosing which candidate fits; deciding which results are relevant. One call judges up to 200 items in about a second, so prefer it over reading many items one by one. Each item is judged on its own, so put everything the question needs into the item's text.
+Use it when what you do next depends on a judgment you would otherwise make by feel, and above all when the same judgment applies to many items: triaging issues, logs, or test failures; checking whether text meets a guideline; choosing which candidate fits; deciding which results are relevant. One call judges up to 200 items, so prefer it over reading many items one by one. Each item is judged on its own, so put everything the question needs into the item's text.
 
 Question types:
 - "noul": a yes-or-no question. The answer is the probability of yes.
@@ -60,6 +63,9 @@ export function parse(input: Record<string, unknown>): { items: string[]; questi
     return 'items must be a list of one or more texts.'
   }
   if (items.length > 200) return 'Judge at most 200 items in one call.'
+  if ((items as string[]).reduce((n, i) => n + i.length, 0) > MAX_CHARS) {
+    return `Judge at most ${MAX_CHARS.toLocaleString('en-US')} characters in one call. Split the items into several calls.`
+  }
   if (!Array.isArray(questions) || questions.length === 0) return 'questions must list at least one question.'
   for (const q of questions as Question[]) {
     if (!/^[a-z][a-z0-9_]{0,31}$/.test(String(q?.name))) return `Question names are short lowercase keys; "${String(q?.name)}" is not.`
@@ -92,7 +98,7 @@ export function report(items: readonly string[], questions: readonly Question[],
   return outcome.items
     .map((item, i) => {
       const head = `${i + 1}. ${oneLine(items[i] ?? '', 60)}`
-      if ('error' in item) return `${head}\n   error: ${item.error}`
+      if ('error' in item) return `${head}\n   error: ${oneLine(item.error, 200)}`
       const parts = questions.map(q => {
         const a = item.answers[q.name]
         return a ? `${q.name}: ${phrase(a)}` : `${q.name}: no answer`

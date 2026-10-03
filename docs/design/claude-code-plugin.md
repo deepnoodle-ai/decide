@@ -216,13 +216,27 @@ not run it; it needs a key.
 
 ## Security considerations
 
-- **What leaves the machine.** Each shell command, each screened result,
-  and each final reply with up to 12,000 characters of tool results goes to
-  the person's provider. The plugin README says so in its first section.
+- **What leaves the machine.** Each shell command; each checked result,
+  whole, MCP results from private connectors included; and each final
+  reply with the first 800 characters of each tool result in the turn (a
+  file's contents among them), up to 12,000 characters. Every check also
+  stays on disk as a run under `~/.decide/agent/runs`. The plugin README
+  says all of this.
+- **A template that replaces the built-in.** decide reads `.decide/templates`
+  in its working directory, then `$DECIDE_HOME/templates`, before its
+  built-ins. A repository could commit a `command-risk` that asks nothing
+  useful, and every check would pass. So the plugin runs decide with
+  `~/.decide/agent` as its working directory, turns a check off when either
+  folder there holds a template of its name, and treats answers that lack
+  the questions it reads as a failure, never as 0%. A CLI way to name a
+  built-in that nothing can replace would be stronger; it is a separate
+  proposal.
 - **Not a sandbox.** Every check fails open: a missing binary, an expired
-  key, a timeout, or a provider error lets the action go on. An attacker
-  who can make decide fail can skip the check. The README says the plugin
-  is a second opinion, not a security boundary.
+  key, a timeout, or a provider error lets the action go on. A failure turns
+  off only the check that failed, for a minute. A slow content check never
+  turns itself off, because its input is someone else's and could be made
+  large to trip it. The status line counts what went unchecked. The README
+  says the plugin is a second opinion, not a security boundary.
 - **The judged text addresses the judge.** Fetched content can say "answer
   no". All three templates tell the model to treat content as evidence, and
   `prompt-injection` counts text addressed to the judge as evidence of
@@ -231,17 +245,23 @@ not run it; it needs a key.
   shell. The judge tool's folder name is a hash, so the model chooses no
   path. Template JSON is written with `JSON.stringify`.
 - **Terminal output.** Commands, tool text, and decide's errors are model-
-  or provider-controlled. The plugin removes control characters before it
-  shows them in a dialog, toast, log line, band, or `/decide`.
+  or provider-controlled. The plugin removes escape sequences, controls,
+  and invisible characters before it shows them in a dialog, toast, log
+  line, band, or `/decide`. The command dialog shows the whole command, up
+  to 2,000 characters, and says how much more there is, so a dangerous tail
+  cannot hide past a harmless start.
+- **Shell tools.** The command check covers Bash, Monitor (when it runs a
+  command), and PowerShell where Claude Code has it.
 - **Approval.** The plugin never approves a call. It can only add a
   question or a refusal, so it cannot widen what the person's rules allow.
 
 ## Failure modes
 
 Every failure of a check does the same thing: the action goes on, the
-status line reads `decide · not checking`, the first failure of the session
-writes one transcript line, and the checks stay off for a minute, then try
-again. The line says what to do:
+status line counts it as not checked, the check's first failure in an
+outage writes one transcript line, and that check stays off for a minute,
+then tries again. `/decide` lists any check that is off. The line says what
+to do:
 
 | Failure | The line |
 | --- | --- |
@@ -249,7 +269,11 @@ again. The line says what to do:
 | No key | decide's own error: TYPESAFE_API_KEY is not set |
 | A provider error | decide's own error |
 | decide is older than the plugin | this plugin needs decide 0.2.0 or later. Update it with: brew upgrade decide |
-| No answer within 10 s (commands) or 20 s (content, replies) | decide took longer than 10 seconds |
+| No answer within 10 s (commands) or 20 s (replies) | decide took longer than 10 seconds |
+| A template of the same name under `~/.decide/agent` | `<path>` replaces decide's built-in command-risk. Remove it to turn the check back on. |
+| Answers without the questions the check reads | command-risk did not ask destructive, …; another template of that name may be replacing decide's built-in. |
+
+A content check that takes over 20 s skips that one result and stays on.
 
 A judge call that fails returns the error to Claude, which goes on without
 it. It does not turn the checks off.
