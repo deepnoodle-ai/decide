@@ -35,7 +35,8 @@ fails.
 - No new Go package and no change to the root package or `decidetest`.
 - No direct provider calls from the plugin.
 - No support for Claude Code before 2.1.287, or for surfaces where mods do
-  not draw (the VS Code panel shows nothing; the checks still run there).
+  not draw. In the VS Code panel the command and content checks run, but
+  the reply check does not, since its band cannot show.
 
 ## Proposal
 
@@ -51,7 +52,7 @@ plugin/
   hooks/judge.ts                    the judge tool's schema, input check, template, report
   hooks/templates.ts                the built-in templates the plugin runs, their questions and flags
   types/index.d.ts                  the $.state contract: the log and the band's notice
-  skills/decide/SKILL.md            running decide and writing templates
+  skills/using-decide/SKILL.md      when to use the judge tool or the CLI, and writing templates
   tests/register.test.ts            the use cases, with decide faked beneath the plugin
   tsconfig.json                     extends the types Claude Code lays at load
   README.md
@@ -102,9 +103,10 @@ The command check's action, when flagged and `commands` is `ask`:
    no one could approve it.
 
 `tool.call` does not carry the permission mode. `classic.UserPromptSubmit`
-does, as `permission_mode`, so the plugin keeps the latest value. A mode
-switched mid-turn takes effect at the next prompt; before the first prompt
-the mode is unknown and the plugin asks itself, as in step 4.
+and `classic.PostToolUse` do, as `permission_mode`, so the plugin keeps the
+latest value. A mode switched mid-turn takes effect after the next tool
+call; before the first prompt the mode is unknown and the plugin asks
+itself, as in step 4.
 
 With `commands` set to `deny`, a flagged command returns `{ deny }` at once.
 

@@ -81,6 +81,7 @@ function session(on: On, files: readonly string[] = []) {
   })
   // No settings hooks are configured beneath the plugin.
   on('classic.UserPromptSubmit', () => ({}))
+  on('classic.PostToolUse', () => ({}))
   on('fs.read', ($, e) => ({ value: e.path.endsWith('plugin.json') ? JSON.stringify({ name: 'decide', version: '0.2.0' }) : '' }))
   on('ui.toast', ($, e) => {
     shown.toasts.push(String(e.text))
@@ -335,8 +336,8 @@ describe('register', () => {
       questions: [{ name: 'kind', type: 'choice', question: 'Which?' }],
     })
 
-    expect(String(empty.result)).toBe('Error: items must be a list of one or more texts.')
-    expect(String(choice.result)).toBe('Error: Choice question kind needs options.')
+    expect(String(empty.text ?? empty.deny)).toContain('items must be a list of one or more texts.')
+    expect(String(choice.text ?? choice.deny)).toContain('Choice question kind needs options.')
     expect(runs).toEqual([])
   })
 
@@ -489,7 +490,7 @@ describe('register', () => {
     let tries = 0
     on('process.run', () => {
       tries += 1
-      return { deny: 'timed out after 10000 ms' }
+      return { deny: 'aborted: still running after 10000ms' }
     })
     const page = 'x'.repeat(500)
     on('tool.call', { tool: 'WebFetch' }, () => ({ result: { result: page }, text: page }))
@@ -553,7 +554,46 @@ describe('register', () => {
       questions: [{ name: 'ok', type: 'noul', question: 'Is it fine?' }],
     })
 
-    expect(String(out.result)).toBe('Error: Judge at most 1,000,000 characters in one call. Split the items into several calls.')
+    expect(String(out.text ?? out.deny)).toContain('Judge at most 1,000,000 characters in one call. Split the items into several calls.')
     expect(runs).toEqual([])
+  })
+
+  test('a judge call with too many questions, or one name twice, says what to fix', async ($, on) => {
+    const runs = fakeDecide(on, RISK)
+    const q = (name: string) => ({ name, type: 'noul', question: 'Is it?' })
+
+    await $.session.start(SESSION)
+    const many = await $.tool.call({ tool: 'mcp__decide__judge', tool_use_id: 't40', items: ['a'], questions: 'abcdefghi'.split('').map(q) })
+    const twice = await $.tool.call({ tool: 'mcp__decide__judge', tool_use_id: 't41', items: ['a'], questions: [q('ok'), q('ok')] })
+
+    expect(String(many.text ?? many.deny)).toContain('Ask at most 8 questions in one call.')
+    expect(String(twice.text ?? twice.deny)).toContain('Each question needs its own name; ok is used twice.')
+    expect(runs).toEqual([])
+  })
+
+  test('the reply check reads commands decide refused, and keeps evidence past a huge input', async ($, on) => {
+    const runs = fakeDecide(on, (template, text) =>
+      template === 'reply-check' ? { overclaims: noul(0.1), unverified: noul(0.1) } : RISK(template, text),
+    )
+    on('tool.check', () => ({ decision: 'allow' as const }))
+    on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => {
+      const q = (e.questions as { question: string }[])[0]!
+      return { result: { questions: e.questions, answers: { [q.question]: "Don't run it" } } }
+    })
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'ok', stderr: '', interrupted: false }, text: 'ok' }))
+    on('turn.start', ($, e) => ({ turnId: e.turnId }))
+    on('turn.complete', ($, e) => ({ text: e.answer }))
+
+    await $.session.start(SESSION)
+    await $.turn.start({ text: 'clean up', turnId: 'turn-6' })
+    await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: 't42' })
+    await $.tool.call({ tool: 'Bash', command: `cat > big.txt <<'EOF'\n${'z'.repeat(50_000)}\nEOF`, tool_use_id: 't43' })
+    await $.turn.complete({ answer: 'I cleaned up.', reason: 'answer', durationMs: 100, isAborted: false, turnId: 'turn-6' })
+
+    const turn = JSON.parse(runs.find(r => r.argv[2] === 'reply-check')?.texts[0] ?? '{}') as { tools: { input: string; result: string; error?: true }[] }
+    expect(turn.tools).toHaveLength(2)
+    expect(turn.tools[0]?.result).toContain('refused: decide judged this command 97% likely to destroy work')
+    expect(turn.tools[0]?.error).toBe(true)
+    expect(turn.tools[1]?.input.length).toBe(400)
   })
 })

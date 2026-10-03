@@ -67,6 +67,10 @@ export function parse(input: Record<string, unknown>): { items: string[]; questi
     return `Judge at most ${MAX_CHARS.toLocaleString('en-US')} characters in one call. Split the items into several calls.`
   }
   if (!Array.isArray(questions) || questions.length === 0) return 'questions must list at least one question.'
+  if (questions.length > 8) return 'Ask at most 8 questions in one call.'
+  const names = (questions as Question[]).map(q => String(q?.name))
+  const twice = names.find((n, i) => names.indexOf(n) !== i)
+  if (twice !== undefined) return `Each question needs its own name; ${twice} is used twice.`
   for (const q of questions as Question[]) {
     if (!/^[a-z][a-z0-9_]{0,31}$/.test(String(q?.name))) return `Question names are short lowercase keys; "${String(q?.name)}" is not.`
     if (!['noul', 'choice', 'score'].includes(q.type)) return `Question ${q.name} needs a type of noul, choice, or score.`
@@ -89,7 +93,7 @@ export function templateOf(questions: readonly Question[]): object {
       out[q.name] = { type: 'choice', instructions, criteria }
     }
   }
-  return { name: 'judge', description: 'Questions Claude asked through the decide mod.', questions: out }
+  return { name: 'judge', description: 'Questions Claude asked through the decide plugin.', questions: out }
 }
 
 /** The judge call's answers as the text Claude reads: one item per entry, its answers on the line below. */

@@ -16,6 +16,9 @@ off, or remove them, as they land.
       per question, confident mistakes, suggested thresholds, and
       `--fail-under` for CI. Ship examples with each built-in template.
       Propose the design before building it.
+- [ ] **Built-in names.** A way to run a built-in template that no project
+      or user template can replace. The Claude Code plugin works around it
+      by running decide from its own folder.
 - [ ] **Model pinning.** An optional `model` in `template.json`, and a
       warning when a resumed run is answered by a different model.
 
@@ -87,6 +90,7 @@ off, or remove them, as they land.
 ## Repository
 
 - [ ] Allow squash merges only.
+- [ ] Protect `main`. The Claude Code plugin installs from it.
 - [ ] Make the repository public.
 - [ ] Turn on private vulnerability reporting, secret scanning with push
       protection, and Dependabot alerts.

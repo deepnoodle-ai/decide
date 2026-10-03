@@ -278,8 +278,8 @@ Acceptance:
 - **Ask the person in place of Claude Code only when Claude Code will not
   ask a person.** That covers `allow` (a rule or `bypassPermissions`) and
   `ask` in `auto` mode, where a classifier answers. One dialog per command,
-  never two. The mode comes from each prompt's `UserPromptSubmit` event, so
-  a mode switched in the middle of a turn takes effect at the next prompt.
+  never two. The mode comes from the settings-hook events of each prompt and
+  each tool call, so a mode switched mid-turn takes effect one call later.
   Rejected: always ask; it doubles the dialog in default mode.
 - **The command check does not flag pushes, releases, or pull requests.**
   `command-risk` has an `external` question that is shown in `/decide` but
