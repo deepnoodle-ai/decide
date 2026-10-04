@@ -118,7 +118,8 @@ echo 'git reset --hard HEAD~3' | decide run command-risk    # before an agent ru
 
 Decide reads JSONL, JSON, CSV, text, Markdown, source code, diffs, and images,
 flags answers that need attention, and resumes stopped runs. It keeps
-every answer, so a second run asks only about what changed. It prints
+every answer, by the model name you ask for, so a second run asks only
+about what changed. It prints
 text, JSON, CSV, a Markdown report, or GitHub Actions annotations on a pull
 request. To try the templates on planted problems, see
 [demo](demo/README.md). You can write your own template in a few lines of

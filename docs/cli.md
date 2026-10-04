@@ -296,11 +296,12 @@ The line counts answers, one for each question about each item, so an
 item can have some answers from the cache and others asked.
 
 An answer is reused only for the same question about the same text, sent
-to the same provider and address, and answered by the same model version.
-Each question is kept on its own, so adding a question to a template asks
-only that one. A question is known by its key and its full definition, so
-changing its wording or options, or renaming its key, asks it again. Flags and `--fail-on` are worked out from the answers on
-each run, so changing a threshold asks nothing again.
+to the same provider and address, with the same model name. Each question
+is kept on its own, so adding a question to a template asks only that one.
+A question is known by its key and its full definition, so changing its
+wording or options, or renaming its key, asks it again. Flags and
+`--fail-on` are worked out from the answers on each run, so changing a
+threshold asks nothing again.
 
 With `--json`, each result lists in `cached` the questions whose answers
 came from the cache. `request_id` and `model` describe the request the run
@@ -313,16 +314,13 @@ cache.
 41212 items · 81974 answers in the cache · 450 to ask
 ```
 
-When a run names a model alias, such as `jev-latest`, decide learns the
-version behind it from responses. A name that a response gives back,
-such as `jev-1.13.0`, is an exact version and needs no check, unless it
-ends in `latest` or `-preview`. It trusts a version for an hour; after
-that, the run's first request is sent whole to check it. An answer from
-an older version is never reused.
+The cache is keyed by the model name you ask for, such as `jev-latest` or
+`clef`. When a provider upgrades the model behind that name, the cached
+answers stay until you run with `--no-cache`. To pin answers to one
+version, name it, such as `--model jev-1.13.0`.
 
-`--no-cache` asks every question again, and keeps the new answers.
-`runs resume` keeps the setting of the run it resumes. Cloudflare answers
-are not cached, since Workers AI names no model version.
+`--no-cache` asks every question again, and keeps the new answers in place
+of the old. `runs resume` keeps the setting of the run it resumes.
 
 The cache is the folder `~/.decide/cache`, readable only by you. It holds
 hashes and answers, never your text, file names, or images. Several decide
