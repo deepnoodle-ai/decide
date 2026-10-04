@@ -61,6 +61,13 @@ Each check is also saved on your disk as a decide run under
 `~/.decide/agent/runs`, readable only by you. Nothing removes them; delete
 the folder to clear them.
 
+Answers are kept in decide's answer cache, `~/.decide/agent/cache`, so a
+command Claude runs again, such as `go test ./...`, is answered without a
+request. The cache holds hashes and answers, not the commands or text.
+It is keyed by the model name. When a live answer shows the model behind
+it changed, older answers are asked again. A check whose answer is cached
+can't see an upgrade; delete the folder to ask fresh.
+
 ## What it is not
 
 A second opinion, not a sandbox. The command check judges the text of a

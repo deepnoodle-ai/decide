@@ -10,6 +10,9 @@
 //
 // Resuming a run evaluates the items that have no successful result, using
 // the saved inputs and questions.
+//
+// With an answer cache, set with UseCache, a run asks only the questions
+// whose answers the cache doesn't hold.
 package runs
 
 import (
@@ -21,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -30,6 +34,7 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/cloudflare"
+	"github.com/deepnoodle-ai/decide/internal/cache"
 	"github.com/deepnoodle-ai/decide/internal/source"
 	"github.com/deepnoodle-ai/decide/internal/template"
 )
@@ -57,10 +62,13 @@ type Run struct {
 	Items    int                `json:"items,omitempty"`
 	Complete int                `json:"complete"`
 	Failed   int                `json:"failed"`
+	NoCache  bool               `json:"no_cache,omitempty"` // ask every question, though answers are still kept
 
 	Dir string `json:"-"`
 
 	inputs *os.File
+	cache  *cache.Cache
+	source cache.Source
 }
 
 // Result is the outcome for one item.
@@ -73,6 +81,7 @@ type Result struct {
 	Answers   map[string]json.RawMessage `json:"answers,omitempty"`
 	Model     string                     `json:"model,omitempty"`
 	RequestID string                     `json:"request_id,omitempty"`
+	Cached    []string                   `json:"cached,omitempty"` // the questions whose answers came from the cache
 	Error     string                     `json:"error,omitempty"`
 }
 
@@ -94,6 +103,10 @@ type input struct {
 	Image       string          `json:"image,omitempty"`
 	ContentType string          `json:"content_type,omitempty"`
 }
+
+// UseCache makes Execute look answers from a source up in a cache, unless
+// the run was made with NoCache, and keep the answers it gets there.
+func (r *Run) UseCache(c *cache.Cache, src cache.Source) { r.cache, r.source = c, src }
 
 // Root is the directory that holds all runs.
 func Root() string { return filepath.Join(template.Home(), "runs") }
@@ -367,9 +380,15 @@ func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, f
 		return err
 	}
 	defer unlock()
-	questions, err := r.Template.Decode()
+	decoded, err := r.Template.Decode()
 	if err != nil {
 		return err
+	}
+	questions := questionSet{decoded: decoded, sent: map[string][]byte{}}
+	for key, q := range decoded {
+		if questions.sent[key], err = json.Marshal(q); err != nil {
+			return err
+		}
 	}
 	previous, err := r.Results()
 	if err != nil {
@@ -567,10 +586,19 @@ func (r *Run) count(status map[int]string) {
 	}
 }
 
-func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions map[string]decide.Question, in input) (Result, error) {
+// questionSet is a run's questions, decoded and as sent.
+type questionSet struct {
+	decoded map[string]decide.Question
+	sent    map[string][]byte
+}
+
+// evaluate answers one input. With a cache, it asks only the questions
+// whose answers the cache doesn't hold, and sends nothing when it holds
+// them all.
+func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions questionSet, in input) (Result, error) {
 	res := Result{Index: in.Index, Source: in.Source, Part: in.Part, Input: in.Value, Status: "failed"}
 	req := decide.NewRequest(in.State)
-	req.Questions = questions
+	var image []byte
 	if in.Image != "" {
 		data, err := os.ReadFile(filepath.Join(r.Dir, in.Image))
 		if err == nil {
@@ -583,7 +611,94 @@ func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions map
 			res.Error = err.Error()
 			return res, nil
 		}
+		image = data
 	}
+	if r.cache == nil {
+		req.Questions = questions.decoded
+		return r.ask(ctx, client, req, res)
+	}
+	state, err := json.Marshal(req.State)
+	if err != nil {
+		res.Error = err.Error()
+		return res, nil
+	}
+	it := cache.ItemOf(state, in.ContentType, image)
+	cached := map[string]json.RawMessage{}
+	if !r.NoCache {
+		for key, a := range r.cache.Lookup(r.source, it, questions.sent) {
+			if ValidAnswer(questions.decoded[key], a) {
+				cached[key] = a
+			}
+		}
+	}
+	// A response that names a newer version than cached answers came from
+	// makes them stale: those questions are asked again, once.
+	var out Result
+	answers := map[string]json.RawMessage{}
+	for round := range 2 {
+		req.Questions = map[string]decide.Question{}
+		for key, q := range questions.decoded {
+			_, hit := cached[key]
+			if _, got := answers[key]; !hit && !got {
+				req.Questions[key] = q
+			}
+		}
+		if len(req.Questions) == 0 {
+			break
+		}
+		o, err := r.ask(ctx, client, req, res)
+		if err != nil {
+			return o, err
+		}
+		if o.Status != "complete" {
+			r.cache.Store(r.source, it, questions.sent, nil, o.Model)
+			return o, nil
+		}
+		r.cache.Store(r.source, it, questions.sent, o.Answers, o.Model)
+		if round == 0 {
+			out = o
+		}
+		maps.Copy(answers, o.Answers)
+		if round == 0 && o.Model != "" && len(cached) > 0 {
+			sent := map[string][]byte{}
+			for key := range cached {
+				sent[key] = questions.sent[key]
+			}
+			still := r.cache.Lookup(r.source, it, sent)
+			for key := range cached {
+				if _, ok := still[key]; !ok {
+					delete(cached, key)
+				}
+			}
+		}
+	}
+	if len(answers) == 0 {
+		res.Status, res.Answers, res.Cached = "complete", cached, slices.Sorted(maps.Keys(cached))
+		return res, nil
+	}
+	maps.Copy(answers, cached)
+	out.Answers = answers
+	if len(cached) > 0 {
+		out.Cached = slices.Sorted(maps.Keys(cached))
+	}
+	return out, nil
+}
+
+// ValidAnswer reports whether a kept answer is a valid answer to its
+// question, as the client checks an answer it receives.
+func ValidAnswer(q decide.Question, raw json.RawMessage) bool {
+	a, err := decide.DecodeAnswer(raw)
+	if err != nil || a.AnswerType() != q.QuestionType() {
+		return false
+	}
+	if v, ok := q.(interface{ ValidateAnswer(decide.Answer) error }); ok {
+		return v.ValidateAnswer(a) == nil
+	}
+	return true
+}
+
+// ask sends a request and records its answers in res.
+func (r *Run) ask(ctx context.Context, client *decide.Client, req *decide.Request, res Result) (Result, error) {
 	resp, err := client.SystemOne(ctx, req)
 	if resp != nil {
 		res.Model, res.RequestID = resp.Model, resp.RequestID

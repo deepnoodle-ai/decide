@@ -49,7 +49,7 @@ func TestGitHubFormat(t *testing.T) {
 	// Items that are not flagged or matched get no annotation.
 	h.server.Answer("risk", decidetest.NoulAnswer(0.1))
 	h.server.Answer("maintainability", decidetest.ScoreAnswer(levels, 0, 0, 0, 0, 1))
-	out = h.run(formatDiff, "run", "code-risk", "--each", "hunk", "--format", "github")
+	out = h.run(formatDiff, "run", "code-risk", "--each", "hunk", "--format", "github", "--no-cache")
 	if out.code != 0 || out.stdout != "" {
 		t.Fatalf("exit %d, stdout %q", out.code, out.stdout)
 	}
@@ -96,7 +96,7 @@ func TestMarkdownReportOrder(t *testing.T) {
 
 	h.server.Answer("relevant", decidetest.NoulAnswer(0.1))
 	h.server.FailNext(422)
-	out = h.run("one\ntwo\n", "run", "relevance", "-p", "question=x", "--format", "md", "--workers", "1")
+	out = h.run("one\ntwo\n", "run", "relevance", "-p", "question=x", "--format", "md", "--workers", "1", "--no-cache")
 	if out.code != 1 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}

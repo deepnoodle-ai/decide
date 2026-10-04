@@ -177,7 +177,25 @@ func combine(parts []runs.Result, m marks) item {
 	first := parts[0]
 	it := item{parts: len(parts), where: map[string]string{}}
 	it.Index, it.Source, it.Input, it.Status = first.Index, first.Source, first.Input, "complete"
+	// The item's request is the first a part sent; a part answered from
+	// the cache sent none. A question's answer came from the cache when
+	// every part's did.
 	it.Model, it.RequestID = first.Model, first.RequestID
+	for _, p := range parts {
+		if p.RequestID != "" {
+			it.Model, it.RequestID = p.Model, p.RequestID
+			break
+		}
+	}
+	for _, key := range first.Cached {
+		all := true
+		for _, p := range parts[1:] {
+			all = all && slices.Contains(p.Cached, key)
+		}
+		if all {
+			it.Cached = append(it.Cached, key)
+		}
+	}
 	it.Answers = map[string]json.RawMessage{}
 	for key := range first.Answers {
 		answers := make([]answer, 0, len(parts))
