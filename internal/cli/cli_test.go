@@ -272,12 +272,12 @@ func TestFlaggedAnswers(t *testing.T) {
 	contains(t, out.stderr, "! 1 flagged", "Flagged: src/a.go")
 
 	h.server.Answer("risk", decidetest.NoulAnswer(0.5))
-	out = h.run("", "run", "code-risk", "src")
+	out = h.run("", "run", "code-risk", "src", "--no-cache")
 	contains(t, out.stdout, "  risk             unsure        50% yes\n")
 	contains(t, out.stderr, "nothing flagged")
 
 	h.server.Answer("risk", decidetest.NoulAnswer(0.1))
-	out = h.run("", "run", "code-risk", "src")
+	out = h.run("", "run", "code-risk", "src", "--no-cache")
 	contains(t, out.stdout, "  risk             no            90%\n")
 
 	// Templates without flags do not mention them.
@@ -308,7 +308,7 @@ func TestFailOn(t *testing.T) {
 
 	// An answer close to flagged is not flagged.
 	h.server.Answer("risk", decidetest.NoulAnswer(0.5))
-	out = h.run("", "run", "code-risk", "src", "--fail-on", "flagged")
+	out = h.run("", "run", "code-risk", "src", "--fail-on", "flagged", "--no-cache")
 	if out.code != 0 {
 		t.Fatalf("unsure: exit %d, want 0: %s", out.code, out.stderr)
 	}
@@ -419,7 +419,7 @@ func TestMatchedAnswers(t *testing.T) {
 	contains(t, out.stderr, "● 2 matched", "Matched: notes.txt:1, notes.txt:2")
 
 	h.server.Answer("relevant", decidetest.NoulAnswer(0.1))
-	out = h.run("", "run", "relevance", "notes.txt", "-p", "question=tools")
+	out = h.run("", "run", "relevance", "notes.txt", "-p", "question=tools", "--no-cache")
 	contains(t, out.stdout, "  relevant  no      90%\n")
 	contains(t, out.stderr, "no matches")
 	if strings.Contains(out.stderr, "Matched:") {

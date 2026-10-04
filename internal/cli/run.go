@@ -76,6 +76,7 @@ func (a *App) addRun(app *cli.App) {
 			cli.Int("limit", "n").Help("Stop after this many items"),
 			cli.Int("sample").Help("Pick this many items at random"),
 			cli.Bool("dry-run").Help("Show what would be asked, without calling the model"),
+			cli.Bool("no-cache").Help("Ask every question again, instead of reusing answers from earlier runs"),
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
 			cli.String("format", "f").Enum(formats...).Help(formatHelp),
@@ -150,34 +151,25 @@ func (a *App) run(c *cli.Context) error {
 	}
 	changes := false
 	opts.Changes = func() { changes = true }
+	provider, model := providerOf(c, s)
 	if c.Bool("dry-run") {
 		if format != "text" && format != "json" {
 			return cli.Errorf("--dry-run prints text or JSON, not --format %s", format)
 		}
-		return a.dryRun(c, resolved, paths, opts, format, &changes)
+		return a.dryRun(c, resolved, paths, opts, format, &changes, provider, model)
 	}
 
-	provider := c.String("provider")
-	if provider == "" {
-		provider = "typesafe"
-		if s.Input == template.Image {
-			provider = "cloudflare"
-		}
-	}
 	if s.Input == template.Image && provider != "cloudflare" {
 		return cli.Errorf("%s reads images, which need the cloudflare provider", s.Name).
 			Hint("Run it with --provider cloudflare")
-	}
-	model := c.String("model")
-	if model == "" {
-		model = defaultModels[provider]
 	}
 	client, err := a.NewClient(provider, model)
 	if err != nil {
 		return err
 	}
 
-	run, err := runs.Create(&runs.Run{Template: resolved, Params: values, Provider: provider, Model: model, Sources: displayPaths(paths)})
+	run, err := runs.Create(&runs.Run{Template: resolved, Params: values, Provider: provider, Model: model,
+		Sources: displayPaths(paths), NoCache: c.Bool("no-cache")})
 	if err != nil {
 		return err
 	}
@@ -218,6 +210,23 @@ func (a *App) run(c *cli.Context) error {
 	return a.execute(c, run, client, workers, format, failOn)
 }
 
+// providerOf returns the provider and model chosen with flags, or their
+// defaults: TypeSafe, or Cloudflare for an image template.
+func providerOf(c *cli.Context, s *template.Template) (provider, model string) {
+	provider = c.String("provider")
+	if provider == "" {
+		provider = "typesafe"
+		if s.Input == template.Image {
+			provider = "cloudflare"
+		}
+	}
+	model = c.String("model")
+	if model == "" {
+		model = defaultModels[provider]
+	}
+	return provider, model
+}
+
 // execute runs or resumes a run, printing each result in the format
 // given, and a summary. With failOn set to "flagged" or "matched", a
 // complete run with such items exits with code 2.
@@ -225,6 +234,10 @@ func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, work
 	saved, err := run.Results()
 	if err != nil {
 		return err
+	}
+	if cc, scope := openCache(c, run.Provider, run.Model, !run.NoCache); cc != nil {
+		defer cc.Close()
+		run.UseCache(scope)
 	}
 	w := newOutput(c, format, run.Template, failOn)
 	if err := replay(w, saved, marksOf(run.Template)); err != nil {
@@ -368,7 +381,14 @@ func marked(run *runs.Run) map[string]int {
 func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) map[string]int {
 	m := marksOf(run.Template)
 	var flaggedItems, matchedItems []string
+	var fromCache, someCached int
 	answered, failures, total := progress(run, func(it item) {
+		if len(it.Cached) > 0 {
+			someCached++
+			if it.RequestID == "" {
+				fromCache++
+			}
+		}
 		if m.has(it.Result, flagged) {
 			flaggedItems = append(flaggedItems, clean(it.Source))
 		}
@@ -402,6 +422,9 @@ func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) map[string]int
 		line += "  " + dim(humanize.DurationShort(elapsed.Round(100*time.Millisecond)))
 	}
 	fmt.Fprintln(w, line)
+	if someCached > 0 {
+		fmt.Fprintf(w, "  %s\n", dim(fmt.Sprintf("%d from cache · %d asked", fromCache, answered-fromCache)))
+	}
 	list(w, "Flagged:", flaggedItems)
 	list(w, "Matched:", matchedItems)
 	fmt.Fprintf(w, "%s %s\n", dim("Saved as run"), run.ID)
@@ -429,19 +452,30 @@ func list(w io.Writer, label string, sources []string) {
 	fmt.Fprintf(w, "%s %s\n", dim(label), text)
 }
 
-func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts source.Options, format string, changes *bool) error {
+func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts source.Options, format string, changes *bool, provider, model string) error {
 	if format == "json" {
 		enc := json.NewEncoder(c.Stdout())
 		return source.Walk(c.Context(), paths, c.Stdin(), opts, func(it source.Item) error { return enc.Encode(it) })
 	}
 	const shown = 20
 	var items []source.Item
+	var counted *cacheCount
+	if cc, scope := openCache(c, provider, model, !c.Bool("no-cache")); cc != nil {
+		defer cc.Close()
+		var err error
+		if counted, err = newCacheCount(scope, s, !c.Bool("no-cache")); err != nil {
+			return err
+		}
+	}
 	found := newTally()
 	err := source.Walk(c.Context(), paths, c.Stdin(), opts, func(it source.Item) error {
 		if found.items() < shown {
 			items = append(items, it)
 		}
 		found.add(it)
+		if counted != nil {
+			counted.add(it)
+		}
 		return nil
 	})
 	if err != nil {
@@ -472,6 +506,10 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 	}
 	if hint := eachHint(found, c.String("each") != "", s.Each, paths); hint != "" {
 		fmt.Fprintf(w, "\n%s\n", dim(hint))
+	}
+	if counted != nil {
+		fmt.Fprintf(w, "\n%s\n", dim(fmt.Sprintf("%s · %d in the cache · %d to ask",
+			humanize.PluralWord(total, "item", "items"), counted.cached, total-counted.cached)))
 	}
 	fmt.Fprintf(w, "\nand ask each one:\n\n")
 	m := marksOf(s)
