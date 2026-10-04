@@ -8,12 +8,14 @@
 //
 // The cache is one folder of segment files, each holding lines of JSON.
 // Each process appends to a segment of its own, which it locks while it
-// writes, and reads every segment when it opens the cache. A process that
-// opens a cache with many segments merges the ones nobody is writing into
-// one, so the folder keeps a few files however many answers it holds. An
-// entry seen twice is harmless, so processes that merge at the same time
-// cannot lose or damage each other's entries. A line cut short by a crash
-// is ignored.
+// writes, and reads every segment when it opens the cache. Each line
+// carries the time it was written, and the newest answer to a key wins,
+// so an answer asked fresh replaces an older one. A process that opens a
+// cache with many segments merges the ones nobody is writing into one, so
+// the folder keeps a few files however many answers it holds. An entry
+// seen twice is harmless, so processes that merge at the same time cannot
+// lose or damage each other's entries. A line cut short by a crash is
+// ignored.
 package cache
 
 import (
@@ -73,9 +75,15 @@ type version struct {
 	seen  time.Time
 }
 
-// line is one line of a segment: answers, or the version a model name was
-// last seen to resolve to.
+type entry struct {
+	answer string
+	time   int64 // when it was kept, in nanoseconds since 1970
+}
+
+// line is one line of a segment: answers kept at one time, or the version
+// a model name was last seen to resolve to.
 type line struct {
+	Time    int64                      `json:"time,omitempty"`
 	Answers map[string]json.RawMessage `json:"answers,omitempty"`
 	Name    string                     `json:"name,omitempty"` // a hash of provider, address and model name
 	Model   string                     `json:"model,omitempty"`
@@ -90,17 +98,17 @@ type Cache struct {
 
 	mu       sync.Mutex
 	broken   bool
-	answers  map[Key]string
+	answers  map[Key]entry
 	versions map[string]version
 	seg      *os.File // this process's segment, created on the first write
+	last     int64    // the time of this process's latest line
 }
 
 // Open reads the cache in dir. The folder is made when the first answer
-// is kept. Open never
-// fails: a cache that can't be read calls warn and acts as if it were
-// empty. warn may be nil.
+// is kept. Open never fails: a cache that can't be read calls warn and
+// acts as if it were empty. warn may be nil.
 func Open(dir string, warn func(string)) *Cache {
-	c := &Cache{dir: dir, warn: warn, answers: map[Key]string{}, versions: map[string]version{}}
+	c := &Cache{dir: dir, warn: warn, answers: map[Key]entry{}, versions: map[string]version{}}
 	if err := c.load(); err != nil {
 		c.fail(err)
 	}
@@ -113,7 +121,7 @@ func (c *Cache) fail(err error) {
 		return
 	}
 	c.broken = true
-	c.answers, c.versions = map[Key]string{}, map[string]version{}
+	c.answers, c.versions = map[Key]entry{}, map[string]version{}
 	if c.warn != nil {
 		c.warn(fmt.Sprintf("The answer cache in %s can't be used, so every question is asked: %v", c.dir, err))
 	}
@@ -127,6 +135,8 @@ func (c *Cache) load() error {
 	if err != nil {
 		return err
 	}
+	// Segments are named by the time they were made, and read oldest
+	// first, so among lines kept at the same time the later one wins.
 	var segments []string
 	for _, e := range entries {
 		if isSegment(e.Name()) {
@@ -159,12 +169,19 @@ func (c *Cache) load() error {
 	}
 	if len(idle) > 1 {
 		c.merge(idle)
+		idle = nil // merge closed them
 	}
 	return nil
 }
 
 func isSegment(name string) bool {
 	return strings.HasPrefix(name, "seg-") && strings.HasSuffix(name, ".jsonl")
+}
+
+// segmentName names a new segment by the time it is made, so names sort
+// oldest first.
+func segmentName() string {
+	return fmt.Sprintf("seg-%020d-%s.jsonl", now().UnixNano(), random())
 }
 
 // read adds a segment's lines. A line cut short by a crash, or one that
@@ -195,8 +212,11 @@ func (c *Cache) add(b []byte) {
 		if hex.DecodedLen(len(k)) != len(key) {
 			continue
 		}
-		if _, err := hex.Decode(key[:], []byte(k)); err == nil && json.Valid(a) {
-			c.answers[key] = string(a)
+		if _, err := hex.Decode(key[:], []byte(k)); err != nil || !json.Valid(a) {
+			continue
+		}
+		if e, ok := c.answers[key]; !ok || l.Time >= e.time {
+			c.answers[key] = entry{answer: string(a), time: l.Time}
 		}
 	}
 	if l.Name != "" && l.Model != "" {
@@ -206,37 +226,48 @@ func (c *Cache) add(b []byte) {
 	}
 }
 
-// merge writes every entry in the cache to one new segment, then removes
-// the idle segments it replaces. Entries from segments still being
-// written are copied too; an entry in two segments is harmless. A merge
-// that fails leaves the segments as they were.
+// merge writes every entry in the cache to one new segment, keeping the
+// time each answer was kept, then removes the idle segments it replaces.
+// Entries from segments still being written are copied too; an entry in
+// two segments is harmless. A merge that fails leaves the segments as they
+// were. It closes the idle segments.
 func (c *Cache) merge(idle []*os.File) {
+	err := c.writeMerged()
+	for _, f := range idle {
+		f.Close() // before removing: Windows can't remove an open file
+		if err == nil {
+			os.Remove(f.Name())
+		}
+	}
+}
+
+func (c *Cache) writeMerged() error {
 	tmp, err := os.CreateTemp(c.dir, ".merge-*")
 	if err != nil {
-		return
+		return err
 	}
 	defer os.Remove(tmp.Name()) // fails once renamed
 	w := bufio.NewWriter(tmp)
 	enc := json.NewEncoder(w)
-	batch := map[string]json.RawMessage{}
-	flush := func() error {
-		if len(batch) == 0 {
-			return nil
-		}
-		err := enc.Encode(line{Answers: batch})
-		batch = map[string]json.RawMessage{}
-		return err
-	}
-	for k, a := range c.answers {
-		batch[hex.EncodeToString(k[:])] = json.RawMessage(a)
-		if len(batch) == 1000 {
-			if err = flush(); err != nil {
-				break
+	// Answers kept at the same time share a line, as when they were kept.
+	byTime := map[int64]map[string]json.RawMessage{}
+	for k, e := range c.answers {
+		batch := byTime[e.time]
+		if batch == nil || len(batch) == 1000 {
+			if batch != nil {
+				if err = enc.Encode(line{Time: e.time, Answers: batch}); err != nil {
+					break
+				}
 			}
+			batch = map[string]json.RawMessage{}
+			byTime[e.time] = batch
 		}
+		batch[hex.EncodeToString(k[:])] = json.RawMessage(e.answer)
 	}
-	if err == nil {
-		err = flush()
+	for t, batch := range byTime {
+		if err == nil {
+			err = enc.Encode(line{Time: t, Answers: batch})
+		}
 	}
 	for name, v := range c.versions {
 		if err == nil {
@@ -253,28 +284,12 @@ func (c *Cache) merge(idle []*os.File) {
 		err = cerr
 	}
 	if err == nil {
-		err = os.Rename(tmp.Name(), filepath.Join(c.dir, "seg-"+random()+".jsonl"))
+		err = os.Rename(tmp.Name(), filepath.Join(c.dir, segmentName()))
 	}
 	if err == nil {
 		err = syncDir(c.dir)
 	}
-	if err != nil {
-		return
-	}
-	for _, f := range idle {
-		os.Remove(f.Name())
-	}
-}
-
-// syncDir makes a rename in dir durable before the files it replaces are
-// removed.
-func syncDir(dir string) error {
-	d, err := os.Open(dir)
-	if err != nil {
-		return err
-	}
-	defer d.Close()
-	return d.Sync()
+	return err
 }
 
 func random() string {
@@ -287,11 +302,11 @@ func random() string {
 func (c *Cache) Get(k Key) (json.RawMessage, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	a, ok := c.answers[k]
+	e, ok := c.answers[k]
 	if !ok {
 		return nil, false
 	}
-	return json.RawMessage(a), true
+	return json.RawMessage(e.answer), true
 }
 
 // Has reports whether the cache holds an answer for a key.
@@ -302,20 +317,23 @@ func (c *Cache) Has(k Key) bool {
 	return ok
 }
 
-// Put keeps answers.
+// Put keeps answers, replacing any kept before for the same keys.
 func (c *Cache) Put(answers map[Key]json.RawMessage) {
 	if len(answers) == 0 {
 		return
 	}
-	l := line{Answers: map[string]json.RawMessage{}}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// Times only grow within a process, even when the clock is coarse.
+	t := max(now().UnixNano(), c.last+1)
+	l := line{Time: t, Answers: map[string]json.RawMessage{}}
 	for k, a := range answers {
 		l.Answers[hex.EncodeToString(k[:])] = a
 	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	if c.write(l) {
+		c.last = t
 		for k, a := range answers {
-			c.answers[k] = string(a)
+			c.answers[k] = entry{answer: string(a), time: t}
 		}
 	}
 }
@@ -331,7 +349,11 @@ func (c *Cache) write(l line) bool {
 		return false
 	}
 	if c.seg == nil {
-		if c.seg, err = c.create(); err != nil {
+		if err := os.MkdirAll(c.dir, 0o700); err != nil {
+			c.fail(err)
+			return false
+		}
+		if c.seg, err = newSegment(c.dir); err != nil {
 			c.fail(err)
 			return false
 		}
@@ -342,28 +364,6 @@ func (c *Cache) write(l line) bool {
 		return false
 	}
 	return true
-}
-
-// create makes a segment for this process. It is locked under a hidden
-// name before it is given a segment's name, so no other process can take
-// it for idle and merge it away while it is written.
-func (c *Cache) create() (*os.File, error) {
-	if err := os.MkdirAll(c.dir, 0o700); err != nil {
-		return nil, err
-	}
-	name := random()
-	tmp := filepath.Join(c.dir, ".new-"+name)
-	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY|os.O_APPEND, 0o600)
-	if err != nil {
-		return nil, err
-	}
-	lock(f)
-	if err := os.Rename(tmp, filepath.Join(c.dir, "seg-"+name+".jsonl")); err != nil {
-		f.Close()
-		os.Remove(tmp)
-		return nil, err
-	}
-	return f, nil
 }
 
 // Close closes this process's segment.

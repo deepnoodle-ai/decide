@@ -87,7 +87,7 @@ func TestCacheRerun(t *testing.T) {
 	if second.code != 2 || h.requests() != 2 {
 		t.Fatalf("exit %d, %d requests: %s", second.code, h.requests(), second.stderr)
 	}
-	contains(t, second.stderr, "✓ 2 answered  ! 1 flagged", "  2 from cache · 0 asked")
+	contains(t, second.stderr, "✓ 2 answered  ! 1 flagged", "  4 answers from cache · 0 asked")
 	for _, line := range jsonLines(t, second.stdout, true) {
 		if !slices.Equal(line["cached"].([]any), []any{"maintainability", "risk"}) || line["request_id"] != nil || line["model"] != nil {
 			t.Errorf("second run result: %v", line)
@@ -119,7 +119,7 @@ func TestCacheRerun(t *testing.T) {
 	if state, _ := json.Marshal(h.server.Requests()[n].Request.State); !strings.Contains(string(state), "package b") {
 		t.Errorf("asked about %s", state)
 	}
-	contains(t, out.stderr, "! 2 flagged", "1 from cache · 1 asked")
+	contains(t, out.stderr, "! 2 flagged", "2 answers from cache · 2 asked")
 }
 
 func TestCacheNoCache(t *testing.T) {
@@ -199,7 +199,7 @@ func TestCacheAddedQuestion(t *testing.T) {
 			t.Errorf("result: %v", line)
 		}
 	}
-	contains(t, out.stderr, "0 from cache · 2 asked")
+	contains(t, out.stderr, "2 answers from cache · 2 asked")
 
 	// A changed question is a new question.
 	h.write(".decide/templates/mine/template.json", strings.Replace(twoQuestions, "tested?", "tested well?", 1))
@@ -277,6 +277,21 @@ func ageVersions(t *testing.T) {
 	}
 }
 
+func TestCacheKeepsTheNewestAnswer(t *testing.T) {
+	h := setup(t)
+	for i, p := range []float64{0.9, 0.1, 0.7, 0.2, 0.8, 0.3} {
+		h.server.Answer("relevant", decidetest.NoulAnswer(p))
+		h.run("one\n", "run", "relevance", "-p", "question=x", "--no-cache")
+		h.server.Answer("relevant", decidetest.NoulAnswer(0.5))
+		out := h.run("one\n", "run", "relevance", "-p", "question=x", "--json")
+		line := jsonLines(t, out.stdout, true)[0]
+		got := line["answers"].(map[string]any)["relevant"].(map[string]any)
+		if line["cached"] == nil || got["noul"] != p {
+			t.Fatalf("round %d: %v, want the answer asked last, %v", i, line, p)
+		}
+	}
+}
+
 func TestCacheSkipsCloudflare(t *testing.T) {
 	h := setup(t)
 	h.run("one\n", "run", "sentiment", "--provider", "cloudflare")
@@ -304,21 +319,21 @@ func TestCacheDryRun(t *testing.T) {
 	jsonBefore := h.run("", "run", "code-risk", "src", "--dry-run", "--json")
 
 	out := h.run("", "run", "code-risk", "src", "--dry-run")
-	contains(t, out.stdout, "3 items · 0 in the cache · 3 to ask\n\nand ask each one:")
+	contains(t, out.stdout, "3 items · 0 answers in the cache · 6 to ask\n\nand ask each one:")
 	h.run("", "run", "code-risk", "src")
 	n := h.requests()
 	h.write("src/b.go", "package b // changed\n")
 	out = h.run("", "run", "code-risk", "src", "--dry-run")
-	contains(t, out.stdout, "3 items · 2 in the cache · 1 to ask")
+	contains(t, out.stdout, "3 items · 4 answers in the cache · 2 to ask")
 	out = h.run("", "run", "code-risk", "src", "--dry-run", "--no-cache")
-	contains(t, out.stdout, "3 items · 0 in the cache · 3 to ask")
+	contains(t, out.stdout, "3 items · 0 answers in the cache · 6 to ask")
 	if h.requests() != n {
 		t.Fatalf("a dry run sent %d requests", h.requests()-n)
 	}
 	// A version no longer trusted is still counted against.
 	ageVersions(t)
 	out = h.run("", "run", "code-risk", "src", "--dry-run")
-	contains(t, out.stdout, "3 items · 2 in the cache · 1 to ask")
+	contains(t, out.stdout, "3 items · 4 answers in the cache · 2 to ask")
 
 	h.write("src/b.go", "package b\n")
 	if after := h.run("", "run", "code-risk", "src", "--dry-run", "--json"); after.stdout != jsonBefore.stdout {

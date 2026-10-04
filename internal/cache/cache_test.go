@@ -72,8 +72,8 @@ func TestStoreAndLookup(t *testing.T) {
 	if len(got) != 1 || string(got["risk"]) != string(answer(1)) {
 		t.Fatalf("lookup = %s", got)
 	}
-	if s.Has("jev-1.13.0", it, questions) {
-		t.Error("Has with a question missing")
+	if !s.Has("jev-1.13.0", it, "risk", questions["risk"]) || s.Has("jev-1.13.0", it, "tests", questions["tests"]) {
+		t.Error("Has")
 	}
 	if len(s.Lookup("jev-1.14.0", it, questions)) != 0 {
 		t.Error("an answer from another version")
@@ -154,6 +154,20 @@ func TestVersions(t *testing.T) {
 		t.Fatalf("exact name, Begin = %q, %v", v, probe)
 	}
 
+	// A name ending in latest is never exact, even when a response names
+	// it back.
+	for _, name := range []string{"jev-latest", "latest", "jev-preview"} {
+		s = Open(dir, nil).Scope("typesafe", "", name, true)
+		s.Begin(ctx)
+		s.End(true, name)
+		clock = clock.Add(2 * time.Hour)
+		s = Open(dir, nil).Scope("typesafe", "", name, true)
+		if _, probe, _ := s.Begin(ctx); !probe {
+			t.Errorf("%s is trusted as exact after two hours", name)
+		}
+		s.End(true, "")
+	}
+
 	// With reads off, nothing waits for a version.
 	s = Open(dir, nil).Scope("typesafe", "", "jev-preview", false)
 	if v, probe, _ := s.Begin(ctx); v != "" || probe {
@@ -202,6 +216,45 @@ func TestOneProbeAtATime(t *testing.T) {
 	cancel()
 	if _, _, err := s.Begin(cctx); err == nil {
 		t.Fatal("a canceled wait returned no error")
+	}
+}
+
+func TestNewestWins(t *testing.T) {
+	setMergeAbove(t, 100)
+	dir := t.TempDir()
+	k := Key{9}
+	// Each answer replaces the one before, whatever the segments' random
+	// parts sort as, and so does each process's next answer.
+	for i := range 20 {
+		c := Open(dir, nil)
+		c.Put(map[Key]json.RawMessage{k: answer(i)})
+		c.Put(map[Key]json.RawMessage{k: answer(100 + i)})
+		c.Close()
+		if a, _ := Open(dir, nil).Get(k); string(a) != string(answer(100+i)) {
+			t.Fatalf("round %d: got %s", i, a)
+		}
+	}
+	// A merge keeps the newest.
+	mergeAbove = 3
+	Open(dir, nil)
+	if n := len(segments(t, dir)); n != 1 {
+		t.Fatalf("%d segments after the merge", n)
+	}
+	c := Open(dir, nil)
+	c.Put(map[Key]json.RawMessage{k: answer(500)})
+	c.Close()
+	if a, _ := Open(dir, nil).Get(k); string(a) != string(answer(500)) {
+		t.Fatalf("after the merge: got %s", a)
+	}
+	// Lines carry their own time, so an answer kept later wins even in a
+	// segment made earlier.
+	early, late := Open(dir, nil), Open(dir, nil)
+	late.Put(map[Key]json.RawMessage{k: answer(600)})
+	early.Put(map[Key]json.RawMessage{k: answer(700)})
+	early.Close()
+	late.Close()
+	if a, _ := Open(dir, nil).Get(k); string(a) != string(answer(700)) {
+		t.Fatalf("across segments: got %s", a)
 	}
 }
 

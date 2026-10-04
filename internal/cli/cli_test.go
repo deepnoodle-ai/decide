@@ -325,7 +325,7 @@ func TestFailOn(t *testing.T) {
 	h.server.Answer("risk", decidetest.NoulAnswer(0.88))
 	h.write("src/b.go", "package b")
 	h.server.FailNext(422)
-	out = h.run("", "run", "code-risk", "src", "--fail-on", "flagged", "--workers", "1")
+	out = h.run("", "run", "code-risk", "src", "--fail-on", "flagged", "--workers", "1", "--no-cache")
 	if out.code != 1 {
 		t.Fatalf("partial: exit %d, want 1: %s", out.code, out.stderr)
 	}

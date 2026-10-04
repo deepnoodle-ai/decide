@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 )
@@ -27,8 +28,9 @@ const refresh = 5 * time.Minute
 // such as jev-1.13.0. Nothing in a name says which, so the scope learns it
 // from responses: when a response names the same model the request named,
 // the name is exact, it can't move to another version, and its record
-// never goes stale. An alias's version is trusted for an hour after a
-// response named it.
+// never goes stale. A name ending in "latest" or "-preview" is always an
+// alias, even if a response names it back. An alias's version is trusted
+// for an hour after a response named it.
 type Scope struct {
 	c        *Cache
 	provider string
@@ -54,7 +56,7 @@ func (c *Cache) Scope(provider, address, model string, read bool) *Scope {
 	field(h, []byte(model))
 	s := &Scope{c: c, provider: provider, address: address, name: hex.EncodeToString(h.Sum(nil)),
 		model: model, read: read, wake: make(chan struct{})}
-	if v, ok := c.version(s.name); ok && (v.model == model || now().Sub(v.seen) < Trust) {
+	if v, ok := c.version(s.name); ok && (exact(model, v.model) || now().Sub(v.seen) < Trust) {
 		s.version, s.recorded = v.model, v.seen
 	}
 	return s
@@ -67,7 +69,13 @@ func (s *Scope) LastVersion() (version string, trusted bool) {
 	if !ok {
 		return "", false
 	}
-	return v.model, v.model == s.model || now().Sub(v.seen) < Trust
+	return v.model, exact(s.model, v.model) || now().Sub(v.seen) < Trust
+}
+
+// exact reports whether a model name is an exact version: a response
+// named it back, and it is not a name that moves, such as jev-latest.
+func exact(name, resolved string) bool {
+	return name == resolved && !strings.HasSuffix(name, "latest") && !strings.HasSuffix(name, "-preview")
 }
 
 // Key is the key of the answer to a question about an item from a model
@@ -148,15 +156,10 @@ func (s *Scope) Lookup(version string, it Item, questions map[string][]byte) map
 	return found
 }
 
-// Has reports whether every question about an item has a kept answer
-// from a model version.
-func (s *Scope) Has(version string, it Item, questions map[string][]byte) bool {
-	for key, q := range questions {
-		if !s.c.Has(s.Key(version, it, key, q)) {
-			return false
-		}
-	}
-	return true
+// Has reports whether a question about an item has a kept answer from a
+// model version. q is the question as sent.
+func (s *Scope) Has(version string, it Item, question string, q []byte) bool {
+	return s.c.Has(s.Key(version, it, question, q))
 }
 
 // Store keeps the answers to questions about an item from a model version.

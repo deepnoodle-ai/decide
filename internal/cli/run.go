@@ -381,14 +381,10 @@ func marked(run *runs.Run) map[string]int {
 func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) map[string]int {
 	m := marksOf(run.Template)
 	var flaggedItems, matchedItems []string
-	var fromCache, someCached int
+	var fromCache, answers int
 	answered, failures, total := progress(run, func(it item) {
-		if len(it.Cached) > 0 {
-			someCached++
-			if it.RequestID == "" {
-				fromCache++
-			}
-		}
+		fromCache += len(it.Cached)
+		answers += len(it.Answers)
 		if m.has(it.Result, flagged) {
 			flaggedItems = append(flaggedItems, clean(it.Source))
 		}
@@ -422,8 +418,9 @@ func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) map[string]int
 		line += "  " + dim(humanize.DurationShort(elapsed.Round(100*time.Millisecond)))
 	}
 	fmt.Fprintln(w, line)
-	if someCached > 0 {
-		fmt.Fprintf(w, "  %s\n", dim(fmt.Sprintf("%d from cache · %d asked", fromCache, answered-fromCache)))
+	if fromCache > 0 {
+		fmt.Fprintf(w, "  %s\n", dim(fmt.Sprintf("%s from cache · %d asked",
+			humanize.PluralWord(fromCache, "answer", "answers"), answers-fromCache)))
 	}
 	list(w, "Flagged:", flaggedItems)
 	list(w, "Matched:", matchedItems)
@@ -508,8 +505,8 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 		fmt.Fprintf(w, "\n%s\n", dim(hint))
 	}
 	if counted != nil {
-		fmt.Fprintf(w, "\n%s\n", dim(fmt.Sprintf("%s · %d in the cache · %d to ask",
-			humanize.PluralWord(total, "item", "items"), counted.cached, total-counted.cached)))
+		fmt.Fprintf(w, "\n%s\n", dim(fmt.Sprintf("%s · %s in the cache · %d to ask",
+			humanize.PluralWord(total, "item", "items"), humanize.PluralWord(counted.cached, "answer", "answers"), counted.toAsk)))
 	}
 	fmt.Fprintf(w, "\nand ask each one:\n\n")
 	m := marksOf(s)

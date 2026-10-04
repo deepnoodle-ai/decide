@@ -36,13 +36,15 @@ func address(provider string) string {
 	return ""
 }
 
-// cacheCount counts, for a dry run, the items whose every answer is in
-// the cache.
+// cacheCount counts, for a dry run, the answers the cache holds and the
+// answers left to ask. An answer to an item judged in parts is in the
+// cache when every part's is.
 type cacheCount struct {
 	scope    *cache.Scope
 	version  string
 	sent     map[string][]byte
 	cached   int
+	toAsk    int
 	disabled bool // --no-cache: nothing is looked up
 }
 
@@ -65,6 +67,7 @@ func newCacheCount(scope *cache.Scope, s *template.Template, read bool) (*cacheC
 
 func (n *cacheCount) add(it source.Item) {
 	if n.disabled || n.version == "" {
+		n.toAsk += len(n.sent)
 		return
 	}
 	var contentType string
@@ -79,11 +82,24 @@ func (n *cacheCount) add(it source.Item) {
 			states = append(states, p.State)
 		}
 	}
+	items := make([]cache.Item, 0, len(states))
 	for _, st := range states {
 		b, err := json.Marshal(st)
-		if err != nil || !n.scope.Has(n.version, cache.ItemOf(b, contentType, image), n.sent) {
+		if err != nil {
+			n.toAsk += len(n.sent)
 			return
 		}
+		items = append(items, cache.ItemOf(b, contentType, image))
 	}
-	n.cached++
+	for key, q := range n.sent {
+		all := true
+		for _, ci := range items {
+			all = all && n.scope.Has(n.version, ci, key, q)
+		}
+		if all {
+			n.cached++
+		} else {
+			n.toAsk++
+		}
+	}
 }
