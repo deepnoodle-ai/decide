@@ -15,6 +15,14 @@ Claude also gets a **judge tool**, `mcp__decide__judge`, for its own typed
 questions over up to 200 items, and a **skill** that teaches it to run
 decide and write templates.
 
+**`/decide:hunt <commit or PR>`** finds the other places a fixed bug lives.
+Claude writes one question about the mistake the fix corrected, checks
+that it flags the code before the fix and passes the code after, asks it
+of every function in the repository, and reads the top ten to confirm
+them. The question is saved as a project template, such as
+`.decide/templates/bug-87`, so later changes can be checked for the same
+bug.
+
 ## Install
 
 You need Claude Code 2.1.287 or later, decide 0.2.0 or later, and a key for
@@ -56,6 +64,9 @@ These go to the decision model's provider, with your key:
 - each final reply, with the first and last 400 characters of each tool
   result in that turn, up to 12,000 characters in all. A tool result can be
   a file's contents, such as a `.env` file Claude read.
+- with `/decide:hunt`, every function in the repository the sweep covers.
+  Its runs and answers are kept in your own `~/.decide`, like any
+  `decide run`.
 
 Each check is also saved on your disk as a decide run under
 `~/.decide/agent/runs`, readable only by you. Nothing removes them; delete
