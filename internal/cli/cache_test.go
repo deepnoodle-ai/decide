@@ -4,11 +4,9 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/decidetest"
@@ -16,8 +14,8 @@ import (
 	"github.com/deepnoodle-ai/decide/internal/template"
 )
 
-// codeRisk answers code-risk questions, flagging files that hold "risky",
-// and names a model version.
+// codeRisk answers code-risk and test template questions, flagging files
+// that hold "risky", and names a model version.
 func codeRisk(h *harness, model string) {
 	levels := []any{"0", "1", "2", "3", "4"}
 	h.server.Respond(func(req *decide.Request) (*decide.Response, error) {
@@ -209,71 +207,22 @@ func TestCacheAddedQuestion(t *testing.T) {
 	}
 }
 
-func TestCacheVersionChange(t *testing.T) {
+func TestCacheModelName(t *testing.T) {
 	h := setup(t)
-	h.write(".decide/templates/mine/template.json", twoQuestions)
 	codeRisk(h, "jev-1.13.0")
-	h.run("one\n", "run", "mine")
+	h.run("one\n", "run", "relevance", "-p", "question=x")
 
-	// A response that names a new version is used from then on: the item
-	// asked about is answered from the cache only by that version.
+	// An upgrade behind the name keeps the cached answers.
 	codeRisk(h, "jev-1.14.0")
-	out := h.run("one\ntwo\n", "run", "mine", "--workers", "1", "--json")
-	lines := jsonLines(t, out.stdout, true)
-	if h.requests() != 2 || lines[0]["cached"] == nil || lines[1]["model"] != "jev-1.14.0" {
-		t.Fatalf("%d requests: %v", h.requests(), lines)
-	}
-	out = h.run("one\ntwo\n", "run", "mine", "--workers", "1", "--json")
-	lines = jsonLines(t, out.stdout, true)
-	if h.requests() != 3 || lines[0]["model"] != "jev-1.14.0" || lines[1]["cached"] == nil {
-		t.Fatalf("%d requests: %v", h.requests(), lines)
-	}
-
-	// Cached answers from an old version, merged with a new question's
-	// answer from a new version, are asked again whole.
-	codeRisk(h, "jev-1.15.0")
-	h.write(".decide/templates/mine/template.json", strings.Replace(twoQuestions, "tested?", "tested well?", 1))
-	out = h.run("one\n", "run", "mine", "--json")
-	reqs := h.server.Requests()[3:]
-	if len(reqs) != 2 || len(reqs[0].Request.Questions) != 1 || len(reqs[1].Request.Questions) != 2 {
-		t.Fatalf("%d requests", len(reqs))
-	}
-	if line := jsonLines(t, out.stdout, true)[0]; line["cached"] != nil || line["model"] != "jev-1.15.0" {
-		t.Fatalf("result: %v", line)
-	}
-
-	// After an hour, the first request is sent whole to learn the
-	// version, though its answers are cached.
-	ageVersions(t)
-	codeRisk(h, "jev-1.16.0")
-	out = h.run("one\n", "run", "mine", "--json")
-	if h.requests() != 6 || len(h.server.Requests()[5].Request.Questions) != 2 {
+	h.run("one\n", "run", "relevance", "-p", "question=x")
+	if h.requests() != 1 {
 		t.Fatalf("%d requests", h.requests())
 	}
-	if line := jsonLines(t, out.stdout, true)[0]; line["cached"] != nil || line["model"] != "jev-1.16.0" {
-		t.Fatalf("result: %v", line)
-	}
-	h.run("one\n", "run", "mine")
-	if h.requests() != 6 {
+	// Another name, such as an exact version, is another model.
+	h.run("one\n", "run", "relevance", "-p", "question=x", "--model", "jev-1.14.0")
+	h.run("one\n", "run", "relevance", "-p", "question=x", "--model", "jev-1.14.0")
+	if h.requests() != 2 {
 		t.Fatalf("%d requests", h.requests())
-	}
-}
-
-// ageVersions makes every model version in the cache seen two hours ago.
-func ageVersions(t *testing.T) {
-	t.Helper()
-	dir := filepath.Join(template.Home(), "cache")
-	files, _ := filepath.Glob(filepath.Join(dir, "seg-*.jsonl"))
-	seen := regexp.MustCompile(`"seen":"[^"]*"`)
-	old := `"seen":"` + time.Now().Add(-2*time.Hour).UTC().Format(time.RFC3339Nano) + `"`
-	for _, f := range files {
-		data, err := os.ReadFile(f)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(f, seen.ReplaceAll(data, []byte(old)), 0o600); err != nil {
-			t.Fatal(err)
-		}
 	}
 }
 
@@ -309,19 +258,23 @@ func TestCacheChecksKeptAnswers(t *testing.T) {
 	}
 }
 
-func TestCacheSkipsCloudflare(t *testing.T) {
+func TestCacheClef(t *testing.T) {
 	h := setup(t)
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "account-a")
 	h.run("one\n", "run", "sentiment", "--provider", "cloudflare")
+	out := h.run("one\n", "run", "sentiment", "--provider", "cloudflare", "--json")
+	if h.requests() != 1 || jsonLines(t, out.stdout, true)[0]["cached"] == nil {
+		t.Fatalf("%d requests: %s", h.requests(), out.stdout)
+	}
+	out = h.run("one\n", "run", "sentiment", "--provider", "cloudflare", "--dry-run")
+	contains(t, out.stdout, "1 item · 1 answer in the cache · 0 to ask")
+
+	// Another account, or another provider, is asked.
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "account-b")
 	h.run("one\n", "run", "sentiment", "--provider", "cloudflare")
-	if h.requests() != 2 {
+	h.run("one\n", "run", "sentiment")
+	if h.requests() != 3 {
 		t.Fatalf("%d requests", h.requests())
-	}
-	if _, err := os.Stat(filepath.Join(template.Home(), "cache")); !os.IsNotExist(err) {
-		t.Fatalf("cloudflare answers were kept: %v", err)
-	}
-	out := h.run("one\n", "run", "sentiment", "--provider", "cloudflare", "--dry-run")
-	if strings.Contains(out.stdout, "in the cache") {
-		t.Errorf("dry run counts a cache cloudflare doesn't use:\n%s", out.stdout)
 	}
 }
 
@@ -347,11 +300,6 @@ func TestCacheDryRun(t *testing.T) {
 	if h.requests() != n {
 		t.Fatalf("a dry run sent %d requests", h.requests()-n)
 	}
-	// A version no longer trusted is still counted against.
-	ageVersions(t)
-	out = h.run("", "run", "code-risk", "src", "--dry-run")
-	contains(t, out.stdout, "3 items · 4 answers in the cache · 2 to ask")
-
 	h.write("src/b.go", "package b\n")
 	if after := h.run("", "run", "code-risk", "src", "--dry-run", "--json"); after.stdout != jsonBefore.stdout {
 		t.Errorf("--dry-run --json changed:\n%s\n%s", jsonBefore.stdout, after.stdout)

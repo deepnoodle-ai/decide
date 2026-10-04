@@ -67,7 +67,8 @@ type Run struct {
 	Dir string `json:"-"`
 
 	inputs *os.File
-	cache  *cache.Scope
+	cache  *cache.Cache
+	source cache.Source
 }
 
 // Result is the outcome for one item.
@@ -103,10 +104,9 @@ type input struct {
 	ContentType string          `json:"content_type,omitempty"`
 }
 
-// UseCache makes Execute look answers up in a cache scope and keep the
-// answers it gets there. For a run made with NoCache, the scope is made
-// with reads off.
-func (r *Run) UseCache(s *cache.Scope) { r.cache = s }
+// UseCache makes Execute look answers from a source up in a cache, unless
+// the run was made with NoCache, and keep the answers it gets there.
+func (r *Run) UseCache(c *cache.Cache, src cache.Source) { r.cache, r.source = c, src }
 
 // Root is the directory that holds all runs.
 func Root() string { return filepath.Join(template.Home(), "runs") }
@@ -623,48 +623,36 @@ func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions que
 		return res, nil
 	}
 	it := cache.ItemOf(state, in.ContentType, image)
-	// A response can name a newer version than the cached answers came
-	// from. Then the item is asked again, whole.
-	for attempt := 0; ; attempt++ {
-		version, probe, err := r.cache.Begin(ctx)
-		if err != nil {
-			return res, err
-		}
-		var cached map[string]json.RawMessage
-		if attempt == 0 && !probe {
-			cached = r.cache.Lookup(version, it, questions.sent)
-			for key, a := range cached {
-				if !valid(questions.decoded[key], a) {
-					delete(cached, key) // asked again, as if it were never kept
-				}
+	cached := map[string]json.RawMessage{}
+	if !r.NoCache {
+		for key, a := range r.cache.Lookup(r.source, it, questions.sent) {
+			if valid(questions.decoded[key], a) {
+				cached[key] = a
 			}
 		}
-		req.Questions = map[string]decide.Question{}
-		for key, q := range questions.decoded {
-			if _, ok := cached[key]; !ok {
-				req.Questions[key] = q
-			}
-		}
-		if len(req.Questions) == 0 {
-			r.cache.End(probe, "")
-			res.Status, res.Answers, res.Cached = "complete", cached, slices.Sorted(maps.Keys(cached))
-			return res, nil
-		}
-		out, err := r.ask(ctx, client, req, res)
-		r.cache.End(probe, out.Model)
-		if err != nil || out.Status != "complete" {
-			return out, err
-		}
-		r.cache.Store(out.Model, it, questions.sent, out.Answers)
-		if len(cached) > 0 && out.Model != version && attempt == 0 {
-			continue
-		}
-		for key, a := range cached {
-			out.Answers[key] = a
-		}
-		out.Cached = slices.Sorted(maps.Keys(cached))
-		return out, nil
 	}
+	req.Questions = map[string]decide.Question{}
+	for key, q := range questions.decoded {
+		if _, ok := cached[key]; !ok {
+			req.Questions[key] = q
+		}
+	}
+	if len(req.Questions) == 0 {
+		res.Status, res.Answers, res.Cached = "complete", cached, slices.Sorted(maps.Keys(cached))
+		return res, nil
+	}
+	out, err := r.ask(ctx, client, req, res)
+	if err != nil || out.Status != "complete" {
+		return out, err
+	}
+	r.cache.Store(r.source, it, questions.sent, out.Answers)
+	for key, a := range cached {
+		out.Answers[key] = a
+	}
+	if len(cached) > 0 {
+		out.Cached = slices.Sorted(maps.Keys(cached))
+	}
+	return out, nil
 }
 
 // valid reports whether a kept answer is a valid answer to its question,

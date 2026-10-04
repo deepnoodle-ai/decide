@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,7 +11,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 )
 
 func answer(n int) json.RawMessage {
@@ -25,22 +23,21 @@ var questions = map[string][]byte{
 }
 
 func TestKeys(t *testing.T) {
-	c := Open(t.TempDir(), nil)
-	s := c.Scope("typesafe", "", "jev-latest", true)
+	src := Source{Provider: "typesafe", Model: "jev-latest"}
 	it := ItemOf([]byte(`"package a"`), "", nil)
-	base := s.Key("jev-1.13.0", it, "risk", questions["risk"])
-	if s.Key("jev-1.13.0", it, "risk", questions["risk"]) != base {
+	base := src.Key(it, "risk", questions["risk"])
+	if src.Key(it, "risk", questions["risk"]) != base {
 		t.Fatal("the same request has two keys")
 	}
-	other := c.Scope("typesafe", "https://gateway.example", "jev-latest", true)
+	with := func(f func(*Source)) Source { s := src; f(&s); return s }
 	differ := map[string]Key{
-		"state":    s.Key("jev-1.13.0", ItemOf([]byte(`"package b"`), "", nil), "risk", questions["risk"]),
-		"image":    s.Key("jev-1.13.0", ItemOf([]byte(`"package a"`), "image/png", []byte{1}), "risk", questions["risk"]),
-		"version":  s.Key("jev-1.14.0", it, "risk", questions["risk"]),
-		"key":      s.Key("jev-1.13.0", it, "danger", questions["risk"]),
-		"question": s.Key("jev-1.13.0", it, "risk", []byte(`{"type":"noul","instructions":"Is it risky?","criteria":{}}`)),
-		"address":  other.Key("jev-1.13.0", it, "risk", questions["risk"]),
-		"provider": c.Scope("cloudflare", "", "jev-latest", true).Key("jev-1.13.0", it, "risk", questions["risk"]),
+		"state":    src.Key(ItemOf([]byte(`"package b"`), "", nil), "risk", questions["risk"]),
+		"image":    src.Key(ItemOf([]byte(`"package a"`), "image/png", []byte{1}), "risk", questions["risk"]),
+		"key":      src.Key(it, "danger", questions["risk"]),
+		"question": src.Key(it, "risk", []byte(`{"type":"noul","instructions":"Is it risky?","criteria":{}}`)),
+		"model":    with(func(s *Source) { s.Model = "jev-1.13.0" }).Key(it, "risk", questions["risk"]),
+		"address":  with(func(s *Source) { s.Address = "https://gateway.example" }).Key(it, "risk", questions["risk"]),
+		"provider": with(func(s *Source) { s.Provider = "cloudflare" }).Key(it, "risk", questions["risk"]),
 	}
 	for what, k := range differ {
 		if k == base {
@@ -53,33 +50,37 @@ func TestKeys(t *testing.T) {
 	}
 }
 
+// get returns the answer kept for a key.
+func get(c *Cache, k Key) json.RawMessage {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return json.RawMessage(c.answers[k].answer)
+}
+
 func TestStoreAndLookup(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "cache")
 	c := Open(dir, nil)
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Fatalf("Open made the folder before anything was kept: %v", err)
 	}
-	s := c.Scope("typesafe", "", "jev-latest", true)
+	src := Source{Provider: "typesafe", Model: "jev-latest"}
 	it := ItemOf([]byte(`"x"`), "", nil)
-	s.Store("jev-1.13.0", it, questions, map[string]json.RawMessage{"risk": answer(1)})
+	c.Store(src, it, questions, map[string]json.RawMessage{"risk": answer(1), "other": answer(2)})
 	if err := c.Close(); err != nil {
 		t.Fatal(err)
 	}
 
 	c = Open(dir, nil)
-	s = c.Scope("typesafe", "", "jev-latest", true)
-	got := s.Lookup("jev-1.13.0", it, questions)
-	if len(got) != 1 || string(got["risk"]) != string(answer(1)) {
+	got := c.Lookup(src, it, questions)
+	if c.Len() != 1 || len(got) != 1 || string(got["risk"]) != string(answer(1)) {
 		t.Fatalf("lookup = %s", got)
 	}
-	if !s.Has("jev-1.13.0", it, "risk", questions["risk"]) || s.Has("jev-1.13.0", it, "tests", questions["tests"]) {
+	if !c.Has(src.Key(it, "risk", questions["risk"])) || c.Has(src.Key(it, "tests", questions["tests"])) {
 		t.Error("Has")
 	}
-	if len(s.Lookup("jev-1.14.0", it, questions)) != 0 {
-		t.Error("an answer from another version")
-	}
-	if off := c.Scope("typesafe", "", "jev-latest", false); len(off.Lookup("jev-1.13.0", it, questions)) != 0 {
-		t.Error("lookup with reads off")
+	src.Model = "jev-1.13.0"
+	if len(c.Lookup(src, it, questions)) != 0 {
+		t.Error("an answer from another model")
 	}
 
 	// Files are the user's only.
@@ -102,123 +103,6 @@ func TestStoreAndLookup(t *testing.T) {
 	}
 }
 
-func TestVersions(t *testing.T) {
-	clock := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
-	now = func() time.Time { return clock }
-	t.Cleanup(func() { now = time.Now })
-	dir := t.TempDir()
-	ctx := context.Background()
-
-	// With no version known, the first request is a probe.
-	s := Open(dir, nil).Scope("typesafe", "", "jev-latest", true)
-	if v, probe, _ := s.Begin(ctx); v != "" || !probe {
-		t.Fatalf("Begin = %q, %v; want a probe", v, probe)
-	}
-	s.End(true, "jev-1.13.0")
-	if v, probe, _ := s.Begin(ctx); v != "jev-1.13.0" || probe {
-		t.Fatalf("after the probe, Begin = %q, %v", v, probe)
-	}
-	// A later response with a new version is used from then on.
-	s.End(false, "jev-1.14.0")
-	if v, _, _ := s.Begin(ctx); v != "jev-1.14.0" {
-		t.Fatalf("after an upgrade, Begin = %q", v)
-	}
-
-	// Another process trusts the version within the hour.
-	clock = clock.Add(59 * time.Minute)
-	s = Open(dir, nil).Scope("typesafe", "", "jev-latest", true)
-	if v, probe, _ := s.Begin(ctx); v != "jev-1.14.0" || probe {
-		t.Fatalf("within the hour, Begin = %q, %v", v, probe)
-	}
-	// After an hour, it checks again, and still knows the last version.
-	clock = clock.Add(2 * time.Minute)
-	s = Open(dir, nil).Scope("typesafe", "", "jev-latest", true)
-	if v, probe, _ := s.Begin(ctx); v != "" || !probe {
-		t.Fatalf("after an hour, Begin = %q, %v", v, probe)
-	}
-	if v, trusted := s.LastVersion(); v != "jev-1.14.0" || trusted {
-		t.Fatalf("LastVersion = %q, %v", v, trusted)
-	}
-	s.End(true, "")
-
-	// An exact version is trusted however old.
-	s = Open(dir, nil).Scope("typesafe", "", "jev-1.13.0", true)
-	_, probe, _ := s.Begin(ctx)
-	if !probe {
-		t.Fatal("an unknown exact name is not checked once")
-	}
-	s.End(true, "jev-1.13.0")
-	clock = clock.Add(48 * time.Hour)
-	s = Open(dir, nil).Scope("typesafe", "", "jev-1.13.0", true)
-	if v, probe, _ := s.Begin(ctx); v != "jev-1.13.0" || probe {
-		t.Fatalf("exact name, Begin = %q, %v", v, probe)
-	}
-
-	// A name ending in latest is never exact, even when a response names
-	// it back.
-	for _, name := range []string{"jev-latest", "latest", "jev-preview"} {
-		s = Open(dir, nil).Scope("typesafe", "", name, true)
-		s.Begin(ctx)
-		s.End(true, name)
-		clock = clock.Add(2 * time.Hour)
-		s = Open(dir, nil).Scope("typesafe", "", name, true)
-		if _, probe, _ := s.Begin(ctx); !probe {
-			t.Errorf("%s is trusted as exact after two hours", name)
-		}
-		s.End(true, "")
-	}
-
-	// With reads off, nothing waits for a version.
-	s = Open(dir, nil).Scope("typesafe", "", "jev-preview", false)
-	if v, probe, _ := s.Begin(ctx); v != "" || probe {
-		t.Fatalf("reads off, Begin = %q, %v", v, probe)
-	}
-}
-
-func TestOneProbeAtATime(t *testing.T) {
-	s := Open(t.TempDir(), nil).Scope("typesafe", "", "jev-latest", true)
-	ctx := context.Background()
-	if _, probe, _ := s.Begin(ctx); !probe {
-		t.Fatal("no probe")
-	}
-	var wg sync.WaitGroup
-	got := make(chan string, 8)
-	for range 8 {
-		wg.Go(func() {
-			v, probe, err := s.Begin(ctx)
-			if probe || err != nil {
-				t.Errorf("a second probe: %v %v", probe, err)
-			}
-			got <- v
-		})
-	}
-	time.Sleep(10 * time.Millisecond)
-	if len(got) != 0 {
-		t.Fatal("a caller did not wait for the probe")
-	}
-	s.End(true, "jev-1.13.0")
-	wg.Wait()
-	close(got)
-	for v := range got {
-		if v != "jev-1.13.0" {
-			t.Errorf("version %q", v)
-		}
-	}
-
-	// A failed probe hands the probe to the next caller.
-	s = Open(t.TempDir(), nil).Scope("typesafe", "", "jev-latest", true)
-	s.Begin(ctx)
-	s.End(true, "")
-	if _, probe, _ := s.Begin(ctx); !probe {
-		t.Fatal("no probe after a failed one")
-	}
-	cctx, cancel := context.WithCancel(ctx)
-	cancel()
-	if _, _, err := s.Begin(cctx); err == nil {
-		t.Fatal("a canceled wait returned no error")
-	}
-}
-
 func TestNewestWins(t *testing.T) {
 	setMergeAbove(t, 100)
 	dir := t.TempDir()
@@ -227,10 +111,10 @@ func TestNewestWins(t *testing.T) {
 	// parts sort as, and so does each process's next answer.
 	for i := range 20 {
 		c := Open(dir, nil)
-		c.Put(map[Key]json.RawMessage{k: answer(i)})
-		c.Put(map[Key]json.RawMessage{k: answer(100 + i)})
+		c.put(map[Key]json.RawMessage{k: answer(i)})
+		c.put(map[Key]json.RawMessage{k: answer(100 + i)})
 		c.Close()
-		if a, _ := Open(dir, nil).Get(k); string(a) != string(answer(100+i)) {
+		if a := get(Open(dir, nil), k); string(a) != string(answer(100+i)) {
 			t.Fatalf("round %d: got %s", i, a)
 		}
 	}
@@ -241,19 +125,19 @@ func TestNewestWins(t *testing.T) {
 		t.Fatalf("%d segments after the merge", n)
 	}
 	c := Open(dir, nil)
-	c.Put(map[Key]json.RawMessage{k: answer(500)})
+	c.put(map[Key]json.RawMessage{k: answer(500)})
 	c.Close()
-	if a, _ := Open(dir, nil).Get(k); string(a) != string(answer(500)) {
+	if a := get(Open(dir, nil), k); string(a) != string(answer(500)) {
 		t.Fatalf("after the merge: got %s", a)
 	}
 	// Lines carry their own time, so an answer kept later wins even in a
 	// segment made earlier.
 	early, late := Open(dir, nil), Open(dir, nil)
-	late.Put(map[Key]json.RawMessage{k: answer(600)})
-	early.Put(map[Key]json.RawMessage{k: answer(700)})
+	late.put(map[Key]json.RawMessage{k: answer(600)})
+	early.put(map[Key]json.RawMessage{k: answer(700)})
 	early.Close()
 	late.Close()
-	if a, _ := Open(dir, nil).Get(k); string(a) != string(answer(700)) {
+	if a := get(Open(dir, nil), k); string(a) != string(answer(700)) {
 		t.Fatalf("across segments: got %s", a)
 	}
 }
@@ -263,7 +147,8 @@ func TestTornLines(t *testing.T) {
 	k := Key{1}
 	good := fmt.Sprintf(`{"answers":{"%x":{"type":"noul"}}}`, k[:])
 	torn := fmt.Sprintf(`{"answers":{"%x":{"ty`, Key{2})
-	data := good + "\nnot json\n" + `{"answers":{"short":{}}}` + "\n" + torn
+	version := `{"name":"abc","model":"jev-1.13.0","seen":"2026-10-04T12:00:00Z"}`
+	data := good + "\n" + version + "\nnot json\n" + `{"answers":{"short":{}}}` + "\n" + torn
 	if err := os.WriteFile(filepath.Join(dir, "seg-a.jsonl"), []byte(data), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -279,16 +164,15 @@ func TestBrokenCache(t *testing.T) {
 		t.Skip("needs a folder the user can't read")
 	}
 	dir := t.TempDir()
-	Open(dir, nil).Put(map[Key]json.RawMessage{{1}: answer(1)})
+	Open(dir, nil).put(map[Key]json.RawMessage{{1}: answer(1)})
 	if err := os.Chmod(dir, 0); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.Chmod(dir, 0o700) })
 	var warnings []string
 	c := Open(dir, func(msg string) { warnings = append(warnings, msg) })
-	c.Put(map[Key]json.RawMessage{{2}: answer(2)})
-	s := c.Scope("typesafe", "", "jev-latest", true)
-	s.End(false, "jev-1.13.0")
+	c.put(map[Key]json.RawMessage{{2}: answer(2)})
+	c.put(map[Key]json.RawMessage{{3}: answer(3)})
 	if len(warnings) != 1 || !strings.Contains(warnings[0], "can't be used") {
 		t.Fatalf("warnings = %q", warnings)
 	}
@@ -303,8 +187,8 @@ func TestBrokenCache(t *testing.T) {
 	if !c.Has(Key{1}) {
 		t.Fatal("a read-only cache can still be read")
 	}
-	c.Put(map[Key]json.RawMessage{{2}: answer(2)})
-	c.Put(map[Key]json.RawMessage{{3}: answer(3)})
+	c.put(map[Key]json.RawMessage{{2}: answer(2)})
+	c.put(map[Key]json.RawMessage{{3}: answer(3)})
 	if len(warnings) != 1 || c.Has(Key{1}) {
 		t.Fatalf("warnings = %q", warnings)
 	}
@@ -315,10 +199,10 @@ func TestMerge(t *testing.T) {
 	dir := t.TempDir()
 	// One process is still writing its segment, so it can't be merged.
 	active := Open(dir, nil)
-	active.Put(map[Key]json.RawMessage{{0, 1}: answer(1)})
+	active.put(map[Key]json.RawMessage{{0, 1}: answer(1)})
 	for i := range 10 {
 		c := Open(dir, nil)
-		c.Put(map[Key]json.RawMessage{{1, byte(i)}: answer(i)})
+		c.put(map[Key]json.RawMessage{{1, byte(i)}: answer(i)})
 		c.Close()
 	}
 	before := len(segments(t, dir))
@@ -332,7 +216,7 @@ func TestMerge(t *testing.T) {
 		t.Fatalf("%d answers", c.Len())
 	}
 	// The active segment keeps its entries, old and new.
-	active.Put(map[Key]json.RawMessage{{0, 2}: answer(2)})
+	active.put(map[Key]json.RawMessage{{0, 2}: answer(2)})
 	active.Close()
 	c = Open(dir, nil)
 	if c.Len() != 12 || !c.Has(Key{0, 1}) || !c.Has(Key{0, 2}) {
@@ -357,10 +241,8 @@ func TestConcurrentCaches(t *testing.T) {
 func write(dir string, writer, rounds, each int) {
 	for r := range rounds {
 		c := Open(dir, nil)
-		s := c.Scope("typesafe", "", "jev-latest", true)
-		s.End(false, "jev-1.13.0")
 		for i := range each {
-			c.Put(map[Key]json.RawMessage{{byte(writer), byte(r), byte(i)}: answer(i)})
+			c.put(map[Key]json.RawMessage{{byte(writer), byte(r), byte(i)}: answer(i)})
 		}
 		c.Close()
 	}
@@ -371,9 +253,6 @@ func check(t *testing.T, dir string, writers, rounds, each int) {
 	c := Open(dir, func(msg string) { t.Errorf("warning: %s", msg) })
 	if c.Len() != writers*rounds*each {
 		t.Fatalf("%d answers, want %d", c.Len(), writers*rounds*each)
-	}
-	if v, _ := c.Scope("typesafe", "", "jev-latest", true).LastVersion(); v != "jev-1.13.0" {
-		t.Fatalf("version %q", v)
 	}
 	if n := len(segments(t, dir)); n > writers+mergeAbove+1 {
 		t.Fatalf("%d segments", n)

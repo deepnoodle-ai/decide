@@ -13,60 +13,54 @@ import (
 	"github.com/deepnoodle-ai/wonton/cli"
 )
 
-// openCache opens the answer cache for requests to a provider and model.
-// It returns nil for Cloudflare: Workers AI names no model version, so
-// decide could not tell when a cached answer went stale. With read false,
-// answers are kept but not looked up.
-func openCache(c *cli.Context, provider, model string, read bool) (*cache.Cache, *cache.Scope) {
-	if provider != "typesafe" {
-		return nil, nil
-	}
+// openCache opens the answer cache, and names the source of a run's
+// answers: the provider, its address and the model name.
+func openCache(c *cli.Context, provider, model string) (*cache.Cache, cache.Source) {
 	cc := cache.Open(filepath.Join(template.Home(), "cache"), func(msg string) {
 		fmt.Fprintln(c.Stderr(), dim(clean(msg)))
 	})
-	return cc, cc.Scope(provider, address(provider), model, read)
+	return cc, cache.Source{Provider: provider, Address: address(provider), Model: model}
 }
 
-// address is where requests to a provider go, as connect chooses it. An
-// empty address is the provider's default.
+// address is where requests to a provider go, as connect chooses it: the
+// base URL, empty for the provider's default, and for Cloudflare the
+// account.
 func address(provider string) string {
-	if provider == "typesafe" {
-		return strings.TrimRight(strings.TrimSpace(os.Getenv("TYPESAFE_BASE_URL")), "/")
+	base := func(name string) string { return strings.TrimRight(strings.TrimSpace(os.Getenv(name)), "/") }
+	if provider == "cloudflare" {
+		return strings.TrimSpace(os.Getenv("CLOUDFLARE_ACCOUNT_ID")) + " " + base("CLOUDFLARE_BASE_URL")
 	}
-	return ""
+	return base("TYPESAFE_BASE_URL")
 }
 
 // cacheCount counts, for a dry run, the answers the cache holds and the
 // answers left to ask. An answer to an item judged in parts is in the
 // cache when every part's is.
 type cacheCount struct {
-	scope    *cache.Scope
-	version  string
+	cache    *cache.Cache
+	source   cache.Source
 	sent     map[string][]byte
 	cached   int
 	toAsk    int
 	disabled bool // --no-cache: nothing is looked up
 }
 
-func newCacheCount(scope *cache.Scope, s *template.Template, read bool) (*cacheCount, error) {
+func newCacheCount(cc *cache.Cache, src cache.Source, s *template.Template, read bool) (*cacheCount, error) {
 	questions, err := s.Decode()
 	if err != nil {
 		return nil, err
 	}
-	n := &cacheCount{scope: scope, sent: map[string][]byte{}, disabled: !read}
+	n := &cacheCount{cache: cc, source: src, sent: map[string][]byte{}, disabled: !read}
 	for key, q := range questions {
 		if n.sent[key], err = json.Marshal(q); err != nil {
 			return nil, err
 		}
 	}
-	// A version no longer trusted is still the best guess: a run checks it
-	// with its first request.
-	n.version, _ = scope.LastVersion()
 	return n, nil
 }
 
 func (n *cacheCount) add(it source.Item) {
-	if n.disabled || n.version == "" {
+	if n.disabled {
 		n.toAsk += len(n.sent)
 		return
 	}
@@ -94,7 +88,7 @@ func (n *cacheCount) add(it source.Item) {
 	for key, q := range n.sent {
 		all := true
 		for _, ci := range items {
-			all = all && n.scope.Has(n.version, ci, key, q)
+			all = all && n.cache.Has(n.source.Key(ci, key, q))
 		}
 		if all {
 			n.cached++

@@ -2,9 +2,11 @@
 // only about what changed.
 //
 // An answer is kept by a key: a hash of the provider and its address, the
-// model version that answered, the item's text as sent, its image, and the
-// question as sent. The cache keeps hashes and answers, never item text,
-// file names or images.
+// model name the run asked for, the item's text as sent, its image, and the
+// question as sent. When a provider upgrades the model behind a name, kept
+// answers stay; a run that names an exact version pins its answers to it.
+// The cache keeps hashes and answers, never item text, file names or
+// images.
 //
 // The cache is one folder of segment files, each holding lines of JSON.
 // Each process appends to a segment of its own, which it locks while it
@@ -46,6 +48,28 @@ var now = time.Now
 // Key identifies one answer.
 type Key [16]byte
 
+// Source is where answers come from: a provider, its address, and the
+// model name a run asks for, such as jev-latest.
+type Source struct {
+	Provider, Address, Model string
+}
+
+// Key is the key of the answer to a question about an item. q is the
+// question as sent, with its type and options.
+func (s Source) Key(it Item, question string, q []byte) Key {
+	h := sha256.New()
+	field(h, []byte("answer"))
+	field(h, []byte(s.Provider))
+	field(h, []byte(s.Address))
+	field(h, []byte(s.Model))
+	field(h, it[:])
+	field(h, []byte(question))
+	field(h, q)
+	var k Key
+	copy(k[:], h.Sum(nil))
+	return k
+}
+
 // Item identifies what a request says about one item: the text sent as its
 // state and its image, if any.
 type Item [32]byte
@@ -70,24 +94,16 @@ func field(h interface{ Write([]byte) (int, error) }, b []byte) {
 	h.Write(b)
 }
 
-type version struct {
-	model string
-	seen  time.Time
-}
-
 type entry struct {
 	answer string
 	time   int64 // when it was kept, in nanoseconds since 1970
 }
 
-// line is one line of a segment: answers kept at one time, or the version
-// a model name was last seen to resolve to.
+// line is one line of a segment: answers kept at one time. Lines of other
+// kinds, such as those older versions wrote, are skipped.
 type line struct {
 	Time    int64                      `json:"time,omitempty"`
 	Answers map[string]json.RawMessage `json:"answers,omitempty"`
-	Name    string                     `json:"name,omitempty"` // a hash of provider, address and model name
-	Model   string                     `json:"model,omitempty"`
-	Seen    time.Time                  `json:"seen,omitzero"`
 }
 
 // Cache is the answer cache in one folder. It is safe for concurrent use.
@@ -96,19 +112,18 @@ type Cache struct {
 	dir  string
 	warn func(string)
 
-	mu       sync.Mutex
-	broken   bool
-	answers  map[Key]entry
-	versions map[string]version
-	seg      *os.File // this process's segment, created on the first write
-	last     int64    // the time of this process's latest line
+	mu      sync.Mutex
+	broken  bool
+	answers map[Key]entry
+	seg     *os.File // this process's segment, created on the first write
+	last    int64    // the time of this process's latest line
 }
 
 // Open reads the cache in dir. The folder is made when the first answer
 // is kept. Open never fails: a cache that can't be read calls warn and
 // acts as if it were empty. warn may be nil.
 func Open(dir string, warn func(string)) *Cache {
-	c := &Cache{dir: dir, warn: warn, answers: map[Key]entry{}, versions: map[string]version{}}
+	c := &Cache{dir: dir, warn: warn, answers: map[Key]entry{}}
 	if err := c.load(); err != nil {
 		c.fail(err)
 	}
@@ -121,7 +136,7 @@ func (c *Cache) fail(err error) {
 		return
 	}
 	c.broken = true
-	c.answers, c.versions = map[Key]entry{}, map[string]version{}
+	c.answers = map[Key]entry{}
 	if c.warn != nil {
 		c.warn(fmt.Sprintf("The answer cache in %s can't be used, so every question is asked: %v", c.dir, err))
 	}
@@ -219,11 +234,6 @@ func (c *Cache) add(b []byte) {
 			c.answers[key] = entry{answer: string(a), time: l.Time}
 		}
 	}
-	if l.Name != "" && l.Model != "" {
-		if v, ok := c.versions[l.Name]; !ok || !l.Seen.Before(v.seen) {
-			c.versions[l.Name] = version{model: l.Model, seen: l.Seen}
-		}
-	}
 }
 
 // merge writes every entry in the cache to one new segment, keeping the
@@ -269,11 +279,6 @@ func (c *Cache) writeMerged() error {
 			err = enc.Encode(line{Time: t, Answers: batch})
 		}
 	}
-	for name, v := range c.versions {
-		if err == nil {
-			err = enc.Encode(line{Name: name, Model: v.model, Seen: v.seen})
-		}
-	}
 	if err == nil {
 		err = w.Flush()
 	}
@@ -298,15 +303,18 @@ func random() string {
 	return hex.EncodeToString(b)
 }
 
-// Get returns the answer kept for a key.
-func (c *Cache) Get(k Key) (json.RawMessage, bool) {
+// Lookup returns the kept answers to questions about an item from a
+// source. questions maps each question's key to the question as sent.
+func (c *Cache) Lookup(src Source, it Item, questions map[string][]byte) map[string]json.RawMessage {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	e, ok := c.answers[k]
-	if !ok {
-		return nil, false
+	found := map[string]json.RawMessage{}
+	for key, q := range questions {
+		if e, ok := c.answers[src.Key(it, key, q)]; ok {
+			found[key] = json.RawMessage(e.answer)
+		}
 	}
-	return json.RawMessage(e.answer), true
+	return found
 }
 
 // Has reports whether the cache holds an answer for a key.
@@ -317,8 +325,20 @@ func (c *Cache) Has(k Key) bool {
 	return ok
 }
 
-// Put keeps answers, replacing any kept before for the same keys.
-func (c *Cache) Put(answers map[Key]json.RawMessage) {
+// Store keeps the answers to questions about an item from a source,
+// replacing any kept before.
+func (c *Cache) Store(src Source, it Item, questions map[string][]byte, answers map[string]json.RawMessage) {
+	keep := map[Key]json.RawMessage{}
+	for key, a := range answers {
+		if q, ok := questions[key]; ok {
+			keep[src.Key(it, key, q)] = a
+		}
+	}
+	c.put(keep)
+}
+
+// put keeps answers, replacing any kept before for the same keys.
+func (c *Cache) put(answers map[Key]json.RawMessage) {
 	if len(answers) == 0 {
 		return
 	}
@@ -383,19 +403,4 @@ func (c *Cache) Len() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return len(c.answers)
-}
-
-func (c *Cache) version(name string) (version, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	v, ok := c.versions[name]
-	return v, ok
-}
-
-func (c *Cache) setVersion(name string, v version) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.write(line{Name: name, Model: v.model, Seen: v.seen}) {
-		c.versions[name] = v
-	}
 }

@@ -235,10 +235,9 @@ func (a *App) execute(c *cli.Context, run *runs.Run, client *decide.Client, work
 	if err != nil {
 		return err
 	}
-	if cc, scope := openCache(c, run.Provider, run.Model, !run.NoCache); cc != nil {
-		defer cc.Close()
-		run.UseCache(scope)
-	}
+	cc, src := openCache(c, run.Provider, run.Model)
+	defer cc.Close()
+	run.UseCache(cc, src)
 	w := newOutput(c, format, run.Template, failOn)
 	if err := replay(w, saved, marksOf(run.Template)); err != nil {
 		return err
@@ -456,23 +455,19 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 	}
 	const shown = 20
 	var items []source.Item
-	var counted *cacheCount
-	if cc, scope := openCache(c, provider, model, !c.Bool("no-cache")); cc != nil {
-		defer cc.Close()
-		var err error
-		if counted, err = newCacheCount(scope, s, !c.Bool("no-cache")); err != nil {
-			return err
-		}
+	cc, src := openCache(c, provider, model)
+	defer cc.Close()
+	counted, err := newCacheCount(cc, src, s, !c.Bool("no-cache"))
+	if err != nil {
+		return err
 	}
 	found := newTally()
-	err := source.Walk(c.Context(), paths, c.Stdin(), opts, func(it source.Item) error {
+	err = source.Walk(c.Context(), paths, c.Stdin(), opts, func(it source.Item) error {
 		if found.items() < shown {
 			items = append(items, it)
 		}
 		found.add(it)
-		if counted != nil {
-			counted.add(it)
-		}
+		counted.add(it)
 		return nil
 	})
 	if err != nil {
@@ -504,10 +499,8 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 	if hint := eachHint(found, c.String("each") != "", s.Each, paths); hint != "" {
 		fmt.Fprintf(w, "\n%s\n", dim(hint))
 	}
-	if counted != nil {
-		fmt.Fprintf(w, "\n%s\n", dim(fmt.Sprintf("%s · %s in the cache · %d to ask",
-			humanize.PluralWord(total, "item", "items"), humanize.PluralWord(counted.cached, "answer", "answers"), counted.toAsk)))
-	}
+	fmt.Fprintf(w, "\n%s\n", dim(fmt.Sprintf("%s · %s in the cache · %d to ask",
+		humanize.PluralWord(total, "item", "items"), humanize.PluralWord(counted.cached, "answer", "answers"), counted.toAsk)))
 	fmt.Fprintf(w, "\nand ask each one:\n\n")
 	m := marksOf(s)
 	for _, q := range s.Questions {
