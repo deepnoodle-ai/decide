@@ -1,6 +1,6 @@
 # Pay once for each answer
 
-Status: Approved
+Status: Draft
 PRD PR: #50  Implementation PR: #50  Updated: 2026-10-04
 
 ## Problem
