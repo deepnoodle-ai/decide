@@ -626,7 +626,7 @@ func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions que
 	cached := map[string]json.RawMessage{}
 	if !r.NoCache {
 		for key, a := range r.cache.Lookup(r.source, it, questions.sent) {
-			if valid(questions.decoded[key], a) {
+			if ValidAnswer(questions.decoded[key], a) {
 				cached[key] = a
 			}
 		}
@@ -655,9 +655,9 @@ func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions que
 	return out, nil
 }
 
-// valid reports whether a kept answer is a valid answer to its question,
-// as the client checks an answer it receives.
-func valid(q decide.Question, raw json.RawMessage) bool {
+// ValidAnswer reports whether a kept answer is a valid answer to its
+// question, as the client checks an answer it receives.
+func ValidAnswer(q decide.Question, raw json.RawMessage) bool {
 	a, err := decide.DecodeAnswer(raw)
 	if err != nil || a.AnswerType() != q.QuestionType() {
 		return false

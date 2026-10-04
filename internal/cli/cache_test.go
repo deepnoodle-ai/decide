@@ -252,7 +252,9 @@ func TestCacheChecksKeptAnswers(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	out := h.run("one\n", "run", "relevance", "-p", "question=x", "--json")
+	out := h.run("one\n", "run", "relevance", "-p", "question=x", "--dry-run")
+	contains(t, out.stdout, "1 item · 0 answers in the cache · 1 to ask")
+	out = h.run("one\n", "run", "relevance", "-p", "question=x", "--json")
 	if h.requests() != 2 || jsonLines(t, out.stdout, true)[0]["cached"] != nil {
 		t.Fatalf("%d requests: %s", h.requests(), out.stdout)
 	}

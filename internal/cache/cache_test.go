@@ -169,6 +169,9 @@ func TestBrokenCache(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { os.Chmod(dir, 0o700) })
+	if _, err := os.ReadDir(dir); err == nil {
+		t.Skip("permissions don't deny reads here, as with CAP_DAC_OVERRIDE")
+	}
 	var warnings []string
 	c := Open(dir, func(msg string) { warnings = append(warnings, msg) })
 	c.put(map[Key]json.RawMessage{{2}: answer(2)})

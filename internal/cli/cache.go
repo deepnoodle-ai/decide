@@ -7,7 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/internal/cache"
+	"github.com/deepnoodle-ai/decide/internal/runs"
 	"github.com/deepnoodle-ai/decide/internal/source"
 	"github.com/deepnoodle-ai/decide/internal/template"
 	"github.com/deepnoodle-ai/wonton/cli"
@@ -40,6 +42,7 @@ type cacheCount struct {
 	cache    *cache.Cache
 	source   cache.Source
 	sent     map[string][]byte
+	decoded  map[string]decide.Question
 	cached   int
 	toAsk    int
 	disabled bool // --no-cache: nothing is looked up
@@ -50,7 +53,7 @@ func newCacheCount(cc *cache.Cache, src cache.Source, s *template.Template, read
 	if err != nil {
 		return nil, err
 	}
-	n := &cacheCount{cache: cc, source: src, sent: map[string][]byte{}, disabled: !read}
+	n := &cacheCount{cache: cc, source: src, sent: map[string][]byte{}, decoded: questions, disabled: !read}
 	for key, q := range questions {
 		if n.sent[key], err = json.Marshal(q); err != nil {
 			return nil, err
@@ -85,12 +88,18 @@ func (n *cacheCount) add(it source.Item) {
 		}
 		items = append(items, cache.ItemOf(b, contentType, image))
 	}
-	for key, q := range n.sent {
-		all := true
-		for _, ci := range items {
-			all = all && n.cache.Has(n.source.Key(ci, key, q))
+	// Count an answer only if the run would use it: present and valid
+	// for every part.
+	hits := map[string]int{}
+	for _, ci := range items {
+		for key, a := range n.cache.Lookup(n.source, ci, n.sent) {
+			if runs.ValidAnswer(n.decoded[key], a) {
+				hits[key]++
+			}
 		}
-		if all {
+	}
+	for key := range n.sent {
+		if hits[key] == len(items) {
 			n.cached++
 		} else {
 			n.toAsk++
