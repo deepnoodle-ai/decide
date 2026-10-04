@@ -292,6 +292,23 @@ func TestCacheKeepsTheNewestAnswer(t *testing.T) {
 	}
 }
 
+func TestCacheChecksKeptAnswers(t *testing.T) {
+	h := setup(t)
+	h.run("one\n", "run", "relevance", "-p", "question=x")
+	// A kept answer that doesn't fit its question is asked again.
+	files, _ := filepath.Glob(filepath.Join(template.Home(), "cache", "seg-*.jsonl"))
+	for _, f := range files {
+		data, _ := os.ReadFile(f)
+		if err := os.WriteFile(f, []byte(strings.ReplaceAll(string(data), `"type":"noul"`, `"type":"choice"`)), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out := h.run("one\n", "run", "relevance", "-p", "question=x", "--json")
+	if h.requests() != 2 || jsonLines(t, out.stdout, true)[0]["cached"] != nil {
+		t.Fatalf("%d requests: %s", h.requests(), out.stdout)
+	}
+}
+
 func TestCacheSkipsCloudflare(t *testing.T) {
 	h := setup(t)
 	h.run("one\n", "run", "sentiment", "--provider", "cloudflare")

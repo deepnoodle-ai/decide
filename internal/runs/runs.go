@@ -633,6 +633,11 @@ func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions que
 		var cached map[string]json.RawMessage
 		if attempt == 0 && !probe {
 			cached = r.cache.Lookup(version, it, questions.sent)
+			for key, a := range cached {
+				if !valid(questions.decoded[key], a) {
+					delete(cached, key) // asked again, as if it were never kept
+				}
+			}
 		}
 		req.Questions = map[string]decide.Question{}
 		for key, q := range questions.decoded {
@@ -660,6 +665,19 @@ func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions que
 		out.Cached = slices.Sorted(maps.Keys(cached))
 		return out, nil
 	}
+}
+
+// valid reports whether a kept answer is a valid answer to its question,
+// as the client checks an answer it receives.
+func valid(q decide.Question, raw json.RawMessage) bool {
+	a, err := decide.DecodeAnswer(raw)
+	if err != nil || a.AnswerType() != q.QuestionType() {
+		return false
+	}
+	if v, ok := q.(interface{ ValidateAnswer(decide.Answer) error }); ok {
+		return v.ValidateAnswer(a) == nil
+	}
+	return true
 }
 
 // ask sends a request and records its answers in res.
