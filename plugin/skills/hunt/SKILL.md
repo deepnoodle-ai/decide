@@ -31,7 +31,7 @@ the fix is in another language, say so and stop.
 
 ## 2. Write the question
 
-Name the template `bug-<issue number>` when there is an issue, else
+Name the template `bug-<issue or PR number>` when the fix names one, else
 `bug-<short sha>`. Write `.decide/templates/<name>/template.json`:
 
 ```json
@@ -60,20 +60,22 @@ sentence.
 
 ## 3. Test the question on the fix
 
-Write each file the fix changed, before and after, to a temporary folder,
-and run the template on both:
+Write each non-test file that holds a function you noted, before and after
+the fix, to a temporary folder. Keep its path. Run the template on both:
 
 ```sh
-t=$(mktemp -d); mkdir -p "$t/before" "$t/after"
-git show <sha>^:path/to/file.go > "$t/before/file.go"
-git show <sha>:path/to/file.go > "$t/after/file.go"
+t=$(mktemp -d); f=path/to/file.go
+mkdir -p "$t/before/$(dirname $f)" "$t/after/$(dirname $f)"
+git show <sha>^:$f > "$t/before/$f"
+git show <sha>:$f > "$t/after/$f"
 decide run bug-87 "$t/before" "$t/after" --json \
   | jq -r '[.answers.same_bug.noul, .source, .input] | @tsv' | sort -rn
 ```
 
-It passes when a fixed function, before the fix, has the highest score,
-and the same function after the fix scores under 0.5. If it fails, reword
-the question and run it again; answers to unchanged functions are cached.
+It passes when a fixed function, before the fix, has the highest score and
+matches (0.6 or more), and the same function after the fix scores under
+0.5. A question that doesn't match its own bug won't catch it again later. If it fails, reword
+the question and run it again.
 After three tries, show the user the scores and ask how to go on.
 
 ## 4. Sweep
@@ -84,16 +86,16 @@ Preview first. Use the fix's language, and leave out tests:
 decide run bug-87 . --include '*.go' --exclude '*_test.go' --dry-run
 ```
 
-The dry run says how many functions it will ask about and how many answers
-are cached. Over 5,000, tell the user the count and ask before you go on;
+The dry run says how many functions it will ask about, and, in a decide
+with the answer cache, how many answers are cached. Over 5,000, tell the user the count and ask before you go on;
 `--include` can narrow it to the packages that matter. Then:
 
 ```sh
-decide run bug-87 . --include '*.go' --exclude '*_test.go' --json > hunt.jsonl
-jq -r '[.answers.same_bug.noul, .source, .input] | @tsv' hunt.jsonl | sort -rn | head -20
+decide run bug-87 . --include '*.go' --exclude '*_test.go' --json > "$t/hunt.jsonl"
+jq -r '[.answers.same_bug.noul, .source, .input] | @tsv' "$t/hunt.jsonl" | sort -rn | head -20
 ```
 
-Put `hunt.jsonl` in a temporary folder, not the repository. Rank by score;
+Rank by score;
 don't stop at the items that matched. The functions the fix itself changed
 should score low now: if one doesn't, the question is about something else.
 
@@ -116,8 +118,8 @@ it to read the function and its callers and return one verdict:
 | --- | --- | --- | --- |
 | confirmed | `toolkit/monitor.go#L98 monitorTool.Call` | 0.86 | Scanner with the 64 KB default reads a command's output |
 
-Then: how many functions were asked and how many were cached, and the
-template's path. Only a failing test makes a bug certain; call the rest
+Then: how many functions were asked, how many answers were cached if the
+dry run said, and the template's path. Only a failing test makes a bug certain; call the rest
 suspected, with decide's score as the evidence.
 
 Offer to fix the confirmed ones in the same branch, and to commit the

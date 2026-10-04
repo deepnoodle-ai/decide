@@ -1,6 +1,6 @@
 # Fix one, find all
 
-Status: Phase 0 done: go. Phase 1 in progress. Updated: 2026-10-04.
+Status: Phase 0 done: go. Phase 1 done. Updated: 2026-10-04.
 
 > You fixed a bug. decide finds the other places it lives, and Claude fixes
 > them in the same PR.
