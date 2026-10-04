@@ -6,6 +6,10 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-03
+
+The Claude Code plugin shows what it checked. The CLI is unchanged.
+
 ### Changed
 
 - **The plugin shows its work.** The footer counts checks, each checked
@@ -55,6 +59,7 @@ answers with probabilities, from the command line or from Go.
 - **Install** with `brew install deepnoodle-ai/tap/decide`, or download a
   binary with checksums.
 
-[Unreleased]: https://github.com/deepnoodle-ai/decide/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/deepnoodle-ai/decide/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/deepnoodle-ai/decide/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/deepnoodle-ai/decide/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/deepnoodle-ai/decide/releases/tag/v0.1.0
