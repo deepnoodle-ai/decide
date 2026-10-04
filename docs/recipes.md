@@ -51,6 +51,12 @@ jobs:
           tar -xzf decide_linux_amd64.tar.gz decide
           sudo mv decide /usr/local/bin/
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/.decide/cache
+          key: decide-${{ github.ref }}-${{ github.sha }}
+          restore-keys: decide-${{ github.ref }}-
+
       - name: Judge the changed functions
         if: env.TYPESAFE_API_KEY != ''
         env:
@@ -77,6 +83,11 @@ A few things to know:
 - **Cost.** Each judged item is one request, or more for a very long one.
   A diff judges only what changed, and decide skips lockfiles and
   generated files. Add `--limit 200` to cap a large pull request.
+- **The cache.** The `actions/cache` step keeps decide's
+  [answer cache](cli.md#the-answer-cache) between pushes, so a function
+  judged on an earlier push is not asked about again. The key starts with
+  `github.ref`, so a pull request restores only its own cache, never one
+  a fork's pull request saved. Remove the step to ask fresh each time.
 
 ## Comment on the pull request
 

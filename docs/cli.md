@@ -165,6 +165,9 @@ Check what a run will look at before sending anything to the model:
 decide run code-risk . --dry-run
 ```
 
+A dry run also says how many items the
+[answer cache](#the-answer-cache) already answers.
+
 ## Diffs
 
 Pipe in a diff to judge what changed rather than whole files:
@@ -278,6 +281,47 @@ never repeats an item that already has an answer.
 
 Runs are saved in `~/.decide/runs`. Set `DECIDE_HOME` to keep templates and
 runs somewhere else.
+
+## The answer cache
+
+Decide keeps every answer it gets, and asks again only about what changed.
+Run a template a second time over the same files and nothing is sent:
+
+```
+✓ 41212 answered  ! 3 flagged  48s
+  40987 from cache · 225 asked
+```
+
+An answer is reused only for the same question about the same text, sent
+to the same provider and address, and answered by the same model version.
+Each question is kept on its own, so adding a question to a template asks
+only that one. Flags and `--fail-on` are worked out from the answers on
+each run, so changing a threshold asks nothing again.
+
+With `--json`, each result lists in `cached` the questions whose answers
+came from the cache. `request_id` and `model` describe the request the run
+sent for the item, and are left out when every answer came from the
+cache.
+
+`--dry-run` says how many items the cache already answers:
+
+```
+41212 items · 40987 in the cache · 225 to ask
+```
+
+When a run names a model alias, such as `jev-latest`, decide learns the
+version behind it from responses. It trusts a version for an hour; after
+that, the run's first request is sent whole to check it. An answer from
+an older version is never reused.
+
+`--no-cache` asks every question again, and keeps the new answers.
+`runs resume` keeps the setting of the run it resumes. Cloudflare answers
+are not cached, since Workers AI names no model version.
+
+The cache is the folder `~/.decide/cache`, readable only by you. It holds
+hashes and answers, never your text, file names, or images. Several decide
+processes can use it at once. Delete the folder to clear it. If it can't be
+read or written, decide warns and asks every question.
 
 ## Write your own template
 

@@ -40,7 +40,8 @@ off, or remove them, as they land.
       view`, and `runs resume`, keeping `--json` as a shorthand. Markdown is
       for pull request comments and job summaries; `github` writes
       annotations.
-- [ ] **Request cache.** An opt-in `--cache` that reuses identical requests.
+- [x] **Answer cache.** On by default: a run asks only about what
+      changed. See the [PRD](prds/answer-cache.md).
 
 ## Providers and credentials
 
