@@ -32,8 +32,11 @@ Then, in Claude Code:
 /plugin install decide@decide
 ```
 
-Run `/decide` to see what it checked in this session. Every check is also
-saved as a decide run:
+The footer beside the prompt shows how much decide checked and flagged,
+such as `decide 12 checked, 1 flagged`. A checked command or result shows
+`decide ✓` at the right of its row, or a line under it with what was
+flagged. Run `/decide` to see the session's checks in a table. Every check
+is also saved as a decide run:
 
 ```sh
 DECIDE_HOME=~/.decide/agent decide runs
@@ -64,7 +67,8 @@ A second opinion, not a sandbox. The command check judges the text of a
 command: `make clean` or a script can hide what it does. When decide cannot
 answer (it is not installed, the key is missing, or the provider fails),
 the action goes on. The check says why in the transcript, the status line
-counts what went unchecked, and the check tries again a minute later.
+shows how many actions went unchecked, and the check tries again a minute
+later. The status line shows only then, so its ⚠ means something.
 `/decide` lists any check that is off, and why.
 
 The plugin runs decide from `~/.decide/agent`, so a repository's

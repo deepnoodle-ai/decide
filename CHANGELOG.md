@@ -6,6 +6,12 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+### Changed
+
+- **The plugin shows its work.** The footer counts checks, each checked
+  command or result ends with its verdict, and `/decide` prints a table.
+  The status line shows only when a check is off or skipped.
+
 ## [0.2.0] - 2026-10-03
 
 Decide comes to Claude Code: a plugin that gets Claude a second opinion

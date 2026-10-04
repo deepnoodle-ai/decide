@@ -90,6 +90,10 @@ function session(on: On, files: readonly string[] = []) {
   })
   // What Claude Code draws in the band when the plugin draws nothing.
   on('ui.render', { component: 'AbovePrompt' }, () => ENGINE_BAND)
+  // Claude Code's footer labels and tool rows, drawn from their props.
+  on('ui.render', { component: 'SessionMode' }, ($, e) => ({ type: 'Text', children: [e.props.modes.join(' & ')] }))
+  on('ui.render', { component: 'ToolUse' }, ($, e) => ({ type: 'Text', children: [`${e.props.tool}(row)`] }))
+  on('ui.render', { component: 'ToolGroup' }, ($, e) => ({ type: 'Text', children: [`${e.props.calls.length} calls`] }))
   return shown
 }
 
@@ -380,10 +384,29 @@ describe('register', () => {
     await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 't19' })
     const after = await $.command.run(DECIDE_COMMAND)
 
-    expect(before.text).toContain('decide has checked nothing in this session yet')
-    expect(after.text).toContain('checked 2 things in this session and flagged 1')
-    expect(after.text).toMatch(/! command +rm -rf build +destructive 97%/)
-    expect(after.text).toContain('DECIDE_HOME=/home/me/.decide/agent decide runs')
+    expect(before.text).toMatch(/^Nothing checked in this session yet\./)
+    expect(after.text).toMatch(/^Checked 2 things in this session and flagged 1:/)
+    expect(after.text).toContain('| | command | `ls` | destructive 2%, leak 3%, external 2% |')
+    expect(after.text).toContain('| **!** | command | `rm -rf build` | **destructive 97%, leak 3%, external 2%** |')
+    expect(after.text).toContain('`DECIDE_HOME=/home/me/.decide/agent decide runs`')
+  })
+
+  test('/decide keeps a subject inside its table cell', async ($, on) => {
+    fakeDecide(on, (template, text) =>
+      template === 'reply-check' ? { overclaims: noul(0.1), unverified: noul(0.1) } : RISK(template, text),
+    )
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
+    on('turn.start', ($, e) => ({ turnId: e.turnId }))
+    on('turn.complete', ($, e) => ({ text: e.answer }))
+
+    await $.session.start(SESSION)
+    await $.turn.start({ text: 'look', turnId: 'turn-8' })
+    await $.tool.call({ tool: 'Bash', command: 'ps aux | grep `whoami`', tool_use_id: 't53' })
+    await $.turn.complete({ answer: 'Two files:\n```text\na.txt\n```', reason: 'answer', durationMs: 100, isAborted: false, turnId: 'turn-8' })
+    const out = await $.command.run(DECIDE_COMMAND)
+
+    expect(out.text).toContain("| | command | `ps aux \\| grep 'whoami'` |")
+    expect(out.text).toContain('| | reply | `Two files: a.txt` |')
   })
 
   test('an old decide without the templates says to update it', async ($, on) => {
@@ -462,7 +485,7 @@ describe('register', () => {
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't24' })
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't25' })
     expect(tries, 'the second command did not wait for decide').toBe(1)
-    expect(shown.statuses.at(-1)).toBe('decide · 0 checked · 2 not checked · a check is off: /decide')
+    expect(shown.statuses.at(-1)).toBe('2 not checked · a check is off: /decide')
 
     await shown.clock.advance(61_000)
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't26' })
@@ -663,6 +686,69 @@ describe('register', () => {
     expect(out.text?.length).toBe(huge.length)
     expect(runs.map(r => r.texts[0]?.length), 'only the edge went to decide').toEqual([edge.length])
     expect(runs.shown.logged).toEqual([])
-    expect(runs.shown.statuses.at(-1)).toBe('decide · 1 checked · 1 not checked')
+    expect(runs.shown.statuses.at(-1)).toBe('1 not checked')
+  })
+  test('the footer counts what decide checked and flagged, and the status line stays clear while all is well', async ($, on) => {
+    const { shown } = fakeDecide(on, RISK)
+    on('tool.check', () => ({ decision: 'allow' as const }))
+    on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => {
+      const q = (e.questions as { question: string }[])[0]!
+      return { result: { questions: e.questions, answers: { [q.question]: 'Run it' } } }
+    })
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
+
+    await $.session.start(SESSION)
+    const footer = await $.ui.mount({ plugin: 'decide', surface: 'terminal', component: 'SessionMode', props: { modes: ['focus'] } })
+    expect(await footer.find({ type: 'Text', text: 'focus & decide 0 checked' })).toBeDefined()
+    await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't49' })
+    expect(await footer.find({ type: 'Text', text: 'focus & decide 1 checked' })).toBeDefined()
+    await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 't50' })
+    expect(await footer.find({ type: 'Text', text: 'focus & decide 2 checked, 1 flagged' })).toBeDefined()
+    await footer.unmount()
+    expect(shown.statuses.every(s => s === undefined)).toBe(true)
+  })
+
+  test('a checked tool row shows the verdict at its end, on every surface', async ($, on) => {
+    fakeDecide(on, RISK)
+    on('tool.check', () => ({ decision: 'allow' as const }))
+    on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => {
+      const q = (e.questions as { question: string }[])[0]!
+      return { result: { questions: e.questions, answers: { [q.question]: 'Run it' } } }
+    })
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
+
+    await $.session.start(SESSION)
+    await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't51' })
+    await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 't52' })
+    const row = (tool_use_id: string, command: string) =>
+      ({ tool_use_id, tool: 'Bash', input: { command }, isRunning: false, isErrored: false, isInterrupted: false }) as const
+    for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
+      const safe = await $.ui.mount({ plugin: 'decide', surface, component: 'ToolUse', requestId: 't51', props: row('t51', 'ls') })
+      expect(await safe.find({ type: 'Text', text: 'Bash(row)' })).toBeDefined()
+      expect(await safe.find({ type: 'Text', text: 'decide ✓' })).toBeDefined()
+      await safe.unmount()
+      const risky = await $.ui.mount({ plugin: 'decide', surface, component: 'ToolUse', requestId: 't52', props: row('t52', 'rm -rf build') })
+      expect(await risky.find({ type: 'Text', text: '⎿  decide: destructive 97%' })).toBeDefined()
+      await risky.unmount()
+      const other = await $.ui.mount({ plugin: 'decide', surface, component: 'ToolUse', requestId: 't99', props: row('t99', 'echo') })
+      expect(await other.find({ type: 'Text', text: /decide/ })).toBeUndefined()
+      await other.unmount()
+    }
+
+    // A folded group shows a flag if any call has one, else the pass mark.
+    const call = (tool_use_id: string, command: string) =>
+      ({ tool_use_id, tool: 'Bash', input: { command }, isRunning: false, isErrored: false, isInterrupted: false }) as const
+    const group = (calls: ReturnType<typeof call>[], isExpanded = false) =>
+      ({ plugin: 'decide', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded } }) as const
+    const both = await $.ui.mount(group([call('t51', 'ls'), call('t52', 'rm -rf build')]))
+    expect(await both.find({ type: 'Text', text: '2 calls' })).toBeDefined()
+    expect(await both.find({ type: 'Text', text: '⎿  decide: destructive 97%' })).toBeDefined()
+    await both.unmount()
+    const safe = await $.ui.mount(group([call('t51', 'ls'), call('t98', 'cat a.txt')]))
+    expect(await safe.find({ type: 'Text', text: 'decide ✓' })).toBeDefined()
+    await safe.unmount()
+    const open = await $.ui.mount(group([call('t52', 'rm -rf build')], true))
+    expect(await open.find({ type: 'Text', text: /decide/ })).toBeUndefined()
+    await open.unmount()
   })
 })

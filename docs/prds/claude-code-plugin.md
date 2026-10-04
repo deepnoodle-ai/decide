@@ -134,7 +134,7 @@ Acceptance:
 - [ ] [test] With decide missing, without a key, or older than the plugin,
       the first check writes one transcript line that says what is wrong
       and what to run. For an old decide, it names the version the plugin
-      needs. The status line shows `decide · not checking`. Commands still
+      needs. The status line shows `a check is off: /decide`. Commands still
       run, and the checks try again a minute later.
 
 ### UC-2: A risky command waits for the person
@@ -228,10 +228,14 @@ Acceptance:
 ### UC-7: See what decide checked
 
 Acceptance:
-- [ ] [test] `/decide` lists the last 15 checks of the session, flagged ones
-      marked `!`, with their answers.
-- [ ] [test] The status line shows the count, such as
-      `decide · 14 checked · 1 flagged`.
+- [ ] [test] `/decide` lists the last 15 checks of the session in a
+      table, flagged ones marked `!`, with their answers.
+- [ ] [test] The footer shows the count, such as
+      `decide 14 checked, 1 flagged`. The status line shows only when
+      something went unchecked or a check is off.
+- [ ] [test] Each checked tool row, or the folded group it is in, shows
+      `decide ✓`, or a line with the flagged answers, such as
+      `⎿  decide: destructive 96%`.
 - [ ] [live] Every check is a saved run:
       `DECIDE_HOME=~/.decide/agent decide runs` lists them.
 
