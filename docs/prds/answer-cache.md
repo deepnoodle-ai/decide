@@ -42,9 +42,6 @@ costly to run as a habit.
 - **Jev is close to deterministic.** In the same cookbook, most answers were
   identical across 5 repeats. A stored answer is the answer the model would
   almost always give again.
-- **The resolved model.** Each response names the version that answered,
-  such as `jev-1.13.0`, even when the request asked for `jev-latest`.
-  `runs.Result` already saves it.
 - **Saved runs.** Each run is saved under `DECIDE_HOME/runs`. The plugin
   uses its own `DECIDE_HOME`, `~/.decide/agent`.
 - **The roadmap** lists "Request cache: an opt-in `--cache` that reuses
@@ -65,8 +62,8 @@ costly to run as a habit.
 ## Concepts
 
 - **Answer cache.** Answers decide has already received, kept on disk. When
-  decide would ask the same question about the same text of the same model
-  version, it uses the kept answer and sends no request.
+  decide would ask the same model the same question about the same text, it
+  uses the kept answer and sends no request.
 - **From cache.** An answer that came from the answer cache instead of the
   model. The run summary and each result say which answers did. A result can
   mix both: some of its answers from cache, the others asked.
@@ -161,26 +158,17 @@ Acceptance:
 
 - R-1: The cache is on by default for `decide run` and `runs resume`.
 - R-2: A cached answer is used only when all of these match the new request:
-  the provider and its address, the model version, the item's text as sent
+  the provider and its address, the model name, the item's text as sent
   (with any context), its images, and the question as sent (after template
   parameters are filled in).
 - R-3: Each answer is kept on its own, by question. When some of a
   template's questions are in the cache, decide asks only the others, in one
   request.
-- R-4: decide never uses an answer from a model version other than the one
-  the provider resolves now. When a request names an alias such as
-  `jev-latest`, decide learns the version from responses:
-  - The cache records, for each alias, the version last seen and when.
-  - A version seen less than an hour ago is trusted.
-  - Otherwise, decide sends the run's first request live, whether or not
-    its answers are cached, and uses the version that response names.
-  - If a later response names a new version, decide uses that version for
-    lookups from then on.
-  - A request that names an exact version, such as `jev-1.13.0`, needs
-    none of this.
-- R-5: Clef answers are not cached in this version. Workers AI names no
-  model version, so decide can't see an upgrade, and it is not yet measured
-  whether Clef answers questions independently.
+- R-4: The model is the name the run asked for, such as `jev-latest` or
+  `clef-flash`. When a provider upgrades the model behind a name, cached
+  answers stay until `--no-cache` asks fresh. To pin answers to one version,
+  name it, such as `jev-1.13.0`.
+- R-5: The cache works the same for every provider, Jev and Clef alike.
 - R-6: Only valid, complete answers are kept. Failures, errors and invalid
   answers are never kept.
 - R-7: The summary shows how many answers came from cache. Each `--json`
@@ -212,8 +200,11 @@ Acceptance:
 - **Ignoring whitespace in the key.** Reformatting a repository misses the
   cache once. Whitespace can carry meaning, as in Python, and a wrong hit is
   worse than a miss.
-- **A time limit on entries.** The model version already decides when an
-  answer goes stale.
+- **A time limit on entries.** Answers don't go stale with time. Use
+  `--no-cache` or delete the folder to ask fresh.
+- **Detecting model upgrades.** Aliases move rarely, and an answer from the
+  version before is still a sound answer. Tracking versions would cost a
+  live request and a version record for little gain.
 - **Sending identical requests once while they are in flight.** Identical
   items that come one after another already hit the cache. Coordinating
   workers inside a run saves little. Revisit if runs show many identical
@@ -235,23 +226,18 @@ Acceptance:
   only when they ask the same question under the same key, and renaming a
   key asks again. Rejected: keying a whole request, which misses whenever
   the question set changes.
-- **Key by the resolved version, not the alias.** An upgrade behind
-  `jev-latest` must not serve old answers. Rejected: keying the name the
-  request used.
+- **Key by the model name the run asked for.** It is simple, works for every
+  provider, and costs no request. An upgrade behind an alias keeps old
+  answers until `--no-cache`. Rejected: keying the resolved version, which
+  needs a live request to learn the version, and can't work for Clef.
 - **Keep hashes, not text.** The cache can sit in a CI cache or a backup
   without holding source code. Rejected: storing items, which would let the
   cache double as a viewer. Saved runs already do that.
 - **In the CLI, not the root package.** The root package stays a client of
   the API. Rejected: a caching `decide.Client`.
-- **Trust a version for an hour, then check with one request.** The plugin's
-  repeated command checks stay instant, and a sweep pays one request to
-  learn of an upgrade. Rejected: always sending the first request live,
-  which adds a round trip to every plugin check.
 - **A list of cached keys on each result, not a yes or no.** A partial hit
   is common after a question is added, and the list shows it. Rejected: a
   `cached: true` flag.
-- **No Clef caching yet.** See R-5. Rejected: keying Clef by model name,
-  which would serve old answers after an upgrade nobody can see.
 
 ## Success
 
@@ -259,22 +245,17 @@ Acceptance:
   under 5% of the requests that 30 sweeps without a cache cost.
 - **Speed.** A rerun over unchanged files finishes in under a tenth of the
   first run's time.
-- **The plugin.** A repeated command's check returns in under 50 ms, when
-  the version was seen in the last hour.
+- **The plugin.** A repeated command's check returns in under 50 ms.
 - **No wrong answers.** No reported case where a cached answer differs from
-  what the same model version gave for the same request.
+  what the same model gave for the same request.
 
 Must not get worse: the time of a first run, and the output of every format.
 
 ## Risks and open questions
 
-- **Does Clef answer questions independently, like Jev?** Measure it with 1
-  vs 8 questions per request on labeled items. If it does, and Workers AI
-  can name a model version, Clef can be cached later. *Doesn't block.*
-- **An upgrade within the hour.** A run within an hour of the last one could
-  serve answers from the old version after `jev-latest` moves. The window is
-  short and the answers were valid an hour ago. `--no-cache` asks fresh.
-  *Doesn't block.*
+- **Questions are independent for Clef too.** Measured for Jev, assumed for
+  Clef. If a measurement shows otherwise, key Clef answers by the whole
+  question set. *Doesn't block.*
 - **A poisoned CI cache.** A cache that says "not flagged" lets a bug
   through a `--fail-on` gate. Restored caches must come only from the same
   branch or the base branch, which `actions/cache` enforces for pull
