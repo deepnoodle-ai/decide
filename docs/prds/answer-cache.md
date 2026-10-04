@@ -229,9 +229,11 @@ Acceptance:
   already know to ask for it. Rejected: an opt-in `--cache`.
 - **Key by question, not by request.** Questions are independent, so a
   stored answer stays valid whatever else was asked. Adding a question to a
-  template then re-asks only that question, and a template's answers stay
-  valid when another template asks the same question. Rejected: keying a
-  whole request, which misses whenever the question set changes.
+  template then re-asks only that question. The question's key is part of
+  the request, so it is part of the cache key: two templates share an answer
+  only when they ask the same question under the same key, and renaming a
+  key asks again. Rejected: keying a whole request, which misses whenever
+  the question set changes.
 - **Key by the resolved version, not the alias.** An upgrade behind
   `jev-latest` must not serve old answers. Rejected: keying the name the
   request used.
