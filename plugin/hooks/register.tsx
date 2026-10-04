@@ -486,11 +486,18 @@ async function record($: EngineInterface, j: Omit<Judgment, 'at'>): Promise<void
   await showStatus($)
 }
 
-/** Puts a check's verdict on its tool's row in the transcript. */
+/**
+ * Puts a check's verdict on its tool's row in the transcript. A fetching
+ * Bash call gets two checks, its command and then its result, so a row
+ * stays flagged if either check flags it, with every check's flags.
+ */
 async function mark($: EngineInterface, id: string | undefined, answers: Record<string, Answer>, flagged: readonly string[]): Promise<void> {
   if (!id) return
   const text = flagged.map(q => `${q} ${pct(yes(answers, q))}`).join(', ')
-  await update($, memberOf(rows, { requestId: id }), () => ({ isFlagged: flagged.length > 0, text }))
+  await update($, memberOf(rows, { requestId: id }), prev => {
+    if (flagged.length === 0) return prev?.isFlagged ? prev : { isFlagged: false, text }
+    return { isFlagged: true, text: prev?.isFlagged ? `${prev.text}, ${text}` : text }
+  })
 }
 
 /**
