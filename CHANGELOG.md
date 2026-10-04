@@ -16,6 +16,9 @@ may change the library API and the CLI.
 
 ### Changed
 
+- **`prompt-injection` catches steering.** It counts text that tells an AI
+  what to recommend, and `hidden` no longer counts text that only
+  describes hidden text.
 - **Results fit the terminal.** In a terminal, a long score description or
   preview ends with `…` instead of wrapping. Piped output is unchanged.
 
