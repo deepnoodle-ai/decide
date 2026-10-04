@@ -129,6 +129,22 @@ The band reads a `$.state` value, `notice`, set by the reply check and
 cleared by its buttons and by `prompt.submit`. Its button calls
 `$.prompt.submit` with a prompt that names the probability.
 
+### What the person sees
+
+- **The footer:** a mode label beside the prompt, such as `decide 12
+  checked, 1 flagged`. A `ui.render` hook on `SessionMode` adds it from
+  `totals`, so it redraws on each check. `log` keeps only the last 200.
+- **Each checked tool row:** `decide ✓` dim at the right of the row's
+  last line, or a line under the row in the warning color, such as
+  `⎿  decide: destructive 95%`. Hooks on `ToolUse` and on a folded
+  `ToolGroup` read each call's verdict from a state family keyed by
+  `tool_use_id`; a group shows a flag if any of its calls has one.
+- **The status line:** only while actions went unchecked or a check is
+  off. Claude Code draws a plugin's status line with ⚠ and its name, so a
+  running count there read as a warning.
+- **`/decide`:** a Markdown table of the last 15 checks. Subjects go in
+  code spans, with backticks replaced and pipes escaped.
+
 ### The judge tool
 
 `$.tool.register` at `session.start` adds `mcp__decide__judge`. Input:

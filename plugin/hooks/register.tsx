@@ -1,7 +1,7 @@
-import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import { atom, memberOf, read, update } from 'claude-code'
+import type { EngineInterface, Register, RenderElement } from 'claude-code'
 
-import type { Judgment, Notice } from '../types'
+import type { Judgment, Notice, RowVerdict, Totals } from '../types'
 import { flaggedOf, isTooLarge, missingOf, oneLine, outcomeOf, pct, printable, request, yes } from './decide'
 import type { Answer, Runner } from './decide'
 import { DESCRIPTION, NAME, SCHEMA, hashOf, parse, report, templateOf } from './judge'
@@ -10,6 +10,8 @@ import type { Flags } from './templates'
 
 const log = atom({ plugin: 'decide', key: 'log' } as const, [] as readonly Judgment[])
 const notice = atom({ plugin: 'decide', key: 'notice' } as const, null as Notice | null)
+const totals = atom({ plugin: 'decide', key: 'totals' } as const, { checked: 0, flagged: 0 } as Totals)
+const rows = atom({ plugin: 'decide', key: 'rows' } as const, null as RowVerdict | null)
 
 /** Tools that run a shell command Claude wrote. */
 const SHELLS = ['Bash', 'Monitor', /^PowerShell$/] as const
@@ -176,6 +178,7 @@ export const register: Register = (on, options) => {
     const { flags } = TEMPLATES.command
     const flagged = flaggedOf(answers, flags)
     await record($, { kind: 'command', subject: oneLine(command), verdict: verdictOf(answers, flags), isFlagged: flagged.length > 0 })
+    await mark($, tool_use_id, answers, flagged)
     if (flagged.length === 0) return next(e)
 
     const why = flagged.map(q => `${pct(yes(answers, q))} ${COMMAND_RISKS[q] ?? `likely: ${q}`}`).join(', and ')
@@ -229,6 +232,7 @@ export const register: Register = (on, options) => {
     const tool = oneLine(String(e.tool), 60)
     const subject = e.tool === 'Bash' ? oneLine(e.command) : `${tool} ${oneLine(subjectOf(e), 60)}`
     await record($, { kind: 'content', subject, verdict: verdictOf(answers, flags), isFlagged: flagged.length > 0 })
+    await mark($, e.tool_use_id, answers, flagged)
     if (flagged.length === 0) return ran
 
     const injection = yes(answers, 'injection')
@@ -278,8 +282,9 @@ export const register: Register = (on, options) => {
 
   on('command.run', { command: 'decide' }, async $ => {
     const all = (await read($, log)) ?? []
+    const t = await read($, totals)
     const { home } = await runnerOf($)
-    const saved = `Every check is saved as a decide run. See them with: DECIDE_HOME=${home} decide runs`
+    const saved = `Every check is saved as a decide run. See them with \`DECIDE_HOME=${cell(home)} decide runs\``
     const off = (Object.keys(health) as CheckName[])
       .filter(name => health[name].reason)
       .map(name => `The ${name} check is off: ${health[name].reason}`)
@@ -287,26 +292,60 @@ export const register: Register = (on, options) => {
     if (all.length === 0) {
       return {
         text: [
-          "decide has checked nothing in this session yet. It checks shell commands before they run, content from outside, and Claude's replies.",
+          "Nothing checked in this session yet. It checks shell commands before they run, content from outside, and Claude's replies.",
           ...off,
           ...skipped,
           saved,
-        ].join('\n'),
+        ].join('\n\n'),
       }
     }
-    const rows = all.slice(-15).map(j => `${j.isFlagged ? '!' : ' '} ${j.kind.padEnd(7)} ${oneLine(j.subject, 50).padEnd(50)}  ${j.verdict}`)
-    const flagged = all.filter(j => j.isFlagged).length
+    // Commands and URLs are someone else's text: each goes in a code span.
+    const table = [
+      '| | Check | What | Answers |',
+      '| --- | --- | --- | --- |',
+      ...all.slice(-15).map(j =>
+        j.isFlagged
+          ? `| **!** | ${j.kind} | \`${cell(oneLine(j.subject, 60))}\` | **${cell(j.verdict)}** |`
+          : `| | ${j.kind} | \`${cell(oneLine(j.subject, 60))}\` | ${cell(j.verdict)} |`,
+      ),
+    ]
     return {
       text: [
-        `decide checked ${all.length} thing${all.length === 1 ? '' : 's'} in this session and flagged ${flagged}${all.length > 15 ? '; the last 15:' : ':'}`,
-        '',
-        ...rows,
-        '',
+        `Checked ${t.checked} thing${t.checked === 1 ? '' : 's'} in this session and flagged ${t.flagged}${all.length > 15 ? '. The last 15:' : ':'}`,
+        table.join('\n'),
         ...off,
         ...skipped,
         saved,
-      ].join('\n'),
+      ].join('\n\n'),
     }
+  })
+
+  // The footer's mode labels: how much decide checked and flagged.
+  on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
+    const t = await read($, totals)
+    const label = `decide ${t.checked} checked${t.flagged ? `, ${t.flagged} flagged` : ''}`
+    return next({ ...e, props: { ...e.props, modes: [...e.props.modes, label] } })
+  })
+
+  // A checked tool's row in the transcript, and a folded group of them: the
+  // verdict at the end of the row's first line. It keeps its width; the
+  // engine's row narrows instead.
+  on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
+    const v = await read($, memberOf(rows, e))
+    if (v === null) return next(e)
+    return withVerdict($, e, await next(e), v)
+  })
+  on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
+    if (e.props.isExpanded) return next(e)
+    const found: RowVerdict[] = []
+    for (const call of e.props.calls) {
+      const v = call.tool_use_id ? await read($, memberOf(rows, { requestId: call.tool_use_id })) : null
+      if (v !== null) found.push(v)
+    }
+    if (found.length === 0) return next(e)
+    const flagged = found.filter(v => v.isFlagged)
+    const v = flagged.length > 0 ? { isFlagged: true, text: flagged.map(f => f.text).join('; ') } : found[0]!
+    return withVerdict($, e, await next(e), v)
   })
 
   // The band above the prompt, while a flagged reply waits for the person.
@@ -443,21 +482,61 @@ function verdictOf(answers: Record<string, Answer>, flags: Flags): string {
 async function record($: EngineInterface, j: Omit<Judgment, 'at'>): Promise<void> {
   const entry = { ...j, at: await $.clock.now() }
   await update($, log, prev => [...(prev ?? []), entry].slice(-200))
+  await update($, totals, t => ({ checked: (t?.checked ?? 0) + 1, flagged: (t?.flagged ?? 0) + (j.isFlagged ? 1 : 0) }))
   await showStatus($)
 }
 
-/** The status line: how much was checked, flagged, and let through unchecked. */
+/** Puts a check's verdict on its tool's row in the transcript. */
+async function mark($: EngineInterface, id: string | undefined, answers: Record<string, Answer>, flagged: readonly string[]): Promise<void> {
+  if (!id) return
+  const text = flagged.map(q => `${q} ${pct(yes(answers, q))}`).join(', ')
+  await update($, memberOf(rows, { requestId: id }), () => ({ isFlagged: flagged.length > 0, text }))
+}
+
+/**
+ * The status line, only while something needs the person: actions that went
+ * on unchecked, or a check that is off. Claude Code draws it with a warning
+ * mark, so the running count goes in the footer instead.
+ */
 async function showStatus($: EngineInterface): Promise<void> {
-  const all = (await read($, log)) ?? []
-  const flagged = all.filter(x => x.isFlagged).length
   const isOff = Object.values(health).some(h => h.reason)
-  const parts = [
-    `${all.length} checked`,
-    flagged ? `${flagged} flagged` : '',
-    unchecked ? `${unchecked} not checked` : '',
-    isOff ? 'a check is off: /decide' : '',
-  ].filter(Boolean)
-  $.ui.status(`decide · ${parts.join(' · ')}`)
+  const parts = [unchecked ? `${unchecked} not checked` : '', isOff ? 'a check is off: /decide' : ''].filter(Boolean)
+  $.ui.status(parts.length > 0 ? parts.join(' · ') : undefined)
+}
+
+/**
+ * A transcript row with decide's verdict: a flag on a line of its own under
+ * the row, in the warning color; a pass as a dim mark at the right of the
+ * row's last line, where it keeps its width and the engine's row narrows.
+ */
+function withVerdict($: EngineInterface, e: Parameters<EngineInterface['ui']['resolve']>[0], row: RenderElement, v: RowVerdict): RenderElement {
+  const { Box, Text } = $.ui.resolve(e)
+  if (v.isFlagged) {
+    return (
+      <Box flexDirection="column">
+        {row}
+        <Box paddingLeft={2}>
+          <Text color="warning">⎿  decide: {v.text}</Text>
+        </Box>
+      </Box>
+    )
+  }
+  return (
+    <Box flexDirection="row" alignItems="flex-end" gap={2}>
+      <Box flexGrow={1} flexShrink={1}>{row}</Box>
+      <Box flexShrink={0}>
+        <Text dimColor>decide ✓</Text>
+      </Box>
+    </Box>
+  )
+}
+
+/**
+ * Text for a Markdown table cell inside a code span: code fences dropped,
+ * other backticks made quotes so none ends the span, and pipes escaped.
+ */
+function cell(text: string): string {
+  return text.replace(/`{3,}\w*/g, '').replace(/`/g, "'").replace(/ {2,}/g, ' ').trim().replace(/\|/g, '\\|')
 }
 
 /** What a tool call was about, for a one-line label: its URL, query, path, or command. */
