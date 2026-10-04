@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Judgment, Notice } from '../types'
-import { flaggedOf, missingOf, oneLine, outcomeOf, pct, printable, request, yes } from './decide'
+import { flaggedOf, isTooLarge, missingOf, oneLine, outcomeOf, pct, printable, request, yes } from './decide'
 import type { Answer, Runner } from './decide'
 import { DESCRIPTION, NAME, SCHEMA, hashOf, parse, report, templateOf } from './judge'
 import { TEMPLATES } from './templates'
@@ -378,10 +378,10 @@ async function check($: EngineInterface, name: CheckName, input: Record<string, 
     if (await $.fs.exists(dir)) return fail($, name, now, `${dir} replaces decide's built-in ${template}. Remove it to turn the check back on.`)
   }
 
-  // Past what decide reads, the input goes on unchecked; like a slow answer,
-  // it must not turn the check off.
-  const { argv, init, isTooLarge } = request(runner, { template, records: [input], field, timeoutMs })
-  if (isTooLarge) return skip($)
+  // Past MAX_CHARS, the input goes on unchecked; like a slow answer, it
+  // must not turn the check off.
+  if (isTooLarge([input])) return skip($)
+  const { argv, init } = request(runner, { template, records: [input], field, timeoutMs })
   let ran
   try {
     ran = await $.process.run(argv, init)

@@ -43,14 +43,29 @@ export type Run = {
   timeoutMs: number
 }
 
-/** The most decide reads from stdin as one JSON document, in bytes. */
-const MAX_STDIN = 64 << 20
+/** The most text one run sends decide, in characters. */
+export const MAX_CHARS = 1_000_000
+
+/**
+ * Whether the records' text passes `MAX_CHARS`. It counts each string's
+ * length, stops at the limit, and copies nothing, so a huge tool result
+ * costs no memory to turn away.
+ */
+export function isTooLarge(records: readonly unknown[]): boolean {
+  let left = MAX_CHARS
+  const walk = (v: unknown): boolean => {
+    if (typeof v === 'string') return (left -= v.length) < 0
+    if (Array.isArray(v)) return v.some(walk)
+    if (v !== null && typeof v === 'object') return Object.values(v).some(walk)
+    return false
+  }
+  return records.some(walk)
+}
 
 /**
  * The command for a run: its argv and what `$.process.run` takes beside it.
- * The records go as one JSON array, which decide reads up to 64 MiB, and it
- * judges a long item whole, in parts. JSONL would stop at 1 MiB a line.
- * Past 64 MiB, `isTooLarge` is set and the run should not start.
+ * The records go as one JSON array, and decide judges a long item whole, in
+ * parts. JSONL would stop at 1 MiB a line. Check `isTooLarge` first.
  */
 export function request(runner: Runner, run: Run) {
   // "[" alone on the first line makes decide read a document, not JSONL.
@@ -61,7 +76,6 @@ export function request(runner: Runner, run: Run) {
     // decide reads .decide/templates in its working directory first. Running
     // it from the plugin's own folder keeps a repository's templates out.
     init: { stdin, cwd: runner.home, env: { DECIDE_HOME: runner.home }, timeoutMs: run.timeoutMs },
-    isTooLarge: stdin.length * 3 > MAX_STDIN && new TextEncoder().encode(stdin).length > MAX_STDIN,
   }
 }
 

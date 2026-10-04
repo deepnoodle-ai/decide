@@ -77,10 +77,11 @@ tool.call (Bash) ──▶ decide run command-risk --field command --json   (std
 ```
 
 Each check sends a JSON array of one record on stdin and reads one JSON line
-back. decide reads an array up to 64 MiB and judges a long item whole, in
-parts; JSONL would stop at 1 MiB a line. A larger input goes on unchecked,
-and the check stays on. The module never runs a shell: `$.process.run`
-takes an argv.
+back. decide judges a long item whole, in parts; JSONL would stop at 1 MiB
+a line. A check sends up to 1,000,000 characters, the judge tool's limit.
+The module counts an input's text before it builds the array, so a larger
+input costs no memory: it goes on unchecked, and the check stays on. The
+module never runs a shell: `$.process.run` takes an argv.
 
 | Check | Hook | Template | Record | Flagged when | Action |
 | --- | --- | --- | --- | --- | --- |

@@ -617,24 +617,24 @@ describe('register', () => {
     expect(String(judged.result)).toContain('unsafe: yes 97%')
   })
 
-  test('a result larger than decide reads goes on unchecked, and the check stays on', async ($, on) => {
+  test('a result over 1,000,000 characters goes on unchecked without running decide, and the check stays on', async ($, on) => {
     const runs = fakeDecide(on, (template, text) =>
       template === 'prompt-injection' ? { injection: noul(0.01), hidden: noul(0.01) } : undefined,
     )
-    // 23 million three-byte characters: 69 MB once encoded, past decide's 64 MiB.
-    const huge = '€'.repeat(23_000_000)
-    const page = 'An ordinary page about installing the Widget SDK, long enough to check.'.repeat(2)
+    // A check sends up to 1,000,000 characters: the edge goes, one more does not.
+    const huge = '€'.repeat(1_000_001)
+    const edge = '€'.repeat(1_000_000)
     on('tool.call', { tool: 'WebFetch' }, ($, e) => {
-      const text = String(e.url).endsWith('huge') ? huge : page
+      const text = String(e.url).endsWith('huge') ? huge : edge
       return { result: { result: text }, text }
     })
 
     await $.session.start(SESSION)
     const out = await $.tool.call({ tool: 'WebFetch', url: 'https://a.example/huge', prompt: 'p', tool_use_id: 't46' })
-    await $.tool.call({ tool: 'WebFetch', url: 'https://a.example/page', prompt: 'p', tool_use_id: 't47' })
+    await $.tool.call({ tool: 'WebFetch', url: 'https://a.example/edge', prompt: 'p', tool_use_id: 't47' })
 
     expect(out.text?.length).toBe(huge.length)
-    expect(runs.map(r => r.texts[0]), 'only the ordinary page went to decide').toEqual([page])
+    expect(runs.map(r => r.texts[0]?.length), 'only the edge went to decide').toEqual([edge.length])
     expect(runs.shown.logged).toEqual([])
     expect(runs.shown.statuses.at(-1)).toBe('decide · 1 checked · 1 not checked')
   })

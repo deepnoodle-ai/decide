@@ -1,10 +1,7 @@
-import { oneLine, phrase } from './decide'
+import { MAX_CHARS, oneLine, phrase } from './decide'
 import type { Outcome } from './decide'
 
 export const NAME = 'judge'
-
-/** The most text one judge call sends, across its items. */
-const MAX_CHARS = 1_000_000
 
 export const DESCRIPTION = `Ask an independent decision model (Jev, through the decide CLI) typed questions about one or more texts, and get back calibrated answers with probabilities instead of prose.
 
