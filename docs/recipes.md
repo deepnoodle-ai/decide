@@ -55,7 +55,9 @@ jobs:
         with:
           path: ~/.decide/cache
           key: decide-${{ github.ref }}-${{ github.sha }}
-          restore-keys: decide-${{ github.ref }}-
+          restore-keys: |
+            decide-${{ github.ref }}-
+            decide-refs/heads/${{ github.base_ref }}-
 
       - name: Judge the changed functions
         if: env.TYPESAFE_API_KEY != ''
@@ -85,9 +87,12 @@ A few things to know:
   generated files. Add `--limit 200` to cap a large pull request.
 - **The cache.** The `actions/cache` step keeps decide's
   [answer cache](cli.md#the-answer-cache) between pushes, so a function
-  judged on an earlier push is not asked about again. The key starts with
-  `github.ref`, so a pull request restores only its own cache, never one
-  a fork's pull request saved. Remove the step to ask fresh each time.
+  judged on an earlier push is not asked about again. A pull request's
+  first push starts from the base branch's cache. The key starts with
+  `github.ref`, so a pull request restores only its own cache or its base
+  branch's, never one a fork's pull request saved. The base branch's cache
+  is saved by a workflow that runs on pushes to it. Remove the step to ask
+  fresh each time.
 
 ## Comment on the pull request
 

@@ -165,8 +165,8 @@ Check what a run will look at before sending anything to the model:
 decide run code-risk . --dry-run
 ```
 
-A dry run also says how many items the
-[answer cache](#the-answer-cache) already answers.
+A dry run also says how many answers the
+[answer cache](#the-answer-cache) already holds.
 
 ## Diffs
 
@@ -289,13 +289,17 @@ Run a template a second time over the same files and nothing is sent:
 
 ```
 ✓ 41212 answered  ! 3 flagged  48s
-  40987 from cache · 225 asked
+  81974 answers from cache · 450 asked
 ```
+
+The line counts answers, one for each question about each item, so an
+item can have some answers from the cache and others asked.
 
 An answer is reused only for the same question about the same text, sent
 to the same provider and address, and answered by the same model version.
 Each question is kept on its own, so adding a question to a template asks
-only that one. Flags and `--fail-on` are worked out from the answers on
+only that one. A question is known by its key and its full definition, so
+changing its wording or options, or renaming its key, asks it again. Flags and `--fail-on` are worked out from the answers on
 each run, so changing a threshold asks nothing again.
 
 With `--json`, each result lists in `cached` the questions whose answers
@@ -303,14 +307,16 @@ came from the cache. `request_id` and `model` describe the request the run
 sent for the item, and are left out when every answer came from the
 cache.
 
-`--dry-run` says how many items the cache already answers:
+`--dry-run` says how many answers the cache already holds:
 
 ```
-41212 items · 40987 in the cache · 225 to ask
+41212 items · 81974 answers in the cache · 450 to ask
 ```
 
 When a run names a model alias, such as `jev-latest`, decide learns the
-version behind it from responses. It trusts a version for an hour; after
+version behind it from responses. A name that a response gives back,
+such as `jev-1.13.0`, is an exact version and needs no check, unless it
+ends in `latest` or `-preview`. It trusts a version for an hour; after
 that, the run's first request is sent whole to check it. An answer from
 an older version is never reused.
 
