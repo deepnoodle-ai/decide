@@ -165,9 +165,16 @@ Acceptance:
   template's questions are in the cache, decide asks only the others, in one
   request.
 - R-4: The model is the name the run asked for, such as `jev-latest` or
-  `clef-flash`. When a provider upgrades the model behind a name, cached
-  answers stay until `--no-cache` asks fresh. To pin answers to one version,
-  name it, such as `jev-1.13.0`.
+  `clef-flash`. The cache busts only on proof that the model changed:
+  - Each answer keeps the version its response named, if any.
+  - Each live response records the latest version seen behind the name.
+  - An answer from a version other than the latest seen is asked again.
+    That includes the other answers of the same item, so an item's answers
+    all come from one version.
+  - When either version is unknown, as with Clef, the answer is reused.
+  - decide never sends a request only to check the version. A run where
+    every answer is cached can't see an upgrade: `--no-cache` asks fresh,
+    and naming a version, such as `jev-1.13.0`, pins answers to it.
 - R-5: The cache works the same for every provider, Jev and Clef alike.
 - R-6: Only valid, complete answers are kept. Failures, errors and invalid
   answers are never kept.
@@ -202,9 +209,10 @@ Acceptance:
   worse than a miss.
 - **A time limit on entries.** Answers don't go stale with time. Use
   `--no-cache` or delete the folder to ask fresh.
-- **Detecting model upgrades.** Aliases move rarely, and an answer from the
-  version before is still a sound answer. Tracking versions would cost a
-  live request and a version record for little gain.
+- **Checking for upgrades.** decide learns of an upgrade only from a request
+  it sends anyway. Aliases move rarely, and an answer from the version
+  before is still a sound answer, so a check request or a freshness window
+  costs more than it saves.
 - **Sending identical requests once while they are in flight.** Identical
   items that come one after another already hit the cache. Coordinating
   workers inside a run saves little. Revisit if runs show many identical
@@ -226,10 +234,12 @@ Acceptance:
   only when they ask the same question under the same key, and renaming a
   key asks again. Rejected: keying a whole request, which misses whenever
   the question set changes.
-- **Key by the model name the run asked for.** It is simple, works for every
-  provider, and costs no request. An upgrade behind an alias keeps old
-  answers until `--no-cache`. Rejected: keying the resolved version, which
-  needs a live request to learn the version, and can't work for Clef.
+- **Key by the model name, and bust only on proof.** It works for every
+  provider and costs no request. A live response that names a new version is
+  proof, so older answers are asked again. Without proof, answers stay.
+  Rejected: keying the resolved version, which needs a request on each run
+  to learn the version, and can't work for Clef. Rejected: ignoring
+  versions, which keeps answers the run knows are from an old model.
 - **Keep hashes, not text.** The cache can sit in a CI cache or a backup
   without holding source code. Rejected: storing items, which would let the
   cache double as a viewer. Saved runs already do that.
