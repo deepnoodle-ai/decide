@@ -60,6 +60,10 @@ off, or remove them, as they land.
       check, a judge tool, and a skill that teaches agents to write
       templates and run decide. Other agents can use its `SKILL.md`
       directly.
+- [x] **`/decide:hunt`.** From one fix, find the other places the same bug
+      lives. See [fix-one-find-all.md](design/fix-one-find-all.md).
+- [ ] **`where` in templates.** A prefilter on calls, imports, and text,
+      so a hunt on a large repository asks only about likely functions.
 - [ ] **MCP server.** `decide mcp`, with tools to run a template or ask a
       question.
 

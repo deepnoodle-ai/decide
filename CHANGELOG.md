@@ -11,6 +11,9 @@ may change the library API and the CLI.
 - **An answer cache.** `decide run` and `runs resume` reuse answers to the
   same question about the same text from the same model name, and ask only
   about what changed, or when a live answer shows the model changed.
+- **`/decide:hunt`.** A plugin skill: give it a fix commit or pull request,
+  and Claude writes one question about the mistake, tests it on the fix,
+  sweeps every function, and confirms the top candidates.
 
 ## [0.2.1] - 2026-10-03
 
