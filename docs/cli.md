@@ -315,9 +315,13 @@ cache.
 ```
 
 The cache is keyed by the model name you ask for, such as `jev-latest` or
-`clef`. When a provider upgrades the model behind that name, the cached
-answers stay until you run with `--no-cache`. To pin answers to one
-version, name it, such as `--model jev-1.13.0`.
+`clef`. Each answer also notes the model version that gave it, when the
+provider names one. When a live answer shows that the model behind the
+name changed, older answers are asked again, including the cached answers
+of the item that showed it. A run where everything is cached sends no
+request, so it can't see an upgrade: run with `--no-cache` to ask fresh,
+or name an exact version, such as `--model jev-1.13.0`, to pin answers to
+it. Workers AI names no version, so Clef answers stay until `--no-cache`.
 
 `--no-cache` asks every question again, and keeps the new answers in place
 of the old. `runs resume` keeps the setting of the run it resumes.

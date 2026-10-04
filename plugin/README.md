@@ -64,8 +64,9 @@ the folder to clear them.
 Answers are kept in decide's answer cache, `~/.decide/agent/cache`, so a
 command Claude runs again, such as `go test ./...`, is answered without a
 request. The cache holds hashes and answers, not the commands or text.
-It is keyed by the model name, so when the provider upgrades the model
-behind it, the kept answers stay; delete the folder to ask fresh.
+It is keyed by the model name. When a live answer shows the model behind
+it changed, older answers are asked again. A check whose answer is cached
+can't see an upgrade; delete the folder to ask fresh.
 
 ## What it is not
 
