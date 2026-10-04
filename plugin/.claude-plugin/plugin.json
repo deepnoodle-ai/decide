@@ -1,6 +1,6 @@
 {
   "name": "decide",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A second opinion for Claude from decide: it checks shell commands before they run, content from outside before Claude acts on it, and each reply against what the turn's tools showed, and gives Claude a judge tool for typed questions.",
   "author": {
     "name": "Deep Noodle"
