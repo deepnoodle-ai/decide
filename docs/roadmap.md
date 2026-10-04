@@ -91,7 +91,7 @@ off, or remove them, as they land.
 
 - [ ] Allow squash merges only.
 - [ ] Protect `main`. The Claude Code plugin installs from it.
-- [ ] Make the repository public.
+- [x] Make the repository public.
 - [ ] Turn on private vulnerability reporting, secret scanning with push
       protection, and Dependabot alerts.
 - [x] Add the `TAP_GITHUB_TOKEN` secret.

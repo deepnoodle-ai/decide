@@ -6,6 +6,11 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-03
+
+Decide comes to Claude Code: a plugin that gets Claude a second opinion
+before risky commands, on content from outside, and on its own replies.
+
 ### Added
 
 - **`command-risk` and `reply-check`.** Judge a shell command before it
@@ -44,5 +49,6 @@ answers with probabilities, from the command line or from Go.
 - **Install** with `brew install deepnoodle-ai/tap/decide`, or download a
   binary with checksums.
 
-[Unreleased]: https://github.com/deepnoodle-ai/decide/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/deepnoodle-ai/decide/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/deepnoodle-ai/decide/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/deepnoodle-ai/decide/releases/tag/v0.1.0
