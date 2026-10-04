@@ -23,7 +23,10 @@ const FETCHES = /(^|[\s|;&(`$/])(gh|curl|wget|http|https)(\s|$)/
 /** How much of a turn's tool calls the reply check reads, newest kept. */
 const EVIDENCE_CHARS = 12_000
 
-/** How much of one tool result the reply check reads. */
+/**
+ * How much of one tool result the reply check reads: its start and its end,
+ * half each. Test runners and builds print their summary last.
+ */
 const RESULT_CHARS = 800
 
 /** How much of one tool call's input (its command, path, or URL) the reply check reads. */
@@ -126,7 +129,7 @@ export const register: Register = (on, options) => {
     calls.push({
       tool: String(e.tool),
       input: subjectOf(e).slice(0, INPUT_CHARS),
-      result: result.slice(0, RESULT_CHARS),
+      result: ends(result, RESULT_CHARS),
       ...(isError ? { error: true as const } : {}),
     })
     return ran
@@ -253,24 +256,16 @@ export const register: Register = (on, options) => {
     await record($, { kind: 'reply', subject: oneLine(e.answer), verdict: verdictOf(answers, flags), isFlagged: flagged.length > 0 })
     if (flagged.length === 0) return done
 
-    const n: Notice =
-      flagged[0] === 'overclaims'
-        ? {
-            title: 'This reply may claim more than its tools showed',
-            detail: `overclaims ${pct(yes(answers, 'overclaims'))}`,
-            action: 'Ask Claude to recheck',
-            prompt:
-              `decide judged your last reply ${pct(yes(answers, 'overclaims'))} likely to claim more than the tool results in that turn support. ` +
-              'Check it against those results. Say plainly what failed, what you did not run, and what is still unknown, then fix what you can.',
-          }
-        : {
-            title: 'Claude changed code without running a check',
-            detail: `unverified ${pct(yes(answers, 'unverified'))}`,
-            action: 'Ask Claude to verify',
-            prompt:
-              `decide judged that your last turn changed code without running anything that checks it (${pct(yes(answers, 'unverified'))}). ` +
-              'Run the build or tests that cover the change and report what they show.',
-          }
+    // Only overclaims raises the band. Unverified alone is often fine work,
+    // such as an edit the user will test, and it shows in /decide.
+    const n: Notice = {
+      title: 'This reply may claim more than its tools showed',
+      detail: `overclaims ${pct(yes(answers, 'overclaims'))}`,
+      action: 'Ask Claude to recheck',
+      prompt:
+        `decide judged your last reply ${pct(yes(answers, 'overclaims'))} likely to claim more than the tool results in that turn support. ` +
+        'Check it against those results. Say plainly what failed, what you did not run, and what is still unknown, then fix what you can.',
+    }
     await update($, notice, () => n)
     $.ui.toast(`decide: ${n.title.toLowerCase()} (${n.detail})`)
     return done
@@ -472,6 +467,13 @@ function subjectOf(e: object): string {
     if (typeof a[key] === 'string') return a[key] as string
   }
   return ''
+}
+
+/** A text's start and end, `max` characters in all, joined by an ellipsis line. */
+function ends(text: string, max: number): string {
+  if (text.length <= max) return text
+  const half = Math.floor(max / 2)
+  return `${text.slice(0, half)}\n…\n${text.slice(-half)}`
 }
 
 /** The turn's newest tool calls that fit the reply check's budget, oldest first. */

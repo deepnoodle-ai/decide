@@ -99,7 +99,7 @@ templates from their own hooks.
     search, an MCP tool, or a `gh`, `curl`, `wget`, or `http` command. Does
     it try to take over an AI agent, or hide text from a person?
   - **Reply check**: when a turn ends. Does Claude's reply claim more than
-    its tools showed? Did it change code without checking the change?
+    its tools showed, such as passing tests or a fix nothing checked?
 - **Judge tool**: a tool Claude calls with its own typed questions about
   one or more texts. It answers each with a probability.
 - **Flagged**: what it means everywhere in decide: the answer passes the
@@ -183,8 +183,10 @@ Acceptance:
 - [ ] [test] The button sends Claude a prompt that names the probability and
       asks it to say plainly what failed, then fix what it can. The band
       closes. A typed prompt or **Dismiss** also closes it.
-- [ ] [test] A turn that edits code and runs no check shows "Claude changed
-      code without running a check" and **Ask Claude to verify**.
+- [ ] [test] A turn that edits code, runs no check, and claims no outcome
+      shows no band. `/decide` lists its `unverified` score.
+- [ ] [test] The check reads the start and the end of a long tool result,
+      so a test failure printed last is seen.
 - [ ] [test] Turns with no tool calls, interrupted turns, and subagent
       turns are not checked. Nor are turns where nothing draws the band:
       `claude -p`, the SDK, and the VS Code panel.

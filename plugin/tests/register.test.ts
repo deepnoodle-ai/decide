@@ -283,25 +283,52 @@ describe('register', () => {
     expect(runs.filter(r => r.argv[2] === 'prompt-injection')).toEqual([])
   })
 
-  test('a turn that changes code and checks nothing offers to verify it', async ($, on) => {
+  test('a turn that changes code and checks nothing raises no band, and /decide still shows it', async ($, on) => {
     fakeDecide(on, (template, text) =>
-      template === 'reply-check' ? { overclaims: noul(0.3), unverified: noul(0.94) } : RISK(template, text),
+      template === 'reply-check' ? { overclaims: noul(0.2), unverified: noul(0.94) } : RISK(template, text),
     )
     on('tool.call', { tool: 'Edit' }, () => ({ result: 'ok', text: 'The file has been updated.' }))
     on('turn.start', ($, e) => ({ turnId: e.turnId }))
     on('turn.complete', ($, e) => ({ text: e.answer }))
 
     await $.session.start(SESSION)
-    await $.turn.start({ text: 'fix it', turnId: 'turn-2' })
+    await $.turn.start({ text: 'reword the doc comment', turnId: 'turn-2' })
     await $.tool.call({ tool: 'Edit', file_path: '/work/a.go', old_string: 'a', new_string: 'b', tool_use_id: 't14' })
-    await $.turn.complete({ answer: 'Fixed it.', reason: 'answer', durationMs: 500, isAborted: false, turnId: 'turn-2' })
+    await $.turn.complete({ answer: 'Reworded the doc comment on Apply.', reason: 'answer', durationMs: 500, isAborted: false, turnId: 'turn-2' })
 
     const ui = await $.ui.mount({ plugin: 'decide', ...BAND })
-    expect(await ui.find({ type: 'Text', text: /changed code without running a check/ })).toBeDefined()
-    expect(await ui.find({ key: 'act', text: 'Ask Claude to verify' })).toBeDefined()
-    await ui.press({ key: 'dismiss' })
     expect(await ui.find({ key: 'act' })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: 'engine band' })).toBeDefined()
+    await ui.unmount()
+    const listed = await $.command.run(DECIDE_COMMAND)
+    expect(listed.text).toContain('flagged 0')
+    expect(listed.text).toContain('unverified 94%')
+  })
+
+  test('the reply check reads the end of a long result, where a test runner prints its failures', async ($, on) => {
+    const runs = fakeDecide(on, (template, text) =>
+      template === 'reply-check' ? { overclaims: noul(text.includes('FAIL') ? 0.98 : 0.05), unverified: noul(0.04) } : RISK(template, text),
+    )
+    // Piped through tail, so the exit code does not mark it as an error.
+    const output = Array.from({ length: 40 }, (_, i) => `ok  \tshop/pkg${i}\t0.1s`).join('\n') + '\n--- FAIL: TestRefundLimit\nFAIL\tshop/billing'
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: output, stderr: '', interrupted: false }, text: output }))
+    on('turn.start', ($, e) => ({ turnId: e.turnId }))
+    on('turn.complete', ($, e) => ({ text: e.answer }))
+
+    await $.session.start(SESSION)
+    await $.turn.start({ text: 'fix the refund limit', turnId: 'turn-7' })
+    await $.tool.call({ tool: 'Bash', command: 'go test ./... 2>&1 | tail -50', tool_use_id: 't48' })
+    await $.turn.complete({ answer: 'Fixed, and all tests pass.', reason: 'answer', durationMs: 500, isAborted: false, turnId: 'turn-7' })
+
+    const turn = JSON.parse(runs.find(r => r.argv[2] === 'reply-check')?.texts[0] ?? '{}') as { tools: { result: string; error?: true }[] }
+    const result = turn.tools[0]?.result ?? ''
+    expect(output.length).toBeGreaterThan(800)
+    expect(result.startsWith('ok  \tshop/pkg0')).toBe(true)
+    expect(result.endsWith('--- FAIL: TestRefundLimit\nFAIL\tshop/billing')).toBe(true)
+    expect(result).toContain('\n…\n')
+    expect(turn.tools[0]?.error).toBeUndefined()
+    const ui = await $.ui.mount({ plugin: 'decide', ...BAND })
+    expect(await ui.find({ key: 'act', text: 'Ask Claude to recheck' })).toBeDefined()
     await ui.unmount()
   })
 

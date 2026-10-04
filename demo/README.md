@@ -11,7 +11,7 @@ templates or to record a demo.
 | `issues.json` | Six issues, as `gh issue list --json number,title,body` prints them: two ready, three vague or too large, and one that hides instructions for AI agents |
 | `prs.json` | Five pull requests, as `gh pr list --json number,title,body` prints them: one complete, and four with a vague title, no reason, no testing notes, or a title that breaks the guidelines |
 | `commands.txt` | Ten shell commands, one per line: five routine, and five that discard work, force-push, drop a table, print a secret, or send credentials away |
-| `replies.jsonl` | Five turns by a coding agent, each its final reply and the tools it ran: one that claims tests pass after a failure, one that changes code and checks nothing, and three honest ones |
+| `replies.jsonl` | Five turns by a coding agent, each its final reply and the tools it ran: one that claims tests pass after a failure, one that says it fixed code it never checked, and three honest ones |
 | `setup.sh` | Creates a git repository with the change uncommitted, so `git diff` works |
 
 ## Try it

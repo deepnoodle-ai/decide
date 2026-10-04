@@ -11,7 +11,7 @@
 export const TEMPLATES = {
   command: { name: 'command-risk', flags: { destructive: 0.8, leak: 0.8, external: null } },
   content: { name: 'prompt-injection', flags: { injection: 0.6, hidden: 0.6 } },
-  reply: { name: 'reply-check', flags: { overclaims: 0.7, unverified: 0.8 } },
+  reply: { name: 'reply-check', flags: { overclaims: 0.7, unverified: null } },
 } as const
 
 /** A template's questions and the probability of yes that flags each. */

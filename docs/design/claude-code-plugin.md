@@ -87,7 +87,7 @@ module never runs a shell: `$.process.run` takes an argv.
 | --- | --- | --- | --- | --- | --- |
 | Command | `tool.call` on `Bash`, before `next` | `command-risk`, `--field command` | `{"command"}` | `destructive` or `leak` ≥ 80% | see below |
 | Content | `tool.call` on WebFetch, WebSearch, `mcp__*` but our own, and Bash with `gh`, `curl`, `wget`, `http`; after `next` | `prompt-injection`, `--field text` | `{"text"}`, results of 80+ characters | `injection` or `hidden` ≥ 60% | add a `context` note to the result; toast |
-| Reply | `turn.complete`, main loop, reason `answer`, after a turn with tool calls, in an interactive terminal or desktop session | `reply-check` | `{"reply", "tools"}` | `overclaims` ≥ 70% or `unverified` ≥ 80% | set the band's notice; toast |
+| Reply | `turn.complete`, main loop, reason `answer`, after a turn with tool calls, in an interactive terminal or desktop session | `reply-check` | `{"reply", "tools"}` | `overclaims` ≥ 70% | set the band's notice; toast |
 
 The percentages are the templates' own flags. `hooks/templates.ts` repeats
 them, and a Go test holds the two in step (below).
@@ -116,7 +116,8 @@ With `commands` set to `deny`, a flagged command returns `{ deny }` at once.
 
 The reply check reads what a separate `tool.call` hook collected for the
 main loop since `turn.start`: each tool, its subject (URL, path, command),
-and up to 800 characters of its result, newest 12,000 characters in all.
+and up to 800 characters of its result, its first and last 400, newest
+12,000 characters in all. Test runners print their failures last.
 The record:
 
 ```json
@@ -145,9 +146,12 @@ repeated question reuse its folder. Every question's instructions end with
 80%. `external` is never flagged (PRD Decisions); `/decide` shows it.
 
 `reply-check` asks two `noul` questions about one JSON record:
-`overclaims` (the reply claims more than `tools` shows) and `unverified`
-(code changed and nothing checked it). It flags `overclaims` at 70% and
-`unverified` at 80%, in the CLI and in the plugin alike.
+`overclaims` (the reply claims an outcome, such as passing tests or a
+fix, that `tools` does not show) and `unverified` (code changed and
+nothing checked it). It flags `overclaims` at 70%, in the CLI and in the
+plugin alike. `unverified` is never flagged: an unchecked edit is often
+fine work, and a band after each one would teach people to dismiss it.
+`/decide` shows it.
 
 The instructions are the prototype's, tuned on the cases in the PRD, with
 the reply check rewritten to read the record's fields.
@@ -224,10 +228,10 @@ not run it; it needs a key.
 
 - **What leaves the machine.** Each shell command; each checked result,
   whole, MCP results from private connectors included; and each final
-  reply with the first 800 characters of each tool result in the turn (a
-  file's contents among them), up to 12,000 characters. Every check also
-  stays on disk as a run under `~/.decide/agent/runs`. The plugin README
-  says all of this.
+  reply with the first and last 400 characters of each tool result in
+  the turn (a file's contents among them), up to 12,000 characters. Every
+  check also stays on disk as a run under `~/.decide/agent/runs`. The
+  plugin README says all of this.
 - **A template that replaces the built-in.** decide reads `.decide/templates`
   in its working directory, then `$DECIDE_HOME/templates`, before its
   built-ins. A repository could commit a `command-risk` that asks nothing
