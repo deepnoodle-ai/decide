@@ -65,7 +65,7 @@ func TestStoreAndLookup(t *testing.T) {
 	}
 	src := Source{Provider: "typesafe", Model: "jev-latest"}
 	it := ItemOf([]byte(`"x"`), "", nil)
-	c.Store(src, it, questions, map[string]json.RawMessage{"risk": answer(1), "other": answer(2)})
+	c.Store(src, it, questions, map[string]json.RawMessage{"risk": answer(1), "other": answer(2)}, "")
 	if err := c.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -103,6 +103,54 @@ func TestStoreAndLookup(t *testing.T) {
 	}
 }
 
+func TestVersions(t *testing.T) {
+	setMergeAbove(t, 100)
+	dir := t.TempDir()
+	src := Source{Provider: "typesafe", Model: "jev-latest"}
+	one, two := ItemOf([]byte(`"one"`), "", nil), ItemOf([]byte(`"two"`), "", nil)
+	risk := map[string][]byte{"risk": questions["risk"]}
+	c := Open(dir, nil)
+	c.Store(src, one, risk, map[string]json.RawMessage{"risk": answer(1)}, "jev-1.13.0")
+	if len(c.Lookup(src, one, risk)) != 1 {
+		t.Fatal("an answer from the latest version is a miss")
+	}
+	// A response that names a new version makes older answers misses,
+	// here and in the next process, and after a merge.
+	c.Store(src, two, risk, map[string]json.RawMessage{"risk": answer(2)}, "jev-1.14.0")
+	for _, c := range []*Cache{c, Open(dir, nil)} {
+		if len(c.Lookup(src, one, risk)) != 0 || len(c.Lookup(src, two, risk)) != 1 {
+			t.Fatal("an answer from an older version was found")
+		}
+	}
+	// A failed response still records its version.
+	c.Store(src, two, risk, nil, "jev-1.15.0")
+	if len(Open(dir, nil).Lookup(src, two, risk)) != 0 {
+		t.Fatal("a version from a response with no answers was not recorded")
+	}
+	// An answer from an unknown version, or for a source with no known
+	// version, is reused.
+	c.Store(src, one, risk, map[string]json.RawMessage{"risk": answer(3)}, "")
+	clef := Source{Provider: "cloudflare", Model: "clef"}
+	c.Store(clef, one, risk, map[string]json.RawMessage{"risk": answer(4)}, "")
+	c.Close()
+	mergeAbove = 1
+	c = Open(dir, nil)
+	if n := len(segments(t, dir)); n != 1 {
+		t.Fatalf("%d segments", n)
+	}
+	c = Open(dir, nil)
+	if len(c.Lookup(src, one, risk)) != 1 || len(c.Lookup(clef, one, risk)) != 1 || len(c.Lookup(src, two, risk)) != 0 {
+		t.Fatal("after a merge, versions changed what is found")
+	}
+	// The newest version recorded wins, whichever process recorded it.
+	early, late := Open(dir, nil), Open(dir, nil)
+	late.Store(src, two, risk, nil, "jev-1.14.0")
+	early.Store(src, two, risk, nil, "jev-1.15.0")
+	if len(Open(dir, nil).Lookup(src, two, risk)) != 0 {
+		t.Fatal("an older version record won")
+	}
+}
+
 func TestNewestWins(t *testing.T) {
 	setMergeAbove(t, 100)
 	dir := t.TempDir()
@@ -111,8 +159,8 @@ func TestNewestWins(t *testing.T) {
 	// parts sort as, and so does each process's next answer.
 	for i := range 20 {
 		c := Open(dir, nil)
-		c.put(map[Key]json.RawMessage{k: answer(i)})
-		c.put(map[Key]json.RawMessage{k: answer(100 + i)})
+		c.put(map[Key]json.RawMessage{k: answer(i)}, "", "")
+		c.put(map[Key]json.RawMessage{k: answer(100 + i)}, "", "")
 		c.Close()
 		if a := get(Open(dir, nil), k); string(a) != string(answer(100+i)) {
 			t.Fatalf("round %d: got %s", i, a)
@@ -125,7 +173,7 @@ func TestNewestWins(t *testing.T) {
 		t.Fatalf("%d segments after the merge", n)
 	}
 	c := Open(dir, nil)
-	c.put(map[Key]json.RawMessage{k: answer(500)})
+	c.put(map[Key]json.RawMessage{k: answer(500)}, "", "")
 	c.Close()
 	if a := get(Open(dir, nil), k); string(a) != string(answer(500)) {
 		t.Fatalf("after the merge: got %s", a)
@@ -133,8 +181,8 @@ func TestNewestWins(t *testing.T) {
 	// Lines carry their own time, so an answer kept later wins even in a
 	// segment made earlier.
 	early, late := Open(dir, nil), Open(dir, nil)
-	late.put(map[Key]json.RawMessage{k: answer(600)})
-	early.put(map[Key]json.RawMessage{k: answer(700)})
+	late.put(map[Key]json.RawMessage{k: answer(600)}, "", "")
+	early.put(map[Key]json.RawMessage{k: answer(700)}, "", "")
 	early.Close()
 	late.Close()
 	if a := get(Open(dir, nil), k); string(a) != string(answer(700)) {
@@ -164,7 +212,7 @@ func TestBrokenCache(t *testing.T) {
 		t.Skip("needs a folder the user can't read")
 	}
 	dir := t.TempDir()
-	Open(dir, nil).put(map[Key]json.RawMessage{{1}: answer(1)})
+	Open(dir, nil).put(map[Key]json.RawMessage{{1}: answer(1)}, "", "")
 	if err := os.Chmod(dir, 0); err != nil {
 		t.Fatal(err)
 	}
@@ -174,8 +222,8 @@ func TestBrokenCache(t *testing.T) {
 	}
 	var warnings []string
 	c := Open(dir, func(msg string) { warnings = append(warnings, msg) })
-	c.put(map[Key]json.RawMessage{{2}: answer(2)})
-	c.put(map[Key]json.RawMessage{{3}: answer(3)})
+	c.put(map[Key]json.RawMessage{{2}: answer(2)}, "", "")
+	c.put(map[Key]json.RawMessage{{3}: answer(3)}, "", "")
 	if len(warnings) != 1 || !strings.Contains(warnings[0], "can't be used") {
 		t.Fatalf("warnings = %q", warnings)
 	}
@@ -190,8 +238,8 @@ func TestBrokenCache(t *testing.T) {
 	if !c.Has(Key{1}) {
 		t.Fatal("a read-only cache can still be read")
 	}
-	c.put(map[Key]json.RawMessage{{2}: answer(2)})
-	c.put(map[Key]json.RawMessage{{3}: answer(3)})
+	c.put(map[Key]json.RawMessage{{2}: answer(2)}, "", "")
+	c.put(map[Key]json.RawMessage{{3}: answer(3)}, "", "")
 	if len(warnings) != 1 || c.Has(Key{1}) {
 		t.Fatalf("warnings = %q", warnings)
 	}
@@ -202,10 +250,10 @@ func TestMerge(t *testing.T) {
 	dir := t.TempDir()
 	// One process is still writing its segment, so it can't be merged.
 	active := Open(dir, nil)
-	active.put(map[Key]json.RawMessage{{0, 1}: answer(1)})
+	active.put(map[Key]json.RawMessage{{0, 1}: answer(1)}, "", "")
 	for i := range 10 {
 		c := Open(dir, nil)
-		c.put(map[Key]json.RawMessage{{1, byte(i)}: answer(i)})
+		c.put(map[Key]json.RawMessage{{1, byte(i)}: answer(i)}, "", "")
 		c.Close()
 	}
 	before := len(segments(t, dir))
@@ -219,7 +267,7 @@ func TestMerge(t *testing.T) {
 		t.Fatalf("%d answers", c.Len())
 	}
 	// The active segment keeps its entries, old and new.
-	active.put(map[Key]json.RawMessage{{0, 2}: answer(2)})
+	active.put(map[Key]json.RawMessage{{0, 2}: answer(2)}, "", "")
 	active.Close()
 	c = Open(dir, nil)
 	if c.Len() != 12 || !c.Has(Key{0, 1}) || !c.Has(Key{0, 2}) {
@@ -245,7 +293,7 @@ func write(dir string, writer, rounds, each int) {
 	for r := range rounds {
 		c := Open(dir, nil)
 		for i := range each {
-			c.put(map[Key]json.RawMessage{{byte(writer), byte(r), byte(i)}: answer(i)})
+			c.put(map[Key]json.RawMessage{{byte(writer), byte(r), byte(i)}: answer(i)}, "", "")
 		}
 		c.Close()
 	}

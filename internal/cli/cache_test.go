@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -207,22 +208,77 @@ func TestCacheAddedQuestion(t *testing.T) {
 	}
 }
 
-func TestCacheModelName(t *testing.T) {
-	h := setup(t)
-	codeRisk(h, "jev-1.13.0")
-	h.run("one\n", "run", "relevance", "-p", "question=x")
+// versioned answers code-risk questions as a model version would: from
+// jev-1.14.0 on, every function is risky.
+func versioned(h *harness, model string) {
+	levels := []any{"0", "1", "2", "3", "4"}
+	h.server.Respond(func(req *decide.Request) (*decide.Response, error) {
+		risk := 0.1
+		if model >= "jev-1.14.0" {
+			risk = 0.9
+		}
+		all := map[string]decide.Answer{
+			"risk":            decidetest.NoulAnswer(risk),
+			"maintainability": decidetest.ScoreAnswer(levels, 0, 0, 0, 1, 0),
+		}
+		resp := &decide.Response{Model: model, Answers: map[string]decide.Answer{}}
+		for key := range req.Questions {
+			resp.Answers[key] = cmp.Or(all[key], decide.Answer(decidetest.NoulAnswer(0.5)))
+		}
+		return resp, nil
+	})
+}
 
-	// An upgrade behind the name keeps the cached answers.
-	codeRisk(h, "jev-1.14.0")
-	h.run("one\n", "run", "relevance", "-p", "question=x")
-	if h.requests() != 1 {
-		t.Fatalf("%d requests", h.requests())
+func TestCacheModelVersions(t *testing.T) {
+	h := setup(t)
+	h.write("src/a.go", "package a\n")
+	versioned(h, "jev-1.13.0")
+	if out := h.run("", "run", "code-risk", "src", "--fail-on", "flagged"); out.code != 0 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
-	// Another name, such as an exact version, is another model.
-	h.run("one\n", "run", "relevance", "-p", "question=x", "--model", "jev-1.14.0")
-	h.run("one\n", "run", "relevance", "-p", "question=x", "--model", "jev-1.14.0")
-	if h.requests() != 2 {
-		t.Fatalf("%d requests", h.requests())
+
+	// The model behind jev-latest moves. A run with every answer cached
+	// sends nothing, so it can't see the upgrade, and reuses the answers.
+	versioned(h, "jev-1.14.0")
+	out := h.run("", "run", "code-risk", "src", "--fail-on", "flagged", "--dry-run")
+	contains(t, out.stdout, "1 item · 2 answers in the cache · 0 to ask")
+	if out := h.run("", "run", "code-risk", "src", "--fail-on", "flagged"); out.code != 0 || h.requests() != 1 {
+		t.Fatalf("exit %d, %d requests", out.code, h.requests())
+	}
+
+	// A run that asks about a new file learns the new version, and asks
+	// about the unchanged file again.
+	h.write("src/0.go", "package a\n\nvar x = 1\n")
+	out = h.run("", "run", "code-risk", "src", "--fail-on", "flagged", "--workers", "1", "--json")
+	if out.code != 2 || h.requests() != 3 {
+		t.Fatalf("exit %d, %d requests: %s", out.code, h.requests(), out.stderr)
+	}
+	for _, line := range jsonLines(t, out.stdout, true) {
+		if line["cached"] != nil || line["model"] != "jev-1.14.0" {
+			t.Errorf("result: %v", line)
+		}
+	}
+	out = h.run("", "run", "code-risk", "src", "--dry-run")
+	contains(t, out.stdout, "2 items · 4 answers in the cache · 0 to ask")
+
+	// Cached answers from an old version, in an item whose other question
+	// is answered by a new one, are asked again so all come from the new.
+	versioned(h, "jev-1.15.0")
+	n := h.requests()
+	h.write(".decide/templates/mine/template.json", `{"name": "mine", "description": "Risk.",
+  "questions": {"risk": {"type": "noul", "instructions": "Is it risky?"}}}`)
+	h.run("", "run", "mine", "src/0.go")
+	versioned(h, "jev-1.16.0")
+	h.write(".decide/templates/mine/template.json", `{"name": "mine", "description": "Risk.",
+  "questions": {"risk": {"type": "noul", "instructions": "Is it risky?"},
+    "tested": {"type": "noul", "instructions": "Is it tested?"}}}`)
+	out = h.run("", "run", "mine", "src/0.go", "--json")
+	reqs := h.server.Requests()[n+1:]
+	if len(reqs) != 2 || len(reqs[0].Request.Questions) != 1 || reqs[1].Request.Questions["risk"] == nil {
+		t.Fatalf("%d requests", len(reqs))
+	}
+	if line := jsonLines(t, out.stdout, true)[0]; line["cached"] != nil || line["model"] != "jev-1.16.0" {
+		t.Fatalf("result: %v", line)
 	}
 }
 
@@ -262,6 +318,8 @@ func TestCacheChecksKeptAnswers(t *testing.T) {
 
 func TestCacheClef(t *testing.T) {
 	h := setup(t)
+	// Workers AI names no model version, so a cached answer is reused.
+	h.server = decidetest.NewServer(t, decidetest.WithResolvedModel(""))
 	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "account-a")
 	h.run("one\n", "run", "sentiment", "--provider", "cloudflare")
 	out := h.run("one\n", "run", "sentiment", "--provider", "cloudflare", "--json")

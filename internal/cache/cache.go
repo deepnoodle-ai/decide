@@ -3,8 +3,10 @@
 //
 // An answer is kept by a key: a hash of the provider and its address, the
 // model name the run asked for, the item's text as sent, its image, and the
-// question as sent. When a provider upgrades the model behind a name, kept
-// answers stay; a run that names an exact version pins its answers to it.
+// question as sent. Each answer also records the model version that gave
+// it, when the response named one, and the cache records the latest
+// version each model name was seen to resolve to. An answer from a version
+// other than the latest is not reused. When either is unknown, it is.
 // The cache keeps hashes and answers, never item text, file names or
 // images.
 //
@@ -70,6 +72,16 @@ func (s Source) Key(it Item, question string, q []byte) Key {
 	return k
 }
 
+// id identifies a source in the cache's files.
+func (s Source) id() string {
+	h := sha256.New()
+	field(h, []byte("source"))
+	field(h, []byte(s.Provider))
+	field(h, []byte(s.Address))
+	field(h, []byte(s.Model))
+	return hex.EncodeToString(h.Sum(nil)[:16])
+}
+
 // Item identifies what a request says about one item: the text sent as its
 // state and its image, if any.
 type Item [32]byte
@@ -95,14 +107,25 @@ func field(h interface{ Write([]byte) (int, error) }, b []byte) {
 }
 
 type entry struct {
-	answer string
-	time   int64 // when it was kept, in nanoseconds since 1970
+	answer  string
+	time    int64  // when it was kept, in nanoseconds since 1970
+	version string // the model version that gave it; empty when unknown
 }
 
-// line is one line of a segment: answers kept at one time. Lines of other
-// kinds, such as those older versions wrote, are skipped.
+// seen is the latest version a source was seen to resolve to.
+type seen struct {
+	version string
+	time    int64
+}
+
+// line is one line of a segment: the answers from one response, kept at
+// one time, and the model version it named. A line with a source and a
+// version records that the source resolved to that version then. Lines of
+// other kinds, such as those older versions wrote, are skipped.
 type line struct {
 	Time    int64                      `json:"time,omitempty"`
+	Source  string                     `json:"source,omitempty"`
+	Model   string                     `json:"model,omitempty"`
 	Answers map[string]json.RawMessage `json:"answers,omitempty"`
 }
 
@@ -115,15 +138,16 @@ type Cache struct {
 	mu      sync.Mutex
 	broken  bool
 	answers map[Key]entry
-	seg     *os.File // this process's segment, created on the first write
-	last    int64    // the time of this process's latest line
+	latest  map[string]seen // by source id
+	seg     *os.File        // this process's segment, created on the first write
+	last    int64           // the time of this process's latest line
 }
 
 // Open reads the cache in dir. The folder is made when the first answer
 // is kept. Open never fails: a cache that can't be read calls warn and
 // acts as if it were empty. warn may be nil.
 func Open(dir string, warn func(string)) *Cache {
-	c := &Cache{dir: dir, warn: warn, answers: map[Key]entry{}}
+	c := &Cache{dir: dir, warn: warn, answers: map[Key]entry{}, latest: map[string]seen{}}
 	if err := c.load(); err != nil {
 		c.fail(err)
 	}
@@ -136,7 +160,7 @@ func (c *Cache) fail(err error) {
 		return
 	}
 	c.broken = true
-	c.answers = map[Key]entry{}
+	c.answers, c.latest = map[Key]entry{}, map[string]seen{}
 	if c.warn != nil {
 		c.warn(fmt.Sprintf("The answer cache in %s can't be used, so every question is asked: %v", c.dir, err))
 	}
@@ -231,7 +255,12 @@ func (c *Cache) add(b []byte) {
 			continue
 		}
 		if e, ok := c.answers[key]; !ok || l.Time >= e.time {
-			c.answers[key] = entry{answer: string(a), time: l.Time}
+			c.answers[key] = entry{answer: string(a), time: l.Time, version: l.Model}
+		}
+	}
+	if l.Source != "" && l.Model != "" {
+		if v, ok := c.latest[l.Source]; !ok || l.Time >= v.time {
+			c.latest[l.Source] = seen{version: l.Model, time: l.Time}
 		}
 	}
 }
@@ -259,24 +288,35 @@ func (c *Cache) writeMerged() error {
 	defer os.Remove(tmp.Name()) // fails once renamed
 	w := bufio.NewWriter(tmp)
 	enc := json.NewEncoder(w)
-	// Answers kept at the same time share a line, as when they were kept.
-	byTime := map[int64]map[string]json.RawMessage{}
+	// Answers kept at the same time from the same version share a line,
+	// as when they were kept.
+	type group struct {
+		time    int64
+		version string
+	}
+	batches := map[group]map[string]json.RawMessage{}
 	for k, e := range c.answers {
-		batch := byTime[e.time]
+		g := group{e.time, e.version}
+		batch := batches[g]
 		if batch == nil || len(batch) == 1000 {
 			if batch != nil {
-				if err = enc.Encode(line{Time: e.time, Answers: batch}); err != nil {
+				if err = enc.Encode(line{Time: g.time, Model: g.version, Answers: batch}); err != nil {
 					break
 				}
 			}
 			batch = map[string]json.RawMessage{}
-			byTime[e.time] = batch
+			batches[g] = batch
 		}
 		batch[hex.EncodeToString(k[:])] = json.RawMessage(e.answer)
 	}
-	for t, batch := range byTime {
+	for g, batch := range batches {
 		if err == nil {
-			err = enc.Encode(line{Time: t, Answers: batch})
+			err = enc.Encode(line{Time: g.time, Model: g.version, Answers: batch})
+		}
+	}
+	for src, v := range c.latest {
+		if err == nil {
+			err = enc.Encode(line{Time: v.time, Source: src, Model: v.version})
 		}
 	}
 	if err == nil {
@@ -304,13 +344,17 @@ func random() string {
 }
 
 // Lookup returns the kept answers to questions about an item from a
-// source. questions maps each question's key to the question as sent.
+// source. questions maps each question's key to the question as sent. An
+// answer from a version other than the latest the source was seen to
+// resolve to is left out; when either version is unknown, it is found.
 func (c *Cache) Lookup(src Source, it Item, questions map[string][]byte) map[string]json.RawMessage {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	latest := c.latest[src.id()].version
 	found := map[string]json.RawMessage{}
 	for key, q := range questions {
-		if e, ok := c.answers[src.Key(it, key, q)]; ok {
+		e, ok := c.answers[src.Key(it, key, q)]
+		if ok && (e.version == "" || latest == "" || e.version == latest) {
 			found[key] = json.RawMessage(e.answer)
 		}
 	}
@@ -325,35 +369,45 @@ func (c *Cache) Has(k Key) bool {
 	return ok
 }
 
-// Store keeps the answers to questions about an item from a source,
-// replacing any kept before.
-func (c *Cache) Store(src Source, it Item, questions map[string][]byte, answers map[string]json.RawMessage) {
+// Store keeps the answers from one response to questions about an item,
+// replacing any kept before. version is the model version the response
+// named, or empty when it named none; it becomes the source's latest. A
+// response with no answers to keep still records its version.
+func (c *Cache) Store(src Source, it Item, questions map[string][]byte, answers map[string]json.RawMessage, version string) {
 	keep := map[Key]json.RawMessage{}
 	for key, a := range answers {
 		if q, ok := questions[key]; ok {
 			keep[src.Key(it, key, q)] = a
 		}
 	}
-	c.put(keep)
+	id := ""
+	if version != "" {
+		id = src.id()
+	}
+	c.put(keep, id, version)
 }
 
-// put keeps answers, replacing any kept before for the same keys.
-func (c *Cache) put(answers map[Key]json.RawMessage) {
-	if len(answers) == 0 {
+// put keeps answers, replacing any kept before for the same keys, and
+// records that a source resolved to a version.
+func (c *Cache) put(answers map[Key]json.RawMessage, source, version string) {
+	if len(answers) == 0 && source == "" {
 		return
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	// Times only grow within a process, even when the clock is coarse.
 	t := max(now().UnixNano(), c.last+1)
-	l := line{Time: t, Answers: map[string]json.RawMessage{}}
+	l := line{Time: t, Source: source, Model: version, Answers: map[string]json.RawMessage{}}
 	for k, a := range answers {
 		l.Answers[hex.EncodeToString(k[:])] = a
 	}
 	if c.write(l) {
 		c.last = t
 		for k, a := range answers {
-			c.answers[k] = entry{answer: string(a), time: t}
+			c.answers[k] = entry{answer: string(a), time: t, version: version}
+		}
+		if source != "" {
+			c.latest[source] = seen{version: version, time: t}
 		}
 	}
 }

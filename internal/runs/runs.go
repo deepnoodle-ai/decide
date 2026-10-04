@@ -631,24 +631,53 @@ func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions que
 			}
 		}
 	}
-	req.Questions = map[string]decide.Question{}
-	for key, q := range questions.decoded {
-		if _, ok := cached[key]; !ok {
-			req.Questions[key] = q
+	// A response that names a newer version than cached answers came from
+	// makes them stale: those questions are asked again, once.
+	var out Result
+	answers := map[string]json.RawMessage{}
+	for round := range 2 {
+		req.Questions = map[string]decide.Question{}
+		for key, q := range questions.decoded {
+			_, hit := cached[key]
+			if _, got := answers[key]; !hit && !got {
+				req.Questions[key] = q
+			}
+		}
+		if len(req.Questions) == 0 {
+			break
+		}
+		o, err := r.ask(ctx, client, req, res)
+		if err != nil {
+			return o, err
+		}
+		if o.Status != "complete" {
+			r.cache.Store(r.source, it, questions.sent, nil, o.Model)
+			return o, nil
+		}
+		r.cache.Store(r.source, it, questions.sent, o.Answers, o.Model)
+		if round == 0 {
+			out = o
+		}
+		maps.Copy(answers, o.Answers)
+		if round == 0 && o.Model != "" && len(cached) > 0 {
+			sent := map[string][]byte{}
+			for key := range cached {
+				sent[key] = questions.sent[key]
+			}
+			still := r.cache.Lookup(r.source, it, sent)
+			for key := range cached {
+				if _, ok := still[key]; !ok {
+					delete(cached, key)
+				}
+			}
 		}
 	}
-	if len(req.Questions) == 0 {
+	if len(answers) == 0 {
 		res.Status, res.Answers, res.Cached = "complete", cached, slices.Sorted(maps.Keys(cached))
 		return res, nil
 	}
-	out, err := r.ask(ctx, client, req, res)
-	if err != nil || out.Status != "complete" {
-		return out, err
-	}
-	r.cache.Store(r.source, it, questions.sent, out.Answers)
-	for key, a := range cached {
-		out.Answers[key] = a
-	}
+	maps.Copy(answers, cached)
+	out.Answers = answers
 	if len(cached) > 0 {
 		out.Cached = slices.Sorted(maps.Keys(cached))
 	}
