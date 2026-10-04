@@ -72,11 +72,32 @@ with the self-test and the fan-out to confirm.
 - The report: confirmed, suspected and dismissed, with counts.
 - No new hook. The command is explicit, so it is safe to demo.
 
-First run, on dive's `bufio.Scanner` fix (`ed6f9be`) at today's code: the
-self-test passed (0.55 before the fix, under 0.2 after), and
-`monitorTool.Call` ranked 1st of 2,727 functions at 0.86, in two minutes.
-The next two were dismissed on reading: one sets an 8 MB buffer, the other
-has no Scanner.
+#### Bench
+
+Each case is a fresh repository of two commits: the code before the seed
+fix, and the fix. No later history. An agent ran the skill as written,
+from `/decide:hunt HEAD`, and wrote its own question.
+
+| Case | Functions | Known sibling | Rank | Verdict |
+| --- | --- | --- | --- | --- |
+| dive: retries of permanent errors (#135) | 1,319 | `openaicompletions` `Generate`, `Stream` | 2, 3 | confirmed |
+| Gogs: symlink check (#8082) | 2,013 | `UploadRepoFiles` | 2 | confirmed |
+| Gogs: git option injection (#8175) | 2,029 | `PullRequest.Merge` | 2 | suspected |
+| Gogs: repo ownership by ID (#8119) | 2,015 | `UpdateLabel` | 1 | confirmed |
+| wonton: UTF-8 as bytes (#10) | 2,871 | `readMasked`, `updateMaskedDisplay` | 29, 50 | none |
+
+- **Four of five** put the sibling in the top 3, and every self-test
+  passed on the first wording.
+- **The self-test finds leads.** `UploadRepoFiles` and `UpdateLabel` are
+  in the fixed files and scored high before and after the fix.
+- **wonton is the miss.** The questions named the fix's form, a byte used
+  as a character, and the sibling does the reverse, `byte(r)`. A question
+  naming the conversion both ways ranked `readMasked` 6th. The run still
+  found four real byte-versus-character bugs, such as `FuzzyMatch`.
+- **Confirming is the weak step.** `PullRequest.Merge` was left suspected
+  because reachability couldn't be settled offline, and an earlier run
+  confirmed a harmless `runServ`. "Confirmed" now requires harm.
+- About two minutes and 1,300 to 2,900 requests a sweep.
 
 ### Phase 2: CLI, `where`
 
