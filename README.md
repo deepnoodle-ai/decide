@@ -88,7 +88,7 @@ a tour.
 
 ## What you can ask
 
-Decide comes with nine templates. A template is a named set of questions.
+Decide comes with eleven templates. A template is a named set of questions.
 
 | Template | Asks about each item |
 | --- | --- |
@@ -100,6 +100,8 @@ Decide comes with nine templates. A template is a named set of questions.
 | `prompt-injection` | Does it try to take over an AI agent that reads it? |
 | `task-readiness` | Is this issue ready to hand to a coding agent, and how large is it? |
 | `pr-description` | Do this pull request's title and description meet your guidelines? |
+| `command-risk` | Could this shell command destroy work or expose secrets? |
+| `reply-check` | Does a coding agent's reply claim more than its tools showed? |
 | `receipt-quality` | Does this image show a readable receipt? Runs on Clef. |
 
 ```sh
@@ -111,6 +113,7 @@ git diff main | decide run code-risk --each function   # judge each changed func
 git diff main | decide run prompt-injection            # hidden instructions for AI agents
 gh issue list --json number,title,body | decide run task-readiness
 gh pr view 42 --json number,title,body | decide run pr-description --fail-on flagged
+echo 'git reset --hard HEAD~3' | decide run command-risk    # before an agent runs it
 ```
 
 Decide reads JSONL, JSON, CSV, text, Markdown, source code, diffs, and images,
@@ -162,6 +165,21 @@ covers asking several questions at once, `Pick`, and test fakes in
 [`decidetest`](decidetest). Packages under `patterns/`, such as gate,
 rank, and funnel, build common decisions from answers. The
 [examples](examples) show each one in a short program.
+
+## Use it from Claude Code
+
+The decide plugin gives Claude a second opinion. It checks each shell
+command before it runs, content from outside before Claude acts on it, and
+each reply against what the turn's tools showed, and it gives Claude a
+judge tool for its own typed questions. In Claude Code:
+
+```text
+/plugin marketplace add deepnoodle-ai/decide
+/plugin install decide@decide
+```
+
+See [plugin/README.md](plugin/README.md) for what each check does and what
+it sends.
 
 ## Status
 

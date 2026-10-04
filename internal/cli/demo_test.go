@@ -33,6 +33,12 @@ func TestDemo(t *testing.T) {
 	out = h.run("", "run", "pr-description", "../prs.json", "--dry-run")
 	contains(t, out.stdout, "5 records")
 
+	out = h.run("", "run", "command-risk", "../commands.txt", "--dry-run")
+	contains(t, out.stdout, "10 lines")
+
+	out = h.run("", "run", "reply-check", "../replies.jsonl", "--dry-run")
+	contains(t, out.stdout, "5 records")
+
 	// setup.sh undoes change.diff to make the first commit.
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not installed")

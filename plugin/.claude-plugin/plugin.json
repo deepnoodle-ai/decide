@@ -1,0 +1,33 @@
+{
+  "name": "decide",
+  "version": "0.2.0",
+  "description": "A second opinion for Claude from decide: it checks shell commands before they run, content from outside before Claude acts on it, and each reply against what the turn's tools showed, and gives Claude a judge tool for typed questions.",
+  "author": {
+    "name": "Deep Noodle"
+  },
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "commands": {
+      "type": "string",
+      "title": "Risky commands",
+      "description": "What happens when decide judges a shell command likely to destroy work or expose secrets. \"ask\" (the default): you choose, even in a mode that would run it without asking. \"deny\": it does not run, and Claude is told why. \"off\": commands are not checked.",
+      "required": false,
+      "default": "ask",
+      "options": [
+        "ask",
+        "deny",
+        "off"
+      ]
+    },
+    "decidePath": {
+      "type": "string",
+      "title": "decide command",
+      "description": "The decide executable to run. Install it with: brew install deepnoodle-ai/tap/decide",
+      "required": false,
+      "default": "decide"
+    }
+  },
+  "homepage": "https://github.com/deepnoodle-ai/decide",
+  "repository": "https://github.com/deepnoodle-ai/decide",
+  "license": "Apache-2.0"
+}

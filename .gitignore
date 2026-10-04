@@ -30,3 +30,6 @@ go.work.sum
 
 # GoReleaser output
 /dist/
+
+# Types Claude Code writes beside the plugin when it loads
+/plugin/.claude-plugin/types/

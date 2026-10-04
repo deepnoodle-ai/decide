@@ -13,6 +13,9 @@ Guidance for coding agents and people working in this repository. See
   Each one has a runnable program in `examples/<name>`.
 - `demo`: a fixture repository and issues with planted problems, for
   trying the templates. `TestDemo` keeps it in step with the CLI.
+- `plugin`: the Claude Code plugin, a mod in TypeScript that runs the
+  CLI. `.claude-plugin/marketplace.json` lists it. The templates it runs
+  are built in, and `TestPluginTemplatesAreBuiltin` keeps them in step.
 - `cmd/decide` and `internal/`: the CLI. `internal/cli` handles commands
   and output, `internal/template` templates, `internal/source` reading
   data into items, and `internal/runs` saved runs.
@@ -66,6 +69,7 @@ go build ./...
 go vet ./...
 go test -race -count=1 ./...
 go mod tidy && git diff --exit-code go.mod go.sum
+claude plugin validate . && claude plugin test plugin
 ```
 
 CI runs the same checks. Do not add a linter configuration without

@@ -6,8 +6,19 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+### Added
+
+- **`command-risk` and `reply-check`.** Judge a shell command before it
+  runs, and check a coding agent's reply against the tools it ran.
+- **A Claude Code plugin.** `/plugin marketplace add deepnoodle-ai/decide`
+  checks Claude's shell commands, content from outside, and replies, and
+  gives Claude a judge tool. Needs Claude Code 2.1.287 or later.
+
 ### Changed
 
+- **`prompt-injection` catches steering.** It counts text that tells an AI
+  what to recommend, and `hidden` no longer counts text that only
+  describes hidden text.
 - **Results fit the terminal.** In a terminal, a long score description or
   preview ends with `…` instead of wrapping. Piped output is unchanged.
 

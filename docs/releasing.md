@@ -13,6 +13,9 @@ to.
 - `Formula/decide.rb` in
   [deepnoodle-ai/homebrew-tap](https://github.com/deepnoodle-ai/homebrew-tap),
   for `brew install deepnoodle-ai/tap/decide`.
+- Nothing for the Claude Code plugin: its marketplace reads `main`. The
+  plugin's `version` tells users which decide it needs, so tag the release
+  the day a plugin change that needs it merges.
 
 Archive names have no version, such as `decide_linux_amd64.tar.gz`, so the
 [recipes](recipes.md) can download `releases/latest`. Keep the names
@@ -42,6 +45,11 @@ Before v1, any release may change the library API and the CLI.
    - Run `scripts/release-notes.sh v0.2.0` to see the notes. The release
      fails if the section is missing. A prerelease with no section of its
      own uses `Unreleased`.
+   - Set `version` in [plugin/.claude-plugin/plugin.json](../plugin/.claude-plugin/plugin.json)
+     to the release, without the `v` or a prerelease suffix: `0.2.0`. It
+     names the decide release the Claude Code plugin needs, and Claude Code
+     offers users an update only when it changes. The release fails if it
+     differs from the tag.
 2. Make sure CI passes on `main`. CI runs `goreleaser check`, so a broken
    release configuration fails there first. The repository must be public,
    or Homebrew and the download links fail.

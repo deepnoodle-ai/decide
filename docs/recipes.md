@@ -11,6 +11,8 @@ an export. See the [CLI guide](cli.md) for every flag.
 - [Other CI systems](#other-ci-systems)
 - [Check changes before you commit](#check-changes-before-you-commit)
 - [Export results to a spreadsheet](#export-results-to-a-spreadsheet)
+- [Give Claude Code a second opinion](#give-claude-code-a-second-opinion)
+- [Check a command before an agent runs it](#check-a-command-before-an-agent-runs-it)
 
 ## Review pull requests in GitHub Actions
 
@@ -234,3 +236,37 @@ decide runs view --format csv > results.csv   # a run you already have
 
 Each row is one item, with a column for each question. See
 [Output formats](cli.md#output-formats) for what the columns hold.
+
+## Give Claude Code a second opinion
+
+The decide plugin for Claude Code checks each shell command before it runs,
+content from outside before Claude acts on it, and each reply against what
+its tools showed. It also gives Claude a judge tool for its own typed
+questions. In Claude Code 2.1.287 or later, with decide 0.2.0 or later:
+
+```text
+/plugin marketplace add deepnoodle-ai/decide
+/plugin install decide@decide
+```
+
+[plugin/README.md](../plugin/README.md) covers what each check does, what
+it sends, and its options.
+
+## Check a command before an agent runs it
+
+For an agent or a script without the plugin, `command-risk` exits 2 when a
+command is likely to destroy work or expose secrets:
+
+```sh
+#!/bin/sh
+# Usage: ./checked.sh 'git reset --hard HEAD~3'
+printf '%s\n' "$1" | decide run command-risk --fail-on flagged
+case $? in
+  0) sh -c "$1" ;;
+  2) echo "decide flagged this command; not running it" >&2; exit 2 ;;
+  *) echo "decide could not check this command; not running it" >&2; exit 1 ;;
+esac
+```
+
+Exit code 1 means decide could not answer. To run the command anyway in
+that case, change the last line to run it.
