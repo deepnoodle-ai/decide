@@ -34,7 +34,6 @@ func TestLiveDemoFlags(t *testing.T) {
 		flagged        []int // the lines the template should flag, from 1
 	}{
 		{"command-risk", "commands.txt", []int{5, 6, 7, 8, 9}},
-		{"reply-check", "replies.jsonl", []int{1, 3}},
 	} {
 		t.Run(tc.template, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)

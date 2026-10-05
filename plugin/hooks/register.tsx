@@ -1,7 +1,7 @@
 import { atom, memberOf, read, update } from 'claude-code'
 import type { EngineInterface, Register, RenderElement } from 'claude-code'
 
-import type { Judgment, Notice, RowVerdict, Totals } from '../types'
+import type { Judgment, RowVerdict, Totals } from '../types'
 import { flaggedOf, isTooLarge, missingOf, oneLine, outcomeOf, pct, printable, request, yes } from './decide'
 import type { Answer, Runner } from './decide'
 import { DESCRIPTION, NAME, SCHEMA, hashOf, parse, report, templateOf } from './judge'
@@ -9,7 +9,6 @@ import { TEMPLATES } from './templates'
 import type { Flags } from './templates'
 
 const log = atom({ plugin: 'decide', key: 'log' } as const, [] as readonly Judgment[])
-const notice = atom({ plugin: 'decide', key: 'notice' } as const, null as Notice | null)
 const totals = atom({ plugin: 'decide', key: 'totals' } as const, { checked: 0, flagged: 0 } as Totals)
 const rows = atom({ plugin: 'decide', key: 'rows' } as const, null as RowVerdict | null)
 
@@ -22,22 +21,10 @@ const UNTRUSTED = ['WebFetch', 'WebSearch', /^mcp__(?!decide__)/] as const
 /** Shell commands whose output usually comes from someone else: issues, pages, APIs. */
 const FETCHES = /(^|[\s|;&(`$/])(gh|curl|wget|http|https)(\s|$)/
 
-/** How much of a turn's tool calls the reply check reads, newest kept. */
-const EVIDENCE_CHARS = 12_000
-
-/**
- * How much of one tool result the reply check reads: its start and its end,
- * half each. Test runners and builds print their summary last.
- */
-const RESULT_CHARS = 800
-
-/** How much of one tool call's input (its command, path, or URL) the reply check reads. */
-const INPUT_CHARS = 400
-
 /** How long the command check holds a command for decide before it runs anyway. */
 const COMMAND_MS = 10_000
 
-/** How long the content and reply checks wait for decide. */
+/** How long the content check waits for decide. */
 const CHECK_MS = 20_000
 
 /** How long a judge call waits for decide. */
@@ -54,14 +41,11 @@ const COMMAND_RISKS: Record<string, string> = {
 
 type CheckName = keyof typeof TEMPLATES
 
-/** One tool call of the turn, as the reply check reads it. */
-type ToolCall = { tool: string; input: string; result: string; error?: true }
-
 /** The plugin's options, read each time it loads. */
 const config = { commands: 'ask', bin: 'decide' }
 
-/** The session as the checks need it: who can answer, where it draws, and its permission mode. */
-const session = { isInteractive: false, surface: null as string | null, mode: undefined as string | undefined }
+/** The session as the checks need it: who can answer, and its permission mode. */
+const session = { isInteractive: false, mode: undefined as string | undefined }
 
 /** DECIDE_HOME for the plugin's runs, and decide's working directory. */
 let home: string | undefined
@@ -70,14 +54,10 @@ let home: string | undefined
 const health: Record<CheckName, { offUntil: number; reason: string }> = {
   command: { offUntil: 0, reason: '' },
   content: { offUntil: 0, reason: '' },
-  reply: { offUntil: 0, reason: '' },
 }
 
 /** How many actions went on without a check this session. */
 let unchecked = 0
-
-/** What the main loop's tools did this turn, for the reply check. */
-let calls: ToolCall[] = []
 
 export const register: Register = (on, options) => {
   config.commands = String(options.commands ?? 'ask')
@@ -86,7 +66,6 @@ export const register: Register = (on, options) => {
 
   on('session.start', async ($, e, next) => {
     session.isInteractive = e.isInteractive
-    session.surface = e.surface
     // A failed registration loses that one feature, not the session's start.
     await $.tool.register({ name: NAME, description: DESCRIPTION, inputSchema: SCHEMA }).catch(err => {
       $.ui.log(`decide could not add its judge tool: ${oneLine(String(err), 160)}`, { to: 'debug' })
@@ -94,7 +73,7 @@ export const register: Register = (on, options) => {
     await $.command
       .register({
         name: 'decide',
-        description: "Show what decide checked in this session: commands, content from outside, and Claude's replies.",
+        description: "Show what decide checked in this session: shell commands and content from outside.",
       })
       .catch(err => {
         $.ui.log(`decide could not add /decide: ${oneLine(String(err), 160)}`, { to: 'debug' })
@@ -111,30 +90,6 @@ export const register: Register = (on, options) => {
   on('classic.PostToolUse', ($, e, next) => {
     session.mode = e.permission_mode ?? session.mode
     return next(e)
-  })
-
-  // Keep what the main loop's tools did this turn, for the reply check.
-  // Registered first, so it sees what every other hook decided, refusals
-  // by the command check included.
-  on('turn.start', ($, e, next) => {
-    calls = []
-    return next(e)
-  })
-
-  on('tool.call', async ($, e, next) => {
-    const ran = await next(e)
-    // Only Claude's own calls: not a subagent's, not the judge tool, and not
-    // one a plugin raised, such as the question the command check asks.
-    if (next.origin.plugin !== 'engine' || e.agentId !== undefined || String(e.tool).startsWith('mcp__decide__')) return ran
-    const isError = ran.deny !== undefined || ran.isError === true
-    const result = ran.deny !== undefined ? `refused: ${ran.deny}` : (ran.text ?? '')
-    calls.push({
-      tool: String(e.tool),
-      input: subjectOf(e).slice(0, INPUT_CHARS),
-      result: ends(result, RESULT_CHARS),
-      ...(isError ? { error: true as const } : {}),
-    })
-    return ran
   })
 
   // The judge tool: Claude asks typed questions and reads calibrated answers.
@@ -245,41 +200,6 @@ export const register: Register = (on, options) => {
     return { ...ran, context: [...(ran.context ?? []), warning] }
   })
 
-  // The reply check: the final reply against what the turn's tools showed.
-  // It runs only where a person sees the band it raises.
-  on('turn.complete', async ($, e, next) => {
-    const done = await next(e)
-    const isShown = session.isInteractive && (session.surface === 'terminal' || session.surface === 'desktop')
-    if (!isShown || e.agentId !== undefined || e.reason !== 'answer' || calls.length === 0 || !e.answer.trim()) return done
-
-    const answers = await check($, 'reply', { reply: e.answer, tools: newest(calls) }, undefined, CHECK_MS)
-    if (answers === undefined) return done
-
-    const { flags } = TEMPLATES.reply
-    const flagged = flaggedOf(answers, flags)
-    await record($, { kind: 'reply', subject: oneLine(e.answer), verdict: verdictOf(answers, flags), isFlagged: flagged.length > 0 })
-    if (flagged.length === 0) return done
-
-    // Only overclaims raises the band. Unverified alone is often fine work,
-    // such as an edit the user will test, and it shows in /decide.
-    const n: Notice = {
-      title: 'This reply may claim more than its tools showed',
-      detail: `overclaims ${pct(yes(answers, 'overclaims'))}`,
-      action: 'Ask Claude to recheck',
-      prompt:
-        `decide judged your last reply ${pct(yes(answers, 'overclaims'))} likely to claim more than the tool results in that turn support. ` +
-        'Check it against those results. Say plainly what failed, what you did not run, and what is still unknown, then fix what you can.',
-    }
-    await update($, notice, () => n)
-    $.ui.toast(`decide: ${n.title.toLowerCase()} (${n.detail})`)
-    return done
-  })
-
-  on('prompt.submit', async ($, e, next) => {
-    await update($, notice, () => null)
-    return next(e)
-  })
-
   on('command.run', { command: 'decide' }, async $ => {
     const all = (await read($, log)) ?? []
     const t = await read($, totals)
@@ -292,7 +212,7 @@ export const register: Register = (on, options) => {
     if (all.length === 0) {
       return {
         text: [
-          "Nothing checked in this session yet. It checks shell commands before they run, content from outside, and Claude's replies.",
+          "Nothing checked in this session yet. It checks shell commands before they run and content from outside.",
           ...off,
           ...skipped,
           saved,
@@ -346,32 +266,6 @@ export const register: Register = (on, options) => {
     const flagged = found.filter(v => v.isFlagged)
     const v = flagged.length > 0 ? { isFlagged: true, text: flagged.map(f => f.text).join('; ') } : found[0]!
     return withVerdict($, e, await next(e), v)
-  })
-
-  // The band above the prompt, while a flagged reply waits for the person.
-  on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
-    const n = await read($, notice)
-    if (n === null || e.props.hasSurvey) return next(e)
-
-    const { Box, Button, Text } = $.ui.resolve(e)
-    return (
-      <Box flexDirection="row" gap={1}>
-        <Text color="yellow">decide</Text>
-        <Text bold>{n.title}</Text>
-        <Text dimColor>{n.detail}</Text>
-        <Button
-          key="act"
-          label={n.action}
-          variant="primary"
-          hotkey="r"
-          onPress={async () => {
-            await update($, notice, () => null)
-            await $.prompt.submit({ text: n.prompt })
-          }}
-        />
-        <Button key="dismiss" label="Dismiss" role="dismiss" onPress={() => update($, notice, () => null)} />
-      </Box>
-    )
   })
 }
 
@@ -555,22 +449,3 @@ function subjectOf(e: object): string {
   return ''
 }
 
-/** A text's start and end, `max` characters in all, joined by an ellipsis line. */
-function ends(text: string, max: number): string {
-  if (text.length <= max) return text
-  const half = Math.floor(max / 2)
-  return `${text.slice(0, half)}\n…\n${text.slice(-half)}`
-}
-
-/** The turn's newest tool calls that fit the reply check's budget, oldest first. */
-function newest(all: readonly ToolCall[]): ToolCall[] {
-  const kept: ToolCall[] = []
-  let size = 0
-  for (let i = all.length - 1; i >= 0; i--) {
-    const call = all[i]!
-    size += call.input.length + call.result.length + 40
-    if (size > EVIDENCE_CHARS) break
-    kept.unshift(call)
-  }
-  return kept
-}

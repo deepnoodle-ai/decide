@@ -15,6 +15,11 @@ may change the library API and the CLI.
   and Claude writes one question about the mistake, tests it on the fix,
   sweeps every function, and confirms the top candidates.
 
+### Removed
+
+- **`reply-check` and the plugin's reply check.** It flagged about one
+  reply in five, mostly honest ones it could not see the evidence for.
+
 ## [0.2.1] - 2026-10-03
 
 The Claude Code plugin shows what it checked. The CLI is unchanged.

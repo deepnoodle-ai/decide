@@ -1,4 +1,4 @@
-import type { On, RenderElement } from 'claude-code'
+import type { On } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
 const SESSION = { surface: 'terminal', isInteractive: true, cwd: '/work' } as const
@@ -8,15 +8,6 @@ const DECIDE_COMMAND = { command: 'decide', args: '', origin: { kind: 'composer'
 
 /** A `claude -p` run: no one at the prompt, nothing drawn. */
 const HEADLESS = { surface: null, isInteractive: false, cwd: '/work' } as const
-
-/** What Claude Code draws above the prompt, standing in beneath the plugin. */
-const ENGINE_BAND: RenderElement = { type: 'Text', children: ['engine band'] }
-
-const BAND = {
-  surface: 'terminal',
-  component: 'AbovePrompt',
-  props: { hasSurvey: false, isWorking: false, maxRows: 6, bodyColumns: 120, scroll: { offset: 0, bodyRows: 6 }, view: {} },
-} as const
 
 /** The answers a fake decide gives each template, by the text the model would read. */
 type Answers = (template: string, text: string) => Record<string, unknown> | undefined
@@ -88,8 +79,6 @@ function session(on: On, files: readonly string[] = []) {
     shown.notices.push(String(e.text))
     return { value: undefined }
   })
-  // What Claude Code draws in the band when the plugin draws nothing.
-  on('ui.render', { component: 'AbovePrompt' }, () => ENGINE_BAND)
   // Claude Code's footer labels and tool rows, drawn from their props.
   on('ui.render', { component: 'SessionMode' }, ($, e) => ({ type: 'Text', children: [e.props.modes.join(' & ')] }))
   on('ui.render', { component: 'ToolUse' }, ($, e) => ({ type: 'Text', children: [`${e.props.tool}(row)`] }))
@@ -192,38 +181,6 @@ describe('register', () => {
     expect(shown.toasts).toEqual(['decide: WebFetch returned text that may be prompt injection (98%)'])
   })
 
-  test('a reply that claims more than its tools showed puts a band above the prompt, and its button asks Claude to recheck', async ($, on) => {
-    const runs = fakeDecide(on, (template, text) =>
-      template === 'reply-check'
-        ? { overclaims: noul(text.includes('FAIL') && text.includes('all tests pass') ? 0.98 : 0.05), unverified: noul(0.04) }
-        : RISK(template, text),
-    )
-    const sent: string[] = []
-    on('tool.call', { tool: 'Bash' }, () => ({ isError: true as const, result: 'exit 1', text: '--- FAIL: TestWidth\nFAIL' }))
-    on('turn.start', ($, e) => ({ turnId: e.turnId }))
-    on('turn.complete', ($, e) => ({ text: e.answer }))
-    on('prompt.submit', ($, e) => {
-      sent.push(e.text)
-      return { text: e.text }
-    })
-
-    await $.session.start(SESSION)
-    await $.turn.start({ text: 'fix the width bug', turnId: 'turn-1' })
-    await $.tool.call({ tool: 'Bash', command: 'go test ./...', tool_use_id: 't7' })
-    await $.turn.complete({ answer: 'Fixed it, and all tests pass.', reason: 'answer', durationMs: 900, isAborted: false, turnId: 'turn-1' })
-
-    const checked = runs.find(r => r.argv[2] === 'reply-check')
-    const turn = JSON.parse(checked?.texts[0] ?? '{}')
-    expect(turn.reply).toBe('Fixed it, and all tests pass.')
-    expect(turn.tools).toEqual([{ tool: 'Bash', input: 'go test ./...', result: '--- FAIL: TestWidth\nFAIL', error: true }])
-
-    const ui = await $.ui.mount({ plugin: 'decide', ...BAND })
-    expect(await ui.find({ type: 'Text', text: /claim more than its tools showed/ })).toBeDefined()
-    await ui.press({ key: 'act' })
-    expect(sent[0]).toContain('98% likely to claim more than the tool results')
-    await ui.unmount()
-  })
-
   test('the judge tool asks typed questions as a template and reports each answer', async ($, on) => {
     const runs = fakeDecide(on, template =>
       template.length === 12
@@ -287,71 +244,6 @@ describe('register', () => {
     expect(runs.filter(r => r.argv[2] === 'prompt-injection')).toEqual([])
   })
 
-  test('a turn that changes code and checks nothing raises no band, and /decide still shows it', async ($, on) => {
-    fakeDecide(on, (template, text) =>
-      template === 'reply-check' ? { overclaims: noul(0.2), unverified: noul(0.94) } : RISK(template, text),
-    )
-    on('tool.call', { tool: 'Edit' }, () => ({ result: 'ok', text: 'The file has been updated.' }))
-    on('turn.start', ($, e) => ({ turnId: e.turnId }))
-    on('turn.complete', ($, e) => ({ text: e.answer }))
-
-    await $.session.start(SESSION)
-    await $.turn.start({ text: 'reword the doc comment', turnId: 'turn-2' })
-    await $.tool.call({ tool: 'Edit', file_path: '/work/a.go', old_string: 'a', new_string: 'b', tool_use_id: 't14' })
-    await $.turn.complete({ answer: 'Reworded the doc comment on Apply.', reason: 'answer', durationMs: 500, isAborted: false, turnId: 'turn-2' })
-
-    const ui = await $.ui.mount({ plugin: 'decide', ...BAND })
-    expect(await ui.find({ key: 'act' })).toBeUndefined()
-    expect(await ui.find({ type: 'Text', text: 'engine band' })).toBeDefined()
-    await ui.unmount()
-    const listed = await $.command.run(DECIDE_COMMAND)
-    expect(listed.text).toContain('flagged 0')
-    expect(listed.text).toContain('unverified 94%')
-  })
-
-  test('the reply check reads the end of a long result, where a test runner prints its failures', async ($, on) => {
-    const runs = fakeDecide(on, (template, text) =>
-      template === 'reply-check' ? { overclaims: noul(text.includes('FAIL') ? 0.98 : 0.05), unverified: noul(0.04) } : RISK(template, text),
-    )
-    // Piped through tail, so the exit code does not mark it as an error.
-    const output = Array.from({ length: 40 }, (_, i) => `ok  \tshop/pkg${i}\t0.1s`).join('\n') + '\n--- FAIL: TestRefundLimit\nFAIL\tshop/billing'
-    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: output, stderr: '', interrupted: false }, text: output }))
-    on('turn.start', ($, e) => ({ turnId: e.turnId }))
-    on('turn.complete', ($, e) => ({ text: e.answer }))
-
-    await $.session.start(SESSION)
-    await $.turn.start({ text: 'fix the refund limit', turnId: 'turn-7' })
-    await $.tool.call({ tool: 'Bash', command: 'go test ./... 2>&1 | tail -50', tool_use_id: 't48' })
-    await $.turn.complete({ answer: 'Fixed, and all tests pass.', reason: 'answer', durationMs: 500, isAborted: false, turnId: 'turn-7' })
-
-    const turn = JSON.parse(runs.find(r => r.argv[2] === 'reply-check')?.texts[0] ?? '{}') as { tools: { result: string; error?: true }[] }
-    const result = turn.tools[0]?.result ?? ''
-    expect(output.length).toBeGreaterThan(800)
-    expect(result.startsWith('ok  \tshop/pkg0')).toBe(true)
-    expect(result.endsWith('--- FAIL: TestRefundLimit\nFAIL\tshop/billing')).toBe(true)
-    expect(result).toContain('\n…\n')
-    expect(turn.tools[0]?.error).toBeUndefined()
-    const ui = await $.ui.mount({ plugin: 'decide', ...BAND })
-    expect(await ui.find({ key: 'act', text: 'Ask Claude to recheck' })).toBeDefined()
-    await ui.unmount()
-  })
-
-  test('a turn with no tool calls, or an interrupted one, is not checked', async ($, on) => {
-    const runs = fakeDecide(on, RISK)
-    on('turn.start', ($, e) => ({ turnId: e.turnId }))
-    on('turn.complete', ($, e) => ({ text: e.answer }))
-    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false }, text: '' }))
-
-    await $.session.start(SESSION)
-    await $.turn.start({ text: 'hi', turnId: 'turn-3' })
-    await $.turn.complete({ answer: 'Hello.', reason: 'answer', durationMs: 100, isAborted: false, turnId: 'turn-3' })
-    await $.turn.start({ text: 'run it', turnId: 'turn-4' })
-    await $.tool.call({ tool: 'Bash', command: 'go test ./...', tool_use_id: 't15' })
-    await $.turn.complete({ answer: '', reason: 'aborted', durationMs: 100, isAborted: true, turnId: 'turn-4' })
-
-    expect(runs.filter(r => r.argv[2] === 'reply-check')).toEqual([])
-  })
-
   test('a judge call with bad input says what to fix, and asks nothing', async ($, on) => {
     const runs = fakeDecide(on, RISK)
 
@@ -392,21 +284,16 @@ describe('register', () => {
   })
 
   test('/decide keeps a subject inside its table cell', async ($, on) => {
-    fakeDecide(on, (template, text) =>
-      template === 'reply-check' ? { overclaims: noul(0.1), unverified: noul(0.1) } : RISK(template, text),
-    )
+    fakeDecide(on, RISK)
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
-    on('turn.start', ($, e) => ({ turnId: e.turnId }))
-    on('turn.complete', ($, e) => ({ text: e.answer }))
 
     await $.session.start(SESSION)
-    await $.turn.start({ text: 'look', turnId: 'turn-8' })
     await $.tool.call({ tool: 'Bash', command: 'ps aux | grep `whoami`', tool_use_id: 't53' })
-    await $.turn.complete({ answer: 'Two files:\n```text\na.txt\n```', reason: 'answer', durationMs: 100, isAborted: false, turnId: 'turn-8' })
+    await $.tool.call({ tool: 'Bash', command: 'printf "```text\na.txt\n```"', tool_use_id: 't54' })
     const out = await $.command.run(DECIDE_COMMAND)
 
     expect(out.text).toContain("| | command | `ps aux \\| grep 'whoami'` |")
-    expect(out.text).toContain('| | reply | `Two files: a.txt` |')
+    expect(out.text).toContain('| | command | `printf " a.txt "` |')
   })
 
   test('an old decide without the templates says to update it', async ($, on) => {
@@ -453,23 +340,16 @@ describe('register', () => {
     expect(String(out.text ?? out.deny)).toContain('The user dismissed the question, so it was not run.')
   })
 
-  test('in claude -p, a flagged command is refused because no one can approve it, and replies are not checked', async ($, on) => {
-    const runs = fakeDecide(on, (template, text) =>
-      template === 'reply-check' ? { overclaims: noul(0.99), unverified: noul(0.99) } : RISK(template, text),
-    )
+  test('in claude -p, a flagged command is refused because no one can approve it', async ($, on) => {
+    fakeDecide(on, RISK)
     on('tool.check', () => ({ decision: 'allow' as const }))
     on('tool.call', { tool: 'AskUserQuestion' }, () => ({ deny: 'no one to ask' }))
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false }, text: '' }))
-    on('turn.start', ($, e) => ({ turnId: e.turnId }))
-    on('turn.complete', ($, e) => ({ text: e.answer }))
 
     await $.session.start(HEADLESS)
-    await $.turn.start({ text: 'clean up', turnId: 'turn-5' })
     const out = await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: 't23' })
-    await $.turn.complete({ answer: 'Done, all clean.', reason: 'answer', durationMs: 100, isAborted: false, turnId: 'turn-5' })
 
     expect(String(out.text ?? out.deny)).toContain('No one was there to approve it, so it was not run.')
-    expect(runs.filter(r => r.argv[2] === 'reply-check')).toEqual([])
   })
 
   test('after decide fails, that check stays off for a minute and the status line says so', async ($, on) => {
@@ -616,32 +496,6 @@ describe('register', () => {
     expect(String(many.text ?? many.deny)).toContain('Ask at most 8 questions in one call.')
     expect(String(twice.text ?? twice.deny)).toContain('Each question needs its own name; ok is used twice.')
     expect(runs).toEqual([])
-  })
-
-  test('the reply check reads commands decide refused, and keeps evidence past a huge input', async ($, on) => {
-    const runs = fakeDecide(on, (template, text) =>
-      template === 'reply-check' ? { overclaims: noul(0.1), unverified: noul(0.1) } : RISK(template, text),
-    )
-    on('tool.check', () => ({ decision: 'allow' as const }))
-    on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => {
-      const q = (e.questions as { question: string }[])[0]!
-      return { result: { questions: e.questions, answers: { [q.question]: "Don't run it" } } }
-    })
-    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'ok', stderr: '', interrupted: false }, text: 'ok' }))
-    on('turn.start', ($, e) => ({ turnId: e.turnId }))
-    on('turn.complete', ($, e) => ({ text: e.answer }))
-
-    await $.session.start(SESSION)
-    await $.turn.start({ text: 'clean up', turnId: 'turn-6' })
-    await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: 't42' })
-    await $.tool.call({ tool: 'Bash', command: `cat > big.txt <<'EOF'\n${'z'.repeat(50_000)}\nEOF`, tool_use_id: 't43' })
-    await $.turn.complete({ answer: 'I cleaned up.', reason: 'answer', durationMs: 100, isAborted: false, turnId: 'turn-6' })
-
-    const turn = JSON.parse(runs.find(r => r.argv[2] === 'reply-check')?.texts[0] ?? '{}') as { tools: { input: string; result: string; error?: true }[] }
-    expect(turn.tools).toHaveLength(2)
-    expect(turn.tools[0]?.result).toContain('refused: decide judged this command 97% likely to destroy work')
-    expect(turn.tools[0]?.error).toBe(true)
-    expect(turn.tools[1]?.input.length).toBe(400)
   })
 
   test('decide reads all of a long result or judge item, so a signal past character 200,000 is found', async ($, on) => {

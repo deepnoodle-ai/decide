@@ -9,7 +9,6 @@ when the answer is likely.
 | --- | --- | --- | --- |
 | Command | Before each shell command Claude runs with Bash or Monitor | Could it destroy work that is hard to get back, or expose secrets? (`command-risk`) | You choose whether it runs, even in a mode that would run it without asking. Claude reads why when it doesn't. |
 | Content | After WebFetch, WebSearch, an MCP tool, or a `gh`, `curl`, `wget`, or `http` command | Does it try to take over an AI agent, or hide text from a person? (`prompt-injection`) | Claude reads a warning beside the result, and you see a toast. |
-| Reply | When Claude's turn ends | Does the reply claim an outcome its tools didn't show, such as passing tests or a fix nothing checked? (`reply-check`) | A band above the prompt offers to ask Claude to recheck. |
 
 Claude also gets a **judge tool**, `mcp__decide__judge`, for its own typed
 questions over up to 200 items, and a **skill** that teaches it to run
@@ -61,9 +60,6 @@ These go to the decision model's provider, with your key:
 - each result the content check reads, whole: web pages, search results,
   `gh` and `curl` output, and every MCP tool's result, private connectors
   included. A result over 1,000,000 characters goes on unchecked;
-- each final reply, with the first and last 400 characters of each tool
-  result in that turn, up to 12,000 characters in all. A tool result can be
-  a file's contents, such as a `.env` file Claude read.
 - with `/decide:hunt`, every function in the repository the sweep covers.
   Its runs and answers are kept in your own `~/.decide`, like any
   `decide run`.
