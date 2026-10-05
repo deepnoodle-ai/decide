@@ -9,7 +9,7 @@
     {
       "name": "decide",
       "source": "./plugin",
-      "description": "Checks shell commands before they run, content from outside before Claude acts on it, and each reply against what the turn's tools showed, and gives Claude a judge tool for typed questions."
+      "description": "Checks shell commands before they run and content from outside before Claude acts on it, and gives Claude a judge tool for typed questions."
     }
   ]
 }

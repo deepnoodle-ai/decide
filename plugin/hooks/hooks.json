@@ -1,5 +1,5 @@
 {
-  "description": "decide's second opinion: the command check on Bash, the content check on content from outside, the reply check when a turn ends, the judge tool, /decide, and the band above the prompt",
+  "description": "decide's second opinion: the command check on Bash, the content check on content from outside, the judge tool, and /decide",
   "modules": [
     "./register.tsx"
   ]

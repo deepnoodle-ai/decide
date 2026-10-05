@@ -56,8 +56,8 @@ off, or remove them, as they land.
 ## Agents
 
 - [x] **Claude Code plugin.** Installed with `/plugin marketplace add
-      deepnoodle-ai/decide`: a command check, a content check, a reply
-      check, a judge tool, and a skill that teaches agents to write
+      deepnoodle-ai/decide`: a command check, a content check, a
+      judge tool, and a skill that teaches agents to write
       templates and run decide. Other agents can use its `SKILL.md`
       directly.
 - [x] **`/decide:hunt`.** From one fix, find the other places the same bug
