@@ -5,6 +5,7 @@
     python3 score.py gogs [v1|v2]         Gogs, labeled functions by rank
     python3 score.py paths                Gogs call paths, by sink function
     python3 score.py dive                 dive, top candidates per Go template
+    python3 score.py n8n                  n8n, labeled functions by rank, per question
     python3 score.py combined [universal|security]
                                           Gogs, a pack's questions in one request vs one each
 
@@ -172,8 +173,38 @@ def combined(pack):
             print(f"  {r['answers'][key]['noul']:.2f} {r['input']:42} {r['source']}")
 
 
+def n8n():
+    """Rank n8n's labeled functions on each question of the security pack."""
+    from n8n_labels import LABELS
+    rs = [r for r in rows("results/combined/n8n-security.jsonl") if r["status"] == "complete"]
+    print(f"{len(rs)} functions")
+    labeled = {}
+    for q, ghsa, path, name in LABELS:
+        hits = [i for i, r in enumerate(rs) if r["source"].split("#")[0].endswith(path)
+                and (r.get("input") == name or r.get("input", "").endswith("." + name))]
+        if not hits:
+            print(f"  not found: {ghsa} {path} {name}")
+        labeled.setdefault(q, set()).update(hits)
+    for q in rs[0]["answers"]:
+        ps = [r["answers"][q]["noul"] for r in rs]
+        order = sorted(range(len(rs)), key=lambda i: -ps[i])
+        rank = {i: n + 1 for n, i in enumerate(order)}
+        pos = [ps[i] for i in labeled.get(q, ())]
+        line = f"\n=== {q}: flagged " + ", ".join(f"{t}: {sum(p >= t for p in ps)}" for t in (.5, .6, .7, .8, .9))
+        if pos:
+            neg = [ps[i] for i in range(len(rs)) if i not in labeled[q]]
+            auc = sum(1 if p > n else .5 if p == n else 0 for p in pos for n in neg) / (len(pos) * len(neg))
+            line += f"\n  {len(pos)} labels, AUC {auc:.2f}; found " + ", ".join(
+                f"{t}: {sum(p >= t for p in pos)}" for t in (.5, .6, .7, .8, .9))
+        print(line)
+        for i in sorted(labeled.get(q, ()), key=lambda i: rank[i]):
+            print(f"  rank {rank[i]:5} p={ps[i]:.2f} {rs[i]['input']}  {rs[i]['source'].split('packages/')[-1]}")
+        for i in order[:5]:
+            print(f"  top {ps[i]:.2f} {rs[i].get('input', '')}  {rs[i]['source'].split('packages/')[-1]}")
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "bench"
     arg = sys.argv[2] if len(sys.argv) > 2 else None
     {"bench": lambda: bench(arg or "ctx"), "gogs": lambda: gogs(arg or "v2"),
-     "paths": paths, "dive": dive, "combined": lambda: combined(arg or "universal")}[cmd]()
+     "paths": paths, "dive": dive, "n8n": n8n, "combined": lambda: combined(arg or "universal")}[cmd]()
