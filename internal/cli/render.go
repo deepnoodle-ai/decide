@@ -331,11 +331,15 @@ func (m marks) ranks() bool {
 	return false
 }
 
-// likeliness is the highest probability, across an item's answers, of an
-// answer a flag names, or a match when the template has no flags. Score
-// comparisons have no probability and don't count.
-func (m marks) likeliness(it item) float64 {
-	best := 0.0
+// nearness is how near an item comes to being flagged: across its
+// answers, the most that the probability of an answer a flag names
+// exceeds the flag's threshold, or falls short of it, when negative. It
+// uses the matches when the template has no flags. Measuring from each
+// threshold ranks a flagged answer above an unflagged one, even when the
+// unflagged one is more likely. Score comparisons have no probability and
+// don't count.
+func (m marks) nearness(it item) float64 {
+	best := math.Inf(-1)
 	for key, conds := range m.rankBy() {
 		a, ok := answerOf(it, key)
 		if !ok {
@@ -344,7 +348,7 @@ func (m marks) likeliness(it item) float64 {
 		prob := probOf(a)
 		for _, c := range conds {
 			if c.Answer != "" {
-				best = max(best, prob(c.Answer))
+				best = max(best, prob(c.Answer)-c.Value)
 			}
 		}
 	}

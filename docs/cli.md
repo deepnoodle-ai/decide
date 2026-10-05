@@ -272,14 +272,16 @@ decide runs                  # list runs, newest first
 decide runs view             # show the latest run's results
 decide runs view 20261002    # a run ID, or the start of one
 decide runs view --json > results.jsonl
-decide runs view --top 20    # the 20 items likeliest to be flagged
+decide runs view --top 20    # the 20 items nearest their flags
 decide runs resume           # finish the latest run
 ```
 
-`--top` ranks items by their likeliest flagged answer, across every
-flagged question, or by matches when a template has no flags. Use it to
-read a long run from the top, such as `security` on a whole repository,
-where the ranking says where to look and the flags are a cut-off.
+`--top` ranks items by how far their likeliest flagged answer is above
+or below its flag's threshold, so flagged items come first and the rest
+follow by how near they came. It uses matches when a template has no
+flags, leaves out items that failed, and works with text, JSON, and CSV
+output. Use it to read a long run from the top, such as `security` on a
+whole repository, where the ranking says where to look.
 
 If you stop a run with Ctrl-C, or some items fail, `decide runs resume`
 asks about the remaining items using the saved inputs and questions. It

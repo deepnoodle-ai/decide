@@ -666,8 +666,8 @@ func TestTemplateAndFileTextCannotControlTheTerminal(t *testing.T) {
 	}
 }
 
-// TestRunsViewTop checks that --top shows the items likeliest to be
-// flagged, the likeliest first, across a template's flagged questions.
+// TestRunsViewTop checks that --top shows the items nearest their flags,
+// flagged ones first, measured from each flag's own threshold.
 func TestRunsViewTop(t *testing.T) {
 	h := setup(t)
 	h.server.Respond(func(req *decide.Request) (*decide.Response, error) {
@@ -706,26 +706,49 @@ func TestRunsViewTop(t *testing.T) {
 
 	out = h.run("", "runs", "view", "--top", "1")
 	contains(t, out.stdout, "stdin:4")
-	contains(t, out.stderr, "The 1 of 4 items likeliest to be flagged")
+	contains(t, out.stderr, "The 1 of 4 answered items nearest their flags")
 	if strings.Contains(out.stdout, "stdin:3") {
 		t.Fatalf("--top 1 printed more than one item:\n%s", out.stdout)
 	}
 
-	out = h.run("", "runs", "view", "--top", "2", "--format", "md")
-	if out.code != 1 || !strings.Contains(out.stderr, "not md") {
-		t.Fatalf("--top with md: exit %d: %s", out.code, out.stderr)
+	for _, f := range []string{"md", "github"} {
+		out = h.run("", "runs", "view", "--top", "2", "--format", f)
+		if out.code != 1 || !strings.Contains(out.stderr, "not "+f) {
+			t.Fatalf("--top with %s: exit %d: %s", f, out.code, out.stderr)
+		}
 	}
 	out = h.run("", "runs", "view", "--top", "-1")
-	if out.code != 1 || !strings.Contains(out.stderr, "at least 1") {
+	if out.code != 1 || !strings.Contains(out.stderr, "positive number") {
 		t.Fatalf("--top -1: exit %d: %s", out.code, out.stderr)
 	}
+
+	// A flagged answer at 55% of a 50% flag ranks above an unflagged one at
+	// 85% of a 90% flag.
+	h.write(".decide/templates/two/template.json", `{"name": "two", "description": "Two thresholds.",
+		"questions": {"strict": {"type": "noul", "instructions": "Strict?"},
+			"loose": {"type": "noul", "instructions": "Loose?"}},
+		"flags": {"strict": "yes >= 90%", "loose": "yes >= 50%"}}`)
+	h.server.Respond(func(req *decide.Request) (*decide.Response, error) {
+		state, _ := json.Marshal(req.State)
+		strict, loose := 0.85, 0.1
+		if strings.Contains(string(state), "second") {
+			strict, loose = 0.1, 0.55
+		}
+		return &decide.Response{Answers: map[string]decide.Answer{
+			"strict": decidetest.NoulAnswer(strict),
+			"loose":  decidetest.NoulAnswer(loose),
+		}}, nil
+	})
+	h.run("first\nsecond\n", "run", "two")
+	out = h.run("", "runs", "view", "--top", "1", "--json")
+	contains(t, out.stdout, `"source":"stdin:2"`)
 
 	h.write(".decide/templates/plain/template.json", `{"name": "plain", "description": "No flags.",
 		"questions": {"long": {"type": "noul", "instructions": "Is it long?"}}}`)
 	h.server.Reset()
 	h.run("a\n", "run", "plain")
 	out = h.run("", "runs", "view", "--top", "5")
-	if out.code != 1 || !strings.Contains(out.stderr, "plain flags none") {
+	if out.code != 1 || !strings.Contains(out.stderr, "plain flags no answer") {
 		t.Fatalf("--top without flags: exit %d: %s", out.code, out.stderr)
 	}
 }

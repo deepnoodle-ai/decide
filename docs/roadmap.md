@@ -55,8 +55,8 @@ off, or remove them, as they land.
       annotations.
 - [x] **Answer cache.** On by default: a run asks only about what
       changed. See the [PRD](prds/answer-cache.md).
-- [x] **`runs view --top N`.** The items likeliest to be flagged, first,
-      so a long run reads as a list of where to look.
+- [x] **`runs view --top N`.** Flagged items first, then those nearest a
+      flag, so a long run reads as a list of where to look.
 
 ## Providers and credentials
 

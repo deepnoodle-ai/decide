@@ -26,7 +26,7 @@ func (a *App) addRuns(app *cli.App) {
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
 			cli.String("format", "f").Enum(formats...).Help(formatHelp),
-			cli.Int("top").Help("Show only this many items, likeliest to be flagged first"),
+			cli.Int("top").Help("Show only this many items: the flagged ones first, then those nearest a flag"),
 		).
 		Run(a.runsView)
 	g.Command("resume").
@@ -134,18 +134,18 @@ func (a *App) runsView(c *cli.Context) error {
 	top := c.Int("top")
 	switch {
 	case top < 0:
-		return cli.Error("--top must be at least 1")
-	case top > 0 && format == "md":
-		return cli.Error("--top works with text, json, csv, and github output, not md").
-			Hint("The Markdown report already lists flagged items first.")
+		return cli.Error("--top must be a positive number")
+	case top > 0 && (format == "md" || format == "github"):
+		return cli.Errorf("--top works with text, json, and csv output, not %s", format).
+			Hint("The Markdown report and GitHub annotations already show only flagged items.")
 	}
 	r, err := openRun(c)
 	if err != nil {
 		return err
 	}
 	if top > 0 && !marksOf(r.Template).ranks() {
-		return cli.Errorf("--top ranks items by their likeliest flagged answer, and %s flags none", clean(r.Template.Name)).
-			Hint("Add a flag such as \"yes\" to a question in its template.json.")
+		return cli.Errorf("--top ranks items by how near a flagged answer comes to its threshold, and %s flags no answer", clean(r.Template.Name)).
+			Hint("A flag on a yes-or-no or choice question, such as \"yes\", names an answer; a flag on a score doesn't.")
 	}
 	if format != "json" {
 		fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Run %s · %s on %s · %s",
@@ -165,8 +165,8 @@ func (a *App) runsView(c *cli.Context) error {
 	}
 	if format != "json" {
 		if top > 0 {
-			fmt.Fprintf(c.Stderr(), "%s\n", dim(fmt.Sprintf("The %d of %d items likeliest to be flagged, likeliest first.",
-				len(shown), len(items))))
+			fmt.Fprintf(c.Stderr(), "%s\n", dim(fmt.Sprintf("The %d of %d answered items nearest their flags, flagged ones first.",
+				len(shown), answeredCount(items))))
 		}
 		summarize(c.Stderr(), r, 0)
 	}
@@ -193,8 +193,19 @@ func printItems(c *cli.Context, r *runs.Run, format, failOn string, items []item
 	return w.finish(r)
 }
 
-// topItems returns the n answered items likeliest to be flagged, the
-// likeliest first. Items that tie keep their order.
+// answeredCount is how many items have answers.
+func answeredCount(items []item) int {
+	n := 0
+	for _, it := range items {
+		if it.Status == "complete" {
+			n++
+		}
+	}
+	return n
+}
+
+// topItems returns the n answered items nearest their flags, the nearest
+// first. Items that tie keep their order.
 func topItems(items []item, m marks, n int) []item {
 	var out []item
 	for _, it := range items {
@@ -203,7 +214,7 @@ func topItems(items []item, m marks, n int) []item {
 		}
 	}
 	slices.SortStableFunc(out, func(a, b item) int {
-		return cmp.Compare(m.likeliness(b), m.likeliness(a))
+		return cmp.Compare(m.nearness(b), m.nearness(a))
 	})
 	return out[:min(n, len(out))]
 }
