@@ -288,9 +288,9 @@ random and TLS questions. Its answers match one template per question:
 | Run | Mean change | Largest change | Rank correlation | Top 30 shared |
 | --- | --- | --- | --- | --- |
 | Gogs, SSRF | 0.006 | 0.10 | 0.96 | 28 |
-| Gogs, command injection | 0.004 | 0.12 | 0.88 | 28 |
-| Gogs, path traversal | 0.004 | 0.09 | 0.91 | 27 |
-| Gogs, SQL injection | 0.004 | 0.10 | 0.98 | 24 |
+| Gogs, command injection | 0.004 | 0.12 | 0.90 | 28 |
+| Gogs, path traversal | 0.004 | 0.09 | 0.92 | 27 |
+| Gogs, SQL injection | 0.004 | 0.10 | 0.97 | 24 |
 
 On the Benchmark, file only, every category's AUC stayed within 0.01 and
 its score at 0.5 within 0.03; the best score for command injection fell

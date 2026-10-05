@@ -107,6 +107,29 @@ def dive():
             print(f"  {p:.2f} {name:42} {src}")
 
 
+def avg_ranks(xs):
+    """Ranks from 1, with tied values given the mean of their ranks."""
+    order = sorted(range(len(xs)), key=lambda i: xs[i])
+    ranks = [0.0] * len(xs)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and xs[order[j + 1]] == xs[order[i]]:
+            j += 1
+        for k in order[i:j + 1]:
+            ranks[k] = (i + j) / 2 + 1
+        i = j + 1
+    return ranks
+
+
+def spearman(a, b):
+    """Spearman's rank correlation: the Pearson correlation of average ranks."""
+    ra, rb = avg_ranks(a), avg_ranks(b)
+    ma, mb = sum(ra) / len(ra), sum(rb) / len(rb)
+    cov = sum((x - ma) * (y - mb) for x, y in zip(ra, rb))
+    return cov / (sum((x - ma) ** 2 for x in ra) * sum((y - mb) ** 2 for y in rb)) ** 0.5
+
+
 def combined(pack):
     """Compare a pack in templates-combined, which asks all its questions in
     one request, with the v2 templates, which ask one each."""
@@ -123,7 +146,7 @@ def combined(pack):
         rank = lambda d: {k: i + 1 for i, k in enumerate(sorted(d, key=lambda k: -d[k]))}
         rs_, rc = rank({k: sep[k] for k in both}), rank({k: com[k] for k in both})
         n = len(both)
-        rho = 1 - 6 * sum((rs_[k] - rc[k]) ** 2 for k in both) / (n * (n * n - 1))
+        rho = spearman([sep[k] for k in both], [com[k] for k in both])
         top = lambda r: {k for k in both if r[k] <= 30}
         print(f"\n=== {t}: {n} functions; flagged at 0.5: one each {sum(sep[k] >= .5 for k in both)}, "
               f"combined {sum(com[k] >= .5 for k in both)}")
