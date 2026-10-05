@@ -308,8 +308,8 @@ The new questions on Gogs at 0.5:
   renderers that build HTML, but most of the 179 are route handlers (88)
   and database functions (47). At 0.7 it flags 36. It needs its threshold
   measured on Go labels.
-- The TLS question flagged 8, led by the webhook and hook code that obeys
-  Gogs' "skip TLS verify" setting.
+- The TLS question flagged 8: login sources (LDAP and SMTP), webhooks and
+  hooks that obey an admin's "skip TLS verify" setting.
 - The hash question flagged 6, and the cipher and random questions none.
 
 A pack and call paths fit together, with one question still open. A
