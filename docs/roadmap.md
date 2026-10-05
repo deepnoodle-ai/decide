@@ -10,10 +10,11 @@ off, or remove them, as they land.
       with a demo repository and issues that have planted problems.
 - [x] **`pr-description`.** Check pull request titles and descriptions
       against a team's guidelines, with demo pull requests.
-- [ ] **Universal check pack.** One template per vulnerability class, named
-      by its CWE and OWASP category: `sql-injection`, `command-injection`,
-      `path-traversal`, `weak-crypto` and more, each measured on labeled
-      cases and planted in the demo. See
+- [ ] **Universal check pack.** One `security` template that asks a
+      question per vulnerability class in one request, each named by its
+      CWE and OWASP category: SQL injection, command injection, SSRF, XSS,
+      weak crypto and more, each measured on labeled cases and planted in
+      the demo. See
       [check-packs.md](design/check-packs.md).
 - [ ] **Go pack, then TypeScript.** Mistakes linters can't see, such as a
       context that never reaches the call that blocks.

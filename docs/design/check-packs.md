@@ -11,8 +11,8 @@ Status: direction set, spike done. Written 2026-10-04.
 Code checks come in four scopes. We build them in this order:
 
 1. **Universal.** Vulnerability classes that occur in any web or backend
-   code, such as SQL injection or path traversal. One template per class,
-   named by its CWE.
+   code, such as SQL injection or path traversal. One template per pack,
+   with one question per class, named by its CWE.
 2. **Language.** Mistakes that one language makes easy, such as an
    unclosed `resp.Body` in Go or a missing `await` in TypeScript.
 3. **Project.** A project's own conventions, found by deviance: if 18 of
@@ -52,7 +52,9 @@ to a sink where the bug is a flow. A deterministic tool builds the paths;
 decide judges them. An item holds up to 64 KB before decide splits it, and
 the deepest Gogs path was 28 KB.
 
-Each template asks about one mistake, narrowly. Phase 0 found that the
+Each question asks about one mistake, narrowly, and a pack asks all its
+questions in one request per item (see [One request per
+item](#one-request-per-item)). Phase 0 found that the
 wording decides recall: a question about the mistake ranks well, and a
 question about its category is noisy. The spike found the same for trust:
 "input from outside the program" counted flags and config files as attacker
@@ -67,7 +69,7 @@ Categories from the [OWASP Top 10:2025](https://top10.owasp.org/2025),
 ranks from the [2025 CWE Top
 25](https://cwe.mitre.org/top25/archive/2025/2025_cwe_top25.html).
 
-| Template | CWE (Top 25 rank) | OWASP 2025 | Candidates |
+| Question | CWE (Top 25 rank) | OWASP 2025 | Candidates |
 | --- | --- | --- | --- |
 | `sql-injection` | 89 (#2) | A05 Injection | `Query`, `Exec`, `Raw`, `cursor.execute` |
 | `command-injection` | 78 (#9), 77 (#23), 88 | A05 | `exec.Command`, `subprocess`, `child_process`, `Runtime.exec` |
@@ -272,10 +274,39 @@ in the `git-module` dependency, so they have no label in Gogs.
   more than 0.2. 29 of each top 30 were the same (25 for SQL), and the
   flagged counts stayed within 3. Labels moved a few places either way:
   `MigrateRepository` 2 to 1, `UserPath` 16 to 26, `UploadRepoFiles` 41
-  to 33. So a pack can be one template, and one request per item.
+  to 33. Nine questions did as well; see the next section.
 - **Trust wording.** Naming operator flags and config as trusted cut the
   functions flagged at 0.5 from 81 to 54 for path traversal, 32 to 25 for
   command injection, 53 to 45 for SSRF and 10 to 6 for SQL injection.
+
+### One request per item
+
+The security pack (`templates-combined/security`) asks nine questions in
+one request: the four above, `xss`, and `weak-crypto`'s cipher, hash,
+random and TLS questions. Its answers match one template per question:
+
+| Run | Mean change | Largest change | Rank correlation | Top 30 shared |
+| --- | --- | --- | --- | --- |
+| Gogs, SSRF | 0.006 | 0.10 | 0.96 | 28 |
+| Gogs, command injection | 0.004 | 0.12 | 0.88 | 28 |
+| Gogs, path traversal | 0.004 | 0.09 | 0.91 | 27 |
+| Gogs, SQL injection | 0.004 | 0.10 | 0.98 | 24 |
+
+On the Benchmark, file only, every category's AUC stayed within 0.01 and
+its score at 0.5 within 0.03; the best score for command injection fell
+from 0.66 to 0.63. The flagged counts on Gogs stayed within 3. Each label
+moved 10 places or fewer, except `isRepositoryGitPath`, 194 to 221.
+
+So a pack is one template, and one request per item: 2,030 requests for
+Gogs instead of 18,270. We split a pack only when a measurement shows a
+cost. The backend allows 64 questions in a request, and we measure again
+as a pack grows.
+
+The new questions on Gogs: `xss` flagged 179 functions, most of them
+Markdown renderers that build HTML, so it needs its threshold measured on
+Go labels. The TLS question flagged 8, led by the webhook and hook code
+that honors Gogs' "skip TLS verify" setting. The cipher and random
+questions flagged none.
 
 ### dive, Go pack
 
@@ -306,12 +337,13 @@ file part. Three of the four are in `experimental/`.
 
 ## Sequence (one PR each)
 
-1. `weak-crypto`, `xss`, `sql-injection`, `command-injection` and `ssrf`
-   as built-ins, with the trust wording from the spike, planted cases in
-   `demo/` and labeled examples. They work per function today. Before
-   shipping, measure each on Go and TypeScript labels, not only the Java
-   Benchmark, and set its threshold from data. Each
-   template's README names its CWE and OWASP category, and keeps the
+1. A `security` built-in that asks the `sql_injection`,
+   `command_injection`, `ssrf`, `xss` and four weak-crypto questions in
+   one request, with the trust wording from the spike, planted cases in
+   `demo/` and labeled examples. It works per function today. Before
+   shipping, measure each question on Go and TypeScript labels, not only
+   the Java Benchmark, and set its threshold from data. The template's
+   README names each question's CWE and OWASP category, and keeps the
    spike's numbers.
 2. A proposal for call-path items: [call-path-items.md](call-path-items.md).
    A separate `decide-paths` command builds Go paths from request handlers
@@ -319,12 +351,14 @@ file part. Three of the four are in `experimental/`.
 3. A proposal for `where` in `template.json`. With paths, sinks become the
    prefilter: a template names its sinks, and only code that reaches one
    is asked about.
-4. A proposal for CWE and OWASP tags in `template.json`, carried into
-   `--format github` and SARIF. Until then, each template's README names
+4. A proposal for CWE and OWASP tags on each question, carried into
+   `--format github` and SARIF. Until then, the template's README names
    them.
 5. `decide eval`, with each built-in's labeled examples.
-6. `path-traversal`, once call paths or better wording lift it.
-7. The rest of the universal pack, each measured the same way: `secrets`,
+6. `path_traversal` in the pack, once call paths or better wording lift
+   it.
+7. The rest of the universal pack, as questions in the same template,
+   each measured the same way: `secrets`,
    `code-injection`, `unsafe-deserialization`, `file-upload`,
    `error-handling`, `unbounded-resource` and `sensitive-logging`.
 8. The Go pack, once its questions separate real bugs from best-effort

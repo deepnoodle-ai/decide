@@ -9,6 +9,7 @@ to run it again. Results aren't committed; `run.sh` writes them under
 | Path | What it is |
 | --- | --- |
 | `templates/` | The templates as last run: the universal pack, with operator flags and config named as trusted, and the Go pack |
+| `templates-combined/` | Packs that ask several questions in one request: `universal` asks four, `security` nine |
 | `templates-v1/` | The first wording of the universal templates, which called any input "from outside the program" |
 | `paths/` | A Go tool, built on `golang.org/x/tools`, that writes one JSONL item per call path from a Gogs entry point to a sink. It is its own module |
 | `build_ctx.py` | Builds the Benchmark items: each test case, and each with the helper code it calls |

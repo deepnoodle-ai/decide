@@ -44,6 +44,16 @@ mkdir -p $R/combined
 DECIDE_HOME="$PWD/work/home-combined" $D run templates-combined/universal work/gogs-snap \
 	--include '*.go' --exclude '*_test.go' --each function --json >$R/combined/gogs-universal.jsonl
 
+# The security pack: nine questions in one request, on Gogs and on each
+# Benchmark case alone.
+export DECIDE_HOME="$PWD/work/home-security"
+$D run templates-combined/security work/gogs-snap --include '*.go' --exclude '*_test.go' \
+	--each function --json >$R/combined/gogs-security.jsonl
+for c in sqli cmdi pathtraver xss crypto hash weakrand; do
+	$D run templates-combined/security work/bench/$c --each file --json >$R/combined/bench-$c.jsonl
+done
+export DECIDE_HOME="$PWD/work/home"
+
 # Gogs, by call path. The templates default to --each function, so the
 # path run uses copies without that default. score.py reads each path's
 # function names from work/paths-<sink>.jsonl.
@@ -66,4 +76,4 @@ done
 	-E errcheck,errorlint,ineffassign,staticcheck,bodyclose,sqlclosecheck,contextcheck,govet,gosec,nilnil,nilerr \
 	--output.json.path=../results/dive/golangci-lint.json ./... >/dev/null) || true
 
-echo "Done. Score the results with: python3 score.py bench|gogs|paths|dive"
+echo "Done. Score the results with: python3 score.py bench|gogs|paths|dive|combined"
