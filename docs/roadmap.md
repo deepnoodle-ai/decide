@@ -20,7 +20,7 @@ off, or remove them, as they land.
 - [ ] **Call-path items.** One item per path from an entry point to a
       sink, with the source of every function on it. In the spike, adding
       called code raised every OWASP Benchmark score that needed it.
-      Propose the design first.
+      Proposed in [call-path-items.md](design/call-path-items.md).
 - [ ] **More code templates.** `breaking-change` and `commit-messages`,
       each with planted problems in the demo.
 - [ ] **`decide eval`.** Measure a template on labeled examples: agreement

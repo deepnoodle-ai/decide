@@ -5,6 +5,7 @@
     python3 score.py gogs [v1|v2]         Gogs, labeled functions by rank
     python3 score.py paths                Gogs call paths, by sink function
     python3 score.py dive                 dive, top candidates per Go template
+    python3 score.py combined             Gogs, four questions in one request vs one each
 
 The Benchmark's labels come from work/BenchmarkJava/expectedresults-1.2.csv,
 which run.sh clones.
@@ -100,8 +101,36 @@ def dive():
             print(f"  {p:.2f} {name:42} {src}")
 
 
+def combined():
+    """Compare templates-combined/universal, which asks the four questions
+    in one request, with the four v2 templates, which ask one each."""
+    rs = [r for r in rows("results/combined/gogs-universal.jsonl") if r["status"] == "complete"]
+    print(f"{len(rs)} functions, {len({r['request_id'] for r in rs})} requests")
+    for t, key in [("ssrf", "ssrf"), ("command-injection", "command_injection"),
+                   ("path-traversal", "path_traversal"), ("sql-injection", "sql_injection")]:
+        q, labels = GOGS[t]
+        sep = {(r["source"], r["input"]): r["answers"][q]["noul"]
+               for r in rows(f"results/v2/gogs-{t}.jsonl") if r["status"] == "complete"}
+        com = {(r["source"], r["input"]): r["answers"][key]["noul"] for r in rs}
+        both = sorted(set(sep) & set(com))
+        diffs = [abs(sep[k] - com[k]) for k in both]
+        rank = lambda d: {k: i + 1 for i, k in enumerate(sorted(d, key=lambda k: -d[k]))}
+        rs_, rc = rank({k: sep[k] for k in both}), rank({k: com[k] for k in both})
+        n = len(both)
+        rho = 1 - 6 * sum((rs_[k] - rc[k]) ** 2 for k in both) / (n * (n * n - 1))
+        top = lambda r: {k for k in both if r[k] <= 30}
+        print(f"\n=== {t}: {n} functions; flagged at 0.5: one each {sum(sep[k] >= .5 for k in both)}, "
+              f"combined {sum(com[k] >= .5 for k in both)}")
+        print(f"  mean |difference| {sum(diffs) / n:.3f}; over 0.2: {sum(d > .2 for d in diffs)}; "
+              f"rank correlation {rho:.3f}; top 30 shared {len(top(rs_) & top(rc))}")
+        for label in labels + (["GetByCollaboratorID", "searchUserByName"] if t == "sql-injection" else []):
+            for k in both:
+                if k[1].split(".")[-1] == label:
+                    print(f"  {label:22} one each rank {rs_[k]:4} p={sep[k]:.2f}   combined rank {rc[k]:4} p={com[k]:.2f}")
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "bench"
     arg = sys.argv[2] if len(sys.argv) > 2 else None
     {"bench": lambda: bench(arg or "ctx"), "gogs": lambda: gogs(arg or "v2"),
-     "paths": paths, "dive": dive}[cmd]()
+     "paths": paths, "dive": dive, "combined": combined}[cmd]()
