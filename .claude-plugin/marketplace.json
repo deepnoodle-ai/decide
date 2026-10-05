@@ -9,7 +9,7 @@
     {
       "name": "decide",
       "source": "./plugin",
-      "description": "Checks shell commands before they run and content from outside before Claude acts on it, and gives Claude a judge tool for typed questions."
+      "description": "Checks content from outside before Claude acts on it and, in bypass mode, shell commands before they run, and gives Claude a judge tool for typed questions."
     }
   ]
 }

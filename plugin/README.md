@@ -7,7 +7,7 @@ when the answer is likely.
 
 | Check | When | decide asks | When the answer is likely |
 | --- | --- | --- | --- |
-| Command | Before each shell command Claude runs with Bash or Monitor | Could it destroy work that is hard to get back, or expose secrets? (`command-risk`) | You choose whether it runs, even in a mode that would run it without asking. Claude reads why when it doesn't. |
+| Command | In bypass mode, before each shell command Claude runs with Bash or Monitor | Could it cause severe harm that is hard to undo, such as deleting a home folder, force-pushing a shared branch, dropping a database, or sending secrets away? (`command-risk`'s `severe`) | You choose whether it runs. Claude reads why when it doesn't. |
 | Content | After WebFetch, WebSearch, an MCP tool, or a `gh`, `curl`, `wget`, or `http` command | Does it try to take over an AI agent, or hide text from a person? (`prompt-injection`) | Claude reads a warning beside the result, and you see a toast. |
 
 Claude also gets a **judge tool**, `mcp__decide__judge`, for its own typed
@@ -56,7 +56,7 @@ auto-update for the marketplace in `/plugin`.
 
 These go to the decision model's provider, with your key:
 
-- each shell command Claude runs;
+- in bypass mode, each shell command Claude runs;
 - each result the content check reads, whole: web pages, search results,
   `gh` and `curl` output, and every MCP tool's result, private connectors
   included. A result over 1,000,000 characters goes on unchecked;
@@ -77,8 +77,12 @@ can't see an upgrade; delete the folder to ask fresh.
 
 ## What it is not
 
-A second opinion, not a sandbox. The command check judges the text of a
-command: `make clean` or a script can hide what it does. When decide cannot
+A second opinion, not a sandbox. The command check runs only in bypass
+mode. In the other modes, Claude Code asks you or its auto-mode classifier
+judges each command, so a second check would only interrupt routine work.
+It flags only severe harm: discarding changes in your checkout, such as
+`git checkout -- .`, is not flagged. It judges the text of a command, so
+`make clean` or a script can hide what it does. When decide cannot
 answer (it is not installed, the key is missing, or the provider fails),
 the action goes on. The check says why in the transcript, the status line
 shows how many actions went unchecked, and the check tries again a minute
@@ -96,11 +100,12 @@ Set them in the `/plugin` menu.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `commands` | `ask` | Flagged commands: `ask` you, `deny` them, or `off` to not check commands |
+| `commands` | `ask` | In bypass mode, severe commands: `ask` you, `deny` them, or `off` to not check commands |
 | `decidePath` | `decide` | The decide command to run |
 
-Each template's flags decide what is flagged. `decide templates show
-command-risk` lists them.
+The command check flags `severe` at 80%, and the content check flags
+`injection` or `hidden` at 60%, as the templates do. `decide templates
+show command-risk` shows the questions.
 
 ## Developing
 

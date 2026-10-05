@@ -255,8 +255,8 @@ Each row is one item, with a column for each question. See
 
 ## Give Claude Code a second opinion
 
-The decide plugin for Claude Code checks each shell command before it runs
-and content from outside before Claude acts on it. It also gives Claude a judge tool for its own typed
+The decide plugin for Claude Code checks content from outside before Claude
+acts on it and, in bypass mode, each shell command before it runs. It also gives Claude a judge tool for its own typed
 questions. In Claude Code 2.1.287 or later, with decide 0.2.0 or later:
 
 ```text

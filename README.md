@@ -100,7 +100,7 @@ Decide comes with ten templates. A template is a named set of questions.
 | `prompt-injection` | Does it try to take over an AI agent that reads it? |
 | `task-readiness` | Is this issue ready to hand to a coding agent, and how large is it? |
 | `pr-description` | Do this pull request's title and description meet your guidelines? |
-| `command-risk` | Could this shell command destroy work or expose secrets? |
+| `command-risk` | Could this shell command destroy work, expose secrets, or cause severe harm? |
 | `receipt-quality` | Does this image show a readable receipt? Runs on Clef. |
 
 ```sh
@@ -170,9 +170,10 @@ rank, and funnel, build common decisions from answers. The
 
 ## Use it from Claude Code
 
-The decide plugin gives Claude a second opinion. It checks each shell
-command before it runs and content from outside before Claude acts on it,
-and it gives Claude a judge tool for its own typed questions. In Claude Code:
+The decide plugin gives Claude a second opinion. It checks content from
+outside before Claude acts on it and, in bypass mode, each shell command
+before it runs, and it gives Claude a judge tool for its own typed
+questions. In Claude Code:
 
 ```text
 /plugin marketplace add deepnoodle-ai/decide

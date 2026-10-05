@@ -88,14 +88,17 @@ function session(on: On, files: readonly string[] = []) {
 
 const noul = (p: number) => ({ type: 'noul', noul: p })
 
-/** Command risk that flags `rm -rf` and nothing else. */
+/** Command risk that judges `rm -rf` severe and nothing else. */
 const RISK: Answers = (template, text) =>
   template === 'command-risk'
-    ? { destructive: noul(text.includes('rm -rf') ? 0.97 : 0.02), leak: noul(0.03), external: noul(0.02) }
+    ? { destructive: noul(text.includes('rm -rf') ? 0.98 : 0.02), leak: noul(0.03), external: noul(0.02), severe: noul(text.includes('rm -rf') ? 0.97 : 0.02) }
     : undefined
 
+/** A prompt in bypass mode, the one mode the command check runs in. */
+const BYPASS = { prompt: 'go on', permission_mode: 'bypassPermissions' } as const
+
 describe('register', () => {
-  test('a risky command the mode would run waits for the person, and Claude hears why it did not run', async ($, on) => {
+  test('in bypass mode, a severe command waits for the person, and Claude hears why it did not run', async ($, on) => {
     fakeDecide(on, RISK)
     const ran: string[] = []
     let asked = ''
@@ -111,9 +114,10 @@ describe('register', () => {
     })
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     const out = await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/git/project', tool_use_id: 't1' })
 
-    expect(asked).toContain('97% likely to destroy work')
+    expect(asked).toContain('97% likely to cause severe harm that is hard to undo')
     expect(ran, 'the command never reached the shell').toEqual([])
     expect(out.isError ?? out.deny !== undefined).toBe(true)
     expect(String(out.text ?? out.deny)).toContain('The user chose not to run it')
@@ -128,6 +132,7 @@ describe('register', () => {
     })
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'Bash', command: 'go test ./...', tool_use_id: 't2' })
 
     expect(ran).toEqual(['go test ./...'])
@@ -140,6 +145,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     const out = await $.tool.call({ tool: 'Bash', command: 'rm -rf /', tool_use_id: 't3' })
 
     expect(String(out.text ?? out.deny)).toContain('It was not run')
@@ -155,6 +161,7 @@ describe('register', () => {
     })
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 't4' })
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't5' })
 
@@ -221,11 +228,11 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
-    await $.classic.UserPromptSubmit({ prompt: 'clean up', permission_mode: 'default' })
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: 't10' })
 
     expect(isAsked).toBe(false)
-    expect(shown.notices).toEqual(['decide: 97% likely to destroy work that is hard to get back'])
+    expect(shown.notices).toEqual(['decide: 97% likely to cause severe harm that is hard to undo'])
   })
 
   test('content that is short, an error, or from a local command is not checked', async ($, on) => {
@@ -237,6 +244,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: long, stderr: '', interrupted: false }, text: long }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'WebFetch', url: 'https://a.example/short', prompt: 'p', tool_use_id: 't11' })
     await $.tool.call({ tool: 'WebFetch', url: 'https://a.example/error', prompt: 'p', tool_use_id: 't12' })
     await $.tool.call({ tool: 'Bash', command: 'cat notes.txt', tool_use_id: 't13' })
@@ -271,6 +279,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     const before = await $.command.run(DECIDE_COMMAND)
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't18' })
     await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 't19' })
@@ -278,8 +287,8 @@ describe('register', () => {
 
     expect(before.text).toMatch(/^Nothing checked in this session yet\./)
     expect(after.text).toMatch(/^Checked 2 things in this session and flagged 1:/)
-    expect(after.text).toContain('| | command | `ls` | destructive 2%, leak 3%, external 2% |')
-    expect(after.text).toContain('| **!** | command | `rm -rf build` | **destructive 97%, leak 3%, external 2%** |')
+    expect(after.text).toContain('| | command | `ls` | severe 2% |')
+    expect(after.text).toContain('| **!** | command | `rm -rf build` | **severe 97%** |')
     expect(after.text).toContain('`DECIDE_HOME=/home/me/.decide/agent decide runs`')
   })
 
@@ -288,6 +297,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'Bash', command: 'ps aux | grep `whoami`', tool_use_id: 't53' })
     await $.tool.call({ tool: 'Bash', command: 'printf "```text\na.txt\n```"', tool_use_id: 't54' })
     const out = await $.command.run(DECIDE_COMMAND)
@@ -304,28 +314,29 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't20' })
 
     expect(logged).toEqual(["decide's command check is off for now: this plugin needs decide 0.2.0 or later. Update it with: brew upgrade decide"])
   })
 
-  test('in auto mode, where a classifier answers Claude Code\'s asks, decide asks the person', async ($, on) => {
-    fakeDecide(on, RISK)
-    let asked = ''
-    on('tool.check', () => ({ decision: 'ask' as const }))
-    on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => {
-      const q = (e.questions as { question: string }[])[0]!
-      asked = q.question
-      return { result: { questions: e.questions, answers: { [q.question]: "Don't run it" } } }
+  test('outside bypass mode, where Claude Code asks or its classifier judges, commands are not checked', async ($, on) => {
+    const runs = fakeDecide(on, RISK)
+    const ran: string[] = []
+    on('tool.call', { tool: 'Bash' }, ($, e) => {
+      ran.push(e.command)
+      return { result: { stdout: '', stderr: '', interrupted: false } }
     })
-    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
-    await $.classic.UserPromptSubmit({ prompt: 'clean up', permission_mode: 'auto' })
-    const out = await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: 't21' })
+    await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: 't20' })
+    for (const mode of ['default', 'acceptEdits', 'auto', 'plan']) {
+      await $.classic.UserPromptSubmit({ prompt: 'clean up', permission_mode: mode })
+      await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: `t21-${mode}` })
+    }
 
-    expect(asked).toContain('97% likely to destroy work')
-    expect(String(out.text ?? out.deny)).toContain('The user chose not to run it')
+    expect(runs.filter(r => r.argv[2] === 'command-risk')).toEqual([])
+    expect(ran).toHaveLength(5)
   })
 
   test('a dismissed question leaves the command unrun, and Claude reads that the user dismissed it', async ($, on) => {
@@ -335,6 +346,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     const out = await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: 't22' })
 
     expect(String(out.text ?? out.deny)).toContain('The user dismissed the question, so it was not run.')
@@ -347,6 +359,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false }, text: '' }))
 
     await $.session.start(HEADLESS)
+    await $.classic.UserPromptSubmit(BYPASS)
     const out = await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: 't23' })
 
     expect(String(out.text ?? out.deny)).toContain('No one was there to approve it, so it was not run.')
@@ -362,6 +375,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't24' })
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't25' })
     expect(tries, 'the second command did not wait for decide').toBe(1)
@@ -381,6 +395,7 @@ describe('register', () => {
     })
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: 't30' })
 
     expect(runs, 'decide was not asked').toEqual([])
@@ -393,6 +408,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't31' })
 
     expect(runs[0]?.cwd).toBe('/home/me/.decide/agent')
@@ -405,10 +421,11 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/work', tool_use_id: 't32' })
 
     expect(runs.shown.logged).toEqual([
-      "decide's command check is off for now: command-risk did not ask destructive, leak, external, so another template of that name may be replacing decide's built-in.",
+      "decide's command check is off for now: command-risk did not ask severe. Update decide with: brew upgrade decide. If it is current, another template of that name may be replacing decide's built-in.",
     ])
   })
 
@@ -424,6 +441,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'WebFetch', url: 'https://a.example/1', prompt: 'p', tool_use_id: 't33' })
     await $.tool.call({ tool: 'WebFetch', url: 'https://a.example/2', prompt: 'p', tool_use_id: 't34' })
     expect(tries, 'both pages were sent').toBe(2)
@@ -445,6 +463,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Monitor' }, () => ({ result: { taskId: 'm1', timeoutMs: 1000 } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     const out = await $.tool.call({ tool: 'Monitor', description: 'watch', timeout_ms: 1000, command: 'rm -rf ~/work && tail -f log', tool_use_id: 't37' })
 
     expect(runs[0]?.texts).toEqual(['rm -rf ~/work && tail -f log'])
@@ -463,6 +482,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     const command = `echo ${'a'.repeat(2100)}\nrm -rf ~/work \u001b[2K`
     await $.tool.call({ tool: 'Bash', command, tool_use_id: 't38' })
 
@@ -552,6 +572,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     const footer = await $.ui.mount({ plugin: 'decide', surface: 'terminal', component: 'SessionMode', props: { modes: ['focus'] } })
     expect(await footer.find({ type: 'Text', text: 'focus & decide 0 checked' })).toBeDefined()
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't49' })
@@ -572,6 +593,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'Bash', command: 'ls', tool_use_id: 't51' })
     await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 't52' })
     const row = (tool_use_id: string, command: string) =>
@@ -582,7 +604,7 @@ describe('register', () => {
       expect(await safe.find({ type: 'Text', text: 'decide ✓' })).toBeDefined()
       await safe.unmount()
       const risky = await $.ui.mount({ plugin: 'decide', surface, component: 'ToolUse', requestId: 't52', props: row('t52', 'rm -rf build') })
-      expect(await risky.find({ type: 'Text', text: '⎿  decide: destructive 97%' })).toBeDefined()
+      expect(await risky.find({ type: 'Text', text: '⎿  decide: severe 97%' })).toBeDefined()
       await risky.unmount()
       const other = await $.ui.mount({ plugin: 'decide', surface, component: 'ToolUse', requestId: 't99', props: row('t99', 'echo') })
       expect(await other.find({ type: 'Text', text: /decide/ })).toBeUndefined()
@@ -596,7 +618,7 @@ describe('register', () => {
       ({ plugin: 'decide', surface: 'terminal', component: 'ToolGroup', props: { calls, isActive: false, isExpanded } }) as const
     const both = await $.ui.mount(group([call('t51', 'ls'), call('t52', 'rm -rf build')]))
     expect(await both.find({ type: 'Text', text: '2 calls' })).toBeDefined()
-    expect(await both.find({ type: 'Text', text: '⎿  decide: destructive 97%' })).toBeDefined()
+    expect(await both.find({ type: 'Text', text: '⎿  decide: severe 97%' })).toBeDefined()
     await both.unmount()
     const safe = await $.ui.mount(group([call('t51', 'ls'), call('t98', 'cat a.txt')]))
     expect(await safe.find({ type: 'Text', text: 'decide ✓' })).toBeDefined()
@@ -621,6 +643,7 @@ describe('register', () => {
     on('tool.call', { tool: 'Bash' }, ($, e) => ({ result: { stdout: page(e), stderr: '', interrupted: false }, text: page(e) }))
 
     await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
     await $.tool.call({ tool: 'Bash', command: 'curl -s https://a.example/x && rm -rf build', tool_use_id: 't61' })
     await $.tool.call({ tool: 'Bash', command: 'curl -s https://evil.example', tool_use_id: 't62' })
     await $.tool.call({ tool: 'Bash', command: 'curl -s https://evil.example && rm -rf build', tool_use_id: 't63' })
@@ -629,14 +652,14 @@ describe('register', () => {
       ({ plugin: 'decide', surface: 'terminal', component: 'ToolUse', requestId: tool_use_id,
         props: { tool_use_id, tool: 'Bash', input: { command: 'curl' }, isRunning: false, isErrored: false, isInterrupted: false } }) as const
     const passedLater = await $.ui.mount(row('t61'))
-    expect(await passedLater.find({ type: 'Text', text: '⎿  decide: destructive 97%' }), 'a passing result keeps the command flag').toBeDefined()
+    expect(await passedLater.find({ type: 'Text', text: '⎿  decide: severe 97%' }), 'a passing result keeps the command flag').toBeDefined()
     expect(await passedLater.find({ type: 'Text', text: 'decide ✓' })).toBeUndefined()
     await passedLater.unmount()
     const flaggedLater = await $.ui.mount(row('t62'))
     expect(await flaggedLater.find({ type: 'Text', text: '⎿  decide: injection 96%' })).toBeDefined()
     await flaggedLater.unmount()
     const flaggedTwice = await $.ui.mount(row('t63'))
-    expect(await flaggedTwice.find({ type: 'Text', text: '⎿  decide: destructive 97%, injection 96%' })).toBeDefined()
+    expect(await flaggedTwice.find({ type: 'Text', text: '⎿  decide: severe 97%, injection 96%' })).toBeDefined()
     await flaggedTwice.unmount()
   })
 })

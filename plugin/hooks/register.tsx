@@ -35,9 +35,14 @@ const RETRY_MS = 60_000
 
 /** What the command check says, by question, when it flags one. */
 const COMMAND_RISKS: Record<string, string> = {
-  destructive: 'likely to destroy work that is hard to get back',
-  leak: 'likely to expose secrets or private data',
+  severe: 'likely to cause severe harm that is hard to undo',
 }
+
+/**
+ * The one permission mode the command check runs in. Elsewhere Claude Code
+ * asks the person, or its auto-mode classifier judges the command.
+ */
+const UNCHECKED_MODE = 'bypassPermissions'
 
 type CheckName = keyof typeof TEMPLATES
 
@@ -121,11 +126,14 @@ export const register: Register = (on, options) => {
     return { result: text }
   })
 
-  // The command check: a second opinion on each shell command before it runs.
+  // The command check: in bypass mode, where nothing else checks a shell
+  // command, a second opinion on each one before it runs. It flags only
+  // severe harm, not routine work that discards local changes.
   on('tool.call', { tool: SHELLS }, async ($, e, next) => {
     const { tool, tool_use_id, agentId, ...input } = e as { tool: string; tool_use_id?: string; agentId?: string; command?: unknown }
     const command = input.command
-    if (config.commands === 'off' || typeof command !== 'string' || !command.trim()) return next(e)
+    if (config.commands === 'off' || session.mode !== UNCHECKED_MODE) return next(e)
+    if (typeof command !== 'string' || !command.trim()) return next(e)
 
     const answers = await check($, 'command', { command }, 'command', COMMAND_MS)
     if (answers === undefined) return next(e)
@@ -142,11 +150,11 @@ export const register: Register = (on, options) => {
       return { deny: `${reason} It was not run. Find a safer way to do this, or ask the user to run it.` }
     }
 
-    // When Claude Code will put the call to the person, add decide's line to
-    // that dialog. In auto mode its ask goes to a classifier, not a person.
+    // Bypass mode still refuses or asks about a few commands. When Claude
+    // Code will ask the person, add decide's line to that dialog.
     const engine = await $.tool.check({ tool, input }).catch(() => undefined)
     if (engine?.decision === 'deny') return next(e)
-    if (engine?.decision === 'ask' && session.mode !== undefined && session.mode !== 'auto') {
+    if (engine?.decision === 'ask') {
       if (tool_use_id) {
         try {
           $.ui.notice(tool_use_id, `decide: ${why}`)
@@ -212,7 +220,7 @@ export const register: Register = (on, options) => {
     if (all.length === 0) {
       return {
         text: [
-          "Nothing checked in this session yet. It checks shell commands before they run and content from outside.",
+          "Nothing checked in this session yet. It checks content from outside, and in bypass mode, shell commands before they run.",
           ...off,
           ...skipped,
           saved,
@@ -330,7 +338,7 @@ async function check($: EngineInterface, name: CheckName, input: Record<string, 
 
   const missing = missingOf(item.answers, flags)
   if (missing.length > 0) {
-    return fail($, name, now, `${template} did not ask ${missing.join(', ')}, so another template of that name may be replacing decide's built-in.`)
+    return fail($, name, now, `${template} did not ask ${missing.join(', ')}. Update decide with: brew upgrade decide. If it is current, another template of that name may be replacing decide's built-in.`)
   }
   if (h.reason) {
     Object.assign(h, { offUntil: 0, reason: '' })
