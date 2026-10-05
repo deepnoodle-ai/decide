@@ -88,7 +88,7 @@ a tour.
 
 ## What you can ask
 
-Decide comes with ten templates. A template is a named set of questions.
+Decide comes with eleven templates. A template is a named set of questions.
 
 | Template | Asks about each item |
 | --- | --- |
@@ -97,6 +97,7 @@ Decide comes with ten templates. A template is a named set of questions.
 | `ticket-routing` | Does this support ticket belong to billing, engineering, or other? |
 | `relevance` | Is it relevant to a question you choose? |
 | `code-risk` | Could it cause security or data problems, and how maintainable is it? |
+| `security` | Can untrusted input reach a SQL query, a command, a fetched URL, or a page, and is any cryptography weak? |
 | `prompt-injection` | Does it try to take over an AI agent that reads it? |
 | `task-readiness` | Is this issue ready to hand to a coding agent, and how large is it? |
 | `pr-description` | Do this pull request's title and description meet your guidelines? |
@@ -105,6 +106,7 @@ Decide comes with ten templates. A template is a named set of questions.
 
 ```sh
 decide run code-risk src --include '*.go'
+decide run security src                      # injection, SSRF, XSS, weak crypto
 decide run relevance docs --each section -p question="pricing"
 decide runs view --format csv > results.csv
 decide run code-risk src --fail-on flagged   # exit code 2 if anything is flagged

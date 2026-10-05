@@ -8,6 +8,9 @@ may change the library API and the CLI.
 
 ### Added
 
+- **`security`.** A built-in template that asks, in one request per
+  function, about SQL and command injection, SSRF, XSS, weak hashes,
+  ciphers and random values, and TLS verification turned off.
 - **An answer cache.** `decide run` and `runs resume` reuse answers to the
   same question about the same text from the same model name, and ask only
   about what changed, or when a live answer shows the model changed.

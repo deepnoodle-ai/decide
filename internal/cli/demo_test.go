@@ -24,6 +24,9 @@ func TestDemo(t *testing.T) {
 	}
 	contains(t, out.stdout, "3 functions and 1 hunk", "Refunds.Apply", "Refunds.Search")
 
+	out = h.run("", "run", "security", "admin", "--dry-run")
+	contains(t, out.stdout, "8 functions", "Server.TestWebhook", "ResetToken")
+
 	out = h.run("", "run", "prompt-injection", "../change.diff", "--dry-run")
 	contains(t, out.stdout, "5 hunks", "docs/integrations.md:1")
 

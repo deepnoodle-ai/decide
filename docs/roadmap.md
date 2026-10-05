@@ -14,7 +14,8 @@ off, or remove them, as they land.
       question per vulnerability class in one request, each named by its
       CWE and OWASP category: SQL injection, command injection, SSRF, XSS,
       weak crypto and more, each measured on labeled cases and planted in
-      the demo. See
+      the demo. The first eight questions ship as `security`; path
+      traversal and the rest come next. See
       [check-packs.md](design/check-packs.md).
 - [ ] **Go pack, then TypeScript.** Mistakes linters can't see, such as a
       context that never reaches the call that blocks.
