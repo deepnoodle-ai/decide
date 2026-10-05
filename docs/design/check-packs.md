@@ -166,9 +166,10 @@ without it.
 gosec, Semgrep and CodeQL find most of the universal pack by syntax. Their
 weakness is context: whether a value really comes from input, and whether
 it was sanitized on the way. That is a judgment, and it is where decide
-can be quieter. decide also covers frameworks no one wrote rules for. Each
-finding carries its CWE, so it can go into SARIF and GitHub code scanning
-beside the other tools.
+can be quieter. decide also covers frameworks no one wrote rules for.
+Today `--format github` writes annotations on a pull request. Once
+templates carry CWE tags and decide writes SARIF (sequence step 4), each
+finding can go into GitHub code scanning beside the other tools.
 
 ## Measure
 
