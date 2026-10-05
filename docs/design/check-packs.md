@@ -303,11 +303,9 @@ file part. Three of the four are in `experimental/`.
    Benchmark, and set its threshold from data. Each
    template's README names its CWE and OWASP category, and keeps the
    spike's numbers.
-2. A proposal for call-path items: where the path builder lives (a decide
-   command, `--each path`, or a tool Claude runs), which languages it
-   covers first, how it finds entry points and sinks, and how it bounds
-   the number of paths. The brainstorm cut call graphs inside decide; the
-   spike is the case for reopening that.
+2. A proposal for call-path items: [call-path-items.md](call-path-items.md).
+   A separate `decide-paths` command builds Go paths from request handlers
+   to sinks, and decide judges them as JSONL records.
 3. A proposal for `where` in `template.json`. With paths, sinks become the
    prefilter: a template names its sinks, and only code that reaches one
    is asked about.
