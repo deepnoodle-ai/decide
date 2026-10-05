@@ -6,6 +6,11 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-05
+
+decide audits a codebase for security mistakes, and pays once for each
+answer. The plugin drops its reply check.
+
 ### Added
 
 - **`decide runs view --top N`.** Show the flagged items first, then those
@@ -86,7 +91,8 @@ answers with probabilities, from the command line or from Go.
 - **Install** with `brew install deepnoodle-ai/tap/decide`, or download a
   binary with checksums.
 
-[Unreleased]: https://github.com/deepnoodle-ai/decide/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/deepnoodle-ai/decide/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/deepnoodle-ai/decide/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/deepnoodle-ai/decide/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/deepnoodle-ai/decide/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/deepnoodle-ai/decide/releases/tag/v0.1.0
