@@ -24,7 +24,7 @@ bug.
 
 ## Install
 
-You need Claude Code 2.1.287 or later, decide 0.2.0 or later, and a key for
+You need Claude Code 2.1.287 or later, decide 0.3.0 or later, and a key for
 a decision model:
 
 ```sh
@@ -78,8 +78,9 @@ can't see an upgrade; delete the folder to ask fresh.
 ## What it is not
 
 A second opinion, not a sandbox. The command check runs only in bypass
-mode. In the other modes, Claude Code asks you or its auto-mode classifier
-judges each command, so a second check would only interrupt routine work.
+mode. In the other modes, Claude Code asks you about each command you
+haven't allowed, or its auto-mode classifier judges it. A command that
+matches one of your allow rules runs unchecked, as you chose.
 It flags only severe harm: discarding changes in your checkout, such as
 `git checkout -- .`, is not flagged. It judges the text of a command, so
 `make clean` or a script can hide what it does. When decide cannot

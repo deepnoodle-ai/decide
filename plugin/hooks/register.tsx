@@ -49,8 +49,14 @@ type CheckName = keyof typeof TEMPLATES
 /** The plugin's options, read each time it loads. */
 const config = { commands: 'ask', bin: 'decide' }
 
-/** The session as the checks need it: who can answer, and its permission mode. */
-const session = { isInteractive: false, mode: undefined as string | undefined }
+/** The session as the checks need it: who can answer. */
+const session = { isInteractive: false }
+
+/**
+ * Each loop's latest permission mode, by its agent id; the main loop's
+ * under ''. A subagent can run in a mode of its own.
+ */
+const modes = new Map<string, string>()
 
 /** DECIDE_HOME for the plugin's runs, and decide's working directory. */
 let home: string | undefined
@@ -68,6 +74,7 @@ export const register: Register = (on, options) => {
   config.commands = String(options.commands ?? 'ask')
   config.bin = String(options.decidePath ?? 'decide')
   for (const h of Object.values(health)) Object.assign(h, { offUntil: 0, reason: '' })
+  modes.clear()
 
   on('session.start', async ($, e, next) => {
     session.isInteractive = e.isInteractive
@@ -86,14 +93,14 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  // The settings-hook events carry the permission mode; keep the latest,
-  // from each prompt and after each tool call.
+  // The settings-hook events carry the permission mode; keep each loop's
+  // latest, from each prompt and after each tool call.
   on('classic.UserPromptSubmit', ($, e, next) => {
-    session.mode = e.permission_mode ?? session.mode
+    if (e.permission_mode) modes.set(e.agent_id ?? '', e.permission_mode)
     return next(e)
   })
   on('classic.PostToolUse', ($, e, next) => {
-    session.mode = e.permission_mode ?? session.mode
+    if (e.permission_mode) modes.set(e.agent_id ?? '', e.permission_mode)
     return next(e)
   })
 
@@ -132,7 +139,9 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: SHELLS }, async ($, e, next) => {
     const { tool, tool_use_id, agentId, ...input } = e as { tool: string; tool_use_id?: string; agentId?: string; command?: unknown }
     const command = input.command
-    if (config.commands === 'off' || session.mode !== UNCHECKED_MODE) return next(e)
+    // A subagent's mode, until its first tool call reports it, is its parent's.
+    const mode = modes.get(agentId ?? '') ?? modes.get('')
+    if (config.commands === 'off' || mode !== UNCHECKED_MODE) return next(e)
     if (typeof command !== 'string' || !command.trim()) return next(e)
 
     const answers = await check($, 'command', { command }, 'command', COMMAND_MS)

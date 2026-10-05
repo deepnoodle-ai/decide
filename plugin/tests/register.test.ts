@@ -339,6 +339,34 @@ describe('register', () => {
     expect(ran).toHaveLength(5)
   })
 
+  test('each loop keeps its own mode: a change after a tool call counts, and a subagent in bypass mode is checked', async ($, on) => {
+    const runs = fakeDecide(on, RISK)
+    on('tool.check', () => ({ decision: 'allow' as const }))
+    on('tool.call', { tool: 'AskUserQuestion' }, ($, e) => {
+      const q = (e.questions as { question: string }[])[0]!
+      return { result: { questions: e.questions, answers: { [q.question]: 'Run it' } } }
+    })
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
+    const checked = () => runs.filter(r => r.argv[2] === 'command-risk').length
+
+    await $.session.start(SESSION)
+    await $.classic.UserPromptSubmit(BYPASS)
+    await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 't70' })
+    expect(checked()).toBe(1)
+
+    await $.classic.PostToolUse({ tool_name: 'Bash', tool_input: {}, tool_response: {}, tool_use_id: 't70', permission_mode: 'default' })
+    await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 't71' })
+    expect(checked(), 'the main loop left bypass mode').toBe(1)
+
+    await $.classic.PostToolUse({ tool_name: 'Bash', tool_input: {}, tool_response: {}, tool_use_id: 't72', permission_mode: 'bypassPermissions', agent_id: 'a1' })
+    // A call from the subagent's loop; the test API's types leave out agentId.
+    const fromSubagent = { tool: 'Bash', command: 'rm -rf build', tool_use_id: 't73', agentId: 'a1' }
+    await $.tool.call(fromSubagent as Parameters<typeof $.tool.call>[0])
+    expect(checked(), 'the subagent runs in bypass mode').toBe(2)
+    await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 't74' })
+    expect(checked(), "the subagent's mode is not its parent's").toBe(2)
+  })
+
   test('a dismissed question leaves the command unrun, and Claude reads that the user dismissed it', async ($, on) => {
     fakeDecide(on, RISK)
     on('tool.check', () => ({ decision: 'allow' as const }))
