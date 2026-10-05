@@ -38,6 +38,12 @@ for t in ssrf command-injection path-traversal sql-injection; do
 		>$R/v2/gogs-$t.jsonl
 done
 
+# Gogs, by function, with the four questions in one request. A fresh
+# answer cache, so no question is answered from an earlier run.
+mkdir -p $R/combined
+DECIDE_HOME="$PWD/work/home-combined" $D run templates-combined/universal work/gogs-snap \
+	--include '*.go' --exclude '*_test.go' --each function --json >$R/combined/gogs-universal.jsonl
+
 # Gogs, by call path. The templates default to --each function, so the
 # path run uses copies without that default. score.py reads each path's
 # function names from work/paths-<sink>.jsonl.

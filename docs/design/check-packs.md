@@ -266,6 +266,13 @@ in the `git-module` dependency, so they have no label in Gogs.
 - **Path bounds.** The path builder kept up to 3 paths per sink function
   and 6 functions deep. Its longest paths reached 6, and 123 of the 291
   SQL sink functions had 3 paths, so both limits cut paths.
+- **One request, four questions.** One template with all four questions
+  (`templates-combined/universal`) asked them in 2,030 requests instead
+  of 8,120. The answers moved by 0.004 to 0.006 on average and never by
+  more than 0.2. 29 of each top 30 were the same (25 for SQL), and the
+  flagged counts stayed within 3. Labels moved a few places either way:
+  `MigrateRepository` 2 to 1, `UserPath` 16 to 26, `UploadRepoFiles` 41
+  to 33. So a pack can be one template, and one request per item.
 - **Trust wording.** Naming operator flags and config as trusted cut the
   functions flagged at 0.5 from 81 to 54 for path traversal, 32 to 25 for
   command injection, 53 to 45 for SSRF and 10 to 6 for SQL injection.
