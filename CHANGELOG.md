@@ -15,6 +15,12 @@ may change the library API and the CLI.
   and Claude writes one question about the mistake, tests it on the fix,
   sweeps every function, and confirms the top candidates.
 
+### Changed
+
+- **The plugin checks commands only in bypass mode, and only for severe
+  harm.** `command-risk` gains a `severe` question, flagged at 80%. Local
+  cleanup, such as `git checkout -- .`, no longer asks.
+
 ### Removed
 
 - **`reply-check` and the plugin's reply check.** It flagged about one

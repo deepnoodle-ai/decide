@@ -1,7 +1,7 @@
 {
   "name": "decide",
   "version": "0.2.1",
-  "description": "A second opinion for Claude from decide: it checks shell commands before they run and content from outside before Claude acts on it, and gives Claude a judge tool for typed questions.",
+  "description": "A second opinion for Claude from decide: it checks content from outside before Claude acts on it and, in bypass mode, shell commands before they run, and gives Claude a judge tool for typed questions.",
   "author": {
     "name": "Deep Noodle"
   },
@@ -9,8 +9,8 @@
   "userConfig": {
     "commands": {
       "type": "string",
-      "title": "Risky commands",
-      "description": "What happens when decide judges a shell command likely to destroy work or expose secrets. \"ask\" (the default): you choose, even in a mode that would run it without asking. \"deny\": it does not run, and Claude is told why. \"off\": commands are not checked.",
+      "title": "Severe commands",
+      "description": "In bypass mode, what happens when decide judges a shell command likely to cause severe harm, such as deleting a home folder, force-pushing a shared branch, dropping a database, or sending secrets away. \"ask\" (the default): you choose. \"deny\": it does not run, and Claude is told why. \"off\": commands are not checked.",
       "required": false,
       "default": "ask",
       "options": [

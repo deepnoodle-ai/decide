@@ -9,7 +9,7 @@
  * changing a flag, fails CI instead of quietly changing a check.
  */
 export const TEMPLATES = {
-  command: { name: 'command-risk', flags: { destructive: 0.8, leak: 0.8, external: null } },
+  command: { name: 'command-risk', flags: { severe: 0.8 } },
   content: { name: 'prompt-injection', flags: { injection: 0.6, hidden: 0.6 } },
 } as const
 

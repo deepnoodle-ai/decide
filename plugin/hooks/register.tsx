@@ -35,17 +35,28 @@ const RETRY_MS = 60_000
 
 /** What the command check says, by question, when it flags one. */
 const COMMAND_RISKS: Record<string, string> = {
-  destructive: 'likely to destroy work that is hard to get back',
-  leak: 'likely to expose secrets or private data',
+  severe: 'likely to cause severe harm that is hard to undo',
 }
+
+/**
+ * The one permission mode the command check runs in. Elsewhere Claude Code
+ * asks the person, or its auto-mode classifier judges the command.
+ */
+const UNCHECKED_MODE = 'bypassPermissions'
 
 type CheckName = keyof typeof TEMPLATES
 
 /** The plugin's options, read each time it loads. */
 const config = { commands: 'ask', bin: 'decide' }
 
-/** The session as the checks need it: who can answer, and its permission mode. */
-const session = { isInteractive: false, mode: undefined as string | undefined }
+/** The session as the checks need it: who can answer. */
+const session = { isInteractive: false }
+
+/**
+ * Each loop's latest permission mode, by its agent id; the main loop's
+ * under ''. A subagent can run in a mode of its own.
+ */
+const modes = new Map<string, string>()
 
 /** DECIDE_HOME for the plugin's runs, and decide's working directory. */
 let home: string | undefined
@@ -63,6 +74,7 @@ export const register: Register = (on, options) => {
   config.commands = String(options.commands ?? 'ask')
   config.bin = String(options.decidePath ?? 'decide')
   for (const h of Object.values(health)) Object.assign(h, { offUntil: 0, reason: '' })
+  modes.clear()
 
   on('session.start', async ($, e, next) => {
     session.isInteractive = e.isInteractive
@@ -81,14 +93,14 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
-  // The settings-hook events carry the permission mode; keep the latest,
-  // from each prompt and after each tool call.
+  // The settings-hook events carry the permission mode; keep each loop's
+  // latest, from each prompt and after each tool call.
   on('classic.UserPromptSubmit', ($, e, next) => {
-    session.mode = e.permission_mode ?? session.mode
+    if (e.permission_mode) modes.set(e.agent_id ?? '', e.permission_mode)
     return next(e)
   })
   on('classic.PostToolUse', ($, e, next) => {
-    session.mode = e.permission_mode ?? session.mode
+    if (e.permission_mode) modes.set(e.agent_id ?? '', e.permission_mode)
     return next(e)
   })
 
@@ -121,11 +133,16 @@ export const register: Register = (on, options) => {
     return { result: text }
   })
 
-  // The command check: a second opinion on each shell command before it runs.
+  // The command check: in bypass mode, where nothing else checks a shell
+  // command, a second opinion on each one before it runs. It flags only
+  // severe harm, not routine work that discards local changes.
   on('tool.call', { tool: SHELLS }, async ($, e, next) => {
     const { tool, tool_use_id, agentId, ...input } = e as { tool: string; tool_use_id?: string; agentId?: string; command?: unknown }
     const command = input.command
-    if (config.commands === 'off' || typeof command !== 'string' || !command.trim()) return next(e)
+    // A subagent's mode, until its first tool call reports it, is its parent's.
+    const mode = modes.get(agentId ?? '') ?? modes.get('')
+    if (config.commands === 'off' || mode !== UNCHECKED_MODE) return next(e)
+    if (typeof command !== 'string' || !command.trim()) return next(e)
 
     const answers = await check($, 'command', { command }, 'command', COMMAND_MS)
     if (answers === undefined) return next(e)
@@ -142,11 +159,11 @@ export const register: Register = (on, options) => {
       return { deny: `${reason} It was not run. Find a safer way to do this, or ask the user to run it.` }
     }
 
-    // When Claude Code will put the call to the person, add decide's line to
-    // that dialog. In auto mode its ask goes to a classifier, not a person.
+    // Bypass mode still refuses or asks about a few commands. When Claude
+    // Code will ask the person, add decide's line to that dialog.
     const engine = await $.tool.check({ tool, input }).catch(() => undefined)
     if (engine?.decision === 'deny') return next(e)
-    if (engine?.decision === 'ask' && session.mode !== undefined && session.mode !== 'auto') {
+    if (engine?.decision === 'ask') {
       if (tool_use_id) {
         try {
           $.ui.notice(tool_use_id, `decide: ${why}`)
@@ -212,7 +229,7 @@ export const register: Register = (on, options) => {
     if (all.length === 0) {
       return {
         text: [
-          "Nothing checked in this session yet. It checks shell commands before they run and content from outside.",
+          "Nothing checked in this session yet. It checks content from outside, and in bypass mode, shell commands before they run.",
           ...off,
           ...skipped,
           saved,
@@ -330,7 +347,7 @@ async function check($: EngineInterface, name: CheckName, input: Record<string, 
 
   const missing = missingOf(item.answers, flags)
   if (missing.length > 0) {
-    return fail($, name, now, `${template} did not ask ${missing.join(', ')}, so another template of that name may be replacing decide's built-in.`)
+    return fail($, name, now, `${template} did not ask ${missing.join(', ')}. Update decide with: brew upgrade decide. If it is current, another template of that name may be replacing decide's built-in.`)
   }
   if (h.reason) {
     Object.assign(h, { offUntil: 0, reason: '' })

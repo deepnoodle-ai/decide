@@ -36,7 +36,7 @@ cd -
 decide run task-readiness demo/issues.json    # flags the vague and large issues
 decide run prompt-injection demo/issues.json  # flags issue 105
 decide run pr-description demo/prs.json       # flags all but pull request 201
-decide run command-risk demo/commands.txt     # flags lines 5 to 9
+decide run command-risk demo/commands.txt     # flags lines 5 to 9; severe on 6, 7, and 9
 ```
 
 Without git, run the same templates on `change.diff` from inside `repo/`:

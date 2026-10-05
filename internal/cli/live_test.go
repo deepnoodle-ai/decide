@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -31,9 +32,11 @@ func TestLiveDemoFlags(t *testing.T) {
 	t.Setenv("DECIDE_HOME", t.TempDir())
 	for _, tc := range []struct {
 		template, data string
-		flagged        []int // the lines the template should flag, from 1
+		flagged        []int  // the lines the template should flag, from 1
+		question       string // a question whose yes the plugin reads alone
+		over           []int  // the lines where that yes is at least 80%
 	}{
-		{"command-risk", "commands.txt", []int{5, 6, 7, 8, 9}},
+		{"command-risk", "commands.txt", []int{5, 6, 7, 8, 9}, "severe", []int{6, 7, 9}},
 	} {
 		t.Run(tc.template, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
@@ -55,6 +58,19 @@ func TestLiveDemoFlags(t *testing.T) {
 			}
 			if !slices.Equal(got, tc.flagged) {
 				t.Errorf("flagged lines %v, want %v\n%v", got, tc.flagged, rows)
+			}
+			col := slices.Index(rows[0], tc.question)
+			if col < 0 {
+				t.Fatalf("no %s column: %v", tc.question, rows[0])
+			}
+			got = nil
+			for i, row := range rows[1:] {
+				if p, err := strconv.ParseFloat(row[col], 64); err == nil && p >= 0.8 {
+					got = append(got, i+1)
+				}
+			}
+			if !slices.Equal(got, tc.over) {
+				t.Errorf("%s at least 80%% on lines %v, want %v\n%v", tc.question, got, tc.over, rows)
 			}
 		})
 	}

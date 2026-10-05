@@ -1,5 +1,5 @@
 {
-  "description": "decide's second opinion: the command check on Bash, the content check on content from outside, the judge tool, and /decide",
+  "description": "decide's second opinion: the command check on Bash in bypass mode, the content check on content from outside, the judge tool, and /decide",
   "modules": [
     "./register.tsx"
   ]
