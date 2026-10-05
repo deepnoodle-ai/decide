@@ -6,6 +6,9 @@
 **Workflow:** Prototype → spec → build. A prototype mod ran live in Claude
 Code 2.1.288; this spec fixes its shape before it moves into the repository.
 **PRD:** [docs/prds/claude-code-plugin.md](../prds/claude-code-plugin.md)
+**Revised:** 2026-10-04. The command check runs only in bypass mode and
+flags only `severe` (#54). The reply check is removed (#53); its sections
+stay as a record.
 
 ## Context
 
@@ -85,32 +88,39 @@ module never runs a shell: `$.process.run` takes an argv.
 
 | Check | Hook | Template | Record | Flagged when | Action |
 | --- | --- | --- | --- | --- | --- |
-| Command | `tool.call` on `Bash`, before `next` | `command-risk`, `--field command` | `{"command"}` | `destructive` or `leak` ≥ 80% | see below |
+| Command | `tool.call` on `Bash` and `Monitor`, before `next`, in `bypassPermissions` mode only | `command-risk`, `--field command` | `{"command"}` | `severe` ≥ 80% | see below |
 | Content | `tool.call` on WebFetch, WebSearch, `mcp__*` but our own, and Bash with `gh`, `curl`, `wget`, `http`; after `next` | `prompt-injection`, `--field text` | `{"text"}`, results of 80+ characters | `injection` or `hidden` ≥ 60% | add a `context` note to the result; toast |
 | Reply | `turn.complete`, main loop, reason `answer`, after a turn with tool calls, in an interactive terminal or desktop session | `reply-check` | `{"reply", "tools"}` | `overclaims` ≥ 70% | set the band's notice; toast |
 
 The percentages are the templates' own flags. `hooks/templates.ts` repeats
-them, and a Go test holds the two in step (below).
+them, and a Go test holds the two in step (below). The CLI flags
+`command-risk` on `destructive`, `leak`, or `severe`. The plugin reads
+`severe` alone, so local cleanup such as `git checkout -- .` does not ask.
 
 The command check's action, when flagged and `commands` is `ask`:
 
 1. Ask the engine what it would decide: `$.tool.check({ tool: 'Bash', input })`.
 2. `deny`: pass the call on; the engine refuses it.
-3. `ask`, in a mode where a person answers: put decide's line under the
-   engine's dialog with `$.ui.notice`, and pass the call on. One dialog.
-4. `allow` (a rule or `bypassPermissions`), or `ask` in `auto` mode, where
-   the auto-mode classifier answers instead of a person: ask with
-   `$.ui.ask`. **Run it** passes the call on (in `auto`, the classifier then
-   still decides). Anything else returns `{ deny }` with decide's reason and
-   the person's words. A rejected ask returns `{ deny }` that says the user
-   dismissed the question, or, in a session with no one at the prompt, that
-   no one could approve it.
+3. `ask`: bypass mode still asks about a few commands. Put decide's line
+   under the engine's dialog with `$.ui.notice`, and pass the call on. One
+   dialog.
+4. `allow`: ask with `$.ui.ask`. **Run it** passes the call on. Anything
+   else returns `{ deny }` with decide's reason and the person's words. A
+   rejected ask returns `{ deny }` that says the user dismissed the
+   question, or, in a session with no one at the prompt, that no one could
+   approve it.
+
+The check runs only in `bypassPermissions`, where nothing else checks a
+command. In the other modes Claude Code asks the person, or the auto-mode
+classifier judges, about each command that no allow rule matches. A
+command that matches an allow rule runs unchecked, as the person chose.
 
 `tool.call` does not carry the permission mode. `classic.UserPromptSubmit`
 and `classic.PostToolUse` do, as `permission_mode`, so the plugin keeps the
-latest value. A mode switched mid-turn takes effect after the next tool
-call; before the first prompt the mode is unknown and the plugin asks
-itself, as in step 4.
+latest value for each loop, by `agent_id`. A subagent can run in a mode of
+its own; until its first tool call reports one, it has its parent's. A mode
+switched mid-turn takes effect after the next tool call. Before the first
+prompt the mode is unknown, and commands are not checked.
 
 With `commands` set to `deny`, a flagged command returns `{ deny }` at once.
 
@@ -157,9 +167,12 @@ repeated question reuse its folder. Every question's instructions end with
 
 ### The two templates
 
-`command-risk` asks three `noul` questions about one shell command:
-`destructive`, `leak`, and `external`. It flags `destructive` and `leak` at
-80%. `external` is never flagged (PRD Decisions); `/decide` shows it.
+`command-risk` asks four `noul` questions about one shell command:
+`destructive`, `leak`, `external`, and `severe`. It flags `destructive`,
+`leak`, and `severe` at 80%. `external` is never flagged (PRD Decisions).
+`severe` asks about harm beyond the local checkout that is hard to undo; it
+was added after `destructive` flagged routine cleanup in real use. The
+plugin reads `severe` alone, and `/decide` shows it.
 
 `reply-check` asks two `noul` questions about one JSON record:
 `overclaims` (the reply claims an outcome, such as passing tests or a
@@ -179,7 +192,8 @@ the reply check rewritten to read the record's fields.
   and loads each name as a built-in.
 - `hooks/templates.ts` also gives each question's flag. The same Go test
   checks that each one matches the template's flag, and that a question the
-  plugin reads but never flags (`external`) has no flag.
+  plugin reads but never flags has no flag. The plugin reads only some of a
+  template's questions: for `command-risk`, `severe` alone.
 - `plugin.json`'s `version` is the decide release the plugin needs. Claude
   Code updates an installed plugin when this version changes, and only
   then; auto-update is off by default for third-party marketplaces, so most
@@ -242,7 +256,7 @@ not run it; it needs a key.
 
 ## Security considerations
 
-- **What leaves the machine.** Each shell command; each checked result,
+- **What leaves the machine.** Each shell command in bypass mode; each checked result,
   whole, MCP results from private connectors included; and each final
   reply with the first and last 400 characters of each tool result in
   the turn (a file's contents among them), up to 12,000 characters. Every
@@ -294,10 +308,10 @@ to do:
 | decide is not on PATH | decide could not run. Install it with: brew install deepnoodle-ai/tap/decide |
 | No key | decide's own error: TYPESAFE_API_KEY is not set |
 | A provider error | decide's own error |
-| decide is older than the plugin | this plugin needs decide 0.2.0 or later. Update it with: brew upgrade decide |
-| No answer within 10 s (commands) or 20 s (replies) | decide took longer than 10 seconds |
+| decide is older than the plugin, with no such template | this plugin needs decide 0.3.0 or later. Update it with: brew upgrade decide (the version is `plugin.json`'s) |
+| No answer within 10 s (commands) | decide took longer than 10 seconds |
 | A template of the same name under `~/.decide/agent` | `<path>` replaces decide's built-in command-risk. Remove it to turn the check back on. |
-| Answers without the questions the check reads | command-risk did not ask destructive, …; another template of that name may be replacing decide's built-in. |
+| Answers without the questions the check reads, as from a decide before 0.3.0 | command-risk did not ask severe. Update decide with: brew upgrade decide. If it is current, another template of that name may be replacing decide's built-in. |
 
 A content check that takes over 20 s skips that one result and stays on.
 
