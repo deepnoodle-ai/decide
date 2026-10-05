@@ -17,16 +17,19 @@ decide and write templates.
 **`/decide:hunt <commit or PR>`** finds the other places a fixed bug lives.
 Claude writes one question about the mistake the fix corrected, checks
 that it flags the code before the fix and passes the code after, asks it
-of every function in the repository, and reads the top ten to confirm
-them. The question is saved as a project template, such as
+of every function in the repository, and reads up to ten that score 30%
+or more to confirm them. The question is saved as a project template, such as
 `.decide/templates/bug-87`, so later changes can be checked for the same
 bug.
 
 **`/decide:audit [path]`** finds where to look for security bugs. decide's
 `security` template ranks every function for SQL and command injection,
-SSRF, XSS, and weak cryptography; Claude reads the top 15 with their
-callers, in parallel, and reports which are real and which it dismissed,
-and why.
+SSRF, XSS, and weak cryptography; Claude reads up to 15 that score 30% or
+more, with their callers, in parallel, and reports which are real and
+which it dismissed, and why.
+
+For a walk through setup and each skill, see the
+[user guide](../docs/claude-code.md).
 
 ## Install
 
@@ -55,8 +58,8 @@ is also saved as a decide run:
 DECIDE_HOME=~/.decide/agent decide runs
 ```
 
-To update the plugin, run `/plugin marketplace update decide`, or turn on
-auto-update for the marketplace in `/plugin`.
+To update the plugin, run `claude plugin update decide@decide` and restart
+Claude Code, or turn on auto-update for the marketplace in `/plugin`.
 
 ## What it sends and keeps
 
@@ -66,9 +69,9 @@ These go to the decision model's provider, with your key:
 - each result the content check reads, whole: web pages, search results,
   `gh` and `curl` output, and every MCP tool's result, private connectors
   included. A result over 1,000,000 characters goes on unchecked;
-- with `/decide:hunt`, every function in the repository the sweep covers.
-  Its runs and answers are kept in your own `~/.decide`, like any
-  `decide run`.
+- with `/decide:audit` or `/decide:hunt`, every function in the
+  repository it covers. Its runs and answers are kept in your own
+  `~/.decide`, like any `decide run`.
 
 Each check is also saved on your disk as a decide run under
 `~/.decide/agent/runs`, readable only by you. Nothing removes them; delete
