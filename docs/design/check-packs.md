@@ -263,6 +263,9 @@ in the `git-module` dependency, so they have no label in Gogs.
   `GetByCollaboratorID` fell from 0.90 to 0.33. `searchUserByName` stayed
   high because the spike's path builder stopped one call too early; it
   treated every function in `internal/route` as an entry point.
+- **Path bounds.** The path builder kept up to 3 paths per sink function
+  and 6 functions deep. Its longest paths reached 6, and 123 of the 291
+  SQL sink functions had 3 paths, so both limits cut paths.
 - **Trust wording.** Naming operator flags and config as trusted cut the
   functions flagged at 0.5 from 81 to 54 for path traversal, 32 to 25 for
   command injection, 53 to 45 for SSRF and 10 to 6 for SQL injection.

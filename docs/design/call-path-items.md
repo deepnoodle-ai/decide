@@ -25,7 +25,8 @@ what its callers pass:
 The spike's path builder, [`spikes/check-packs/paths`](../../spikes/check-packs/paths/main.go),
 knows only Gogs. Its entry points are every function in three packages, so
 it stopped `searchUserByName`'s path one call too early, and it names
-Gogs' own wrappers as sinks. This proposal makes it general.
+Gogs' own wrappers and `git-module` as sinks by hand. This proposal makes
+it general.
 
 The [SDLC brainstorm](sdlc-brainstorm.md) cut exact analysis inside decide:
 "the project's toolchain already does it." The spike reopens it for one
@@ -34,11 +35,11 @@ job only: building items. decide still judges, and still doesn't prove.
 ## Goals
 
 - A Go project gets call-path items with no project setup.
-- The flow templates of the universal pack (`sql-injection`,
-  `command-injection`, `path-traversal`, `ssrf`, `code-injection` and
-  `unsafe-deserialization`) work on path items with no change in wording.
-- The number of items is bounded and known before a run, and each item
-  fits in one request.
+- The four flow templates the spike measured, `sql-injection` (CWE-89),
+  `command-injection` (CWE-78), `path-traversal` (CWE-22) and `ssrf`
+  (CWE-918), work on path items with no change in wording.
+- The number of items is bounded and known before a run, and decide never
+  cuts a path into parts.
 - The path builder is deterministic: the same code gives the same paths,
   so the answer cache holds.
 
@@ -49,8 +50,10 @@ job only: building items. decide still judges, and still doesn't prove.
   code and judges.
 - Languages other than Go in the first release. TypeScript comes next;
   see [Languages](#languages).
-- Replacing function items. Some bugs have no path to a sink (see
-  [Failure modes](#failure-modes)).
+- Replacing function items. Some flows have no path from a request (see
+  [What has no path](#what-has-no-path)).
+- Other flow templates, such as `code-injection`. Each gets its sinks when
+  its template is built and measured.
 - Bugs that span threads or requests, such as races and goroutine leaks.
   These need the callers too, but not a path from an entry point.
 
@@ -59,7 +62,7 @@ job only: building items. decide still judges, and still doesn't prove.
 ### Where the builder lives
 
 A separate program, `decide-paths`, writes call paths as JSONL. decide
-reads them as records, as it reads any JSONL today:
+reads them as records:
 
 ```sh
 decide-paths --sink command ./... > paths.jsonl
@@ -70,13 +73,25 @@ Later, `--each path` runs `decide-paths` for the person (see
 [Rollout](#rollout)).
 
 - It is a command in this module, `cmd/decide-paths`, with its code in
-  `internal/paths`. It is released beside `decide`, from the same tag.
-- `decide` doesn't import `internal/paths`, so the `decide` binary doesn't
-  link `golang.org/x/tools`, and runs on projects with no Go toolchain.
-- `decide-paths` needs the Go toolchain and the project's modules, as
-  `go vet` does. It loads packages with `golang.org/x/tools/go/packages`,
-  builds SSA, and builds the call graph with VTA over CHA, as the spike
-  did.
+  `internal/paths`. `decide` doesn't import `internal/paths`, so the
+  `decide` binary doesn't link `golang.org/x/tools`, and still runs on
+  projects with no Go toolchain.
+- It is installed with `go install
+  github.com/deepnoodle-ai/decide/cmd/decide-paths@<version>`, not as a
+  release binary. `go/packages` type-checks with the `go/types` built into
+  the program, so a binary built with Go 1.N fails on a module that uses
+  Go 1.N+1. `go install` builds it with the person's own toolchain, which
+  is the one their project builds with. The plugin checks for it and
+  prints the install command when it is missing.
+- It loads packages with `golang.org/x/tools/go/packages`, builds SSA, and
+  builds the call graph with VTA over CHA, as the spike did.
+
+**decide change.** The flow templates default to `"each": "function"`.
+Today a JSONL file named with that default fails: "is not in Go…; use
+--each file". The spike ran copies of the templates without `each`. In
+step 1, a dataset (JSONL, JSON or CSV) is read as records when the unit
+comes from the template's default. An explicit `--each function` still
+fails on it. A test covers both.
 
 ### Languages
 
@@ -95,8 +110,8 @@ templates call input "untrusted" when a remote user or another system
 controls it, and they call flags, environment variables and configuration
 trusted. Entry points follow the same rule.
 
-A function is an entry point when one of its parameters has a request
-type, or a struct type that embeds one:
+A function is an entry point when its own signature has a parameter of a
+request type, or of a struct type that embeds one:
 
 | Kind | Types |
 | --- | --- |
@@ -105,15 +120,23 @@ type, or a struct type that embeds one:
 | Connect | `*connect.Request[T]` |
 | gRPC | a method of a type that embeds an `Unimplemented…Server` |
 
-The embedding rule catches a framework context that a project wraps. Gogs'
-`*context.Context` embeds `*macaron.Context`.
-
-- **Outermost wins.** A helper that takes the request is an entry point
-  too, by this rule. When the builder walks back from a sink and finds an
-  entry point, it keeps walking while the caller is also an entry point,
-  and starts the path at the last one. In the spike, `searchUserByName`'s
-  path started at `RenderUserSearch`, a helper that takes the request;
-  its caller `ExploreUsers` is where the request's values come from.
+- **Closures count.** The rule tests each function's own signature,
+  closures included. `http.HandleFunc("/x", func(w, r) {…})` inside `main`
+  is an entry point, and so is the `http.HandlerFunc` that a method such
+  as `func (s *server) handleX() http.HandlerFunc` returns. The path starts
+  at the closure, and its header names the function that holds it. Only
+  the closure's source is in the item, not all of `main`.
+- **Embedding.** The embedding rule catches a framework context that a
+  project wraps. Gogs' `*context.Context` embeds `*macaron.Context`.
+- **Outermost wins, over static calls.** A helper that takes the request
+  is an entry point too, by this rule. When the builder walks back and
+  finds an entry point, it keeps walking while a caller is also an entry
+  point and calls it by a static call, and starts the path at the last
+  one. In Gogs, `searchUserByName`'s path started at `RenderUserSearch`, a
+  helper that takes the request; `ExploreUsers` calls it statically and is
+  where the request's values come from. The walk doesn't go up through
+  dynamic calls, so it stops at a handler and not at the middleware that
+  calls `next.ServeHTTP`, which VTA links to every handler.
 - **`main` is not an entry point.** Its input is flags and environment.
 - **A project can add entry points** with `--entry`, a pattern of package
   and function, such as `--entry 'gogs.io/gogs/cmd/gogs.runServ'`. Gogs'
@@ -126,39 +149,59 @@ The embedding rule catches a framework context that a project wraps. Gogs'
 ### Sinks
 
 A sink is a call that does harm with untrusted input. `decide-paths` has
-one built-in list per flow template:
+one built-in list per flow template, and each sink names all of its input
+arguments:
 
-| `--sink` | Template | Examples |
+| `--sink` | Template | Examples, with input arguments |
 | --- | --- | --- |
-| `sql` | `sql-injection` | `(*database/sql.DB).Query`, `Exec`; GORM's `Raw`, `Where`, `Order`; sqlx and pgx |
-| `command` | `command-injection` | `os/exec.Command`, `CommandContext`, `syscall.Exec` |
-| `path` | `path-traversal` | `os.Open`, `OpenFile`, `Create`, `Remove`, `RemoveAll`, `WriteFile`, `ReadFile`, `Rename`, `Symlink` |
-| `ssrf` | `ssrf` | `(*net/http.Client).Do`, `Get`, `Post`; `net/http.NewRequest`, `net.Dial` |
-| `code` | `code-injection` | `text/template.Parse`, `plugin.Open`, embedded interpreters |
-| `deserialize` | `unsafe-deserialization` | `encoding/gob`, `yaml.Unmarshal` into `interface{}` |
+| `sql` | `sql-injection` | `(*database/sql.DB).Query(query)`, `Exec(query)`; GORM's `Raw(sql)`, `Where(query)`, `Order(value)`; sqlx and pgx |
+| `command` | `command-injection` | `os/exec.Command(name, args...)`, `CommandContext(name, args...)`, `syscall.Exec(argv0, argv)` |
+| `path` | `path-traversal` | `os.Open(name)`, `OpenFile(name)`, `Create(name)`, `Remove(name)`, `RemoveAll(path)`, `WriteFile(name)`, `ReadFile(name)`, `Rename(old, new)`, `Symlink(old, new)` |
+| `ssrf` | `ssrf` | `(*net/http.Client).Do(req)`, `Get(url)`, `Post(url)`; `net/http.NewRequest(url)`, `net.Dial(address)` |
 
-Two rules keep the lists short and the paths few:
+Three rules find the sink calls a list doesn't name, and drop the ones
+that can't carry input:
 
+- **Forwarders are sinks.** A project function that passes one of its
+  parameters to a sink's input argument, directly or through a slice or a
+  variadic argument, is itself a sink, and the rule applies again to its
+  callers. Gogs runs most commands through `process.Exec`, `ExecTimeout`
+  and `ExecDir`, which share one `exec.Command` call and have 26 callers.
+  Without this rule, the 3 paths to that call site show 3 of the 26
+  callers, and probably not `PullRequest.Merge`, the command-injection
+  label. With it, each of the 26 calls is a sink call with paths of its
+  own. Each item's header
+  names the chain down to the real sink: "`ExecDir`, which calls
+  `os/exec.Command`".
 - **Sinks reached through dependencies count.** When a project calls a
   dependency, and that dependency calls a sink by static calls, the
-  project's call is a sink call. Gogs calls `git-module.Clone`, which runs
-  `git`. The spike had to name `git-module` by hand. Only static calls
-  count inside dependencies. Interface calls would reach every sink.
-- **Constant arguments drop.** A sink call whose input argument is a
-  constant can't carry untrusted input: `exec.Command("git", "version")`,
-  or `db.Where("id = ?", id)`, where the SQL is constant and the value is a
-  parameter. Each sink names its input argument. This rule is local to the
-  call. A constant passed down from a caller stays a path, and the model
-  judges it, as it did for `orderBy`.
+  project's call is a sink call of the same kind. Gogs calls
+  `git-module.Clone`, which runs `git`, so it becomes a `command` sink.
+  Only static calls count inside dependencies. Interface calls would reach
+  every sink. A dependency that does network work in a subprocess, as
+  `git clone` does, shows up as `command`, not `ssrf`. The spike listed
+  `git-module.Clone` as an SSRF sink by hand. `--sink-call` adds such a
+  call to a kind by pattern.
+- **Constant arguments drop.** A sink call whose input arguments are all
+  constant can't carry untrusted input: `os.Open("/etc/gogs.ini")`, or
+  `db.Where("id = ?", id)`, where the SQL is constant and the value is a
+  parameter. `exec.Command("git", args...)` doesn't drop: its name is
+  constant, but its args aren't, and the branch-name bugs that Gogs'
+  fixes #8390 and #8393 were about are in the args. In SSA, a variadic
+  argument is a slice; the call drops only when every value stored in it
+  is constant. A sink found through a dependency has no named input
+  arguments, so it never drops. The rule is local to the call. A constant
+  passed down from a caller stays a path, and the model judges it, as it
+  did for `orderBy`.
 
-`--sink-call` adds a project's own sink, by pattern. The
-[`where` proposal](check-packs.md#sequence-one-pr-each) may move the sink
-lists into each `template.json`. Until then they live in `decide-paths`.
+The [`where` proposal](check-packs.md#sequence-one-pr-each) may move the
+sink lists into each `template.json`. Until then they live in
+`decide-paths`.
 
 ### Building paths
 
 The builder walks back from sinks, not forward from entry points. Forward
-walks from every handler reach most of the program.
+walks from every handler reach most of the program through shared helpers.
 
 1. Find each call site in the project's code that calls a sink, after the
    rules above.
@@ -168,8 +211,7 @@ walks from every handler reach most of the program.
    different entry point when there is one. `--per` changes the number.
 4. Stop at 8 functions deep. `--depth` changes it.
 
-A closure belongs to the function that holds it, as in the spike. Test
-files are skipped.
+Test files are skipped.
 
 ### The item
 
@@ -202,12 +244,16 @@ func Dashboard(c *context.Context) { ... }
 func (s *RepositoriesStore) GetByCollaboratorID(ctx context.Context, ...) { ... }
 ```
 
-**Size.** Each record's `text` fits under decide's item limit (64 KB, less
-the room for questions), so decide never cuts a path into parts. A cut
-path loses the flow. When a path is too large, the builder shortens the
-middle functions, never the first or the last: it keeps each one's
-signature and the lines around the call to the next, and writes `// 140
-lines left out`. The largest Gogs path in the spike was 28 KB.
+**Size.** decide cuts a record into parts when its text, encoded as JSON,
+is larger than `MaxItemBytes` less `StateRoom` and the size of its label
+(`internal/source`). JSON encoding makes `<`, `>` and `&` 6 bytes each,
+and tabs, newlines and quotes 2. A cut path loses the flow, so the builder
+measures `json.Marshal(text)` against the same limits, imported from
+`internal/source`, with room for a label. When a path is too large, it
+shortens the middle functions, never the first or the last: it keeps each
+one's signature and the lines around the call to the next, and writes
+`// 140 lines left out`. A test checks that decide reads no record from
+`decide-paths` in parts. The largest Gogs path in the spike was 28 KB.
 
 **Labels.** Today decide labels a record by its file and line, such as
 `paths.jsonl:3`, so `--format github` would annotate the JSONL file. The
@@ -219,31 +265,47 @@ lines left out`. The largest Gogs path in the spike was 28 KB.
 
 | Bound | Default | Why |
 | --- | --- | --- |
-| Paths per sink call | 3 | The spike's value. In Gogs, 123 of 291 SQL sink functions reached the cap. See [Open questions](#open-questions). |
-| Depth | 8 functions | The spike used 6, and its longest paths reached it, so some were cut. |
+| Paths per sink call | 3 | The spike's value. With forwarders as sinks, a shared helper no longer spends them all. |
+| Depth | 8 functions | The spike used 6, and its longest paths reached it, so some were probably cut. |
 | Item size | under decide's limit | A cut path loses the flow. |
 | Items in a run | none | `decide run --dry-run` counts them, and `--limit` caps them, as for any run. |
 
-`decide-paths` prints its counts to stderr, such as "151 paths to 86 sink
-calls. 12 sink calls have no path from an entry point." In the spike,
-Gogs had 17 SSRF paths, 124 file paths, 151 command paths and 607 SQL
-paths, and the largest was 28 KB.
+`decide-paths` prints its counts to stderr: the paths, the sink calls, and
+the sink calls with no path from an entry point. The spike counted
+by function, not call site: in Gogs it found 17 SSRF paths to 10 sink
+functions, 151 command paths to 86, 124 file paths to 64, and 607 SQL
+paths to 291.
 
-### How the plugin uses it
+### What has no path
 
-`/decide:hunt` and the universal-pack skill run `decide-paths` when the
-project is Go and the template is a flow template, then `decide run` on
-the paths. Claude confirms the top results by reading the path and its
-callers, as it does for function items. A sink call with no path is
-reported as a count, and its function is still judged by function.
+Some flows don't start at a request, and some bugs aren't at a sink.
+Function items still judge these, so path items add to function items for
+the flow templates. They don't replace them.
+
+- **Stored input.** A user saves a webhook URL or a mirror address in one
+  request, and a background job uses it later. In Gogs, `HookTask.deliver`
+  and `Mirror.runSync`, two of the SSRF labels, run in goroutines that
+  start at boot (`go DeliverHooks()`, `go SyncMirrors()`). No caller takes
+  a request, so they have no path.
+- **Code that builds or checks, but doesn't call a sink.** `UserPath`
+  builds a path but opens no file, and `isRepositoryGitPath` is a check.
+  Both were Gogs path-traversal bugs.
+- **Sinks the lists miss.** `MigrateRepository` reaches the network
+  through `git-module.Clone`, which the dependency rule makes a `command`
+  sink, so an `ssrf` run misses it unless `--sink-call` adds it.
+
+`decide-paths --orphans` writes one more record per sink call that has no
+path: the function that holds it, with its source. A run on paths and
+orphans covers every sink call, and judges the orphans as function items
+are judged today.
 
 ## Alternatives considered
 
 - **`--each path` inside `decide`, from the start.** One command for the
   person. It links `golang.org/x/tools` into a binary that runs on any
-  project, and puts one language's analysis inside the generic CLI before
-  we know it works. We get there later by running `decide-paths`, as git
-  runs `git-foo`.
+  project, and it has the Go version problem above. It also puts one
+  language's analysis inside the generic CLI before we know it works. We
+  get there later by running `decide-paths`, as git runs `git-foo`.
 - **Claude builds the paths with an LSP or grep.** It works in any
   language, but it isn't deterministic, so the cache misses and two runs
   disagree. It costs model calls per path. It suits confirming, not
@@ -255,22 +317,18 @@ reported as a count, and its function is still judged by function.
 - **Callers as context (`--context calls`).** A function item plus its
   direct callers. It fixes the `orderBy` case, which needed one hop, and
   it works in any language decide parses today. It can't show where input
-  enters, so trust stays a guess. It is a candidate for function items
-  that have no path, not a replacement.
+  enters, so trust stays a guess. It may suit orphans better than the
+  orphan's function alone.
 - **Forward from entry points.** Every handler reaches most of the
-  program through shared helpers. Backward from sinks gives fewer paths,
-  and every one ends at a sink.
+  program. Backward from sinks gives fewer paths, and every one ends at a
+  sink.
 
 ## Failure modes
 
-- **No path to the sink.** In the spike, `UserPath` builds a path but
-  opens no file, and `isRepositoryGitPath` is a check, not a sink. Both
-  were Gogs path-traversal bugs, and neither has a path. Function items
-  still find them, so path mode adds to function mode for now.
 - **A missing entry point.** A queue consumer, a webhook from another
   service, or a framework not in the table. Its paths are lost with no
-  error. The counts on stderr and `--entry` are the answer. Each new
-  framework is one row in the table.
+  error. The counts on stderr, `--orphans` and `--entry` are the answer.
+  Each new framework is one row in the table.
 - **Call graph errors.** VTA over-approximates interface calls, so some
   paths can't happen at runtime. The model judges them, and they cost
   requests. Calls through reflection are missed.
@@ -292,13 +350,17 @@ reported as a count, and its function is still judged by function.
 
 ## Rollout
 
-1. **`decide-paths` for Go**, with the entry and sink rules above, tests on
-   a fixture module in `testdata/`, and a planted path in `demo/`. Measure
-   it against the spike on Gogs: each label's rank, the items flagged at
-   0.5, and the requests per sweep. Add a second Go project with labeled
-   fixes, and one of ours to count false positives. It ships when path
-   mode ranks the labels that have a path at least as high as function
-   mode, with fewer items flagged.
+1. **`decide-paths` for Go**, with the entry and sink rules above, and
+   the decide change that reads a dataset as records under a template's
+   default unit. Tests on a fixture module in `testdata/`, and a planted
+   path in `demo/`. Measure it against the spike on Gogs, on every label,
+   not only those with a path. A label with no path counts at its rank
+   in the function run, as an orphan would be judged. Compare each label's
+   rank, the items flagged at 0.5, and the requests per sweep, for three
+   runs: functions only, paths only, and paths plus orphans. Add a second
+   Go project with labeled fixes, and one of ours to count false
+   positives. It ships when paths plus orphans rank the labels at least
+   as high as functions only, with fewer items flagged.
 2. **The plugin** runs it for flow templates on Go projects.
 3. **`--each path`.** decide runs `decide-paths` from `PATH`, passes the
    template's sinks, labels each item by its sink call, and names the unit
@@ -308,13 +370,12 @@ reported as a count, and its function is still judged by function.
 
 ## Open questions
 
-1. Should flow templates on Go run both path and function items by default,
-   or path items, with function items only for sink calls that have no
-   path? Both cost about twice the requests. The answer needs the
-   measurements in step 1.
+1. Is paths plus orphans the default for flow templates, or paths plus
+   every function? The second costs more requests and may find bugs that
+   aren't at a sink, such as `UserPath`. Step 1 measures both.
 2. Should `decide-paths` take a template name (`--template ssrf`) instead
-   of a sink kind, so the template and its sinks can't drift apart?
-3. Is 3 paths per sink call enough when a sink is shared, such as one
-   `exec` helper that every command goes through? Then the sink call is in
-   the helper, and 3 paths show 3 of many callers. Treating a function
-   that only forwards its arguments to a sink as a sink may fix this.
+   of a sink kind, so the template and its sinks can't drift apart? Keep
+   `--sink` until the `where` proposal decides where sinks live.
+3. Should a dependency that runs a network tool in a subprocess, such as
+   `git clone` with a URL, count as both `command` and `ssrf`? A short
+   built-in list of such calls may be enough.
