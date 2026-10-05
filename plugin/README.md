@@ -17,16 +17,16 @@ decide and write templates.
 **`/decide:hunt <commit or PR>`** finds the other places a fixed bug lives.
 Claude writes one question about the mistake the fix corrected, checks
 that it flags the code before the fix and passes the code after, asks it
-of every function in the repository, and reads the top ten to confirm
-them. The question is saved as a project template, such as
+of every function in the repository, and reads up to ten that score 30%
+or more to confirm them. The question is saved as a project template, such as
 `.decide/templates/bug-87`, so later changes can be checked for the same
 bug.
 
 **`/decide:audit [path]`** finds where to look for security bugs. decide's
 `security` template ranks every function for SQL and command injection,
-SSRF, XSS, and weak cryptography; Claude reads the top 15 with their
-callers, in parallel, and reports which are real and which it dismissed,
-and why.
+SSRF, XSS, and weak cryptography; Claude reads up to 15 that score 30% or
+more, with their callers, in parallel, and reports which are real and
+which it dismissed, and why.
 
 For a walk through setup and each skill, see the
 [user guide](../docs/claude-code.md).

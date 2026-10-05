@@ -88,15 +88,17 @@ Name paths to audit only part of the repository. Claude then:
 2. Runs decide's `security` template on every function. In one request
    per function, it asks about SQL and command injection, SSRF, XSS, weak
    ciphers, hashes and random values, and TLS checks turned off.
-3. Takes the 15 functions that score highest and reads each one, with its
-   callers, in parallel.
+3. Takes up to 15 of the highest-scoring functions, those with an answer
+   of 30% or more, and reads each one, with its callers, in parallel. If
+   none scores that high, it says so and stops.
 4. Reports a table of findings, each **confirmed** or **suspected**, with
    the reason, and counts the ones it **dismissed**.
 
 decide's scores show where to look; they don't prove a bug. A finding is
 confirmed only after Claude reads the code. When it's done, ask Claude
-to read the next 15, which costs no new requests, to write a failing test
-for each finding, or to fix them.
+to write a failing test for each finding, or to fix them. If more
+functions scored 30% or more, ask it to read the next 15, which costs no
+new requests.
 
 The audit doesn't cover path traversal, authorization, or
 deserialization, and it can miss a bug that spans several functions.
@@ -118,7 +120,8 @@ With no argument, it uses the last commit. Claude then:
 2. Writes one yes-or-no question about that mistake.
 3. Tests the question: it must flag the code before the fix and pass the
    code after it. If it doesn't, Claude rewrites it.
-4. Asks the question of every function, and reads the top ten.
+4. Asks the question of every function, and reads up to ten of the
+   highest, those that score 30% or more.
 5. Reports which are the same bug and which aren't.
 
 The question is saved as a template, such as `.decide/templates/bug-87`,
