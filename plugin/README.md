@@ -28,6 +28,9 @@ SSRF, XSS, and weak cryptography; Claude reads the top 15 with their
 callers, in parallel, and reports which are real and which it dismissed,
 and why.
 
+For a walk through setup and each skill, see the
+[user guide](../docs/claude-code.md).
+
 ## Install
 
 You need Claude Code 2.1.287 or later, decide 0.3.0 or later, and a key for
@@ -55,8 +58,8 @@ is also saved as a decide run:
 DECIDE_HOME=~/.decide/agent decide runs
 ```
 
-To update the plugin, run `/plugin marketplace update decide`, or turn on
-auto-update for the marketplace in `/plugin`.
+To update the plugin, run `claude plugin update decide@decide` and restart
+Claude Code, or turn on auto-update for the marketplace in `/plugin`.
 
 ## What it sends and keeps
 
@@ -66,9 +69,9 @@ These go to the decision model's provider, with your key:
 - each result the content check reads, whole: web pages, search results,
   `gh` and `curl` output, and every MCP tool's result, private connectors
   included. A result over 1,000,000 characters goes on unchecked;
-- with `/decide:hunt`, every function in the repository the sweep covers.
-  Its runs and answers are kept in your own `~/.decide`, like any
-  `decide run`.
+- with `/decide:audit` or `/decide:hunt`, every function in the
+  repository it covers. Its runs and answers are kept in your own
+  `~/.decide`, like any `decide run`.
 
 Each check is also saved on your disk as a decide run under
 `~/.decide/agent/runs`, readable only by you. Nothing removes them; delete

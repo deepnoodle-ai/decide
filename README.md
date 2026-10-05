@@ -183,8 +183,9 @@ questions. In Claude Code:
 /plugin install decide@decide
 ```
 
-See [plugin/README.md](plugin/README.md) for what each check does and what
-it sends.
+[docs/claude-code.md](docs/claude-code.md) shows how to set it up and use
+`/decide:audit` and `/decide:hunt`. See [plugin/README.md](plugin/README.md)
+for what each check does and what it sends.
 
 ## Status
 
