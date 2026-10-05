@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/deepnoodle-ai/decide/internal/runs"
@@ -24,6 +26,7 @@ func (a *App) addRuns(app *cli.App) {
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
 			cli.String("format", "f").Enum(formats...).Help(formatHelp),
+			cli.Int("top").Help("Show only this many items: the flagged ones first, then those nearest a flag"),
 		).
 		Run(a.runsView)
 	g.Command("resume").
@@ -128,18 +131,43 @@ func (a *App) runsView(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+	top := c.Int("top")
+	switch {
+	case top < 0:
+		return cli.Error("--top must be a positive number")
+	case top > 0 && (format == "md" || format == "github"):
+		return cli.Errorf("--top works with text, json, and csv output, not %s", format).
+			Hint("The Markdown report and GitHub annotations already show only flagged items.")
+	}
 	r, err := openRun(c)
 	if err != nil {
 		return err
+	}
+	if top > 0 && !marksOf(r.Template).ranks() {
+		return cli.Errorf("--top ranks items by how near a flagged answer comes to its threshold, and %s flags no answer", clean(r.Template.Name)).
+			Hint("A flag on a yes-or-no or choice question, such as \"yes\", names an answer; a flag on a score doesn't.")
 	}
 	if format != "json" {
 		fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Run %s · %s on %s · %s",
 			r.ID, r.Template.Name, clean(strings.Join(r.Sources, ", ")), humanize.Time(r.Created))))
 	}
-	if err := a.printRun(c, r, format, ""); err != nil {
+	results, err := r.Results()
+	if err != nil {
+		return err
+	}
+	items := group(results, marksOf(r.Template))
+	shown := items
+	if top > 0 {
+		shown = topItems(items, marksOf(r.Template), top)
+	}
+	if err := printItems(c, r, format, "", shown); err != nil {
 		return err
 	}
 	if format != "json" {
+		if top > 0 {
+			fmt.Fprintf(c.Stderr(), "%s\n", dim(fmt.Sprintf("The %d of %d answered items nearest their flags, flagged ones first.",
+				len(shown), answeredCount(items))))
+		}
 		summarize(c.Stderr(), r, 0)
 	}
 	return nil
@@ -151,13 +179,44 @@ func (a *App) printRun(c *cli.Context, r *runs.Run, format, failOn string) error
 	if err != nil {
 		return err
 	}
+	return printItems(c, r, format, failOn, group(results, marksOf(r.Template)))
+}
+
+// printItems prints items of a run in a format.
+func printItems(c *cli.Context, r *runs.Run, format, failOn string, items []item) error {
 	w := newOutput(c, format, r.Template, failOn)
-	for _, it := range group(results, marksOf(r.Template)) {
+	for _, it := range items {
 		if err := w.item(it); err != nil {
 			return err
 		}
 	}
 	return w.finish(r)
+}
+
+// answeredCount is how many items have answers.
+func answeredCount(items []item) int {
+	n := 0
+	for _, it := range items {
+		if it.Status == "complete" {
+			n++
+		}
+	}
+	return n
+}
+
+// topItems returns the n answered items nearest their flags, the nearest
+// first. Items that tie keep their order.
+func topItems(items []item, m marks, n int) []item {
+	var out []item
+	for _, it := range items {
+		if it.Status == "complete" {
+			out = append(out, it)
+		}
+	}
+	slices.SortStableFunc(out, func(a, b item) int {
+		return cmp.Compare(m.nearness(b), m.nearness(a))
+	})
+	return out[:min(n, len(out))]
 }
 
 func (a *App) runsResume(c *cli.Context) error {

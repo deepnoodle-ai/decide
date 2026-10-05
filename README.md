@@ -109,6 +109,7 @@ decide run code-risk src --include '*.go'
 decide run security src                      # injection, SSRF, XSS, weak crypto
 decide run relevance docs --each section -p question="pricing"
 decide runs view --format csv > results.csv
+decide runs view --top 20                    # the 20 items nearest their flags, flagged first
 decide run code-risk src --fail-on flagged   # exit code 2 if anything is flagged
 git diff main | decide run code-risk --each function   # judge each changed function
 git diff main | decide run prompt-injection            # hidden instructions for AI agents

@@ -31,6 +31,7 @@ decide run code-risk src --each function --json    # one JSON line per item
 git diff main | decide run code-risk --each function
 gh issue list --json number,title,body | decide run task-readiness
 decide run code-risk src --fail-on flagged         # exit 2 if anything is flagged
+decide runs view --top 20 --json                   # the 20 nearest their flags, from the last run
 ```
 
 Add `--dry-run` to see what would be asked without calling the model. With

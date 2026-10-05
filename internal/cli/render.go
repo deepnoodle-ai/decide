@@ -309,6 +309,52 @@ func marksOf(s *template.Template) marks {
 	return marks{conditionsOf(s, s.Flags), conditionsOf(s, s.Matches)}
 }
 
+// rankBy is the conditions --top ranks by: the flags, or the matches when
+// the template has no flags.
+func (m marks) rankBy() map[string][]template.Condition {
+	if len(m.flags) > 0 {
+		return m.flags
+	}
+	return m.matches
+}
+
+// ranks reports whether some condition --top ranks by names an answer, so
+// it has a probability.
+func (m marks) ranks() bool {
+	for _, conds := range m.rankBy() {
+		for _, c := range conds {
+			if c.Answer != "" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// nearness is how near an item comes to being flagged: across its
+// answers, the most that the probability of an answer a flag names
+// exceeds the flag's threshold, or falls short of it, when negative. It
+// uses the matches when the template has no flags. Measuring from each
+// threshold ranks a flagged answer above an unflagged one, even when the
+// unflagged one is more likely. Score comparisons have no probability and
+// don't count.
+func (m marks) nearness(it item) float64 {
+	best := math.Inf(-1)
+	for key, conds := range m.rankBy() {
+		a, ok := answerOf(it, key)
+		if !ok {
+			continue
+		}
+		prob := probOf(a)
+		for _, c := range conds {
+			if c.Answer != "" {
+				best = max(best, prob(c.Answer)-c.Value)
+			}
+		}
+	}
+	return best
+}
+
 func (m marks) judge(key string, a answer) verdict {
 	return judge(m.flags[key], m.matches[key], a)
 }

@@ -8,6 +8,10 @@ may change the library API and the CLI.
 
 ### Added
 
+- **`decide runs view --top N`.** Show the flagged items first, then those
+  nearest a flag, to read a long run from the top.
+- **`/decide:audit`.** A plugin skill: decide ranks every function with
+  `security`, and Claude confirms the top 15 by reading them.
 - **`security`.** A built-in template that asks, in one request per
   function, about SQL and command injection, SSRF, XSS, weak hashes,
   ciphers and random values, and TLS verification turned off.
