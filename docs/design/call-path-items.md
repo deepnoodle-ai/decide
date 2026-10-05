@@ -157,7 +157,11 @@ arguments:
 | `sql` | `sql-injection` | `(*database/sql.DB).Query(query)`, `Exec(query)`; GORM's `Raw(sql)`, `Where(query)`, `Order(value)`; sqlx and pgx |
 | `command` | `command-injection` | `os/exec.Command(name, args...)`, `CommandContext(name, args...)`, `syscall.Exec(argv0, argv)` |
 | `path` | `path-traversal` | `os.Open(name)`, `OpenFile(name)`, `Create(name)`, `Remove(name)`, `RemoveAll(path)`, `WriteFile(name)`, `ReadFile(name)`, `Rename(old, new)`, `Symlink(old, new)` |
-| `ssrf` | `ssrf` | `(*net/http.Client).Do(req)`, `Get(url)`, `Post(url)`; `net/http.NewRequest(url)`, `net.Dial(address)` |
+| `ssrf` | `ssrf` | `(*net/http.Client).Do(req)`, `Get(url)`, `Post(url)`, `Head(url)`; `net/http.Get(url)`, `Post(url)`; `net.Dial(address)` |
+
+A sink is the call that acts: it connects, runs or opens. Calls that only
+build the input, such as `http.NewRequest`, are not sinks; the request
+reaches `Client.Do`, and the path ends there.
 
 Three rules find the sink calls a list doesn't name, and drop the ones
 that can't carry input:
@@ -217,7 +221,10 @@ walks from every handler reach most of the program through shared helpers.
    goroutine: `InstallPost -> GlobalInit -> InitDeliverHooks ->
    DeliverHooks -> HookTask.deliver`.
 
-Test files are skipped.
+Test files are skipped. Everything is sorted by name and by file and
+offset, never by map order or `token.Pos`, which changes between runs
+because packages load in parallel. Two runs on the same code write the
+same bytes, so the answer cache holds. A test checks it.
 
 ### The item
 
@@ -256,11 +263,17 @@ is larger than `MaxItemBytes` less `StateRoom` and the size of its label
 and tabs, newlines and quotes 2. A cut path loses the flow, so the builder
 measures `json.Marshal(text)` against the same limits, imported from
 `internal/source`, with room for a label. When a path is too large, it
-shortens the middle functions, never the first or the last: it keeps each
-one's signature and the lines around the call to the next, and writes
-`// 140 lines left out`. A test checks that decide reads no record from
-`decide-paths` in parts. The largest Gogs path in the check-packs spike
-was 28 KB.
+shortens functions in this order until the text fits: the middle ones,
+then the one that holds the sink call, then the entry point. Each keeps
+its signature and the lines around its call to the next function, or
+around the sink call, and writes `// 140 lines left out`. An orphan keeps
+the lines around its sink call. If the text still doesn't fit, the
+builder skips the item and counts it on stderr. It never writes an item
+that decide would cut. Tests cover a one-function path, a path whose
+entry point or sink function is too large alone, and a check that decide
+reads no record from `decide-paths` in parts. The largest Gogs path in
+the check-packs spike was 28 KB, and no item in this spike needed
+shortening.
 
 **Labels.** Today decide labels a record by its file and line, such as
 `paths.jsonl:3`, so `--format github` would annotate the JSONL file. The

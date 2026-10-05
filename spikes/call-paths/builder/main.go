@@ -52,7 +52,6 @@ var sinkSpecs = map[string]map[string][]int{
 		"(*net/http.Client).Do": {0}, "(*net/http.Client).Get": {0}, "(*net/http.Client).Post": {0},
 		"(*net/http.Client).Head": {0}, "(*net/http.Client).PostForm": {0},
 		"net/http.Get": {0}, "net/http.Post": {0}, "net/http.Head": {0}, "net/http.PostForm": {0},
-		"net/http.NewRequest": {1}, "net/http.NewRequestWithContext": {2},
 		"net.Dial": {1}, "net.DialTimeout": {1},
 	},
 	"sql": sqlSinks(),
@@ -183,9 +182,15 @@ func main() {
 				}
 			}
 		}
+		// Sorted, so each dependency's chain down to a sink is the same on
+		// every run.
 		var q []*ssa.Function
 		for f := range sinks {
 			q = append(q, f)
+		}
+		sort.Slice(q, func(i, j int) bool { return fullName(q[i]) < fullName(q[j]) })
+		for _, cs := range callers {
+			sort.Slice(cs, func(i, j int) bool { return fullName(cs[i]) < fullName(cs[j]) })
 		}
 		for len(q) > 0 {
 			f := q[0]
@@ -238,19 +243,23 @@ func main() {
 		if len(paths) == 0 {
 			noPath++
 			if *orphans {
-				f := outer(s.fn)
-				text := fmt.Sprintf("// %s\n%s\n", rel(f.Pos()), source(f))
+				text, ok := orphanText(outer(s.fn), s)
+				if !ok {
+					cut++
+					continue
+				}
 				enc.Encode(record{Text: text, Source: rel(s.pos), Path: []string{name(s.fn)}, Sink: s.callee, Via: s.via, Rule: s.kind, Orphan: true})
 			}
 			continue
 		}
 		for _, p := range paths {
-			text, t := render(p, s)
+			text, t, ok := render(p, s)
 			if t {
 				trimmed++
 			}
-			if jsonSize(text) > budget {
+			if !ok {
 				cut++
+				continue
 			}
 			var names []string
 			for _, st := range p {
@@ -260,7 +269,7 @@ func main() {
 			nPaths++
 		}
 	}
-	fmt.Fprintf(os.Stderr, "%s: %d entry points; sinks: %d listed, %d dependency, %d forwarders; %d sink calls; %d paths; %d sink calls with no path; %d paths shortened, %d still over the limit\n",
+	fmt.Fprintf(os.Stderr, "%s: %d entry points; sinks: %d listed, %d dependency, %d forwarders; %d sink calls; %d paths; %d sink calls with no path; %d items shortened, %d skipped as too large\n",
 		*kind, entryCount, listed, deps, forwarders, len(sites), nPaths, noPath, trimmed, cut)
 	if len(broken) > 0 {
 		fmt.Fprintf(os.Stderr, "packages with errors: %s\n", strings.Join(broken, ", "))
@@ -531,9 +540,15 @@ func sortedOwn(all map[*ssa.Function]bool) []*ssa.Function {
 			out = append(out, f)
 		}
 	}
+	// By file and offset, not token.Pos: packages load in parallel, so
+	// positions differ between runs.
 	sort.Slice(out, func(i, j int) bool {
-		if out[i].Pos() != out[j].Pos() {
-			return out[i].Pos() < out[j].Pos()
+		a, b := fset.Position(out[i].Pos()), fset.Position(out[j].Pos())
+		if a.Filename != b.Filename {
+			return a.Filename < b.Filename
+		}
+		if a.Offset != b.Offset {
+			return a.Offset < b.Offset
 		}
 		return out[i].String() < out[j].String()
 	})
@@ -592,7 +607,12 @@ func callersOf(cg *callgraph.Graph, f *ssa.Function) []step {
 	if len(out) == 0 && f.Parent() != nil && own(f.Parent()) {
 		out = append(out, step{f.Parent(), f.Pos()})
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].fn.String() < out[j].fn.String() })
+	sort.Slice(out, func(i, j int) bool {
+		if a, b := out[i].fn.String(), out[j].fn.String(); a != b {
+			return a < b
+		}
+		return fset.Position(out[i].call).Offset < fset.Position(out[j].call).Offset
+	})
 	return out
 }
 
@@ -643,7 +663,9 @@ func jsonSize(s string) int {
 	return len(b)
 }
 
-func render(p []step, s site) (string, bool) {
+// render writes a path's text. It returns whether it shortened any
+// function, and false for ok when the path can't fit under budget.
+func render(p []step, s site) (text string, trimmed, ok bool) {
 	var names []string
 	for _, st := range p {
 		names = append(names, name(st.fn))
@@ -657,18 +679,45 @@ func render(p []step, s site) (string, bool) {
 	for i, st := range p {
 		bodies[i] = section(st.fn, -1)
 	}
-	text := head + strings.Join(bodies, "\n")
-	if jsonSize(text) <= budget || len(p) < 3 {
-		return text, false
+	text = head + strings.Join(bodies, "\n")
+	if jsonSize(text) <= budget {
+		return text, false, true
 	}
+	// Shorten the middle functions first, then the one that holds the sink
+	// call, then the entry point. Each keeps the lines around its call.
+	order := []int{}
 	for i := 1; i < len(p)-1; i++ {
-		bodies[i] = section(p[i].fn, line(p[i+1].call))
+		order = append(order, i)
+	}
+	order = append(order, len(p)-1)
+	if len(p) > 1 {
+		order = append(order, 0)
+	}
+	for _, i := range order {
+		keep := line(s.pos)
+		if i < len(p)-1 {
+			keep = line(p[i+1].call)
+		}
+		bodies[i] = section(p[i].fn, keep)
 		text = head + strings.Join(bodies, "\n")
 		if jsonSize(text) <= budget {
-			break
+			return text, true, true
 		}
 	}
-	return text, true
+	// Still too large: skip it, so decide never cuts a path into parts.
+	return "", true, false
+}
+
+// orphanText is the function that holds a sink call with no path, shortened
+// to the lines around the call when it is too large, or false when even
+// that is.
+func orphanText(f *ssa.Function, s site) (string, bool) {
+	text := section(f, -1)
+	if jsonSize(text) <= budget {
+		return text, true
+	}
+	text = section(f, line(s.pos))
+	return text, jsonSize(text) <= budget
 }
 
 // section is a function's source with its location, or, when keep is a
@@ -688,6 +737,8 @@ func section(f *ssa.Function, keep int) string {
 	var b strings.Builder
 	b.WriteString(lines[0] + "\n")
 	lo, hi := max(1, k-3), min(len(lines)-1, k+4)
+	lo = min(lo, len(lines)-1)
+	hi = max(hi, lo)
 	if lo > 1 {
 		fmt.Fprintf(&b, "\t// %d lines left out\n", lo-1)
 	}

@@ -30,7 +30,9 @@ It differs from the proposal where the spike found a reason:
   through `GlobalInit`.
 - The sink lists cover what Gogs uses: `database/sql`, GORM and xorm for
   SQL, and no `code` or `deserialize` kinds.
-- It has no tests.
+- It never writes an item over decide's limit: it shortens functions as
+  the proposal says, and skips an item that still doesn't fit.
+- It has no tests. The tests the proposal lists belong to `decide-paths`.
 
 ## Labels
 
