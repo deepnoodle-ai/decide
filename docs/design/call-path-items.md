@@ -1,6 +1,6 @@
 # Call-path items
 
-Status: proposal. Written 2026-10-04.
+Status: proposal, with a spike on Gogs. Written 2026-10-04.
 
 > One item per path from where untrusted input enters to where it does
 > harm, with the source of every function on the path, so decide can judge
@@ -210,6 +210,12 @@ walks from every handler reach most of the program through shared helpers.
 3. Keep up to 3 paths per call site, shortest first, each from a
    different entry point when there is one. `--per` changes the number.
 4. Stop at 8 functions deep. `--depth` changes it.
+5. Don't walk up through a function that takes no input: no parameters,
+   no receiver and no captured variables. Its callers can't pass it a
+   request's values. Don't walk up across a `go` statement either. In the
+   spike, without this rule, Gogs' install handler reached the webhook
+   goroutine: `InstallPost -> GlobalInit -> InitDeliverHooks ->
+   DeliverHooks -> HookTask.deliver`.
 
 Test files are skipped.
 
@@ -253,7 +259,8 @@ measures `json.Marshal(text)` against the same limits, imported from
 shortens the middle functions, never the first or the last: it keeps each
 one's signature and the lines around the call to the next, and writes
 `// 140 lines left out`. A test checks that decide reads no record from
-`decide-paths` in parts. The largest Gogs path in the spike was 28 KB.
+`decide-paths` in parts. The largest Gogs path in the check-packs spike
+was 28 KB.
 
 **Labels.** Today decide labels a record by its file and line, such as
 `paths.jsonl:3`, so `--format github` would annotate the JSONL file. The
@@ -271,10 +278,9 @@ one's signature and the lines around the call to the next, and writes
 | Items in a run | none | `decide run --dry-run` counts them, and `--limit` caps them, as for any run. |
 
 `decide-paths` prints its counts to stderr: the paths, the sink calls, and
-the sink calls with no path from an entry point. The spike counted
-by function, not call site: in Gogs it found 17 SSRF paths to 10 sink
-functions, 151 command paths to 86, 124 file paths to 64, and 607 SQL
-paths to 291.
+the sink calls with no path from an entry point. On Gogs, the spike built
+1,587 items for the four templates, against 8,120 function items. The
+largest was 22 KB, and none needed shortening.
 
 ### What has no path
 
@@ -292,12 +298,78 @@ the flow templates. They don't replace them.
   Both were Gogs path-traversal bugs.
 - **Sinks the lists miss.** `MigrateRepository` reaches the network
   through `git-module.Clone`, which the dependency rule makes a `command`
-  sink, so an `ssrf` run misses it unless `--sink-call` adds it.
+  sink, so an `ssrf` run misses it unless `--sink-call` adds it. The
+  spike lost `MigrateRepository` and `Mirror.runSync` this way.
 
 `decide-paths --orphans` writes one more record per sink call that has no
 path: the function that holds it, with its source. A run on paths and
 orphans covers every sink call, and judges the orphans as function items
-are judged today.
+are judged today. It doesn't cover the code above, which has no sink
+call: 6 of the spike's 13 real labels.
+
+## Spike results
+
+[`spikes/call-paths`](../../spikes/call-paths) builds items by these
+rules, and ran the four flow templates on Gogs before the 2026 fixes
+(`199cf4fd5^`), with paths and orphans. The function run is the
+[check-packs spike's](check-packs.md#gogs-before-the-2026-fixes), with the
+same templates. A path's rank counts sink-call functions, each at the
+best score of its paths, so it is the number a reader goes through before
+reaching the label.
+
+| Label | Fix | By function, of 2,030 | Paths plus orphans | Without the dependency rule |
+| --- | --- | --- | --- | --- |
+| `PullRequest.Merge` | #8301 command | 4 | 4 of 105 | 3 of 19 |
+| `CompareAndPullRequestPost` | #8390 command, in `git-module` | 56 | 25 | 17 |
+| `getRepoGitTree` | #8393 command, in `git-module` | 390 | 28 | no sink call |
+| `getArchive` | #8393 | 94 | 30 | no sink call |
+| `getContents` | #8393 | 264 | 60 | no sink call |
+| `Request.getResponse` | #8263 SSRF | 22 | 1 of 3, an orphan | 1 of 1 |
+| `HookTask.deliver` | #8263 | 50 | no sink call | |
+| `MigrateRepository` | #8324 SSRF | 2 | lost: `git clone` is `command` | |
+| `Mirror.runSync` | #8324 | 30 | lost: `git fetch` is `command` | |
+| `UploadRepoFiles` | #8332 path | 41 | 19 of 245 | 17 of 69 |
+| `UserPath` | #8334 | 16 | no sink call | |
+| `RepoPath` | #8334 | 65 | no sink call | |
+| `isRepositoryGitPath` | #8408 | 194 | no sink call | |
+| `GetByCollaboratorID` | false positive, SQL | 1 | not judged | not judged |
+| `searchUserByName` | false positive, SQL | 3 | not judged | not judged |
+
+| Template | Function items | Flagged at 0.5 | Path and orphan items | Sink-call functions flagged | Without the dependency rule |
+| --- | --- | --- | --- | --- | --- |
+| `ssrf` | 2,030 | 45 | 10 | 1 | 1 item, 1 flagged |
+| `command-injection` | 2,030 | 25 | 269 | 64 | 37 items, 9 flagged |
+| `path-traversal` | 2,030 | 54 | 617 | 47 | 188 items, 31 flagged |
+| `sql-injection` | 2,030 | 6 | 691 | 2 | 134 items, 2 flagged |
+
+- **Paths rank flows higher.** Every label with a sink call ranked as
+  high as by function, or higher. The #8393 API handlers moved the most,
+  `getRepoGitTree` from 390 to 28. As a function, it passes a URL
+  parameter to `gitRepo.LsTree(sha)`. As a path, the header says that call
+  leads to `os/exec.CommandContext`.
+- **The dependency rule finds the bugs in libraries.** #8390 and #8393
+  were fixed in `git-module`, and only the dependency rule makes Gogs'
+  calls into it sink calls. It costs 4.4 times the items (360 to 1,587),
+  and adds noise: every xorm query is a SQL sink call, and every
+  `git-module` call is a command sink call. Most of that noise scores
+  low, but 64 command sink-call functions were flagged.
+- **Forwarders and constants removed both SQL false positives** before
+  any model call. `GetByCollaboratorID` and `searchUserByName` forward
+  `orderBy`, so their callers hold the sink calls, and every caller
+  passes a constant. The same rules found `Merge` through
+  `process.ExecDir`.
+- **Function items are still needed.** 6 of 13 real labels have no sink
+  call for their template: stored input (`HookTask.deliver`), code that
+  builds or checks a path (`UserPath`, `RepoPath`, `isRepositoryGitPath`),
+  and network calls
+  made by `git` (`MigrateRepository`, `runSync`).
+- **Setup handlers are trusted input that looks untrusted.** Gogs'
+  `InstallPost` takes the install form and calls `GlobalInit`, which
+  starts the server. Its paths were 4 of the top 5 for path traversal, at
+  0.87 to 0.93. The rule in step 5 cut install paths from 35 to 14, but
+  `GlobalInit` takes a parameter, so the rest stay.
+- **The builder is cheap.** About 4 seconds and 2.9 GB of memory per
+  template on Gogs, most of it loading packages and building SSA.
 
 ## Alternatives considered
 
@@ -335,8 +407,12 @@ are judged today.
 - **Packages that don't type-check**, such as code behind build tags or
   cgo. `decide-paths` skips them and names them, as decide names files it
   can't parse.
-- **Large projects.** SSA and VTA for a large module take time and memory.
-  We measure this on Gogs and one larger Go project before release.
+- **Setup handlers.** An install or setup form is filled in by the
+  operator, but it arrives as a request, so its paths look untrusted. See
+  [Spike results](#spike-results) and open question 4.
+- **Large projects.** SSA and VTA for a large module take time and memory:
+  4 seconds and 2.9 GB for Gogs. We measure one larger Go project before
+  release.
 
 ## Security considerations
 
@@ -353,14 +429,11 @@ are judged today.
 1. **`decide-paths` for Go**, with the entry and sink rules above, and
    the decide change that reads a dataset as records under a template's
    default unit. Tests on a fixture module in `testdata/`, and a planted
-   path in `demo/`. Measure it against the spike on Gogs, on every label,
-   not only those with a path. A label with no path counts at its rank
-   in the function run, as an orphan would be judged. Compare each label's
-   rank, the items flagged at 0.5, and the requests per sweep, for three
-   runs: functions only, paths only, and paths plus orphans. Add a second
-   Go project with labeled fixes, and one of ours to count false
-   positives. It ships when paths plus orphans rank the labels at least
-   as high as functions only, with fewer items flagged.
+   path in `demo/`. The spike measured Gogs. Before release, measure a
+   second Go project with labeled fixes, and one of ours to count false
+   positives, on every label, as in [Spike results](#spike-results). It
+   ships when every label with a sink call ranks at least as high as by
+   function, with fewer items flagged than the function run.
 2. **The plugin** runs it for flow templates on Go projects.
 3. **`--each path`.** decide runs `decide-paths` from `PATH`, passes the
    template's sinks, labels each item by its sink call, and names the unit
@@ -370,12 +443,22 @@ are judged today.
 
 ## Open questions
 
-1. Is paths plus orphans the default for flow templates, or paths plus
-   every function? The second costs more requests and may find bugs that
-   aren't at a sink, such as `UserPath`. Step 1 measures both.
+1. Paths plus orphans missed 6 of the spike's 13 real labels, which function
+   items find. So flow templates run both, for now. How do we show the
+   two lists? The path list ranks better, so it could come first, with
+   function items that have no sink call after it.
 2. Should `decide-paths` take a template name (`--template ssrf`) instead
    of a sink kind, so the template and its sinks can't drift apart? Keep
    `--sink` until the `where` proposal decides where sinks live.
 3. Should a dependency that runs a network tool in a subprocess, such as
-   `git clone` with a URL, count as both `command` and `ssrf`? A short
-   built-in list of such calls may be enough.
+   `git clone` with a URL, count as both `command` and `ssrf`? The spike
+   lost `MigrateRepository`, rank 2 by function, and `runSync` for want
+   of it. A short built-in list of such calls may be enough.
+4. How do we treat setup handlers? Options: the trust wording names an
+   install or setup form as the operator's, `--skip-entry`, or a rule
+   that skips handlers that call the code `main` runs at startup. The
+   last one needs no setup, but it is the hardest to get right.
+5. Is the dependency rule worth 4.4 times the items? It found the
+   `git-module` bugs, and nothing else did. It could apply only to
+   `command`, where those bugs were, or only to dependencies that aren't
+   database drivers.
