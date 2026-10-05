@@ -475,3 +475,10 @@ reaching the label.
    `git-module` bugs, and nothing else did. It could apply only to
    `command`, where those bugs were, or only to dependencies that aren't
    database drivers.
+6. With one `security` template that asks every class in one request
+   ([check-packs.md](check-packs.md#one-request-per-item)), how does a
+   path item meet it? Either every path is asked every question, and the
+   flag that counts is the one for the path's `kind`, or `decide-paths`
+   builds the paths for all of a pack's sinks in one run and decide asks
+   each path only its kind's question. The first needs no change to
+   decide.

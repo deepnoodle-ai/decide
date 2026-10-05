@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Score the check-packs spike from the results run.sh writes to work/results/.
 
-    python3 score.py bench [v1|v2|ctx]    OWASP Benchmark, by category
+    python3 score.py bench [v1|v2|ctx|combined]  OWASP Benchmark, by category
     python3 score.py gogs [v1|v2]         Gogs, labeled functions by rank
     python3 score.py paths                Gogs call paths, by sink function
     python3 score.py dive                 dive, top candidates per Go template
-    python3 score.py combined             Gogs, four questions in one request vs one each
+    python3 score.py combined [universal|security]
+                                          Gogs, a pack's questions in one request vs one each
 
 The Benchmark's labels come from work/BenchmarkJava/expectedresults-1.2.csv,
 which run.sh clones.
@@ -31,13 +32,18 @@ def bench(run):
                 truth[name] = real == "true"
     questions = {"sqli": "injection", "cmdi": "injection", "pathtraver": "traversal",
                  "xss": "xss", "crypto": "cipher", "hash": "hash", "weakrand": "random"}
+    if run == "combined":
+        # templates-combined/security asks every question of every case.
+        questions = {"sqli": "sql_injection", "cmdi": "command_injection", "pathtraver": "path_traversal",
+                     "xss": "xss", "crypto": "weak_cipher", "hash": "weak_hash", "weakrand": "weak_random"}
     print(f"{'category':10} {'n':>4} {'TPR@.5':>7} {'FPR@.5':>7} {'score@.5':>8} {'best thr':>8} {'best':>5} {'AUC':>5}")
     for cat, q in questions.items():
         try:
             rs = rows(f"results/{run}/bench-{cat}.jsonl")
         except FileNotFoundError:
             continue
-        xs = [(r["answers"][q]["noul"], truth[os.path.basename(r["source"])[:-5]]) for r in rs]
+        xs = [(r["answers"][q]["noul"], truth[os.path.basename(r["source"])[:-5]]) for r in rs
+              if r["status"] == "complete"]
         pos = [p for p, y in xs if y]
         neg = [p for p, y in xs if not y]
 
@@ -101,10 +107,33 @@ def dive():
             print(f"  {p:.2f} {name:42} {src}")
 
 
-def combined():
-    """Compare templates-combined/universal, which asks the four questions
-    in one request, with the four v2 templates, which ask one each."""
-    rs = [r for r in rows("results/combined/gogs-universal.jsonl") if r["status"] == "complete"]
+def avg_ranks(xs):
+    """Ranks from 1, with tied values given the mean of their ranks."""
+    order = sorted(range(len(xs)), key=lambda i: xs[i])
+    ranks = [0.0] * len(xs)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and xs[order[j + 1]] == xs[order[i]]:
+            j += 1
+        for k in order[i:j + 1]:
+            ranks[k] = (i + j) / 2 + 1
+        i = j + 1
+    return ranks
+
+
+def spearman(a, b):
+    """Spearman's rank correlation: the Pearson correlation of average ranks."""
+    ra, rb = avg_ranks(a), avg_ranks(b)
+    ma, mb = sum(ra) / len(ra), sum(rb) / len(rb)
+    cov = sum((x - ma) * (y - mb) for x, y in zip(ra, rb))
+    return cov / (sum((x - ma) ** 2 for x in ra) * sum((y - mb) ** 2 for y in rb)) ** 0.5
+
+
+def combined(pack):
+    """Compare a pack in templates-combined, which asks all its questions in
+    one request, with the v2 templates, which ask one each."""
+    rs = [r for r in rows(f"results/combined/gogs-{pack}.jsonl") if r["status"] == "complete"]
     print(f"{len(rs)} functions, {len({r['request_id'] for r in rs})} requests")
     for t, key in [("ssrf", "ssrf"), ("command-injection", "command_injection"),
                    ("path-traversal", "path_traversal"), ("sql-injection", "sql_injection")]:
@@ -117,20 +146,34 @@ def combined():
         rank = lambda d: {k: i + 1 for i, k in enumerate(sorted(d, key=lambda k: -d[k]))}
         rs_, rc = rank({k: sep[k] for k in both}), rank({k: com[k] for k in both})
         n = len(both)
-        rho = 1 - 6 * sum((rs_[k] - rc[k]) ** 2 for k in both) / (n * (n * n - 1))
+        rho = spearman([sep[k] for k in both], [com[k] for k in both])
         top = lambda r: {k for k in both if r[k] <= 30}
         print(f"\n=== {t}: {n} functions; flagged at 0.5: one each {sum(sep[k] >= .5 for k in both)}, "
               f"combined {sum(com[k] >= .5 for k in both)}")
-        print(f"  mean |difference| {sum(diffs) / n:.3f}; over 0.2: {sum(d > .2 for d in diffs)}; "
+        print(f"  mean |difference| {sum(diffs) / n:.3f}; largest {max(diffs):.2f}; over 0.2: {sum(d > .2 for d in diffs)}; "
               f"rank correlation {rho:.3f}; top 30 shared {len(top(rs_) & top(rc))}")
         for label in labels + (["GetByCollaboratorID", "searchUserByName"] if t == "sql-injection" else []):
             for k in both:
                 if k[1].split(".")[-1] == label:
                     print(f"  {label:22} one each rank {rs_[k]:4} p={sep[k]:.2f}   combined rank {rc[k]:4} p={com[k]:.2f}")
+    # Questions with no one-each run on Gogs: flagged counts and top hits.
+    for key in [k for k in rs[0]["answers"] if k not in
+                ("ssrf", "command_injection", "path_traversal", "sql_injection")]:
+        top = sorted(rs, key=lambda r: -r["answers"][key]["noul"])
+        dirs = {}
+        for r in rs:
+            if r["answers"][key]["noul"] >= .5:
+                d = "/".join(r["source"].split("/")[1:3])  # past gogs-snap/
+                dirs[d] = dirs.get(d, 0) + 1
+        print(f"\n=== {key}: flagged at 0.5 {sum(r['answers'][key]['noul'] >= .5 for r in rs)}, "
+              f"at 0.7 {sum(r['answers'][key]['noul'] >= .7 for r in rs)}; by folder "
+              + ", ".join(f"{d} {n}" for d, n in sorted(dirs.items(), key=lambda x: -x[1])[:4]))
+        for r in top[:5]:
+            print(f"  {r['answers'][key]['noul']:.2f} {r['input']:42} {r['source']}")
 
 
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "bench"
     arg = sys.argv[2] if len(sys.argv) > 2 else None
     {"bench": lambda: bench(arg or "ctx"), "gogs": lambda: gogs(arg or "v2"),
-     "paths": paths, "dive": dive, "combined": combined}[cmd]()
+     "paths": paths, "dive": dive, "combined": lambda: combined(arg or "universal")}[cmd]()

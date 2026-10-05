@@ -9,19 +9,22 @@ to run it again. Results aren't committed; `run.sh` writes them under
 | Path | What it is |
 | --- | --- |
 | `templates/` | The templates as last run: the universal pack, with operator flags and config named as trusted, and the Go pack |
+| `templates-combined/` | Packs that ask several questions in one request: `universal` asks four, `security` nine |
 | `templates-v1/` | The first wording of the universal templates, which called any input "from outside the program" |
 | `paths/` | A Go tool, built on `golang.org/x/tools`, that writes one JSONL item per call path from a Gogs entry point to a sink. It is its own module |
 | `build_ctx.py` | Builds the Benchmark items: each test case, and each with the helper code it calls |
 | `run.sh` | Clones the code, builds decide, and runs every sweep into `work/results/` |
-| `score.py` | Scores the results: `bench`, `gogs`, `paths` and `dive` |
+| `score.py` | Scores the results: `bench [v1\|v2\|ctx\|combined]`, `gogs`, `paths`, `dive` and `combined [universal\|security]` |
 
-`run.sh` writes five runs to `work/results/`:
+`run.sh` writes six runs to `work/results/`:
 
 - `v1/`: the Benchmark and Gogs, by function, with `templates-v1/`.
 - `v2/`: the same, with `templates/`.
 - `ctx/`: the Benchmark, with the called helper code in each item.
 - `paths/`: Gogs by call path.
 - `dive/`: the Go pack, and `golangci-lint.json`.
+- `combined/`: the packs in `templates-combined/`, on Gogs, and the
+  security pack on each Benchmark case.
 
 ## Code
 
@@ -62,7 +65,7 @@ is present but harmless or best effort.
 
 ```sh
 export TYPESAFE_API_KEY=...
-./run.sh                      # about 30,000 requests; writes work/results/
+./run.sh                      # about 35,000 requests; writes work/results/
 python3 score.py bench ctx    # or v1, v2
 python3 score.py gogs v2      # or v1
 python3 score.py paths

@@ -349,7 +349,8 @@ candidates.
 
 ### C. Common patterns: template packs
 
-- **CWE pack.** One template per common vulnerability class: SQL injection,
+- **CWE pack.** One template with a question per common vulnerability
+  class (see [check-packs.md](check-packs.md)): SQL injection,
   path traversal, SSRF, missing authz, XSS, open redirect, unsafe
   deserialization, weak crypto, and hardcoded credentials (the `secrets`
   template).
