@@ -41,9 +41,11 @@ through a helper class can't show that the helper returns `"bar"`. A
 **call path** can: the entry point that receives the request, each
 function down to the one that calls the sink, and their source, in one
 item. Adding the called code raised every Benchmark score that used it
-(see [Spike results](#spike-results)), and paths from Gogs route handlers
-removed the `orderBy` false positive. Paths also cut cost, because they
-start from sinks: 2,030 functions became 17 SSRF paths.
+(see [Spike results](#spike-results)), and a path from a Gogs route
+handler cut one `orderBy` false positive from 0.90 to 0.33. Paths that
+start from sinks can also cut the number of items: 2,030 functions became
+17 SSRF paths, 124 file paths, 151 command paths and 607 SQL paths. Each
+path is larger than a function, up to 28 KB in the spike.
 
 So the unit is a function by default, and a call path from an entry point
 to a sink where the bug is a flow. A deterministic tool builds the paths;
@@ -55,8 +57,9 @@ wording decides recall: a question about the mistake ranks well, and a
 question about its category is noisy. The spike found the same for trust:
 "input from outside the program" counted flags and config files as attacker
 input. "Untrusted input", with the operator's flags and config named as
-trusted, cut flags on Gogs by a fifth to a third without changing Benchmark
-scores.
+trusted, cut flags on Gogs by 15% to 40% and left Benchmark scores within
+0.01. It has a cost: the labeled SSRF bug in `Request.getResponse` fell
+from rank 4 to 22.
 
 ## Universal pack
 
@@ -73,12 +76,12 @@ ranks from the [2025 CWE Top
 | `xss` | 79 (#1) | A05 | `template.HTML`, `innerHTML`, `dangerouslySetInnerHTML`, writers |
 | `code-injection` | 94 (#10), 95 | A05 | `eval`, `new Function`, `exec` |
 | `unsafe-deserialization` | 502 (#15) | A08 Integrity Failures | `pickle`, `yaml.load`, `ObjectInputStream` |
-| `weak-crypto` | 327, 328, 330, 295 | A04 Cryptographic Failures | `md5`, `sha1`, `DES`, `math/rand`, `InsecureSkipVerify` |
+| `weak-crypto` | 327, 328, 330; 295 | A04 Cryptographic Failures; 295 is A07 Authentication Failures | `md5`, `sha1`, `DES`, `math/rand`, `InsecureSkipVerify` |
 | `secrets` | 798 | A07 Authentication Failures | a text pattern and entropy |
-| `file-upload` | 434 (#12) | none | multipart handlers |
+| `file-upload` | 434 (#12) | A06 Insecure Design | multipart handlers |
 | `error-handling` | 252, 390, 636, 703, 754, 755 | A10 Mishandling of Exceptional Conditions | `err`, `catch`, `except` |
 | `unbounded-resource` | 770 (#25), 400 | none | `io.ReadAll`, `make`, `http.Client` |
-| `sensitive-logging` | 532, 200 (#20) | A09 Logging and Alerting Failures | `log.*`, `logger.*` |
+| `sensitive-logging` | 532; 200 (#20) | A09 Logging and Alerting Failures; 200 is A01 | `log.*`, `logger.*` |
 
 The [OWASP Top 10 for LLM
 Applications](https://genai.owasp.org/llm-top-10/) adds two that fit
@@ -178,7 +181,9 @@ beside the other tools.
 - **Gogs CVEs from 2026.** Phase 0's clusters cover CWE-88, 22, 59 and
   639, and their fixes are newer than the model's likely training data.
   Universal templates, written without seeing the fixes, should rank the
-  vulnerable functions near the top.
+  vulnerable functions near the top. (The spike's second wording was
+  tuned after reading the first Gogs results, so its Gogs ranks are not
+  blind.)
 - **Our own Go repositories,** for the Go pack: read the top of each
   ranking, and compare with `golangci-lint` on the same code.
 
@@ -193,18 +198,23 @@ asks four.
 Each test case is one item: its file, and in the second run, the source of
 the helper classes it calls (`SeparateClassRequest`, `ThingFactory` and its
 `Thing` classes) and `benchmark.properties`. The score is the true-positive
-rate minus the false-positive rate at the best threshold. AUC is the chance
-that a real case scores above a safe one.
+rate minus the false-positive rate. "Best" picks the threshold for each
+category on the same data, so it is optimistic; "at 0.5" uses one fixed
+threshold. AUC is the chance that a real case scores above a safe one.
 
-| Category (CWE) | Cases | Score, file only | Score, with called code | AUC, with called code |
-| --- | --- | --- | --- | --- |
-| SQL injection (89) | 504 | 0.68 | **0.84** | 0.91 |
-| Command injection (78) | 251 | 0.66 | **0.78** | 0.92 |
-| Path traversal (22) | 268 | 0.73 | **0.81** | 0.90 |
-| XSS (79) | 455 | 0.78 | **0.90** | 0.95 |
-| Weak cipher (327) | 246 | 1.00 | 1.00 | 1.00 |
-| Weak hash (328) | 236 | 0.68 | **1.00** | 1.00 |
-| Weak random (330) | 493 | 1.00 | 1.00 | 1.00 |
+| Category (CWE) | Cases | File only, at 0.5 | File only, best | Called code, at 0.5 | Called code, best | AUC, called code |
+| --- | --- | --- | --- | --- | --- | --- |
+| SQL injection (89) | 504 | 0.48 | 0.68 | 0.65 | **0.84** | 0.91 |
+| Command injection (78) | 251 | 0.41 | 0.66 | 0.62 | **0.78** | 0.92 |
+| Path traversal (22) | 268 | 0.64 | 0.73 | 0.78 | **0.81** | 0.90 |
+| XSS (79) | 455 | 0.69 | 0.78 | 0.83 | **0.90** | 0.95 |
+| Weak cipher (327) | 246 | 0.57 | 1.00 | 0.59 | **1.00** | 1.00 |
+| Weak hash (328) | 236 | 0.61 | 0.68 | 1.00 | **1.00** | 1.00 |
+| Weak random (330) | 493 | 1.00 | 1.00 | 1.00 | **1.00** | 1.00 |
+
+The gap between the two thresholds is the case for `decide eval`: the
+weak-cipher question separates every case (AUC 1.00) but needs a
+threshold near 0.95, not 0.5. Each built-in needs its threshold measured.
 
 - Recall was 1.00 at 0.5 in every injection category. The errors are
   false positives.
@@ -233,7 +243,9 @@ in the `git-module` dependency, so they have no label in Gogs.
 | `path-traversal` | `UploadRepoFiles` (#8332) | 41 | 27 of 64 |
 | `path-traversal` | `isRepositoryGitPath` (#8408) | 194 | no path |
 
-- **SSRF and command injection work.** The top 15 command-injection
+- **SSRF and command injection look promising, on few labels:** four SSRF
+  labels and one command-injection label, in one repository.
+  `HookTask.deliver` scored 0.47, under 0.5. The top 15 command-injection
   functions also hold the branch-name callers (`CheckoutNewBranch`,
   `UpdateLocalCopyBranch`, `CreateNewBranch`) that #8390 and #8393 were
   about.
@@ -274,7 +286,7 @@ file part. Three of the four are in `experimental/`.
 - **Not ready to ship.** The scores barely separate intended best-effort
   code from real swallowed errors (0.81 to 0.85 for both), and the leak
   question flagged channels that hold the one value they get.
-- 8 of the top 30 were in `examples/` or `demos/`, and none was real. A
+- 6 of the top 30 were in `examples/` or `demos/`, and none was real. A
   default `--exclude` for those would help any Go sweep.
 - The leak and context bugs that were real needed the callers to confirm,
   which is the case for call paths again.
@@ -283,7 +295,9 @@ file part. Three of the four are in `experimental/`.
 
 1. `weak-crypto`, `xss`, `sql-injection`, `command-injection` and `ssrf`
    as built-ins, with the trust wording from the spike, planted cases in
-   `demo/` and labeled examples. They work per function today. Each
+   `demo/` and labeled examples. They work per function today. Before
+   shipping, measure each on Go and TypeScript labels, not only the Java
+   Benchmark, and set its threshold from data. Each
    template's README names its CWE and OWASP category, and keeps the
    spike's numbers.
 2. A proposal for call-path items: where the path builder lives (a decide
@@ -299,6 +313,9 @@ file part. Three of the four are in `experimental/`.
    them.
 5. `decide eval`, with each built-in's labeled examples.
 6. `path-traversal`, once call paths or better wording lift it.
-7. The Go pack, once its questions separate real bugs from best-effort
+7. The rest of the universal pack, each measured the same way: `secrets`,
+   `code-injection`, `unsafe-deserialization`, `file-upload`,
+   `error-handling`, `unbounded-resource` and `sensitive-logging`.
+8. The Go pack, once its questions separate real bugs from best-effort
    code (4 of 30 real in the spike), then the TypeScript pack.
-8. Deviance templates for the project checks.
+9. Deviance templates for the project checks.
