@@ -35,11 +35,13 @@ For TypeScript, `--include '*.ts' --exclude '*.test.ts' --exclude '*.d.ts'
 --exclude '**/node_modules/**' --exclude 'dist/**'`. Name the paths from
 `$ARGUMENTS` in place of `.`, if any.
 
-The first line counts the functions; each one not already answered is one
-request. The second counts answers: eight per function, some already in
-the cache. If more than 5,000 functions need a request (the answers to
-ask, divided by eight), tell the user the count and ask before you go on;
-`--include` can narrow it to the packages that serve requests.
+The first line counts the functions. The second counts answers, eight
+per function: those already in the cache, and those to ask. A function
+with even one answer to ask needs a whole request, and the count doesn't
+say how many functions that is. So unless there are 0 answers to ask,
+treat every function as a request: over 5,000 functions, tell the user
+the count and ask before you go on. `--include` can narrow it to the
+packages that serve requests.
 
 ## 2. Rank
 
