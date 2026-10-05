@@ -259,6 +259,11 @@ that need a deterministic pre-filter.
 
 ## Bug and vulnerability hunting
 
+> **Direction, 2026-10-04:** build universal checks first, then language,
+> project and bug-specific checks, in that order. That reverses this
+> section's lead. See [check-packs.md](check-packs.md), which maps the
+> template packs to CWE and OWASP.
+
 Every idea above judges what Claude is doing right now. This section turns
 decide on the code that already exists. The shape is a funnel:
 
@@ -804,7 +809,9 @@ too small for a scale story.
 9. Nightly backlog routine and worktree fan-in. This is the autonomy story,
    once the checks earn trust.
 
-The hunting and scale track runs beside it:
+The hunting and scale track runs beside it. It is superseded by the order
+in [check-packs.md](check-packs.md): packs first, then `where`; steps 2
+and 3 below have shipped.
 
 1. Measure first: the price against Haiku at 100k functions, and whether
    Clef answers questions independently like Jev.
