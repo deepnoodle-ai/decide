@@ -2,7 +2,7 @@
 # Run the check-packs spike. Everything it writes goes under work/, which
 # git ignores: the code it reads, decide's answer cache, and the results in
 # work/results/. Needs TYPESAFE_API_KEY, Go, git and golangci-lint, and
-# about 30,000 model requests on the first run.
+# about 35,000 model requests on the first run.
 set -eu
 cd "$(dirname "$0")"
 R=work/results

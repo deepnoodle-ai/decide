@@ -127,12 +127,26 @@ def combined(pack):
         top = lambda r: {k for k in both if r[k] <= 30}
         print(f"\n=== {t}: {n} functions; flagged at 0.5: one each {sum(sep[k] >= .5 for k in both)}, "
               f"combined {sum(com[k] >= .5 for k in both)}")
-        print(f"  mean |difference| {sum(diffs) / n:.3f}; over 0.2: {sum(d > .2 for d in diffs)}; "
+        print(f"  mean |difference| {sum(diffs) / n:.3f}; largest {max(diffs):.2f}; over 0.2: {sum(d > .2 for d in diffs)}; "
               f"rank correlation {rho:.3f}; top 30 shared {len(top(rs_) & top(rc))}")
         for label in labels + (["GetByCollaboratorID", "searchUserByName"] if t == "sql-injection" else []):
             for k in both:
                 if k[1].split(".")[-1] == label:
                     print(f"  {label:22} one each rank {rs_[k]:4} p={sep[k]:.2f}   combined rank {rc[k]:4} p={com[k]:.2f}")
+    # Questions with no one-each run on Gogs: flagged counts and top hits.
+    for key in [k for k in rs[0]["answers"] if k not in
+                ("ssrf", "command_injection", "path_traversal", "sql_injection")]:
+        top = sorted(rs, key=lambda r: -r["answers"][key]["noul"])
+        dirs = {}
+        for r in rs:
+            if r["answers"][key]["noul"] >= .5:
+                d = "/".join(r["source"].split("/")[1:3])  # past gogs-snap/
+                dirs[d] = dirs.get(d, 0) + 1
+        print(f"\n=== {key}: flagged at 0.5 {sum(r['answers'][key]['noul'] >= .5 for r in rs)}, "
+              f"at 0.7 {sum(r['answers'][key]['noul'] >= .7 for r in rs)}; by folder "
+              + ", ".join(f"{d} {n}" for d, n in sorted(dirs.items(), key=lambda x: -x[1])[:4]))
+        for r in top[:5]:
+            print(f"  {r['answers'][key]['noul']:.2f} {r['input']:42} {r['source']}")
 
 
 if __name__ == "__main__":

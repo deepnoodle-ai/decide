@@ -69,7 +69,7 @@ Categories from the [OWASP Top 10:2025](https://top10.owasp.org/2025),
 ranks from the [2025 CWE Top
 25](https://cwe.mitre.org/top25/archive/2025/2025_cwe_top25.html).
 
-| Question | CWE (Top 25 rank) | OWASP 2025 | Candidates |
+| Class | CWE (Top 25 rank) | OWASP 2025 | Candidates |
 | --- | --- | --- | --- |
 | `sql-injection` | 89 (#2) | A05 Injection | `Query`, `Exec`, `Raw`, `cursor.execute` |
 | `command-injection` | 78 (#9), 77 (#23), 88 | A05 | `exec.Command`, `subprocess`, `child_process`, `Runtime.exec` |
@@ -274,7 +274,7 @@ in the `git-module` dependency, so they have no label in Gogs.
   more than 0.2. 29 of each top 30 were the same (25 for SQL), and the
   flagged counts stayed within 3. Labels moved a few places either way:
   `MigrateRepository` 2 to 1, `UserPath` 16 to 26, `UploadRepoFiles` 41
-  to 33. Nine questions did as well; see the next section.
+  to 33. Nine questions did nearly as well; see the next section.
 - **Trust wording.** Naming operator flags and config as trusted cut the
   functions flagged at 0.5 from 81 to 54 for path traversal, 32 to 25 for
   command injection, 53 to 45 for SSRF and 10 to 6 for SQL injection.
@@ -302,11 +302,20 @@ Gogs instead of 18,270. We split a pack only when a measurement shows a
 cost. The backend allows 64 questions in a request, and we measure again
 as a pack grows.
 
-The new questions on Gogs: `xss` flagged 179 functions, most of them
-Markdown renderers that build HTML, so it needs its threshold measured on
-Go labels. The TLS question flagged 8, led by the webhook and hook code
-that honors Gogs' "skip TLS verify" setting. The cipher and random
-questions flagged none.
+The new questions on Gogs at 0.5:
+
+- `xss` flagged 179 functions. Its top hits are Markdown and webhook
+  renderers that build HTML, but most of the 179 are route handlers (88)
+  and database functions (47). At 0.7 it flags 36. It needs its threshold
+  measured on Go labels.
+- The TLS question flagged 8, led by the webhook and hook code that obeys
+  Gogs' "skip TLS verify" setting.
+- The hash question flagged 6, and the cipher and random questions none.
+
+A pack and call paths fit together, with one question still open. A
+path item is built for one sink kind. Asked the whole pack, it costs no
+more requests, and its `kind` names the question that matters. See open
+question 6 in [call-path-items.md](call-path-items.md#open-questions).
 
 ### dive, Go pack
 
@@ -349,7 +358,7 @@ file part. Three of the four are in `experimental/`.
    A separate `decide-paths` command builds Go paths from request handlers
    to sinks, and decide judges them as JSONL records.
 3. A proposal for `where` in `template.json`. With paths, sinks become the
-   prefilter: a template names its sinks, and only code that reaches one
+   prefilter: each question names its sinks, and only code that reaches one
    is asked about.
 4. A proposal for CWE and OWASP tags on each question, carried into
    `--format github` and SARIF. Until then, the template's README names
