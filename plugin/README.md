@@ -22,6 +22,12 @@ them. The question is saved as a project template, such as
 `.decide/templates/bug-87`, so later changes can be checked for the same
 bug.
 
+**`/decide:audit [path]`** finds where to look for security bugs. decide's
+`security` template ranks every function for SQL and command injection,
+SSRF, XSS, and weak cryptography; Claude reads the top 15 with their
+callers, in parallel, and reports which are real and which it dismissed,
+and why.
+
 ## Install
 
 You need Claude Code 2.1.287 or later, decide 0.3.0 or later, and a key for

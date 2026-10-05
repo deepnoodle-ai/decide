@@ -665,3 +665,67 @@ func TestTemplateAndFileTextCannotControlTheTerminal(t *testing.T) {
 		}
 	}
 }
+
+// TestRunsViewTop checks that --top shows the items likeliest to be
+// flagged, the likeliest first, across a template's flagged questions.
+func TestRunsViewTop(t *testing.T) {
+	h := setup(t)
+	h.server.Respond(func(req *decide.Request) (*decide.Response, error) {
+		state, _ := json.Marshal(req.State)
+		injection, hidden := 0.1, 0.1
+		switch {
+		case strings.Contains(string(state), "steer"):
+			injection = 0.7
+		case strings.Contains(string(state), "hide"):
+			hidden = 0.9
+		case strings.Contains(string(state), "maybe"):
+			injection = 0.45
+		}
+		return &decide.Response{Answers: map[string]decide.Answer{
+			"injection": decidetest.NoulAnswer(injection),
+			"hidden":    decidetest.NoulAnswer(hidden),
+		}}, nil
+	})
+	out := h.run("plain\nmaybe\nsteer\nhide\n", "run", "prompt-injection")
+	if out.code != 0 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+
+	out = h.run("", "runs", "view", "--top", "3", "--json")
+	var sources []string
+	for _, line := range strings.Split(strings.TrimSpace(out.stdout), "\n") {
+		var res struct{ Source string }
+		if err := json.Unmarshal([]byte(line), &res); err != nil {
+			t.Fatal(err)
+		}
+		sources = append(sources, res.Source)
+	}
+	if got := strings.Join(sources, ","); got != "stdin:4,stdin:3,stdin:2" {
+		t.Fatalf("top 3 = %s", got)
+	}
+
+	out = h.run("", "runs", "view", "--top", "1")
+	contains(t, out.stdout, "stdin:4")
+	contains(t, out.stderr, "The 1 of 4 items likeliest to be flagged")
+	if strings.Contains(out.stdout, "stdin:3") {
+		t.Fatalf("--top 1 printed more than one item:\n%s", out.stdout)
+	}
+
+	out = h.run("", "runs", "view", "--top", "2", "--format", "md")
+	if out.code != 1 || !strings.Contains(out.stderr, "not md") {
+		t.Fatalf("--top with md: exit %d: %s", out.code, out.stderr)
+	}
+	out = h.run("", "runs", "view", "--top", "-1")
+	if out.code != 1 || !strings.Contains(out.stderr, "at least 1") {
+		t.Fatalf("--top -1: exit %d: %s", out.code, out.stderr)
+	}
+
+	h.write(".decide/templates/plain/template.json", `{"name": "plain", "description": "No flags.",
+		"questions": {"long": {"type": "noul", "instructions": "Is it long?"}}}`)
+	h.server.Reset()
+	h.run("a\n", "run", "plain")
+	out = h.run("", "runs", "view", "--top", "5")
+	if out.code != 1 || !strings.Contains(out.stderr, "plain flags none") {
+		t.Fatalf("--top without flags: exit %d: %s", out.code, out.stderr)
+	}
+}

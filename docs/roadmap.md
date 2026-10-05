@@ -55,6 +55,8 @@ off, or remove them, as they land.
       annotations.
 - [x] **Answer cache.** On by default: a run asks only about what
       changed. See the [PRD](prds/answer-cache.md).
+- [x] **`runs view --top N`.** The items likeliest to be flagged, first,
+      so a long run reads as a list of where to look.
 
 ## Providers and credentials
 
@@ -75,6 +77,8 @@ off, or remove them, as they land.
       directly.
 - [x] **`/decide:hunt`.** From one fix, find the other places the same bug
       lives. See [fix-one-find-all.md](design/fix-one-find-all.md).
+- [x] **`/decide:audit`.** decide ranks every function with `security`;
+      Claude reads the top 15 and reports which are real.
 - [ ] **`where` in templates.** A prefilter on calls, imports, and text,
       so a check pack or a hunt asks only about likely functions.
 - [ ] **MCP server.** `decide mcp`, with tools to run a template or ask a
