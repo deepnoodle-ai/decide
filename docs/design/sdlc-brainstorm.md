@@ -181,7 +181,7 @@ that need a deterministic pre-filter.
   controls its input.
 - ⚙ **Secrets.** Entropy and pattern hits on writes and command output come
   first. Decide then answers "a real credential or a fixture?" This is the
-  roadmap's `secrets` template; the CWE pack's hardcoded-credentials check
+  `secrets` template in [check-packs.md](check-packs.md); the CWE pack's hardcoded-credentials check
   is the same template, not a second one.
 - **Untrusted Reads.** Run `prompt-injection` when Claude reads files in
   `node_modules`, vendored code or `~/git/lib`, not only on web content.
@@ -258,6 +258,11 @@ that need a deterministic pre-filter.
     closely.
 
 ## Bug and vulnerability hunting
+
+> **Direction, 2026-10-04:** build universal checks first, then language,
+> project and bug-specific checks, in that order. That reverses this
+> section's lead. See [check-packs.md](check-packs.md), which maps the
+> template packs to CWE and OWASP.
 
 Every idea above judges what Claude is doing right now. This section turns
 decide on the code that already exists. The shape is a funnel:
@@ -766,7 +771,7 @@ too small for a scale story.
 | Threat models, QA plans, release notes | Generation, not judgment. |
 | `applies_to` routing by tags | Replaced by a regex `match` in the template. |
 | Depending on Semgrep, CodeQL, ast-grep or a language server | Use decide's own scanners and the project's own toolchain. Reading SARIF stays optional interop. |
-| Exact analysis inside decide (call graphs, `go/types`) | The project's toolchain already does it, and Claude runs it when confirming. |
+| Exact analysis inside decide (call graphs, `go/types`) | The project's toolchain already does it, and Claude runs it when confirming. Reopened by the [check-packs spike](check-packs.md#spike-results): call-path items cut false positives. |
 | Scripts Claude writes for each repo | Unreviewed code that breaks as the repo changes. Use templates, `match` on decide's scanners, or items Claude writes directly. |
 | `--budget $20` | Replaced by `--limit N`, hot code first; no price table to go stale. |
 | A separate sweep orchestrator | The CLI's primitives, called by Claude and the plugin. |
@@ -804,7 +809,10 @@ too small for a scale story.
 9. Nightly backlog routine and worktree fan-in. This is the autonomy story,
    once the checks earn trust.
 
-The hunting and scale track runs beside it:
+The hunting and scale track runs beside it. It is superseded by the order
+in [check-packs.md](check-packs.md): packs first, then `where`. The answer
+cache (step 2) and the hunt (step 3) have shipped; `match`, now called
+`where`, and the `--dry-run` counts have not.
 
 1. Measure first: the price against Haiku at 100k functions, and whether
    Clef answers questions independently like Jev.

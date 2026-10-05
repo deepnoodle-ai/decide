@@ -10,8 +10,19 @@ off, or remove them, as they land.
       with a demo repository and issues that have planted problems.
 - [x] **`pr-description`.** Check pull request titles and descriptions
       against a team's guidelines, with demo pull requests.
-- [ ] **More code templates.** `breaking-change`, `secrets`, `sql-injection`,
-      and `commit-messages`, each with planted problems in the demo.
+- [ ] **Universal check pack.** One template per vulnerability class, named
+      by its CWE and OWASP category: `sql-injection`, `command-injection`,
+      `path-traversal`, `weak-crypto` and more, each measured on labeled
+      cases and planted in the demo. See
+      [check-packs.md](design/check-packs.md).
+- [ ] **Go pack, then TypeScript.** Mistakes linters can't see, such as a
+      context that never reaches the call that blocks.
+- [ ] **Call-path items.** One item per path from an entry point to a
+      sink, with the source of every function on it. In the spike, adding
+      called code raised every OWASP Benchmark score that needed it.
+      Propose the design first.
+- [ ] **More code templates.** `breaking-change` and `commit-messages`,
+      each with planted problems in the demo.
 - [ ] **`decide eval`.** Measure a template on labeled examples: agreement
       per question, confident mistakes, suggested thresholds, and
       `--fail-under` for CI. Ship examples with each built-in template.
@@ -63,7 +74,7 @@ off, or remove them, as they land.
 - [x] **`/decide:hunt`.** From one fix, find the other places the same bug
       lives. See [fix-one-find-all.md](design/fix-one-find-all.md).
 - [ ] **`where` in templates.** A prefilter on calls, imports, and text,
-      so a hunt on a large repository asks only about likely functions.
+      so a check pack or a hunt asks only about likely functions.
 - [ ] **MCP server.** `decide mcp`, with tools to run a template or ask a
       question.
 
