@@ -6,7 +6,7 @@ templates or to record a demo.
 
 | File | What it holds |
 | --- | --- |
-| `repo/` | `shop` with the change applied. `repo/admin` has admin handlers with five planted security bugs, each beside a safe twin |
+| `repo/` | `shop` with the change applied. `repo/admin` has admin code with six planted security bugs, each beside a safe twin that does the same job |
 | `change.diff` | The change: a cleanup, a dropped refund check, SQL built from input, a new rule in `AGENTS.md`, and a doc that hides instructions for AI agents |
 | `issues.json` | Six issues, as `gh issue list --json number,title,body` prints them: two ready, three vague or too large, and one that hides instructions for AI agents |
 | `prs.json` | Five pull requests, as `gh pr list --json number,title,body` prints them: one complete, and four with a vague title, no reason, no testing notes, or a title that breaks the guidelines |
@@ -42,9 +42,10 @@ decide run security demo/repo                 # flags the planted bugs, and not 
 
 `security` flags `Server.TestWebhook` (SSRF), `Server.ExportOrders`
 (command injection), `Server.Greet` (XSS), `ResetToken` (a weak hash and
-random value), `ShippingClient` (TLS verification off) and
-`Refunds.Search` (SQL injection). It passes `PingWebhook`, `Backup` and
-`ShowOrder`, which do the same jobs safely.
+random value), `ShippingClient` (TLS verification off), `SealCardNote`
+(DES) and `Refunds.Search` (SQL injection). It passes their twins,
+`PingWebhook`, `Backup`, `ShowOrder`, `InviteToken`, `PaymentsClient`,
+`SealNote` and `Refunds.Apply`.
 
 Without git, run the same templates on `change.diff` from inside `repo/`:
 

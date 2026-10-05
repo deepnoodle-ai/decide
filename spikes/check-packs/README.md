@@ -15,7 +15,7 @@ to run it again. Results aren't committed; `run.sh` writes them under
 | `paths/` | A Go tool, built on `golang.org/x/tools`, that writes one JSONL item per call path from a Gogs entry point to a sink. It is its own module |
 | `build_ctx.py` | Builds the Benchmark items: each test case, and each with the helper code it calls |
 | `run.sh` | Clones the code, builds decide, and runs every sweep into `work/results/` |
-| `score.py` | Scores the results: `bench [v1\|v2\|ctx\|combined]`, `gogs`, `paths`, `dive`, `n8n` and `combined [universal\|security]` |
+| `score.py` | Scores the results: `bench [v1\|v2\|ctx\|combined\|security-v2]`, `gogs`, `paths`, `dive`, `n8n` and `combined [universal\|security\|security-v2]` |
 
 `run.sh` writes six runs to `work/results/`:
 
@@ -34,7 +34,7 @@ to run it again. Results aren't committed; `run.sh` writes them under
 | [OWASP Benchmark](https://github.com/OWASP-Benchmark/BenchmarkJava) | `8b67a88`, Benchmark 1.2 | 2,740 Java test cases, each labeled real or not by CWE |
 | [Gogs](https://github.com/gogs/gogs) | `199cf4fd5^` | Before the 2026 security fixes listed below |
 | [dive](https://github.com/deepnoodle-ai/dive) | `cae698f` | Our own Go, for the Go pack |
-| [n8n](https://github.com/n8n-io/n8n) | `56d336b8`, n8n@2.17.0 | TypeScript, before 43 advisories in the pack's classes were fixed |
+| [n8n](https://github.com/n8n-io/n8n) | `56d336b8`, n8n@2.17.0 | TypeScript, before 43 advisories in the pack's classes were fixed; 34 are labeled |
 
 ## Gogs labels
 
@@ -67,7 +67,7 @@ is present but harmless or best effort.
 
 ```sh
 export TYPESAFE_API_KEY=...
-./run.sh                      # about 45,000 requests; writes work/results/
+./run.sh                      # about 50,000 requests; writes work/results/
 python3 score.py bench ctx    # or v1, v2
 python3 score.py gogs v2      # or v1
 python3 score.py paths

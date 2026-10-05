@@ -2,7 +2,11 @@
 package admin
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/des"
 	"crypto/md5"
+	crand "crypto/rand"
 	"crypto/tls"
 	"database/sql"
 	"encoding/hex"
@@ -84,4 +88,48 @@ func ShippingClient() *http.Client {
 		Timeout:   10 * time.Second,
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}
+}
+
+// InviteToken makes the token in an invitation link.
+func InviteToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := crand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+// PaymentsClient calls the payment provider's API.
+func PaymentsClient() *http.Client {
+	return &http.Client{Timeout: 10 * time.Second}
+}
+
+// SealCardNote encrypts a note about a card, eight bytes at a time.
+func SealCardNote(key, note []byte) ([]byte, error) {
+	block, err := des.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]byte, len(note))
+	for i := 0; i+des.BlockSize <= len(note); i += des.BlockSize {
+		block.Encrypt(out[i:], note[i:])
+	}
+	return out, nil
+}
+
+// SealNote encrypts a note with AES-GCM and a random nonce.
+func SealNote(key, note []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := crand.Read(nonce); err != nil {
+		return nil, err
+	}
+	return gcm.Seal(nonce, nonce, note, nil), nil
 }
