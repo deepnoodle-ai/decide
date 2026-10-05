@@ -1,27 +1,32 @@
 # Brainstorm: decide across the SDLC in Claude Code
 
 Status: ideas, not commitments. Written 2026-10-03 after a review of the
-plugin at 0.2.1. Two independent critiques shaped it: one of the SDLC ideas,
-and one of the hunting and scale sections. Items that land move to
-[roadmap.md](../roadmap.md).
+plugin at 0.2.1, and updated 2026-10-04 after the reply check was removed
+(#53) and the command check narrowed (#54). Two independent critiques
+shaped it: one of the SDLC ideas, and one of the hunting and scale
+sections. Items that land move to [roadmap.md](../roadmap.md).
 
 ## Where the plugin stands
 
-The plugin has three checks, each on a moment where Claude's own judgment
+The plugin has two checks, each on a moment where Claude's own judgment
 slips:
 
 | Check | Hook | Template | Action |
 | --- | --- | --- | --- |
-| Command | PreToolUse on Bash and Monitor | `command-risk` | ask or deny |
+| Command | PreToolUse on Bash and Monitor, in bypass mode only | `command-risk`'s `severe` | ask |
 | Content | PostToolUse on web, MCP, `gh` and `curl` | `prompt-injection` | warning and toast |
-| Reply | Stop | `reply-check` | band offering a recheck |
 
 Beside the checks it has the judge tool, the `using-decide` skill,
-`/decide`, footer counts and verdicts on tool rows. It fails open, keeps its
+`/decide:hunt`, `/decide`, footer counts and verdicts on tool rows. It fails open, keeps its
 runs apart from the person's own, and pins its thresholds to the templates
 with a Go test.
 
-It is a good foundation. Its limit is that the three checks are hard-coded:
+A third check, on Claude's reply at Stop, was removed in #53. It flagged
+about one reply in five, nearly all honest: most passed on a subagent's
+results, which the check could not see. Ideas below that judge a whole
+turn at Stop face the same problem.
+
+It is a good foundation. Its limit is that the checks are hard-coded:
 every idea below needs either a new template, a new hook binding, or both.
 
 ## The lens: what decide is uniquely good at
@@ -75,7 +80,7 @@ the item is small: one edit hunk in a test file, or near error handling.
 
 **P1. Checks as config.** `.decide/agent.json` binds a hook event, tool
 matcher and path glob to a template, a threshold and an action (`warn`,
-`band`, `ask`, `deny`). The three checks become the default config. Build it
+`band`, `ask`, `deny`). The existing checks become the default config. Build it
 after about five checks exist, so real cases shape the schema. The schema
 lives in the plugin, never in the root package or the template format.
 
@@ -96,7 +101,9 @@ brake into an accelerator flips its failure mode: a confident false negative
 would run `rm` with no prompt. Instead, decide proposes allow rules for
 `settings.json` from commands it judged safe many times, and the person
 accepts them once. This sits close to "Not planned: running shell commands
-chosen from an answer", so propose the design first.
+chosen from an answer", so propose the design first. Since #54 the command
+check runs only in bypass mode, where allow rules don't matter, so P4 needs
+another source of judged commands, such as a sample outside bypass mode.
 
 **P5. CI parity.** "This will fail the decide gate in CI" before a push.
 Defer it until the GitHub Action ships.
@@ -161,9 +168,6 @@ that need a deterministic pre-filter.
   meaningful? This catches `assert.NotNil(result)` as the only assertion.
 - **Generated-test pruning.** When Claude writes 30 tests, rank them by
   value and flag redundant ones with the judge tool.
-- **Subagent reply check (SubagentStop).** Run `reply-check` on each
-  subagent's result before the parent trusts it. Overclaims compound, since
-  the parent repeats them as fact.
 
 ### 5. Security and vulnerabilities
 
@@ -756,7 +760,8 @@ too small for a scale story.
 | Architecture fit, breaking changes, "does this package mix concerns?" | `go list` and `apidiff` know; a model guesses. |
 | Deploy-to-error correlation | Needs the code and the incident in one item. |
 | Reviewer routing | CODEOWNERS. |
-| Verification gap at Stop | Duplicates `reply-check`'s `unverified` question. |
+| Verification gap at Stop | The removed reply check asked this and flagged one honest reply in five (#53). |
+| Subagent reply check at SubagentStop | The same question as the removed reply check, which was not reliable enough to act on (#53). |
 | Request clarity and convention match | Claude can do these itself; no gain from a second opinion. |
 | Threat models, QA plans, release notes | Generation, not judgment. |
 | `applies_to` routing by tags | Replaced by a regex `match` in the template. |
