@@ -17,6 +17,10 @@ off, or remove them, as they land.
       [check-packs.md](design/check-packs.md).
 - [ ] **Go pack, then TypeScript.** Mistakes linters can't see, such as a
       context that never reaches the call that blocks.
+- [ ] **Call-path items.** One item per path from an entry point to a
+      sink, with the source of every function on it. In the spike it
+      raised every OWASP Benchmark score that needed called code. Propose
+      the design first.
 - [ ] **More code templates.** `breaking-change` and `commit-messages`,
       each with planted problems in the demo.
 - [ ] **`decide eval`.** Measure a template on labeled examples: agreement

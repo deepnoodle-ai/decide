@@ -771,7 +771,7 @@ too small for a scale story.
 | Threat models, QA plans, release notes | Generation, not judgment. |
 | `applies_to` routing by tags | Replaced by a regex `match` in the template. |
 | Depending on Semgrep, CodeQL, ast-grep or a language server | Use decide's own scanners and the project's own toolchain. Reading SARIF stays optional interop. |
-| Exact analysis inside decide (call graphs, `go/types`) | The project's toolchain already does it, and Claude runs it when confirming. |
+| Exact analysis inside decide (call graphs, `go/types`) | The project's toolchain already does it, and Claude runs it when confirming. Reopened by the [check-packs spike](check-packs.md#spike-results): call-path items cut false positives. |
 | Scripts Claude writes for each repo | Unreviewed code that breaks as the repo changes. Use templates, `match` on decide's scanners, or items Claude writes directly. |
 | `--budget $20` | Replaced by `--limit N`, hot code first; no price table to go stale. |
 | A separate sweep orchestrator | The CLI's primitives, called by Claude and the plugin. |
