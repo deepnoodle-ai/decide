@@ -331,7 +331,7 @@ the built-in `security` with `path_traversal` added
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `sql_injection` | 25 | 0.94 | 15 | 11 | 6 | 88 | 56 |
 | `ssrf` | 17 | 0.94 | 11 | 8 | 5 | 374 | 208 |
-| `xss` | 7 | 0.91 | 3 | 1 | 1 | 40 | 20 |
+| `xss` | 7 | 0.93 | 3 | 1 | 0 | 42 | 19 |
 | `path_traversal` | 9 | 0.78 | 2 | 2 | 1 | 72 | 48 |
 | `command_injection` | 1 | 1.00 | 0 | 0 | 0 | 22 | 8 |
 
@@ -356,7 +356,7 @@ the built-in `security` with `path_traversal` added
   require (13 at 0.6), options that turn off TLS checks because a user
   asked (40), and 4 random values. No cipher was flagged. n8n had no
   labels for these.
-- **In all,** the built-in's thresholds flag 551 of n8n's 10,530
+- **In all,** the built-in's thresholds flag 553 of n8n's 10,530
   functions, 374 of them for SSRF.
 - On the Benchmark, `weak_cipher` needs 0.9: safe code scored up to 0.83
   and every real case 0.96 or more. `weak_hash` has no false positives at
