@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Score the check-packs spike from the results run.sh writes to work/results/.
 
-    python3 score.py bench [v1|v2|ctx|combined]  OWASP Benchmark, by category
+    python3 score.py bench [v1|v2|ctx|combined|security-v2]  OWASP Benchmark, by category
     python3 score.py gogs [v1|v2]         Gogs, labeled functions by rank
     python3 score.py paths                Gogs call paths, by sink function
     python3 score.py dive                 dive, top candidates per Go template
-    python3 score.py combined [universal|security]
+    python3 score.py n8n                  n8n, labeled functions by rank, per question
+    python3 score.py combined [universal|security|security-v2]
                                           Gogs, a pack's questions in one request vs one each
 
 The Benchmark's labels come from work/BenchmarkJava/expectedresults-1.2.csv,
@@ -32,14 +33,15 @@ def bench(run):
                 truth[name] = real == "true"
     questions = {"sqli": "injection", "cmdi": "injection", "pathtraver": "traversal",
                  "xss": "xss", "crypto": "cipher", "hash": "hash", "weakrand": "random"}
-    if run == "combined":
+    if run in ("combined", "security-v2"):
         # templates-combined/security asks every question of every case.
         questions = {"sqli": "sql_injection", "cmdi": "command_injection", "pathtraver": "path_traversal",
                      "xss": "xss", "crypto": "weak_cipher", "hash": "weak_hash", "weakrand": "weak_random"}
     print(f"{'category':10} {'n':>4} {'TPR@.5':>7} {'FPR@.5':>7} {'score@.5':>8} {'best thr':>8} {'best':>5} {'AUC':>5}")
     for cat, q in questions.items():
         try:
-            rs = rows(f"results/{run}/bench-{cat}.jsonl")
+            rs = rows(f"results/combined/bench-v2-{cat}.jsonl" if run == "security-v2"
+                      else f"results/{run}/bench-{cat}.jsonl")
         except FileNotFoundError:
             continue
         xs = [(r["answers"][q]["noul"], truth[os.path.basename(r["source"])[:-5]]) for r in rs
@@ -172,8 +174,38 @@ def combined(pack):
             print(f"  {r['answers'][key]['noul']:.2f} {r['input']:42} {r['source']}")
 
 
+def n8n():
+    """Rank n8n's labeled functions on each question of the security pack."""
+    from n8n_labels import LABELS
+    rs = [r for r in rows("results/combined/n8n-security.jsonl") if r["status"] == "complete"]
+    print(f"{len(rs)} functions")
+    labeled = {}
+    for q, ghsa, path, name in LABELS:
+        hits = [i for i, r in enumerate(rs) if r["source"].split("#")[0].endswith(path)
+                and (r.get("input") == name or r.get("input", "").endswith("." + name))]
+        if not hits:
+            print(f"  not found: {ghsa} {path} {name}")
+        labeled.setdefault(q, set()).update(hits)
+    for q in rs[0]["answers"]:
+        ps = [r["answers"][q]["noul"] for r in rs]
+        order = sorted(range(len(rs)), key=lambda i: -ps[i])
+        rank = {i: n + 1 for n, i in enumerate(order)}
+        pos = [ps[i] for i in labeled.get(q, ())]
+        line = f"\n=== {q}: flagged " + ", ".join(f"{t}: {sum(p >= t for p in ps)}" for t in (.5, .6, .7, .8, .9))
+        if pos:
+            neg = [ps[i] for i in range(len(rs)) if i not in labeled[q]]
+            auc = sum(1 if p > n else .5 if p == n else 0 for p in pos for n in neg) / (len(pos) * len(neg))
+            line += f"\n  {len(pos)} labels, AUC {auc:.2f}; found " + ", ".join(
+                f"{t}: {sum(p >= t for p in pos)}" for t in (.5, .6, .7, .8, .9))
+        print(line)
+        for i in sorted(labeled.get(q, ()), key=lambda i: rank[i]):
+            print(f"  rank {rank[i]:5} p={ps[i]:.2f} {rs[i]['input']}  {rs[i]['source'].split('packages/')[-1]}")
+        for i in order[:5]:
+            print(f"  top {ps[i]:.2f} {rs[i].get('input', '')}  {rs[i]['source'].split('packages/')[-1]}")
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1] if len(sys.argv) > 1 else "bench"
     arg = sys.argv[2] if len(sys.argv) > 2 else None
     {"bench": lambda: bench(arg or "ctx"), "gogs": lambda: gogs(arg or "v2"),
-     "paths": paths, "dive": dive, "combined": lambda: combined(arg or "universal")}[cmd]()
+     "paths": paths, "dive": dive, "n8n": n8n, "combined": lambda: combined(arg or "universal")}[cmd]()

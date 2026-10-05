@@ -2,7 +2,7 @@
 # Run the check-packs spike. Everything it writes goes under work/, which
 # git ignores: the code it reads, decide's answer cache, and the results in
 # work/results/. Needs TYPESAFE_API_KEY, Go, git and golangci-lint, and
-# about 35,000 model requests on the first run.
+# about 50,000 model requests on the first run.
 set -eu
 cd "$(dirname "$0")"
 R=work/results
@@ -52,6 +52,23 @@ $D run templates-combined/security work/gogs-snap --include '*.go' --exclude '*_
 for c in sqli cmdi pathtraver xss crypto hash weakrand; do
 	$D run templates-combined/security work/bench/$c --each file --json >$R/combined/bench-$c.jsonl
 done
+
+# The built-in's wording, with path_traversal, on Gogs and the Benchmark,
+# then on n8n (TypeScript), before 43 advisories were fixed: about 10,500
+# requests for n8n.
+$D run templates-combined/security-v2 work/gogs-snap --include '*.go' --exclude '*_test.go' \
+	--each function --json >$R/combined/gogs-security-v2.jsonl
+for c in sqli cmdi pathtraver xss crypto hash weakrand; do
+	$D run templates-combined/security-v2 work/bench/$c --each file --json >$R/combined/bench-v2-$c.jsonl
+done
+[ -d work/n8n ] || git clone -q https://github.com/n8n-io/n8n.git work/n8n
+git -C work/n8n checkout -q 56d336b8 # n8n@2.17.0
+H=$PWD
+(cd work/n8n && DECIDE_HOME="$H/work/home-n8n" "$H/$D" run "$H/templates-combined/security-v2" \
+	packages/cli/src packages/core/src packages/workflow/src packages/nodes-base/nodes \
+	packages/@n8n/nodes-langchain --include '*.ts' --exclude '*.test.ts' --exclude '*.d.ts' \
+	--exclude '**/__tests__/**' --exclude '**/test/**' --exclude '**/__mocks__/**' --json) \
+	>$R/combined/n8n-security.jsonl
 export DECIDE_HOME="$PWD/work/home"
 
 # Gogs, by call path. The templates default to --each function, so the

@@ -317,6 +317,60 @@ path item is built for one sink kind. Asked the whole pack, it costs no
 more requests, and its `kind` names the question that matters. See open
 question 6 in [call-path-items.md](call-path-items.md#open-questions).
 
+### n8n, TypeScript
+
+10,530 functions in n8n's server packages at `56d336b8` (n8n@2.17.0),
+before 43 advisories in these classes were fixed. 34 of them are
+labeled, with the 56 functions their fixes changed (`n8n_labels.py`);
+the rest were fixed before the snapshot, outside server code, or by
+adding a feature, with no flow in one function to judge. The template is
+the built-in `security` with `path_traversal` added
+(`templates-combined/security-v2`).
+
+| Question | Labels | AUC | Found at 0.5 | At 0.6 | At 0.7 | Flagged at 0.5 | At 0.6 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `sql_injection` | 25 | 0.94 | 15 | 11 | 6 | 88 | 56 |
+| `ssrf` | 17 | 0.94 | 11 | 8 | 5 | 374 | 208 |
+| `xss` | 7 | 0.93 | 3 | 1 | 0 | 42 | 19 |
+| `path_traversal` | 9 | 0.78 | 2 | 2 | 1 | 72 | 48 |
+| `command_injection` | 1 | 1.00 | 0 | 0 | 0 | 22 | 8 |
+
+- **SQL injection ranks well.** The four top functions are labels, and
+  every SQL label it found ranks in the top 77. Five of the ten it missed
+  are NoSQL queries (MongoDB, Firestore, Elasticsearch), which the
+  question doesn't ask about.
+- **Many real bugs score 0.5 to 0.7,** so a threshold of 0.6 would miss
+  4 of the 15 SQL labels found, 3 of 11 SSRF and 2 of 3 XSS. In Gogs it
+  would miss `runSync` (0.57). So the injection, SSRF and XSS questions
+  flag at 0.5. Even so, 10 of 25 SQL labels, 6 of 17 SSRF and 4 of 7 XSS
+  scored under 0.5.
+- **The one command-injection label was missed.** `Git.execute` scored
+  0.34, rank 39. Its fix was weak evidence: it builds git's environment
+  with `Object.create(null)`.
+- **SSRF flags a lot of n8n,** because fetching a URL that a workflow
+  names is what most n8n nodes do. Ranked, the labels still score above
+  94% of other functions on average (AUC 0.94).
+- **Path traversal is still not ready** in TypeScript either: 2 of 9
+  labels found, AUC 0.78. It stays out of the built-in.
+- **The weak-crypto questions** flagged HMAC-SHA1 that webhook senders
+  require (13 at 0.6), options that turn off TLS checks because a user
+  asked (40), and 4 random values. No cipher was flagged. n8n had no
+  labels for these.
+- **In all,** the built-in's thresholds flag 553 of n8n's 10,530
+  functions, 374 of them for SSRF.
+- On the Benchmark, `weak_cipher` needs 0.9: safe code scored up to 0.83
+  and every real case 0.96 or more. `weak_hash` has no false positives at
+  0.6 but finds 66% of real cases; the misses read their algorithm from a
+  properties file. `weak_random` separates every case.
+
+The XSS question gained a sentence for this run: a template engine that
+escapes by default encodes its values unless the code marks them safe.
+On Gogs, it cut the functions flagged at 0.5 from 179 to 56, and the top
+hits became the Markdown renderers. On the Benchmark, it kept every real
+case (AUC 0.87 to 0.88). `score.py combined security-v2` and
+`score.py bench security-v2` give these numbers. The other questions'
+Benchmark AUC stayed within 0.01 of one template per question.
+
 ### dive, Go pack
 
 2,727 functions in dive at `cae698f`, beside `golangci-lint` with
@@ -349,11 +403,8 @@ file part. Three of the four are in `experimental/`.
 1. A `security` built-in that asks the `sql_injection`,
    `command_injection`, `ssrf`, `xss` and four weak-crypto questions in
    one request, with the trust wording from the spike, planted cases in
-   `demo/` and labeled examples. It works per function today. Before
-   shipping, measure each question on Go and TypeScript labels, not only
-   the Java Benchmark, and set its threshold from data. The template's
-   README names each question's CWE and OWASP category, and keeps the
-   spike's numbers.
+   `demo/`, and thresholds from the Benchmark, Gogs and n8n. Its README
+   names each question's CWE and OWASP category.
 2. A proposal for call-path items: [call-path-items.md](call-path-items.md).
    A separate `decide-paths` command builds Go paths from request handlers
    to sinks, and decide judges them as JSONL records.
