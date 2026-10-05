@@ -16,6 +16,8 @@ Guidance for coding agents and people working in this repository. See
 - `plugin`: the Claude Code plugin, a mod in TypeScript that runs the
   CLI. `.claude-plugin/marketplace.json` lists it. The templates it runs
   are built in, and `TestPluginTemplatesAreBuiltin` keeps them in step.
+- `spikes/<name>`: experiments behind a design doc, with their inputs,
+  results, and a way to run them again. They are not part of the build.
 - `cmd/decide` and `internal/`: the CLI. `internal/cli` handles commands
   and output, `internal/template` templates, `internal/source` reading
   data into items, and `internal/runs` saved runs.

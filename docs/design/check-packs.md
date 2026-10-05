@@ -190,7 +190,9 @@ beside the other tools.
 ## Spike results
 
 Run 2026-10-04 with decide from `main` (Jev, `jev-1.13.0`), no code
-changes. Each template asks one `noul` question per item; `weak-crypto`
+changes. The templates, the call-path tool and scripts to rerun and
+score it all are in
+[spikes/check-packs](../../spikes/check-packs/). Each template asks one `noul` question per item; `weak-crypto`
 asks four.
 
 ### OWASP Benchmark 1.2
