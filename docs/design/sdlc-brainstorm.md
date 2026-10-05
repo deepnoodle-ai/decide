@@ -181,7 +181,7 @@ that need a deterministic pre-filter.
   controls its input.
 - ⚙ **Secrets.** Entropy and pattern hits on writes and command output come
   first. Decide then answers "a real credential or a fixture?" This is the
-  roadmap's `secrets` template; the CWE pack's hardcoded-credentials check
+  `secrets` template in [check-packs.md](check-packs.md); the CWE pack's hardcoded-credentials check
   is the same template, not a second one.
 - **Untrusted Reads.** Run `prompt-injection` when Claude reads files in
   `node_modules`, vendored code or `~/git/lib`, not only on web content.
@@ -810,8 +810,9 @@ too small for a scale story.
    once the checks earn trust.
 
 The hunting and scale track runs beside it. It is superseded by the order
-in [check-packs.md](check-packs.md): packs first, then `where`; steps 2
-and 3 below have shipped.
+in [check-packs.md](check-packs.md): packs first, then `where`. The answer
+cache (step 2) and the hunt (step 3) have shipped; `match`, now called
+`where`, and the `--dry-run` counts have not.
 
 1. Measure first: the price against Haiku at 100k functions, and whether
    Clef answers questions independently like Jev.
