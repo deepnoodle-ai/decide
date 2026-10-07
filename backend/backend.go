@@ -1,6 +1,6 @@
 // Package backend selects a decision provider during decide.Client construction.
 // Requests, typed handles, retries, and answer validation use the same decide
-// API for either provider.
+// API for every provider.
 //
 // Config supplies connection settings explicitly. NewClient reads no
 // environment variables, so a TypeSafe environment cannot affect Cloudflare
@@ -15,6 +15,7 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/cloudflare"
+	"github.com/deepnoodle-ai/decide/openai"
 )
 
 // Provider identifies the service used by a client.
@@ -25,16 +26,19 @@ const (
 	TypeSafe Provider = "typesafe"
 	// Cloudflare uses Workers AI. The default model is clef.
 	Cloudflare Provider = "cloudflare"
+	// OpenAI uses the Decisions API, in beta. The default model is gpt-6-luna.
+	OpenAI Provider = "openai"
 )
 
 // Config selects a provider and its connection settings. APIKey is a
-// TypeSafe API key or Cloudflare Workers AI API token, depending on Provider.
+// TypeSafe API key, Cloudflare Workers AI API token, or OpenAI API key,
+// depending on Provider.
 // AccountID is required only for Cloudflare. Provider must be explicit.
 type Config struct {
 	Provider   Provider
 	APIKey     string
 	AccountID  string
-	Model      string       // empty: "jev-latest" for TypeSafe, "clef" for Cloudflare
+	Model      string       // empty: "jev-latest", "clef", or "gpt-6-luna" by provider
 	BaseURL    string       // empty: provider default
 	HTTPClient *http.Client // nil: provider default
 	UserAgent  string
@@ -84,8 +88,18 @@ func NewClient(cfg Config, opts ...decide.ClientOption) (*decide.Client, error) 
 		if model == "" {
 			model = "clef"
 		}
+	case OpenAI:
+		if cfg.AccountID != "" {
+			return nil, fmt.Errorf("%w: backend AccountID is only for Cloudflare", decide.ErrInvalidRequest)
+		}
+		transport, err = openai.NewTransport(openai.Config{
+			APIKey: cfg.APIKey, BaseURL: cfg.BaseURL, HTTPClient: cfg.HTTPClient, UserAgent: cfg.UserAgent,
+		})
+		if model == "" {
+			model = "gpt-6-luna"
+		}
 	default:
-		return nil, fmt.Errorf("%w: backend Provider must be typesafe or cloudflare", decide.ErrInvalidRequest)
+		return nil, fmt.Errorf("%w: backend Provider must be typesafe, cloudflare, or openai", decide.ErrInvalidRequest)
 	}
 	if err != nil {
 		return nil, err

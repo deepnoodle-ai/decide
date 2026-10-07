@@ -60,6 +60,10 @@ off, or remove them, as they land.
 
 ## Providers and credentials
 
+- [x] **OpenAI's Decisions API.** `--provider openai` and `backend.OpenAI`
+      run `gpt-6-luna` through `POST /v1/decisions`, in beta.
+- [ ] **Images on OpenAI.** Send image templates to the Decisions API as
+      base64 data URLs, as `cloudflare.SetImages` does for Clef.
 - [ ] **`decide models`.** List models and confirm the credentials work.
       Cloudflare can't list models, so verify the token instead.
 - [ ] **Gateways.** Test Vercel AI Gateway and OpenRouter through

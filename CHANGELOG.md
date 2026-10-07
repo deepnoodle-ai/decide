@@ -8,6 +8,9 @@ may change the library API and the CLI.
 
 ### Added
 
+- **OpenAI's Decisions API.** `--provider openai` runs templates on
+  `gpt-6-luna` with `OPENAI_API_KEY`; Go code uses `backend.OpenAI`. The API
+  is in beta, and image templates don't run on it yet.
 - **A Claude Code guide.** [docs/claude-code.md](docs/claude-code.md) shows
   how to set up the plugin and use `/decide:audit` and `/decide:hunt`.
 

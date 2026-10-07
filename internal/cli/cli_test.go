@@ -230,7 +230,7 @@ func TestHelpfulErrors(t *testing.T) {
 		{"limit and sample", []string{"run", "sentiment", "notes.txt", "-n", "1", "--sample", "2"}, []string{"--limit or --sample"}},
 		{"images need cloudflare", []string{"run", "receipt-quality", ".", "--provider", "typesafe"}, []string{"--provider cloudflare"}},
 		{"nothing matched", []string{"run", "code-risk", ".", "--include", "*.rs"}, []string{"Found nothing", "--include"}},
-		{"bad provider", []string{"run", "sentiment", "--provider", "openai"}, []string{"openai"}},
+		{"bad provider", []string{"run", "sentiment", "--provider", "acme"}, []string{"acme"}},
 		{"no runs", []string{"runs", "view"}, []string{"no saved runs"}},
 		{"unknown run", []string{"runs", "view", "nope"}, []string{`There is no run "nope"`}},
 	} {

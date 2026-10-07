@@ -30,13 +30,14 @@ typed, with a probability, so a script or a program can act on it
 directly. There is no prose to parse.
 
 Decide works with Jev on the TypeSafe API, Clef on Cloudflare Workers AI,
-and any other service that speaks the Jev API, with the same commands and
-the same Go code. Switch between them without changing anything else:
+GPT-6 Luna on OpenAI's Decisions API, and any other service that speaks
+the Jev API, with the same commands and the same Go code. Switch between
+them without changing anything else:
 
-| | [Jev](https://docs.typesafe.ai/introduction) by TypeSafe | [Clef](https://developers.cloudflare.com/workers-ai/models/clef/) by Cloudflare |
-| --- | --- | --- |
-| Models | `jev-latest` | `clef`, and `clef-flash` for lower latency |
-| Runs on | the [TypeSafe API](https://typesafe.ai) | [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/get-started/rest-api/) |
+| | [Jev](https://docs.typesafe.ai/introduction) by TypeSafe | [Clef](https://developers.cloudflare.com/workers-ai/models/clef/) by Cloudflare | [GPT-6 Luna](https://developers.openai.com/api/docs/guides/decisions) by OpenAI |
+| --- | --- | --- | --- |
+| Models | `jev-latest` | `clef`, and `clef-flash` for lower latency | `gpt-6-luna` |
+| Runs on | the [TypeSafe API](https://typesafe.ai) | [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/get-started/rest-api/) | the [Decisions API](https://developers.openai.com/api/docs/guides/decisions), in beta |
 
 Clef's weights are [open on Hugging Face](https://huggingface.co/Cloudflare/clef)
 under Apache 2.0.
@@ -57,6 +58,15 @@ the Cloudflare provider:
 export CLOUDFLARE_AUTH_TOKEN=...
 export CLOUDFLARE_ACCOUNT_ID=...
 export DECIDE_PROVIDER=cloudflare   # or pass --provider cloudflare
+echo "The new release fixed everything I cared about" | decide run sentiment
+```
+
+**With GPT-6 Luna,** set your OpenAI API key and choose the OpenAI
+provider:
+
+```sh
+export OPENAI_API_KEY=...
+export DECIDE_PROVIDER=openai   # or pass --provider openai
 echo "The new release fixed everything I cared about" | decide run sentiment
 ```
 
@@ -154,7 +164,9 @@ client, err := backend.NewClient(backend.Config{
 })
 ```
 
-Then ask a question the same way with either one:
+Or for GPT-6 Luna, with `Provider: backend.OpenAI` and
+`APIKey: os.Getenv("OPENAI_API_KEY")`. Then ask a question the same way
+with any of them:
 
 ```go
 e, err := decide.Eval(ctx, client, ticket, decide.Noul("Is this about billing?"))

@@ -78,6 +78,32 @@ func TestSwitchProviders(t *testing.T) {
 	}
 }
 
+func TestOpenAIProvider(t *testing.T) {
+	var path, model string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Model string `json:"model"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		path, model = r.URL.Path, body.Model
+		fmt.Fprintf(w, `{"model":%q,"answers":[{"type":"predicate","name":"billing","probability":0.93}]}`, body.Model)
+	}))
+	defer srv.Close()
+	client, err := backend.NewClient(backend.Config{Provider: backend.OpenAI, APIKey: testKey, BaseURL: srv.URL + "/v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := decide.NewRequest("Where is my refund?")
+	billing := decide.Ask(req, "billing", decide.Noul("Is this about billing?"))
+	resp, err := client.SystemOne(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a, err := billing.From(resp); err != nil || a.Noul != 0.93 || path != "/v1/decisions" || model != "gpt-6-luna" {
+		t.Fatalf("openai backend: path %q model %q answer %+v %v", path, model, a, err)
+	}
+}
+
 func TestRequestModelOverridesBackendDefault(t *testing.T) {
 	srv := fakeBoth()
 	defer srv.Close()
@@ -95,9 +121,10 @@ func TestRequestModelOverridesBackendDefault(t *testing.T) {
 
 func TestInvalidConfigAndConnectionOptions(t *testing.T) {
 	for _, cfg := range []backend.Config{
-		{}, {Provider: "openai", APIKey: testKey}, {Provider: backend.TypeSafe},
-		{Provider: backend.Cloudflare, APIKey: testKey},
+		{}, {Provider: "other", APIKey: testKey}, {Provider: backend.TypeSafe},
+		{Provider: backend.Cloudflare, APIKey: testKey}, {Provider: backend.OpenAI},
 		{Provider: backend.TypeSafe, APIKey: testKey, AccountID: "account-1"},
+		{Provider: backend.OpenAI, APIKey: testKey, AccountID: "account-1"},
 	} {
 		if _, err := backend.NewClient(cfg); err == nil {
 			t.Fatalf("invalid config accepted: %v", cfg)
