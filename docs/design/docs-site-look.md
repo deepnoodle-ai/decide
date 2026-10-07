@@ -171,8 +171,8 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 ────────────────────────────────────────────────────────────────────
  Answers you can            ┌ ~/shop ─────────────────── ❚❚ Pause ┐
  branch on.                 │ $ echo 'git push --force origin… │
- decide asks a decision     │ stdin:1  git push --force origin main│ frame 620
- model typed questions…     │ ! destructive  yes  95%              │ 69×13 cells
+ Ask questions about your   │ stdin:1  git push --force origin main│ frame 620
+ files, diffs and records…  │ ! destructive  yes  95%              │ 69×13 cells
  Why not just prompt an     │ ! severe       yes  90%              │
  LLM? No prompt, no JSON…   │ ✓ 1 answered  ! 1 flagged …          │
  (Get a first result →) …   └──────────────────────────────────────┘
@@ -199,7 +199,7 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 **Copy:**
 
 - **Headline:** "Answers you can branch on."
-- **Tagline:** "Ask typed questions about your files, diffs and records. A
+- **Tagline:** "Ask questions about your files, diffs and records. A
   decision model answers each one with yes or no, a choice, or a score, and
   its probability." No example answers: the terminal beside it shows real
   ones.
