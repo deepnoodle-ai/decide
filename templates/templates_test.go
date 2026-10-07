@@ -86,6 +86,11 @@ func TestFlagged(t *testing.T) {
 		{templates.Triage, "impact", &decide.ScoreAnswer{Score: 2.9}, false},
 		{templates.CommandRisk, "severe", &decide.RawAnswer{Type: "refusal"}, false},
 		{templates.CommandRisk, "severe", nil, false},
+		{templates.CommandRisk, "severe", (*decide.NoulAnswer)(nil), false},
+		{templates.Sentiment, "sentiment", (*decide.ChoiceAnswer)(nil), false},
+		{templates.Triage, "impact", (*decide.ScoreAnswer)(nil), false},
+		{templates.CodeRisk, "maintainability", &decide.NoulAnswer{Noul: 0.99}, false}, // wrong type
+		{templates.CommandRisk, "severe", choice(map[string]float64{"yes": 1}), false},
 	} {
 		if got := tc.tmpl.Flagged(tc.key, tc.a); got != tc.want {
 			t.Errorf("%s %s %+v: flagged %v, want %v", tc.tmpl.Name(), tc.key, tc.a, got, tc.want)

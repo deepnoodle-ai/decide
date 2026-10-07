@@ -187,8 +187,8 @@ resp, err := client.SystemOne(ctx, req)
 if err != nil {
 	return err
 }
-a, _ := severe.From(resp)
-if templates.CommandRisk.Flagged("severe", a) { // yes >= 80%, as in decide run
+a, err := severe.From(resp)
+if err != nil || templates.CommandRisk.Flagged("severe", a) { // yes >= 80%, as in decide run
 	// stop the command
 }
 ```

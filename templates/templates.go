@@ -12,9 +12,9 @@
 //	if err != nil {
 //		return err
 //	}
-//	a, _ := severe.From(resp)
-//	if templates.CommandRisk.Flagged("severe", a) {
-//		// The template flags it: yes is at least 80% likely.
+//	a, err := severe.From(resp)
+//	if err != nil || templates.CommandRisk.Flagged("severe", a) {
+//		// No usable answer, or yes is at least 80% likely: stop the command.
 //	}
 //
 // A template's parameters take their defaults. [Relevance] has a parameter
@@ -22,11 +22,15 @@
 // [ReceiptQuality] reads images: attach them as the provider expects, such
 // as with cloudflare.SetImages.
 //
+// The package exports flags, not the matches a template such as Relevance
+// uses to pick items out; a program applies its own rule to those answers.
+//
 // The package reads no files and no environment variables. Templates in
 // .decide/templates or DECIDE_HOME do not replace these.
 package templates
 
 import (
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -62,6 +66,7 @@ type Template struct {
 	t     *template.Template // with parameter values in place
 	base  *template.Template // as loaded, with its placeholders
 	flags map[string][]template.Condition
+	types map[string]string // question type by key, for the flagged questions
 }
 
 func builtin(name string) *Template {
@@ -73,12 +78,13 @@ func builtin(name string) *Template {
 }
 
 func newTemplate(base, t *template.Template) *Template {
-	out := &Template{t: t, base: base, flags: map[string][]template.Condition{}}
+	out := &Template{t: t, base: base, flags: map[string][]template.Condition{}, types: map[string]string{}}
 	for key, flag := range t.Flags {
 		typ := ""
 		if q := out.Question(key); q != nil {
 			typ = q.QuestionType()
 		}
+		out.types[key] = typ
 		conds, err := flag.Conditions(typ)
 		if err != nil {
 			panic(fmt.Sprintf("decide: template %s flag %q: %v", t.Name, key, err)) // Validate checked it
@@ -140,20 +146,25 @@ func (t *Template) Score(key string) *decide.ScoreQuestion {
 }
 
 // Flag returns the template's flag for the question named key, as written
-// in template.json, such as "yes >= 80%". It is nil when the template does
-// not flag that question.
+// in template.json, such as "yes >= 80%". A condition with no threshold,
+// such as "no", holds when that answer is at least 60% likely. It is nil
+// when the template does not flag that question.
 func (t *Template) Flag(key string) []string {
 	return slices.Clone(t.t.Flags[key])
 }
 
 // Flagged reports whether the template flags a, the answer to the question
 // named key, as decide run does. It is false when the template does not
-// flag that question or a is not a yes-or-no, choice, or score answer.
+// flag that question, or when a is nil or not an answer of that question's
+// type.
 func (t *Template) Flagged(key string, a decide.Answer) bool {
 	var prob func(string) float64
 	var score float64
 	switch a := a.(type) {
 	case *decide.NoulAnswer:
+		if a == nil || t.types[key] != "noul" {
+			return false
+		}
 		prob = func(answer string) float64 {
 			if answer == "yes" {
 				return a.Noul
@@ -161,8 +172,14 @@ func (t *Template) Flagged(key string, a decide.Answer) bool {
 			return 1 - a.Noul
 		}
 	case *decide.ChoiceAnswer:
+		if a == nil || t.types[key] != "choice" {
+			return false
+		}
 		prob = func(answer string) float64 { return a.Probabilities[answer] }
 	case *decide.ScoreAnswer:
+		if a == nil || t.types[key] != "score" {
+			return false
+		}
 		prob, score = func(string) float64 { return 0 }, a.Score
 	default:
 		return false
@@ -189,7 +206,7 @@ func (t *Template) Parameters() []string {
 func (t *Template) With(values map[string]string) (*Template, error) {
 	resolved, err := t.base.Resolve(values)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(err.Error()) // not an internal type
 	}
 	return newTemplate(t.base, resolved), nil
 }
