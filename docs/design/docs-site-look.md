@@ -49,8 +49,6 @@ site gives that its own unit, **the answer line**: `[gutter] key  answer  NN%`,
 in mono, colored by verdict, over a meter. The meter is a heavy fill on a 1px
 track, echoing the CLI's `━` on `─`. It appears in these places:
 
-- The tagline's examples (`yes 96%`, `billing 91%`, `2.0 of 4`), in the value
-  color, as the CLI prints unflagged answers.
 - **Section 2**, one panel for each type. Each panel leads with plain words
   ("Yes or no"), with `noul` in small mono after them.
 - The tutorial cards, the goal block, **OG images** (the page title above that
@@ -172,13 +170,12 @@ on our sections.
 decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 ────────────────────────────────────────────────────────────────────
  Answers you can            ┌ ~/shop ─────────────────── ❚❚ Pause ┐
- branch on.                 │ $ git diff -- billing | decide run … │
- decide asks a decision     │ billing/invoice.go  risk no 91% …    │ frame 620
- model typed questions…     │ billing/refund.go ! risk yes 96% …   │ video 580×322
- yes 96%, billing 91%,…     │ ✓ 2 answered ! 1 flagged …           │ 69×17 cells
- Why not just prompt an     │ Exiting with code 2 because …        │
- LLM? No prompt, no JSON…   ├ ▸ Output as text ────────────────────┤
- (Get a first result →) Tutorials └──────────────────────────────────┘
+ branch on.                 │ $ echo 'git push --force origin… │
+ decide asks a decision     │ stdin:1  git push --force origin main│ frame 620
+ model typed questions…     │ ! destructive  yes  95%              │ 69×13 cells
+ Why not just prompt an     │ ! severe       yes  90%              │
+ LLM? No prompt, no JSON…   │ ✓ 1 answered  ! 1 flagged …          │
+ (Get a first result →) …   └──────────────────────────────────────┘
  ───────────────────────────────────────────────────────────────── 
  CLI →          Ask from your shell and CI   brew install …       [⧉]
  Go →           Ask from your program        go get …             [⧉]
@@ -204,22 +201,25 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 - **Headline:** "Answers you can branch on."
 - **Tagline:** "decide asks a decision model typed questions about your files,
   diffs and records. Each answer comes back as yes or no, a choice, or a score,
-  with its probability: `yes 96%`, `billing 91%`, `2.0 of 4`." The examples
-  only show the format and are not tied to a recording.
+  with its probability." No example answers: the terminal beside it shows
+  real ones.
 - **Why line:** "**Why not just prompt an LLM?** There's no prompt to write and
   no JSON to parse or retry. Put a threshold on the probability, and your script
   or CI acts on it."
 
-**Hero recording:** `landing.tape`, 69×17 cells, recorded at 1160×644 (2x).
+**Hero recording:** `landing.tape`, 69×13 cells.
 
-- **Command:** in the demo `shop`,
-  `git diff -- billing | decide run code-risk --fail-on flagged`.
-- **Output, as measured:** 16 lines and the prompt. It ends on
-  `Exiting with code 2 because 1 item was flagged (--fail-on flagged)`, which is
-  the "branch on it" payoff.
-- **Why two files:** the whole diff gives 4 files and 25 rows, which does not
-  fit the first screen with the install rows. Two files still give a pass and a
-  flag, and two answer types.
+- **Command:** `echo 'git push --force origin main' | decide run command-risk`.
+  One item and four yes-or-no answers, two of them flagged, read at a glance.
+- **Why not a diff:** a run of `code-risk` on two changed files printed 19
+  lines, with score bars, descriptions and an exit line. It was too busy for a
+  first screen.
+- **The frame is compact:** no commands strip and no "Output as text"
+  disclosure, since the screen shows the command. The transcript is there for
+  screen readers.
+- **The CLI's footer** (`Flagged:`, `Saved as run`, `See these results again
+  with:`) is still noise here. Calmer run output is a follow-up in the CLI,
+  and it should land before the recordings.
 - **Hidden setup:** start with an empty answer cache, or the second recording
   prints `answers from cache`.
 - **The README GIF:** the same tape adds `Output landing.gif`, so the README's

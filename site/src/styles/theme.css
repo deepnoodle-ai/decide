@@ -152,15 +152,6 @@ nav.sidebar .group-label .large {
 	border-radius: 999px;
 }
 
-/* An answer value in prose, such as yes 96%. */
-.val {
-	color: var(--ans-value);
-	font-family: var(--sl-font-mono);
-	font-weight: 700;
-	font-size: 0.9em;
-	white-space: nowrap;
-}
-
 /* The CLI's colors, inside a terminal frame. */
 .t-b {
 	font-weight: 700;
