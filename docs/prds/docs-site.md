@@ -1,7 +1,7 @@
 # Learn decide by watching it work
 
 Status: Draft
-PRD PR: none yet  Implementation PR: none yet  Updated: 2026-10-07
+PRD PR: #67  Implementation PR: none yet  Updated: 2026-10-07
 
 ## Problem
 
