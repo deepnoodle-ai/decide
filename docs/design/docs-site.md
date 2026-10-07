@@ -218,22 +218,25 @@ the same tape as the site's hero.
 
 Triggers: pull requests that touch `site/**`, `demo/**`, `examples/**`,
 `plugin/.claude-plugin/plugin.json` or the workflow. Also `v*` tags and
-`workflow_dispatch` with a `ref` input.
+`workflow_dispatch`.
 
 ```
 build ──┬─► preview   (pull requests from this repository)
-        └─► deploy    (v* tags, or workflow_dispatch)
+        └─► deploy    (v* tags, or a dispatch run from a tag)
 ```
 
 1. **build.** The checks above, then uploads `dist/` as an artifact.
 2. **preview.** `wrangler versions upload --preview-alias pr-<n>`
    uploads without going live and returns
-   `https://pr-<n>-decide-docs.<subdomain>.workers.dev`. A sticky comment
-   on the pull request holds the link.
+   `https://pr-<n>-decide-docs.deepnoodle-inc.workers.dev`. A sticky
+   comment on the pull request holds the link. Cloudflare's newer
+   Previews (`wrangler preview`) isolate a branch's resources. A static
+   site has none, and Previews are in beta, so we use aliased version
+   URLs.
 3. **deploy.** `wrangler deploy`, in a GitHub environment named `site`
-   that only `v*` tags and maintainers can use. A dispatch from `main`
-   publishes unreleased docs, so use it only for fixes that do not
-   depend on new behavior.
+   that only `v*` tags can use. To deploy again, run the workflow from a
+   tag: `gh workflow run site.yml --ref v0.3.1`. A run from `main` is
+   refused, so the live site never shows unreleased docs.
 
 `site/wrangler.jsonc`:
 
@@ -242,14 +245,20 @@ build ──┬─► preview   (pull requests from this repository)
   "name": "decide-docs",
   "compatibility_date": "2026-10-01",
   "assets": { "directory": "./dist", "not_found_handling": "404-page" },
-  "routes": [{ "pattern": "decide.deepnoodle.ai", "custom_domain": true }]
+  "routes": [{ "pattern": "decide.deepnoodle.ai", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": true
 }
 ```
 
-The first deploy creates the DNS record and the certificate.
+The first deploy creates the DNS record and the certificate. With
+`workers_dev` off, the site has one address, and previews still get
+theirs.
 
-Secrets: `CLOUDFLARE_API_TOKEN` (Workers Scripts edit only) and
-`CLOUDFLARE_ACCOUNT_ID`. We use `pull_request`, never
+The repository holds one secret, `CLOUDFLARE_API_TOKEN`. It can edit
+Workers on the account and Workers routes on the `deepnoodle.ai` zone,
+and nothing else. The account ID is a repository variable,
+`CLOUDFLARE_ACCOUNT_ID`, since it is not secret. We use `pull_request`, never
 `pull_request_target`, so code from a fork never runs with them. A fork's
 pull request builds and runs the checks, but gets no preview.
 
@@ -415,7 +424,7 @@ phone before the merge.
 - The repository gets a Node project. `site/go.mod` and path filters keep
   it away from Go CI, but contributors who change the site need Node 22.
 - The live site lags `main` until the next release. A typo fix waits for
-  a tag or a dispatch. That is the cost of R-2.
+  the next tag. That is the cost of R-2.
 - Recordings show what the model said on the day they were made. Between
   releases, a model update can make a recording differ from a new run.
 - Each release adds a manual step: `record.sh --all`, a few minutes and
@@ -429,12 +438,19 @@ phone before the merge.
 ## Rollout
 
 1. The PRD PR holds the PRD and this spec.
-2. The implementation PR is stacked on the PRD branch. It adds `site/`,
-   the tapes, the test and the workflow, moves the guides, and updates
-   the README and AGENTS.md. Its preview link is the review surface.
-   A design review covers the landing page and the terminal frame, with
-   screenshots in light, dark and phone widths.
-3. Before the merge, a maintainer adds the two secrets and the `site`
-   environment, and runs `record.sh`.
+2. Three implementation PRs, each building on the one before. Their
+   preview links are the review surface.
+   1. The site: Starlight, the theme, the landing page with a terminal
+      still, `/start/`, `/start/go/`, `/start/answers/`, the 404 page and
+      the workflow.
+   2. Recordings: the tapes, `record.sh`, the `Terminal` player,
+      transcripts, the tape test and the recorded check.
+   3. Content: the tutorials, the reference and recipes moved from
+      `docs/`, link previews, and the README, AGENTS.md and changelog.
+   A design review covers each, with screenshots in light, dark and
+   phone widths.
+3. Before the first preview, a maintainer adds the secret, the variable
+   and the `site` environment. Before the third PR merges, a maintainer
+   runs `record.sh`.
 4. The first `v*` tag after the merge deploys the site. Then we add the
    site to the repository's homepage field and to the CHANGELOG.
