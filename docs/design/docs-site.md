@@ -262,15 +262,16 @@ The first deploy creates the DNS record and the certificate. With
 theirs.
 
 `CLOUDFLARE_API_TOKEN` can edit Workers on the account and Workers routes
-on the `deepnoodle.ai` zone, and nothing else. It is an environment
-secret, never a repository secret. A workflow on any branch can read a
-repository secret, and a pull request can change its own workflow. Two
-environments hold the token:
+on the `deepnoodle.ai` zone, and nothing else. A pull request can change
+its own workflow, so no job that runs for a pull request uses it. The jobs
+that use it run in two environments:
 
 - `site`, which only `v*` tags can use, for deploys.
 - `site-preview`, which only `main` can use, for previews.
 
-No job that runs for a pull request can reach either one. The account ID
+Today the token is a repository secret. A workflow on any branch can read
+a repository secret, so when the token is next rotated, it moves into the
+two environments and the repository secret is deleted. The account ID
 is a repository variable, `CLOUDFLARE_ACCOUNT_ID`, since it is not
 secret. We use `pull_request`, never `pull_request_target`. A fork's pull
 request builds and runs the checks, but gets no preview. A change to
@@ -463,8 +464,8 @@ phone before the merge.
       `docs/`, link previews, and the README, AGENTS.md and changelog.
    A design review covers each, with screenshots in light, dark and
    phone widths.
-3. Before the first preview, a maintainer adds the variable, the `site`
-   and `site-preview` environments with the secret in each, and creates the Worker once with no route:
+3. Before the first preview, a maintainer adds the secret, the variable,
+   and the `site` and `site-preview` environments, and creates the Worker once with no route:
    `wrangler deploy` with a copy of `wrangler.jsonc` that has no
    `routes`. Wrangler uploads a preview only for a Worker that exists, and
    this one has no public address until the first tag. Before the third PR merges, a maintainer
