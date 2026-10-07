@@ -450,7 +450,10 @@ phone before the merge.
    A design review covers each, with screenshots in light, dark and
    phone widths.
 3. Before the first preview, a maintainer adds the secret, the variable
-   and the `site` environment. Before the third PR merges, a maintainer
+   and the `site` environment, and creates the Worker once with no route:
+   `wrangler deploy` with a copy of `wrangler.jsonc` that has no
+   `routes`. Wrangler uploads a preview only for a Worker that exists, and
+   this one has no public address until the first tag. Before the third PR merges, a maintainer
    runs `record.sh`.
 4. The first `v*` tag after the merge deploys the site. Then we add the
    site to the repository's homepage field and to the CHANGELOG.
