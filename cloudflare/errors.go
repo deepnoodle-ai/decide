@@ -75,16 +75,8 @@ func errorMessage(details []ErrorDetail, raw []byte) string {
 	if len(parts) > 0 {
 		return strings.Join(parts, "; ")
 	}
-	// Suppressed bodies retain a safe explanation for proxies and outages.
-	if !json.Valid(raw) {
-		msg := strings.TrimSpace(string(raw))
-		if len(msg) > 200 {
-			msg = msg[:200]
-		}
-		if msg != "" {
-			return msg
-		}
-	}
+	// A body that is not JSON, such as a proxy's page, was suppressed before
+	// this point, so an HTTP failure reports its status instead.
 	return "Workers AI reported an unsuccessful response"
 }
 

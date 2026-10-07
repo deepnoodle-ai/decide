@@ -206,3 +206,17 @@ func TestConfig(t *testing.T) {
 		t.Fatalf("ListModels: %v", err)
 	}
 }
+
+func TestNonJSONErrorReportsStatus(t *testing.T) {
+	client := newClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		io.WriteString(w, "404 page not found")
+	})
+	req := decide.NewRequest("hello")
+	decide.Ask(req, "a", decide.Noul("A?"))
+	_, err := client.SystemOne(context.Background(), req)
+	var apiErr *decide.APIError
+	if !errors.As(err, &apiErr) || apiErr.Message != "Not Found" || strings.Contains(err.Error(), "REDACTED") {
+		t.Fatalf("got %v", err)
+	}
+}

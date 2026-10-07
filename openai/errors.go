@@ -30,12 +30,8 @@ func apiError(status int, header http.Header, raw []byte) *decide.APIError {
 	} else {
 		e.Type = body.Error.Type
 	}
-	if e.Message == "" && !json.Valid(raw) {
-		// Suppressed bodies keep a safe explanation for proxies and outages.
-		if msg := strings.TrimSpace(string(raw)); len(msg) <= 200 {
-			e.Message = msg
-		}
-	}
+	// A body that is not OpenAI's error, such as a proxy's page, was
+	// suppressed before this point; the status says what happened.
 	if e.Message == "" {
 		e.Message = http.StatusText(status)
 	}
