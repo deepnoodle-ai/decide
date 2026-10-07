@@ -199,10 +199,10 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 **Copy:**
 
 - **Headline:** "Answers you can branch on."
-- **Tagline:** "decide asks a decision model typed questions about your files,
-  diffs and records. Each answer comes back as yes or no, a choice, or a score,
-  with its probability." No example answers: the terminal beside it shows
-  real ones.
+- **Tagline:** "Ask typed questions about your files, diffs and records. A
+  decision model answers each one with yes or no, a choice, or a score, and
+  its probability." No example answers: the terminal beside it shows real
+  ones.
 - **Why line:** "**Why not just prompt an LLM?** There's no prompt to write and
   no JSON to parse or retry. Put a threshold on the probability, and your script
   or CI acts on it."

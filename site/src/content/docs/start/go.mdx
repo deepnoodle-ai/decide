@@ -6,7 +6,11 @@ tableOfContents: false
 
 import { Steps, Code } from '@astrojs/starlight/components';
 import source from '../../../../../examples/rank/main.go?raw';
-export const rank = /* the reader runs it with go run ., not from the decide repository */ source.replace('//\n//\tTYPESAFE_API_KEY=... go run ./examples/rank\n', '');
+export const runLine = '//\n//\tTYPESAFE_API_KEY=... go run ./examples/rank\n';
+export const rank = /* the reader runs it with go run ., not from the decide repository */ (() => {
+	if (!source.includes(runLine)) throw new Error('examples/rank/main.go changed: update the line that start/go.mdx removes');
+	return source.replace(runLine, '');
+})();
 
 You'll end with a Go program that asks one yes-or-no question about each of
 three passages and sorts them by the probability of yes. You need Go 1.27 or
