@@ -176,6 +176,23 @@ if err != nil {
 fmt.Println(e.Answer.Noul) // the probability of yes, such as 0.97
 ```
 
+To ask a built-in template's questions, use the
+[`templates`](templates) package. You get its tuned wording and flags, and
+they change when you upgrade decide:
+
+```go
+req := decide.NewRequest(command)
+severe := decide.Ask(req, "severe", templates.CommandRisk.Noul("severe"))
+resp, err := client.SystemOne(ctx, req)
+if err != nil {
+	return err
+}
+a, _ := severe.From(resp)
+if templates.CommandRisk.Flagged("severe", a) { // yes >= 80%, as in decide run
+	// stop the command
+}
+```
+
 Every answer is validated against its question, and transient failures
 are retried. The [package documentation](https://pkg.go.dev/github.com/deepnoodle-ai/decide)
 covers asking several questions at once, `Pick`, and test fakes in

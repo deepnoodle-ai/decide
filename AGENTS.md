@@ -9,6 +9,8 @@ Guidance for coding agents and people working in this repository. See
   uses only the standard library and never imports the packages below.
 - `decidetest`: a fake server and answer fixtures for tests.
 - `backend` selects a provider. `cloudflare` is the Workers AI transport.
+- `templates`: the built-in templates' questions and flags, for Go
+  programs. The template files stay in `internal/template/builtin`.
 - `patterns/<name>`: decisions built from answers, such as gate and rank.
   Each one has a runnable program in `examples/<name>`.
 - `demo`: a fixture repository and issues with planted problems, for
