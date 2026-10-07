@@ -16,8 +16,10 @@ interface Props {
 	transcript?: string;
 	/** The terminal's width in cells; sizes the text to fit the frame. */
 	cols: number;
+	/** No commands strip and no disclosure: the screen shows the command. The transcript is for screen readers only. */
+	compact?: boolean;
 }
-const { title, label, commands = [], transcript, cols } = Astro.props;
+const { title, label, commands = [], transcript, cols, compact = false } = Astro.props;
 const commandText = commands.join('\n');
 ---
 
@@ -27,8 +29,9 @@ const commandText = commands.join('\n');
 		<slot name="controls" />
 	</div>
 	<div class="term-screen"><slot /></div>
+	{compact && transcript && <pre class="sr-only">{transcript}</pre>}
 	{
-		(commandText || transcript) && (
+		!compact && (commandText || transcript) && (
 			<div class="term-foot">
 				{commandText && (
 					<div class="term-cmds">

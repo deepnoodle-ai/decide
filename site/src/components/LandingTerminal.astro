@@ -1,18 +1,17 @@
 ---
 // The landing page's terminal, as text, until the landing recording
-// replaces it. A real run: Jev on the demo's billing change.
+// replaces it. A real run: Jev on one command an agent might run.
 import TerminalFrame from './TerminalFrame.astro';
 
-const command = 'git diff -- billing | decide run code-risk --fail-on flagged';
-const transcript = 'Running code-risk on 2 files · typesafe jev-latest\n\nbilling/invoice.go\n  risk             no            98%\n  maintainability  ━━━━━━━━━━━━  4.0 of 4  Exceptionally clear and f…\n\nbilling/refund.go\n! risk             yes           94%\n! maintainability  ━━━━────────  1.4 of 4  Several unclear or fragil…\n\n✓ 2 answered  ! 1 flagged  200ms\nFlagged: billing/refund.go\nSaved as run 20261007-181621-4bb1\nSee these results again with: decide runs view 20261007-181621-4bb1\nExiting with code 2 because 1 item was flagged (--fail-on flagged)';
+const transcript = "echo 'git push --force origin main' | decide run command-risk\nRunning command-risk on 1 line · typesafe jev-latest\n\nstdin:1  git push --force origin main\n! destructive  yes     95%\n  external     yes     97%\n  leak         no      62%\n! severe       yes     90%\n\n✓ 1 answered  ! 1 flagged  200ms\nFlagged: stdin:1\nSaved as run 20261007-182559-c6f8\nSee these results again with: decide runs view 20261007-182559-c6f8";
 ---
 
 <TerminalFrame
 	title="~/shop"
-	label="decide judges two changed files, flags billing/refund.go, and exits with code 2"
-	commands={[command]}
+	label="decide flags git push --force origin main as destructive and severe"
 	transcript={transcript}
+	compact
 	cols={69}
 >
-	<pre set:html={'<span class="t-p">$</span> git diff -- billing | decide run code-risk --fail-on flagged\n<span class="t-d">Running code-risk on 2 files · typesafe jev-latest</span>\n\n<span class="t-b">billing/invoice.go</span>\n  risk             <span class="t-g">no</span>            <span class="t-g">98%</span>\n  maintainability  <span class="t-g">━━━━━━━━━━━━</span>  <span class="t-g">4.0 of 4</span>  <span class="t-d">Exceptionally clear and f…</span>\n\n<span class="t-b">billing/refund.go</span>\n<span class="t-r">!</span> risk             <span class="t-r">yes</span>           <span class="t-r">94%</span>\n<span class="t-r">!</span> maintainability  <span class="t-r">━━━━</span><span class="t-d">────────</span>  <span class="t-r">1.4 of 4</span>  <span class="t-d">Several unclear or fragil…</span>\n\n<span class="t-g">✓ 2 answered</span>  <span class="t-r">! 1 flagged</span>  <span class="t-d">200ms</span>\n<span class="t-d">Flagged:</span> billing/refund.go\n<span class="t-d">Saved as run</span> 20261007-181621-4bb1\n<span class="t-d">See these results again with:</span> decide runs view 20261007-181621-4bb1\n<span class="t-d">Exiting with code 2 because 1 item was flagged (--fail-on flagged)</span>\n<span class="t-p">$</span> <span class="cursor"> </span>'} />
+	<pre set:html={'<span class="t-p">$</span> echo &#x27;git push --force origin main&#x27; | decide run command-risk\n<span class="t-d">Running command-risk on 1 line · typesafe jev-latest</span>\n\n<span class="t-b">stdin:1</span>  <span class="t-d">git push --force origin main</span>\n<span class="t-r">!</span> destructive  <span class="t-r">yes</span>     <span class="t-r">95%</span>\n  external     <span class="t-c">yes</span>     <span class="t-c">97%</span>\n  leak         <span class="t-g">no</span>      <span class="t-g">62%</span>\n<span class="t-r">!</span> severe       <span class="t-r">yes</span>     <span class="t-r">90%</span>\n\n<span class="t-g">✓ 1 answered</span>  <span class="t-r">! 1 flagged</span>  <span class="t-d">200ms</span>\n<span class="t-d">Flagged:</span> stdin:1\n<span class="t-d">Saved as run</span> 20261007-182559-c6f8\n<span class="t-d">See these results again with:</span> decide runs view 20261007-182559-c6f8\n<span class="t-p">$</span> <span class="cursor"> </span>'} />
 </TerminalFrame>
