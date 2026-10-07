@@ -6,7 +6,8 @@
 // record) against a set of typed questions and returns typed answers with
 // probabilities that code can act on directly. It does not generate text.
 // [NewClient] connects to TypeSafe; the backend package connects to any
-// provider through the same API.
+// provider through the same API. The templates package holds the decide
+// command's built-in questions.
 //
 // [Eval] asks one typed question and returns an [Evaluation]. [Pick]
 // selects an original candidate or abstains, returning a [Decision]. Both

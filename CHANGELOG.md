@@ -11,6 +11,9 @@ may change the library API and the CLI.
 - **OpenAI's Decisions API.** `--provider openai` runs templates on
   `gpt-6-luna` with `OPENAI_API_KEY`; Go code uses `backend.OpenAI`. The API
   is in beta, and image templates don't run on it yet.
+- **Built-in templates in Go.** The `templates` package returns a built-in
+  template's questions, such as `templates.CommandRisk.Noul("severe")`, and
+  flags answers as `decide run` does.
 - **A Claude Code guide.** [docs/claude-code.md](docs/claude-code.md) shows
   how to set up the plugin and use `/decide:audit` and `/decide:hunt`.
 

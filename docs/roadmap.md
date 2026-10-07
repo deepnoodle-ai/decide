@@ -32,6 +32,8 @@ off, or remove them, as they land.
 - [ ] **Built-in names.** A way to run a built-in template that no project
       or user template can replace. The Claude Code plugin works around it
       by running decide from its own folder.
+- [x] **Templates in Go.** The `templates` package exports the built-in
+      templates' questions and flags (#63).
 - [ ] **Model pinning.** An optional `model` in `template.json`, and a
       warning when a resumed run is answered by a different model.
 
