@@ -107,6 +107,13 @@ off, or remove them, as they land.
 
 ## Docs
 
+- [ ] **Documentation site.** `decide.deepnoodle.ai`: a quickstart,
+      tutorials that each do one job, and reference, with recordings of
+      real runs made from VHS tapes. See the
+      [PRD](prds/docs-site.md) and [design](design/docs-site.md).
+- [ ] **More tutorials.** Security bugs with Claude Code, decisions from
+      Go, and writing a template, one pull request each, after the site
+      launches.
 - [ ] **Demo.** A short README recording made with VHS.
 - [x] **Recipes.** GitHub Actions reviews, comments, and gates, issue
       labels, GitLab, pre-commit hooks, and CSV exports.
