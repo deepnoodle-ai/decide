@@ -433,7 +433,7 @@ decide run my-routing tickets.jsonl --dry-run
 
 ## Providers
 
-Decide runs on two decision models, through the same commands and
+Decide runs on three decision models, through the same commands and
 templates:
 
 - **Jev** by [TypeSafe](https://docs.typesafe.ai/introduction), the
@@ -453,6 +453,16 @@ templates:
   export DECIDE_PROVIDER=cloudflare
   ```
 
+- **GPT-6 Luna** by [OpenAI](https://developers.openai.com/api/docs/guides/decisions),
+  with the `gpt-6-luna` model, through the Decisions API, which is in beta.
+  Set `OPENAI_BASE_URL` to send requests somewhere other than
+  `https://api.openai.com/v1`. Image templates don't run on it yet.
+
+  ```sh
+  export OPENAI_API_KEY=...
+  export DECIDE_PROVIDER=openai
+  ```
+
 Any other service that speaks the Jev API works too, such as one you host
 yourself. Point decide at it with `TYPESAFE_BASE_URL`, along with
 `TYPESAFE_API_KEY` and a model name:
@@ -462,7 +472,7 @@ export TYPESAFE_BASE_URL=https://decisions.example.com
 decide run sentiment notes.txt --model my-model
 ```
 
-Choose for one run with `--provider typesafe|cloudflare` and `--model NAME`,
+Choose for one run with `--provider typesafe|cloudflare|openai` and `--model NAME`,
 or for every run with `DECIDE_PROVIDER` and `DECIDE_MODEL`. `--workers` sets how many
 requests run at once (default 4).
 

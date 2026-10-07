@@ -19,8 +19,9 @@ for a decision model.
    export TYPESAFE_API_KEY=...
    ```
 
-   To use Workers AI instead, set `DECIDE_PROVIDER=cloudflare` and the
-   Cloudflare variables in the [README](../README.md#try-it). Set them
+   To use Workers AI or OpenAI instead, set `DECIDE_PROVIDER=cloudflare`
+   or `DECIDE_PROVIDER=openai` and that provider's variables in the
+   [README](../README.md#try-it). Set them
    where Claude Code will see them, such as in your shell profile. Check
    that decide works:
 
