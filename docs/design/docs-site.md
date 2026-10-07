@@ -65,8 +65,10 @@ build ./...`, `go vet ./...` and `go mod tidy` skip `site/` and its
 ### Pages
 
 ```
-/                          landing: one sentence, a playing terminal, three ways in
+/                          landing: headline, a playing terminal, three ways in
 /start/                    quickstart: install, key, one line, your own git diff
+/start/go/                 go get, a key, one program from examples/, go run
+/start/answers/            the concepts: question types, probability, flags, providers
 /tutorials/
   check-agent-commands/    command-risk before a command runs
   triage-issues/           task-readiness on the demo's issues
@@ -74,6 +76,7 @@ build ./...`, `go vet ./...` and `go mod tidy` skip `site/` and its
 /reference/
   cli/  items/  diffs/  templates/  providers/  output/  cache/  claude-code/
 /recipes/                  the rest of recipes.md: other CI systems, hooks, export
+/404                       a designed not-found page
 ```
 
 The user guides move into the site, so there is one copy:
@@ -93,10 +96,11 @@ the same pull request we update AGENTS.md's "Docs" section,
 CONTRIBUTING.md, `plugin/README.md` and the comment in
 `cmd/decide/main.go`.
 
-Later tutorials follow, one pull request each: security bugs with
-Claude Code, decisions from Go, and writing a template. The Go tutorial
-will import `examples/<name>/main.go` as raw text, so the code the reader
-sees is the code that `go build ./...` compiles.
+`/start/go/` imports `examples/<name>/main.go` as raw text, so the code
+the reader sees is the code that `go build ./...` compiles. Vite needs
+`server.fs.allow` to include the repository root for this. Later
+tutorials follow, one pull request each: security bugs with Claude Code,
+a Go tutorial, and writing a template.
 
 ### Sample data
 
@@ -112,7 +116,8 @@ sh decide/demo/setup.sh shop && cd shop
 
 Every visible line in a tape is a command the reader runs on that page,
 in that order. Hidden lines only rebuild the state that earlier steps
-made, and set the API key. Commands that the reader runs once and that
+made, set the API key, and point `DECIDE_HOME` at an empty folder, so
+no answer comes from the cache. Commands that the reader runs once and that
 the tape can't show, such as `brew install` or `export
 TYPESAFE_API_KEY=…`, appear only as code blocks on the page.
 
@@ -133,8 +138,9 @@ Sleep 6s
 Screenshot triage-issues.png
 ```
 
-Each tape writes an MP4 and a PNG still. Their names carry a hash:
-`decide/site/<tape>-<hash>.mp4` and `.png` in the R2 bucket behind
+Each tape writes an MP4, a PNG still of its last frame, and a text
+transcript of that frame. Their names carry a hash:
+`decide/site/<tape>-<hash>.mp4`, `.png` and `.txt` in the R2 bucket behind
 `files.deepnoodle.ai`. The hash is the first 12 hex digits of the SHA-256
 of the tape, `settings.tape`, `theme.json`, and the `version` in
 `plugin/.claude-plugin/plugin.json`. That version already names the next
@@ -179,8 +185,17 @@ with:
   `prefers-reduced-motion` it does not play on its own. It shows a play
   button instead.
 - The tape's visible `Type` lines as a code block under the frame, with a
-  copy button. A reader with JavaScript off still gets the still image
-  and the commands (R-7).
+  copy button.
+- An "Output as text" disclosure, built from the transcript at build
+  time. It is the legible version on a phone, the text for screen
+  readers, and works with JavaScript off (R-7).
+
+Prose never types a percentage from a recording, since each release
+records again. It quotes verdicts and flag rules, such as "flagged on
+`destructive`", and takes any number it needs from the transcript.
+
+`landing.tape` also writes `landing.gif`, so the README's GIF is made from
+the same tape as the site's hero.
 
 ### Checks
 
@@ -261,14 +276,14 @@ changed the markup of the page frame and the mobile menu, for example.
 
 | Knob | Where | Why |
 | --- | --- | --- |
-| Accent: `--sl-color-accent-low`, `--sl-color-accent`, `--sl-color-accent-high` | `site/src/styles/theme.css`, in `customCss` | The brand color, in links, buttons and the current page in the sidebar. |
+| Accent: `--sl-color-accent-low`, `--sl-color-accent`, `--sl-color-accent-high` | `site/src/styles/theme.css`, in `customCss` | Neutral: near-white in dark, near-black in light. Cyan is kept for answers only, as in the CLI. |
 | Grays: `--sl-color-white`, `--sl-color-gray-1` … `-gray-7`, `--sl-color-black` | same | Starlight's grays are cool blue. A warmer or neutral scale is most of what makes a stock site look like ours. |
 | Fonts: `--sl-font`, `--sl-font-mono` | same, with `@fontsource/*` packages in `customCss` | Type does more for "elegant" than color does. |
 | Heading sizes: `--sl-text-h1` … `-h3`, `--sl-line-height-headings` | same | A larger, tighter title scale for the landing and tutorial pages. |
-| Content width: `--sl-content-width` (45rem) | same | Recordings show at this width. 45rem is 720px, so the default tape size suits it. We may widen it to 48rem. |
+| Content width: `--sl-content-width` | same | 45rem (720px) on reference pages. 48rem on tutorials, which turn off the table of contents, so recordings show at 720px with room around them. |
 | Sidebar | `sidebar` in `astro.config.mjs` | Written by hand in teaching order: Start, Tutorials, Reference, Recipes. Autogenerate would sort them by file name. |
-| Code blocks | `expressiveCode` in `astro.config.mjs` | One syntax theme for dark and one for light. With custom themes, set `useStarlightUiThemeColors: true` again, or code blocks stop following our grays. Set `styleOverrides.frames.terminal*` so a shell code block has the same frame as a recording. |
-| Logo and favicon | `logo`, `favicon` | A wordmark set in our type, in light and dark versions, and an SVG favicon. |
+| Code blocks | `expressiveCode` in `astro.config.mjs` | Dark in both themes, like the recordings: one custom dark theme, `useStarlightUiThemeColors: false`. `styleOverrides.frames` gives shell blocks the recording's frame, without the title bar's dots. Blocks over 25 lines collapse. |
+| Logo and favicon | `SiteTitle`, `favicon` | A wordmark, `decide` in JetBrains Mono with the version, and an SVG favicon. No mark. |
 | `head` | `astro.config.mjs` | The analytics beacon. |
 | Terminal palette | `site/tapes/theme.json` | See [Recordings](#theming-the-recordings). |
 
@@ -285,14 +300,18 @@ selectors.
 
 ### Components we write or override
 
-- **The landing page** is a `template: splash` page. Its body uses our own
-  components: the hero with a playing terminal, the three ways in, and an
-  install command. We override `Hero` only if Starlight's hero gets in the
-  way. Its `title`, `tagline`, `actions` and `image.html` may be enough.
+- **`Hero`** (an override). The landing page is a `template: splash` page,
+  and its first screen puts the headline beside a playing `Terminal`.
+  Starlight's hero can't hold the component: `image.html` is a fixed
+  string, and `Terminal` builds its URLs at build time. Without a `hero`,
+  Starlight puts the title in its own panel above the body. The override
+  reads `hero.title` and `hero.tagline`, and keeps the `<h1>`'s `id` and
+  `data-page-title`. It is about 80 lines with no layout code, and we
+  re-check it on each upgrade. The rest of the landing page is MDX.
 - **`Terminal` and `Screenshot`** are our components. They hold the window
   frame that code blocks also use.
-- **`SiteTitle`** (an override) is the wordmark and the latest release
-  number.
+- **`SiteTitle`** (an override) is the wordmark and the release number,
+  read from `plugin.json`, so a preview shows the next release.
 - **`Footer`** (an override) wraps the default and adds a Deep Noodle
   line.
 - **A tutorial's goal and what the reader needs** is an MDX component at
@@ -322,9 +341,13 @@ decision, with its upgrade cost written down.
   reads it at build time for the frame. Its hash is part of each
   recording's name, so a palette change marks every recording as missing.
 - **Recorded at 2x, shown at 1x.** VHS records at one pixel per CSS
-  pixel and has no 2x mode, so text blurs on retina screens. A page tape
-  is `Width 1440`, `Height 720` and about `FontSize 28`, and shows at
-  720×360. A landing tape is wider. The two sizes are two settings files.
+  pixel and has no 2x mode, so text blurs on retina screens. A tutorial
+  tape is 1440×840 at `FontSize 28` (85×22 cells) and shows at 720px.
+  The landing tape is 1160×644 (69×17 cells). The two sizes are two
+  settings files.
+- **Written for the last frame.** The last frame is the poster, the
+  still for reduced motion and the transcript, so it must show what the
+  caption claims. A step that prints more than 22 rows records less.
 - **Smaller files.** `Framerate 30` and `CursorBlink false`. Typing
   doesn't need 50 frames a second, and a blinking cursor changes every
   frame.
@@ -347,13 +370,15 @@ decision, with its upgrade cost written down.
   shows how far tokens alone go, and Black and the Astro and Biome docs
   show what overrides can do.
 
-### The design pass
+### The design
 
-The knobs above are the frame. The choices inside it, the palette, the
-two fonts, the heading scale and the landing layout, come from a design
-pass in the implementation PR. It ends with screenshots of the landing,
-a tutorial and a reference page, in light, dark and at phone width, and
-a review with the `taste` skill.
+[docs-site-look.md](docs-site-look.md) sets the values inside these
+knobs: the palette, Inter and JetBrains Mono, the heading scale, the
+landing page, the frames, the tutorial page and motion. The
+implementation PR shows screenshots of the landing, a tutorial and a
+reference page, in light and dark, at 1280, 1024 and 390 wide, and gets
+a review with the `taste` skill. One real recording is checked on a
+phone before the merge.
 
 ## Alternatives considered
 
