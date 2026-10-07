@@ -5,8 +5,8 @@
 [![Release](https://img.shields.io/github/v/release/deepnoodle-ai/decide?style=flat-square&label=release&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/releases)
 [![Last commit](https://img.shields.io/github/last-commit/deepnoodle-ai/decide?style=flat-square&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/commits/main)
 
-**A Go library and CLI for [Jev](https://docs.typesafe.ai/introduction)
-and Jev-compatible APIs.**
+**A Go library and CLI for decision models: ask typed questions, get
+answers with probabilities.**
 
 - **Go library:** `go get github.com/deepnoodle-ai/decide`, then ask
   typed questions from your program. [Jump to the Go guide.](#use-it-from-go)
@@ -23,11 +23,11 @@ brew install deepnoodle-ai/tap/decide
 Or `go install github.com/deepnoodle-ai/decide/cmd/decide@latest`, or
 download a binary from the [releases](https://github.com/deepnoodle-ai/decide/releases).
 
-Jev is a **decision model**: it answers typed questions instead of
-generating text. Decide asks yes-or-no (`noul`), multiple-choice
-(`choice`), and scale (`score`) questions, and each answer comes back
-typed, with a probability, so a script or a program can act on it
-directly. There is no prose to parse.
+A **decision model** answers typed questions instead of generating text.
+Decide asks yes-or-no (`noul`), multiple-choice (`choice`), and scale
+(`score`) questions, and each answer comes back typed, with a
+probability, so a script or a program can act on it directly. There is
+no prose to parse.
 
 Decide works with Jev on the TypeSafe API, Clef on Cloudflare Workers AI,
 GPT-6 Luna on OpenAI's Decisions API, and any other service that speaks
