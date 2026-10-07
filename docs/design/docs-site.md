@@ -54,10 +54,8 @@ Starlight gives us search (Pagefind), light and dark themes, a sidebar,
 code blocks with copy buttons (Expressive Code), and good accessibility
 without extra work. It builds plain HTML. We write pages in Markdown, and
 in MDX where a page needs the `Terminal` component. We restyle it with
-our own tokens (type, color, spacing) and write the landing page as a
-custom splash page. The design pass decides the fonts and palette. The
-starting point is a dark-first, terminal-native look with the cyan that
-the README badges use, and fonts we host ourselves through Fontsource.
+our own tokens and a few components. [Theming](#theming) lists the
+knobs. We pin exact versions: Starlight 0.42.5 on Astro 7.3.6 today.
 
 `site/go.mod` holds one line, `module github.com/deepnoodle-ai/decide/site`.
 A directory with its own `go.mod` is outside the parent module, so `go
@@ -125,7 +123,7 @@ writes video and still images.
 
 ```
 # site/tapes/triage-issues.tape
-Source site/tapes/settings.tape     # size, font, theme, typing speed
+Source site/tapes/settings.tape     # size, font, typing speed; record.sh adds the theme
 Hide
 Type "cd $(mktemp -d) && ln -s $REPO decide" Enter     # stands in for the clone
 Type "sh decide/demo/setup.sh shop >/dev/null && cd shop && clear" Enter
@@ -138,7 +136,7 @@ Screenshot triage-issues.png
 Each tape writes an MP4 and a PNG still. Their names carry a hash:
 `decide/site/<tape>-<hash>.mp4` and `.png` in the R2 bucket behind
 `files.deepnoodle.ai`. The hash is the first 12 hex digits of the SHA-256
-of the tape, `settings.tape`, and the `version` in
+of the tape, `settings.tape`, `theme.json`, and the `version` in
 `plugin/.claude-plugin/plugin.json`. That version already names the next
 release: the pull request that cuts the changelog sets it, and the release
 workflow fails if it differs from the tag. The hash gives five
@@ -154,9 +152,13 @@ properties:
 - "Is this recorded?" is an HTTP HEAD request.
 - Browsers and the CDN can cache each file forever.
 
-`site/scripts/record.sh [--all] [tape...]` builds decide from the working
-tree, puts it on `PATH`, sets `REPO` to the repository root, and records
-each tape whose files are missing from R2. Then it uploads them with
+`site/scripts/record.sh [--all] [tape...]` builds decide for Linux from
+the working tree and records each tape whose files are missing from R2.
+It runs VHS in its pinned Docker image (`ghcr.io/charmbracelet/vhs`),
+with the repository mounted, decide on `PATH`, and `REPO` set, so every
+recording has the same fonts on any machine. It adds the theme from
+`theme.json`, and re-muxes each MP4 with `-movflags +faststart` so it
+plays while it downloads. Then it uploads them with
 `wrangler r2 object put`. A maintainer runs it with their own
 `TYPESAFE_API_KEY` and a Cloudflare login that can write to the bucket.
 CI never records, so CI holds no provider key and no R2 write access.
@@ -240,12 +242,118 @@ pull request builds and runs the checks, but gets no preview.
 - **Analytics:** Cloudflare Web Analytics. It uses no cookies, and its
   beacon goes in Starlight's `head` config (R-9).
 - **Link previews:** `astro-og-canvas` makes a preview image for each page
-  at build time, from its title and description (UC-5). No image is
-  committed.
-- **Performance:** videos load only when they come into view. The
-  recordings are short loops at 1200×600 or smaller, and each should be
-  under 1 MB. Pages ship no JavaScript except search, the theme switch
+  at build time, from its title and description, and a route middleware
+  adds the `og:image` tag to each page (UC-5). No image is committed.
+- **Performance:** videos load only when they come into view, and each
+  loop should be under 1 MB. Pages ship no JavaScript except search, the theme switch
   and the player.
+
+## Theming
+
+Theming has three consumers: the site's CSS, the code blocks, and the
+recordings. Each takes its colors and fonts in a different form, so the
+risk is that they drift apart. The rule: **one token for each value, and
+the fewest overrides that get the look.** Starlight is before 1.0, and
+each component override is code we re-check on every upgrade. 0.42
+changed the markup of the page frame and the mobile menu, for example.
+
+### Knobs we will set
+
+| Knob | Where | Why |
+| --- | --- | --- |
+| Accent: `--sl-color-accent-low`, `--sl-color-accent`, `--sl-color-accent-high` | `site/src/styles/theme.css`, in `customCss` | The brand color, in links, buttons and the current page in the sidebar. |
+| Grays: `--sl-color-white`, `--sl-color-gray-1` … `-gray-7`, `--sl-color-black` | same | Starlight's grays are cool blue. A warmer or neutral scale is most of what makes a stock site look like ours. |
+| Fonts: `--sl-font`, `--sl-font-mono` | same, with `@fontsource/*` packages in `customCss` | Type does more for "elegant" than color does. |
+| Heading sizes: `--sl-text-h1` … `-h3`, `--sl-line-height-headings` | same | A larger, tighter title scale for the landing and tutorial pages. |
+| Content width: `--sl-content-width` (45rem) | same | Recordings show at this width. 45rem is 720px, so the default tape size suits it. We may widen it to 48rem. |
+| Sidebar | `sidebar` in `astro.config.mjs` | Written by hand in teaching order: Start, Tutorials, Reference, Recipes. Autogenerate would sort them by file name. |
+| Code blocks | `expressiveCode` in `astro.config.mjs` | One syntax theme for dark and one for light. With custom themes, set `useStarlightUiThemeColors: true` again, or code blocks stop following our grays. Set `styleOverrides.frames.terminal*` so a shell code block has the same frame as a recording. |
+| Logo and favicon | `logo`, `favicon` | A wordmark set in our type, in light and dark versions, and an SVG favicon. |
+| `head` | `astro.config.mjs` | The analytics beacon. |
+| Terminal palette | `site/tapes/theme.json` | See [Recordings](#theming-the-recordings). |
+
+Light and dark are two full blocks of CSS. Dark is the base, under
+`:root`, and light overrides it under `:root[data-theme='light']`.
+Starlight's theme editor
+(starlight.astro.build/guides/css-and-tailwind/) builds both scales and
+checks their contrast against WCAG AA. We start there and save its
+output in `theme.css`.
+
+Starlight puts all of its CSS in cascade layers (`@layer starlight.*`),
+so our CSS, which has no layer, wins without `!important` or long
+selectors.
+
+### Components we write or override
+
+- **The landing page** is a `template: splash` page. Its body uses our own
+  components: the hero with a playing terminal, the three ways in, and an
+  install command. We override `Hero` only if Starlight's hero gets in the
+  way. Its `title`, `tagline`, `actions` and `image.html` may be enough.
+- **`Terminal` and `Screenshot`** are our components. They hold the window
+  frame that code blocks also use.
+- **`SiteTitle`** (an override) is the wordmark and the latest release
+  number.
+- **`Footer`** (an override) wraps the default and adds a Deep Noodle
+  line.
+- **A tutorial's goal and what the reader needs** is an MDX component at
+  the top of each tutorial, not a `PageTitle` override.
+
+We do not override `Head`, `Header`, `PageFrame`, `TwoColumnContent`,
+`ThemeProvider` or `Sidebar`. Starlight's docs call the layout overrides
+complex, and they are the ones that upgrades break. If the design needs
+a top navigation bar or a different page layout, that is a separate
+decision, with its upgrade cost written down.
+
+### Theming the recordings
+
+- **Always dark.** A dark terminal looks right on a light page, and Charm
+  does the same in the VHS README. Two recordings per tape would double
+  the files, and a theme switch would have to swap videos. In light mode
+  only the frame's shadow and border change.
+- **No chrome in the video.** `Padding 0`, with no `WindowBar`, `Margin`
+  or `BorderRadius`. The HTML frame draws the title bar, corners and
+  padding. It stays sharp at any pixel density, follows the page theme,
+  and matches the code blocks. The frame's background reads
+  `background` from `theme.json`, so the edges of the video, its still
+  image and the frame are the same color.
+- **One palette file.** `site/tapes/theme.json` holds VHS's theme fields:
+  `background`, `foreground`, `cursor`, `selection`, and the 16 ANSI
+  colors. `record.sh` passes it to VHS as `Set Theme {…}`. `Terminal.astro`
+  reads it at build time for the frame. Its hash is part of each
+  recording's name, so a palette change marks every recording as missing.
+- **Recorded at 2x, shown at 1x.** VHS records at one pixel per CSS
+  pixel and has no 2x mode, so text blurs on retina screens. A page tape
+  is `Width 1440`, `Height 720` and about `FontSize 28`, and shows at
+  720×360. A landing tape is wider. The two sizes are two settings files.
+- **Smaller files.** `Framerate 30` and `CursorBlink false`. Typing
+  doesn't need 50 frames a second, and a blinking cursor changes every
+  frame.
+- **The mono font must be the same in both places.** VHS draws with
+  fonts installed in its image and can't load a web font. The site's mono
+  font must be one that is both in the VHS image and on Fontsource:
+  JetBrains Mono, IBM Plex Mono, Fira Code, Source Code Pro, Inconsolata
+  or Hack. A font outside that list, such as Geist Mono, needs our own
+  VHS image. VHS can't draw ligatures, so choose a font that reads well
+  without them.
+
+### What we don't use
+
+- **Tailwind.** `@astrojs/starlight-tailwind` works, but it adds a layer
+  order to keep right, and a docs site needs a few dozen custom
+  properties, not utility classes.
+- **A community theme.** Rapide, Black, Nova and others are well kept,
+  but each one pins us to its release schedule, and Nova overrides 14
+  components, including the page frame. We read them for ideas. Rapide
+  shows how far tokens alone go, and Black and the Astro and Biome docs
+  show what overrides can do.
+
+### The design pass
+
+The knobs above are the frame. The choices inside it, the palette, the
+two fonts, the heading scale and the landing layout, come from a design
+pass in the implementation PR. It ends with screenshots of the landing,
+a tutorial and a reference page, in light, dark and at phone width, and
+a review with the `taste` skill.
 
 ## Alternatives considered
 
@@ -307,6 +415,9 @@ pull request builds and runs the checks, but gets no preview.
 
 ## Open questions
 
+- **Does decide get a mark?** The site needs a favicon and a wordmark.
+  A wordmark set in the site's type needs nothing new. A mark is a
+  separate design job. Not blocking: launch with the wordmark.
 - **Which R2 bucket serves `files.deepnoodle.ai`?** `record.sh` needs its
   name. A maintainer must answer this before
   step 3.
