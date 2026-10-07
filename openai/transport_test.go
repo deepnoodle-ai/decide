@@ -170,6 +170,8 @@ func TestRejectsRequestsTheAPICannotTake(t *testing.T) {
 func TestMalformedResponses(t *testing.T) {
 	for _, body := range []string{
 		`not json`,
+		`{"answers":null}`,
+		`{"model":"gpt-6-luna"}`,
 		`{"answers":{"a":{"type":"noul","noul":1}}}`,
 		`{"answers":[{"type":"predicate","probability":1}]}`,
 		`{"answers":[{"type":"predicate","name":"a","probability":1},{"type":"predicate","name":"a","probability":0}]}`,

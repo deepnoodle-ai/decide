@@ -203,7 +203,7 @@ func decodeResponse(raw []byte, req *decide.Request) ([]byte, error) {
 		return nil, fmt.Errorf("%w: openai response must be an object", decide.ErrDecode)
 	}
 	var list []map[string]json.RawMessage
-	if json.Unmarshal(body["answers"], &list) != nil {
+	if raw := bytes.TrimSpace(body["answers"]); len(raw) == 0 || raw[0] != '[' || json.Unmarshal(raw, &list) != nil {
 		return nil, fmt.Errorf("%w: openai response answers must be a list of objects", decide.ErrDecode)
 	}
 	answers := make(map[string]json.RawMessage, len(list))
