@@ -1,0 +1,231 @@
+/*
+ * Theme tokens for decide.deepnoodle.ai. See docs/design/docs-site-look.md.
+ *
+ * Starlight's own CSS sits in cascade layers, so these unlayered rules win
+ * without !important. Dark is the base; light overrides it.
+ *
+ * Cyan and the verdict colors (--ans-*) mean answers, as in the CLI, and
+ * nothing else. Links, buttons, focus rings and the sidebar are neutral.
+ */
+
+:root {
+	--sl-font: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+	--sl-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+	--sl-color-white: #f3f4f5;
+	--sl-color-gray-1: #dadce0;
+	--sl-color-gray-2: #b4b7bd;
+	--sl-color-gray-3: #7e828a;
+	--sl-color-gray-4: #5c6068;
+	--sl-color-gray-5: #2e3036;
+	--sl-color-gray-6: #1a1b1f;
+	--sl-color-gray-7: #131417;
+	--sl-color-black: #0b0c0e;
+
+	--sl-color-accent-low: #1a1b1f;
+	--sl-color-accent: #f3f4f5;
+	--sl-color-accent-high: #f3f4f5;
+
+	--sl-color-text-accent: var(--sl-color-white);
+	--sl-color-hairline: var(--sl-color-gray-5);
+	--sl-color-hairline-light: var(--sl-color-gray-5);
+	--sl-color-bg-nav: var(--sl-color-black);
+	--sl-color-bg-sidebar: var(--sl-color-black);
+	--sl-color-bg-inline-code: var(--sl-color-gray-6);
+
+	--sl-text-h1: clamp(2rem, 1.4rem + 1.6vw, 2.5rem);
+	--sl-text-h2: 1.5rem;
+	--sl-text-h3: 1.25rem;
+	--sl-line-height-headings: 1.15;
+
+	/* Answers: the CLI's verdict colors. */
+	--ans-flag: #f7666f;
+	--ans-pass: #5fd38d;
+	--ans-unsure: #f0c04f;
+	--ans-value: #4ccbe2;
+	--track: #5c6068;
+
+	/* The terminal is dark in both themes. Its colors come from site/tapes/theme.json. */
+	--term-bg: #121316;
+	--term-bar: #17181c;
+	--term-fg: #ecedef;
+	--term-dim: rgba(236, 237, 239, 0.5);
+	--term-muted: #a4a8af;
+	--term-line: rgba(255, 255, 255, 0.06);
+	--term-border: rgba(255, 255, 255, 0.08);
+	--term-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+	--ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-theme='light'] {
+	--sl-color-white: #0b0c0e;
+	--sl-color-gray-1: #1c1d21;
+	--sl-color-gray-2: #33363d;
+	--sl-color-gray-3: #5c6068;
+	--sl-color-gray-4: #8a8d94;
+	--sl-color-gray-5: #d4d6da;
+	--sl-color-gray-6: #e9eaec;
+	--sl-color-gray-7: #f5f5f6;
+	--sl-color-black: #ffffff;
+
+	--sl-color-accent-low: #e9eaec;
+	--sl-color-accent: #0b0c0e;
+	--sl-color-accent-high: #0b0c0e;
+
+	--ans-flag: #c2343f;
+	--ans-pass: #16804a;
+	--ans-unsure: #9a6300;
+	--ans-value: #0a7a90;
+	--track: #8a8d94;
+
+	--term-border: rgba(11, 12, 14, 0.9);
+	--term-shadow: 0 1px 2px rgba(16, 18, 24, 0.06), 0 12px 32px -12px rgba(16, 18, 24, 0.32);
+}
+
+/* Tutorials turn off the table of contents, so recordings get 720px with room around them. */
+:root[data-has-sidebar]:not([data-has-toc]) {
+	--sl-content-width: 48rem;
+}
+
+body {
+	font-optical-sizing: auto;
+	-webkit-font-smoothing: antialiased;
+}
+
+code,
+pre,
+kbd {
+	font-variant-ligatures: none;
+}
+
+:focus-visible {
+	outline: 2px solid var(--sl-color-gray-1);
+	outline-offset: 2px;
+}
+
+/* Links are neutral and keep an underline, so color alone never marks them. */
+.sl-markdown-content a:not(:where(.not-content *)) {
+	color: var(--sl-color-white);
+	text-decoration-color: var(--sl-color-gray-4);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.22em;
+}
+.sl-markdown-content a:not(:where(.not-content *)):hover {
+	text-decoration-color: currentColor;
+}
+
+.sl-markdown-content :is(p, li, dd, blockquote):not(:where(.not-content *)) {
+	max-width: 68ch;
+}
+
+.sl-markdown-content :is(h1, h2, h3) {
+	letter-spacing: -0.02em;
+}
+
+/* The current page in the sidebar: a fill and an inset bar, no accent color. */
+nav.sidebar a[aria-current='page'],
+nav.sidebar a[aria-current='page']:hover,
+nav.sidebar a[aria-current='page']:focus {
+	background: var(--sl-color-gray-6);
+	color: var(--sl-color-white);
+	font-weight: 600;
+	box-shadow: inset 2px 0 0 var(--sl-color-white);
+	border-radius: 0 6px 6px 0;
+}
+
+/* Sidebar group labels in small mono capitals. */
+nav.sidebar .group-label .large {
+	font-family: var(--sl-font-mono);
+	font-size: 0.72rem;
+	font-weight: 500;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--sl-color-gray-3);
+}
+
+/* Starlight's primary button, as a neutral pill. */
+.sl-link-button.primary {
+	background: var(--sl-color-white);
+	border-color: var(--sl-color-white);
+	color: var(--sl-color-black);
+	border-radius: 999px;
+}
+
+/* An answer value in prose, such as yes 96%. */
+.val {
+	color: var(--ans-value);
+	font-family: var(--sl-font-mono);
+	font-weight: 700;
+	font-size: 0.9em;
+	white-space: nowrap;
+}
+
+/* The CLI's colors, inside a terminal frame. */
+.t-b {
+	font-weight: 700;
+	color: #f7f8f9;
+}
+.t-d {
+	color: var(--term-dim);
+}
+.t-r {
+	color: #f7666f;
+}
+.t-g {
+	color: #5fd38d;
+}
+.t-y {
+	color: #f0c04f;
+}
+.t-c {
+	color: #4ccbe2;
+}
+.t-p {
+	color: #8a8e96;
+}
+
+/* Meters: a heavy fill on a 1px track, like the CLI's ━ on ─. Every meter is a probability. */
+.meter {
+	display: block;
+	position: relative;
+	height: 4px;
+}
+.meter::before {
+	content: '';
+	position: absolute;
+	inset: 1.5px 0 auto;
+	height: 1px;
+	background: var(--track);
+}
+.meter i {
+	position: absolute;
+	inset: 0 auto 0 0;
+	width: calc(var(--p) * 100%);
+	border-radius: 2px;
+	background: currentColor;
+}
+@supports (animation-timeline: view()) {
+	@media (prefers-reduced-motion: no-preference) {
+		.meter i {
+			transform-origin: left;
+			animation: meter-fill linear both;
+			animation-timeline: view();
+			animation-range: entry 10% cover 35%;
+		}
+	}
+}
+@keyframes meter-fill {
+	from {
+		transform: scaleX(0);
+	}
+}
+
+/* A shell block with no title needs no title bar. */
+.expressive-code .frame.is-terminal:not(.has-title) .header {
+	display: none;
+}
+.expressive-code .frame.is-terminal:not(.has-title) pre {
+	border-top-left-radius: 12px;
+	border-top-right-radius: 12px;
+}

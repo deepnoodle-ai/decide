@@ -1,0 +1,68 @@
+---
+title: From Go
+description: Ask typed questions from your own Go program, and rank passages by the answers.
+tableOfContents: false
+---
+
+import { Steps, Code } from '@astrojs/starlight/components';
+import source from '../../../../../examples/rank/main.go?raw';
+export const rank = /* the reader runs it with go run ., not from the decide repository */ source.replace('//\n//\tTYPESAFE_API_KEY=... go run ./examples/rank\n', '');
+
+You'll end with a Go program that asks one yes-or-no question about each of
+three passages and sorts them by the probability of yes. You need Go 1.27 or
+later and a [key for one provider](/start/#get-a-key).
+
+<Steps>
+
+1. ## Create a module
+
+   ```sh
+   mkdir rank && cd rank
+   go mod init example.com/rank
+   go get github.com/deepnoodle-ai/decide
+   ```
+
+2. ## Write the program
+
+   Save this as `main.go`. It asks whether each passage answers the query,
+   then reranks the passages with the `rank` pattern:
+
+   <Code code={rank} lang="go" title="main.go" />
+
+   `decide.NewClient` reads `TYPESAFE_API_KEY`. For Clef or GPT-6 Luna,
+   create the client with `backend.NewClient`, as the
+   [package documentation](https://pkg.go.dev/github.com/deepnoodle-ai/decide/backend)
+   shows. The rest of the program stays the same.
+
+3. ## Run it
+
+   ```sh
+   go run .
+   ```
+
+   The passage that answers the query comes first, with the highest
+   probability of yes:
+
+   ```text
+   0.93  The session recovery procedure: sign in again and resume from the saved draft.
+   0.10  Refresh tokens rotate when a session is refreshed.
+   0.05  A general account of account access.
+   ```
+
+   Your probabilities may differ a little.
+
+4. ## Go further
+
+   - Ask several questions in one request with `decide.Ask`, and ask a
+     built-in template's questions with the
+     [`templates`](https://pkg.go.dev/github.com/deepnoodle-ai/decide/templates)
+     package.
+   - Gate an agent's action, screen in stages, or calibrate a cutoff with
+     the packages under
+     [`patterns/`](https://github.com/deepnoodle-ai/decide/tree/main/patterns).
+     Each has a short program in
+     [`examples/`](https://github.com/deepnoodle-ai/decide/tree/main/examples).
+   - Test without a key using fakes from
+     [`decidetest`](https://pkg.go.dev/github.com/deepnoodle-ai/decide/decidetest).
+
+</Steps>

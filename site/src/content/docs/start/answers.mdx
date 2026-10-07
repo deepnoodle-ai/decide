@@ -1,0 +1,66 @@
+---
+title: Questions and answers
+description: What decide asks, what comes back, and when an answer is flagged.
+---
+
+import AnswerTypes from '../../../components/AnswerTypes.astro';
+
+A **decision model** answers typed questions instead of generating text.
+decide asks it about each item in your data, and each answer comes back
+typed, with a probability, so a script or a program can act on it directly.
+There is no prose to parse.
+
+<AnswerTypes />
+
+## Templates, items and runs
+
+- A **template** is a named set of questions, such as "Is this file risky?"
+  or "Which queue does this ticket belong to?". `decide templates` lists the
+  built-in ones, and `decide templates new` starts your own.
+- An **item** is one thing a template's questions are asked about: a file,
+  a changed function, a JSON record, a line of text, or an image.
+  `decide run TEMPLATE DATA` asks about each item in your data.
+- A **run** is saved with every answer. `decide runs` lists past runs, and
+  `decide runs view` shows the results again without asking the model.
+
+## Three types of question
+
+| Type | Asks | Shown as |
+| --- | --- | --- |
+| `noul` | a yes-or-no question | `risk  no  88%`, or `unsure  52% yes` between 40% and 60% |
+| `choice` | which one of several options fits | `queue  billing  91%` |
+| `score` | where something falls on a scale | `maintainability  ━━━━━━━━────  2.7 of 4` |
+
+A `noul` answer is the probability of yes. A `choice` answer is the most
+likely option, with the probability of every option. A `score` answer is a
+point on the scale, with the probability of every level.
+
+## Flags and matches
+
+Some templates **flag** the answers that need attention, such as a file
+that is probably risky. A flagged answer is red and marked with `!`, an
+answer close to a flag is yellow, and the others are green. The summary
+lists the flagged items, and `--fail-on flagged` exits with code 2 when
+there are any.
+
+Other templates look for **matches** instead, such as the items relevant to
+a question you choose. A match is bold green and marked with `●`, and
+`--fail-on matched` exits with code 2 when there are any.
+
+`decide templates show TEMPLATE` says when each question is flagged or
+matched. A yes-or-no answer between 40% and 60% is yellow in every
+template: the model is unsure.
+
+## Providers
+
+decide runs on three decision models, with the same commands, templates and
+Go code:
+
+| Model | By | Runs on |
+| --- | --- | --- |
+| `jev-latest`, the default | [TypeSafe](https://docs.typesafe.ai/introduction) | the TypeSafe API |
+| `clef`, and `clef-flash` for lower latency | [Cloudflare](https://developers.cloudflare.com/workers-ai/models/clef/) | Workers AI |
+| `gpt-6-luna` | [OpenAI](https://developers.openai.com/api/docs/guides/decisions) | the Decisions API, in beta |
+
+Any other service that speaks the Jev API works too. The
+[quickstart](/start/#get-a-key) shows how to set a key for each.

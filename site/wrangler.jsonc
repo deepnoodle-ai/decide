@@ -1,0 +1,16 @@
+{
+	// decide.deepnoodle.ai: static files, no Worker code. See docs/design/docs-site.md.
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "decide-docs",
+	"compatibility_date": "2026-10-01",
+	"assets": {
+		"directory": "./dist",
+		"not_found_handling": "404-page",
+		"html_handling": "auto-trailing-slash"
+	},
+	"routes": [{ "pattern": "decide.deepnoodle.ai", "custom_domain": true }],
+	// Serve the site only at decide.deepnoodle.ai, but keep a URL for each
+	// pull request's preview.
+	"workers_dev": false,
+	"preview_urls": true
+}

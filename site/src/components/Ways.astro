@@ -1,0 +1,92 @@
+---
+// The three ways in, each with its install command to copy.
+import CopyButton from './CopyButton.astro';
+
+const ways = [
+	{ name: 'CLI', href: '/start/', job: 'Ask from your shell and CI', command: 'brew install deepnoodle-ai/tap/decide' },
+	{ name: 'Go', href: '/start/go/', job: 'Ask from your program', command: 'go get github.com/deepnoodle-ai/decide' },
+	{
+		name: 'Claude Code',
+		href: 'https://github.com/deepnoodle-ai/decide/blob/main/docs/claude-code.md',
+		job: 'Give Claude a second opinion',
+		command: '/plugin install decide@decide',
+	},
+];
+---
+
+<ul class="ways not-content" aria-label="Three ways to use decide">
+	{
+		ways.map((w) => (
+			<li>
+				<a class="k" href={w.href}>
+					{w.name} <span aria-hidden="true">→</span>
+				</a>
+				<span class="w">{w.job}</span>
+				<code>{w.command}</code>
+				<CopyButton text={w.command} />
+			</li>
+		))
+	}
+</ul>
+
+<style>
+	.ways {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		border-top: 1px solid var(--sl-color-hairline);
+	}
+	.ways li {
+		display: grid;
+		grid-template-columns: 140px 260px minmax(0, 1fr) 32px;
+		align-items: center;
+		gap: 4px 20px;
+		margin: 0;
+		padding: 9px 0;
+		border-bottom: 1px solid var(--sl-color-hairline);
+	}
+	.k {
+		font-size: 15px;
+		font-weight: 600;
+		color: var(--sl-color-white);
+		text-decoration: none;
+	}
+	.k:hover {
+		text-decoration: underline;
+		text-underline-offset: 0.22em;
+	}
+	.w {
+		font-size: 14.5px;
+		color: var(--sl-color-gray-3);
+	}
+	code {
+		padding: 0;
+		background: none;
+		font-size: 13.5px;
+		color: var(--sl-color-gray-1);
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+	@media (max-width: 1099px) {
+		.ways li {
+			grid-template-columns: 120px 220px minmax(0, 1fr) 32px;
+		}
+	}
+	@media (max-width: 799px) {
+		.ways li {
+			grid-template-columns: minmax(0, 1fr) 32px;
+			padding: 10px 0;
+		}
+		.w {
+			display: none;
+		}
+		.k,
+		code {
+			grid-column: 1;
+		}
+		.ways :global(.copy) {
+			grid-column: 2;
+			grid-row: 1 / span 2;
+		}
+	}
+</style>
