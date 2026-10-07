@@ -378,7 +378,7 @@ knobs: the palette, Inter and JetBrains Mono, the heading scale, the
 landing page, the frames, the tutorial page and motion. The
 implementation PR shows screenshots of the landing, a tutorial and a
 reference page, in light and dark, at 1280, 1024 and 390 wide, and gets
-a review with the `taste` skill. One real recording is checked on a
+an independent design review. One real recording is checked on a
 phone before the merge.
 
 ## Alternatives considered
@@ -432,7 +432,7 @@ phone before the merge.
 2. The implementation PR is stacked on the PRD branch. It adds `site/`,
    the tapes, the test and the workflow, moves the guides, and updates
    the README and AGENTS.md. Its preview link is the review surface.
-   `taste` reviews the landing page and the terminal frame, with
+   A design review covers the landing page and the terminal frame, with
    screenshots in light, dark and phone widths.
 3. Before the merge, a maintainer adds the two secrets and the `site`
    environment, and runs `record.sh`.

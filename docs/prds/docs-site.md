@@ -212,4 +212,4 @@ Acceptance:
   URLs. Not blocking.
 - **The look.** "Beautiful and elegant" is the point, and a stock theme
   is not enough. The landing page and the terminal frame get a design
-  pass and a review with the `taste` skill before launch. Not blocking.
+  pass and an independent design review before launch. Not blocking.
