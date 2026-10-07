@@ -1,6 +1,9 @@
-// Package templates exports the decide command's built-in templates, so a
-// Go program asks the same questions as decide run and flags the same
-// answers. When decide tunes a template's wording or flags, a program gets
+// Package templates gives Go programs the decide command's built-in
+// templates, the same ones decide templates lists. A template is a named set
+// of questions and the answers it flags. Use this package to ask a built-in
+// template's questions about one item, and to flag the answers as decide run
+// does. It does not split data into items, apply matches, or load your own
+// templates. When decide tunes a template's wording or flags, a program gets
 // the change by upgrading decide.
 //
 // Each built-in template is a variable, such as [CommandRisk]. Its typed
