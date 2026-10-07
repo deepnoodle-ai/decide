@@ -81,8 +81,8 @@ func (a *App) addRun(app *cli.App) {
 			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
 			cli.String("format", "f").Enum(formats...).Help(formatHelp),
 			cli.String("fail-on").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
-			cli.String("provider").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare").
-				Help("Model provider: typesafe or cloudflare (default: typesafe; cloudflare for images)"),
+			cli.String("provider").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai").
+				Help("Model provider: typesafe, cloudflare, or openai (default: typesafe; cloudflare for images)"),
 			cli.String("model", "m").Env("DECIDE_MODEL").Help("Model name (default: the provider's default)"),
 			cli.Int("workers").Default(4).Help("How many requests to send at once"),
 			cli.Bool("yes", "y").Help(fmt.Sprintf("Don't ask before running more than %d items", confirmAbove)),
@@ -332,8 +332,11 @@ func (a *App) confirm(c *cli.Context, question string) bool {
 }
 
 func credentialHint(provider string) string {
-	if provider == "cloudflare" {
+	switch provider {
+	case "cloudflare":
 		return "Check CLOUDFLARE_AUTH_TOKEN and CLOUDFLARE_ACCOUNT_ID."
+	case "openai":
+		return "Check that OPENAI_API_KEY holds a valid key."
 	}
 	return "Check that TYPESAFE_API_KEY holds a valid key."
 }

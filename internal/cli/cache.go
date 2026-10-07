@@ -29,8 +29,11 @@ func openCache(c *cli.Context, provider, model string) (*cache.Cache, cache.Sour
 // account.
 func address(provider string) string {
 	base := func(name string) string { return strings.TrimRight(strings.TrimSpace(os.Getenv(name)), "/") }
-	if provider == "cloudflare" {
+	switch provider {
+	case "cloudflare":
 		return strings.TrimSpace(os.Getenv("CLOUDFLARE_ACCOUNT_ID")) + " " + base("CLOUDFLARE_BASE_URL")
+	case "openai":
+		return base("OPENAI_BASE_URL")
 	}
 	return base("TYPESAFE_BASE_URL")
 }

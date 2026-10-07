@@ -102,7 +102,7 @@ func (a *App) interactiveStdin() bool {
 }
 
 // Default models, shown in output when no model is chosen.
-var defaultModels = map[string]string{"typesafe": "jev-latest", "cloudflare": "clef"}
+var defaultModels = map[string]string{"typesafe": "jev-latest", "cloudflare": "clef", "openai": "gpt-6-luna"}
 
 // connect builds a client from environment credentials.
 func connect(provider, model string) (*decide.Client, error) {
@@ -115,6 +115,13 @@ func connect(provider, model string) (*decide.Client, error) {
 		if cfg.APIKey == "" || cfg.AccountID == "" {
 			return nil, cli.Error("Cloudflare credentials are not set").
 				Hint("Set your Workers AI API token and account ID:\n  export CLOUDFLARE_AUTH_TOKEN=...\n  export CLOUDFLARE_ACCOUNT_ID=...")
+		}
+	case "openai":
+		cfg.APIKey = os.Getenv("OPENAI_API_KEY")
+		cfg.BaseURL = os.Getenv("OPENAI_BASE_URL")
+		if cfg.APIKey == "" {
+			return nil, cli.Error("OPENAI_API_KEY is not set").
+				Hint("Set your OpenAI API key:\n  export OPENAI_API_KEY=...\nTo check your data first without a key, add --dry-run.")
 		}
 	default:
 		cfg.APIKey = os.Getenv("TYPESAFE_API_KEY")
