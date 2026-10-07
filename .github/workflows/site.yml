@@ -23,6 +23,8 @@ concurrency:
 
 defaults:
   run:
+    # shell: bash adds pipefail, so a failed wrangler command fails its step.
+    shell: bash
     working-directory: site
 
 jobs:
