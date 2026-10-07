@@ -198,6 +198,28 @@ func loadDir(dir, where string) (*Template, error) {
 	return s, nil
 }
 
+// Builtins returns the names of the built-in templates, sorted.
+func Builtins() []string {
+	entries, _ := builtins.ReadDir("builtin")
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		names = append(names, e.Name())
+	}
+	return names
+}
+
+// LoadBuiltin loads a built-in template by name. A project or user template
+// of the same name does not replace it.
+func LoadBuiltin(name string) (*Template, error) {
+	if !validName(name) {
+		return nil, &NotFoundError{Name: name}
+	}
+	if _, err := fs.Stat(builtins, "builtin/"+name+"/template.json"); err != nil {
+		return nil, &NotFoundError{Name: name}
+	}
+	return loadBuiltin(name)
+}
+
 func loadBuiltin(name string) (*Template, error) {
 	data, err := builtins.ReadFile("builtin/" + name + "/template.json")
 	if err != nil {
