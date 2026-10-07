@@ -140,8 +140,9 @@ Screenshot triage-issues.png
 
 Each tape writes an MP4, a PNG still of its last frame, and a text
 transcript of that frame. Their names carry a hash:
-`decide/site/<tape>-<hash>.mp4`, `.png` and `.txt` in the R2 bucket behind
-`files.deepnoodle.ai`. The hash is the first 12 hex digits of the SHA-256
+`decide/site/<tape>-<hash>.mp4`, `.png` and `.txt` in the R2 bucket
+`deepnoodle-public`, which serves `files.deepnoodle.ai`. The hash is the
+first 12 hex digits of the SHA-256
 of the tape, `settings.tape`, `theme.json`, and the `version` in
 `plugin/.claude-plugin/plugin.json`. That version already names the next
 release: the pull request that cuts the changelog sets it, and the release
@@ -437,12 +438,3 @@ phone before the merge.
    environment, and runs `record.sh`.
 4. The first `v*` tag after the merge deploys the site. Then we add the
    site to the repository's homepage field and to the CHANGELOG.
-
-## Open questions
-
-- **Does decide get a mark?** The site needs a favicon and a wordmark.
-  A wordmark set in the site's type needs nothing new. A mark is a
-  separate design job. Not blocking: launch with the wordmark.
-- **Which R2 bucket serves `files.deepnoodle.ai`?** `record.sh` needs its
-  name. A maintainer must answer this before
-  step 3.
