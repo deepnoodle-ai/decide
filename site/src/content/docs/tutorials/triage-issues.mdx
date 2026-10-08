@@ -44,8 +44,8 @@ start.
 
    `task-readiness` asks two questions about each issue: is it ready to
    start, and how large is it? It flags an issue that is probably not ready,
-   or probably too large for one pull request. Send the answers away, and
-   read the three issues nearest their flags:
+   or probably too large for one pull request. Judge the issues, then read
+   the three nearest their flags:
 
    <Terminal tape="triage-run" title="~/decide/demo" label="decide flags issues 102, 104 and 106 as not ready">
    **Three of six issues are flagged as not ready**: "Checkout is slow",
@@ -107,6 +107,11 @@ start.
    otherwise judged line by line. Pass the issue's text through `env`, as
    above. Never write `${{ github.event.issue.body }}` into the script,
    where an issue's text could run commands.
+
+   Each new issue is one request on your key, and on a public repository
+   anyone can open one. On a busy repository, add a condition to the job,
+   such as `if: github.event.issue.author_association != 'NONE'`, to judge
+   only issues from people who have contributed before.
 
 4. ## Check that it works
 
