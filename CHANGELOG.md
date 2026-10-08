@@ -8,6 +8,8 @@ may change the library API and the CLI.
 
 ### Added
 
+- **Template tutorial.** Write a project template, preview its inputs,
+  and read saved answers on support tickets.
 - **Go tutorial.** Turn a typed answer into allow, review, or escalate
   with a policy that stays in your code.
 - **Security tutorial.** Rank the demo's functions with `security`, then

@@ -114,7 +114,7 @@ off, or remove them, as they land.
       with v0.4.0 (#68, #70, #72).
 - [x] **Security tutorial.** Find security bugs with Claude Code (#75).
 - [x] **Go tutorial.** Make a decision policy from Go (#76).
-- [ ] **Template tutorial.** Write and test a project template (#77).
+- [x] **Template tutorial.** Write and test a project template (#77).
 - [x] **Launch follow-ups.** Analytics, agent docs, and landing recordings (#74).
 - [ ] **Newcomer check.** Time two or three first-time users through the
       quickstart, excluding provider signup (#78).

@@ -1,0 +1,113 @@
+---
+title: Write your own template
+description: Turn a support team's refund question into a project template, preview it, and read its saved answers.
+tableOfContents: false
+answer: "! needs_refund  yes"
+---
+
+import { Steps, Code, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Goal from '../../../components/Goal.astro';
+import Terminal from '../../../components/Terminal.astro';
+import template from '../../../snippets/refund-check.json?raw';
+import tickets from '../../../snippets/refund-tickets.txt?raw';
+
+Your team has a question the built-ins do not ask: which support tickets
+describe billing mistakes that need a refund? A template lets you ask the
+same typed question about every ticket and flag answers that cross your line.
+
+<Goal answer="! needs_refund  yes">
+<Fragment slot="end">
+A project template you can share with your team, plus a saved run on two
+tickets that shows which one needs attention.
+</Fragment>
+<Fragment slot="need">
+- decide, [installed](/start/#install-decide)
+- A [provider key](/start/#get-a-key) in your shell
+</Fragment>
+</Goal>
+
+<Steps>
+
+1. ## Create a project template
+
+   Start in an empty folder and create the template:
+
+   ```sh
+   mkdir support && cd support
+   decide templates new refund-check --project
+   ```
+
+   `--project` puts it at `.decide/templates/refund-check/template.json`,
+   where you can commit it with your team's project. Without `--project`,
+   it goes under your own Decide home directory.
+
+2. ## Write one question and a flag
+
+   Replace the generated `template.json` with this:
+
+   <Code code={template} lang="json" title=".decide/templates/refund-check/template.json" />
+
+   `noul` is a yes-or-no question. `needs_refund` is its key in saved answers
+   and JSON output. Keep the key stable when another program reads it.
+   The instructions ask about one ticket and treat its words as evidence.
+
+   The flag means “needs attention when yes is at least 80% likely.” That
+   number is an example policy, not a measured guarantee. Decide does not
+   issue refunds; a person or your own code decides the next action.
+
+3. ## Check the input before paying for answers
+
+   Save these two lines as `tickets.txt`:
+
+   <Code code={tickets} lang="text" title="tickets.txt" />
+
+   A `.txt` file is read one line per item. Inspect the template, then
+   preview the run without a model request or a saved run:
+
+   <Terminal tape="template-preview" title="~/support" label="refund-check is a project template, and its preview has two lines to judge">
+   The preview counts **two lines**. If your tickets span several lines,
+   use one JSON record per ticket instead, or choose another unit with
+   `--each`. Check this before a large run.
+   </Terminal>
+
+4. ## Run the template
+
+   <Terminal tape="template-run" title="~/support" label="refund-check flags the duplicate charge ticket and exits with code 2">
+   The duplicate charge is flagged; the invoice request is not. The final
+   `exit=2` is the signal a script can use to request a review. Your
+   probabilities may differ on another run.
+   </Terminal>
+
+   `--fail-on flagged` exits 2 when any item is flagged, 0 when none is,
+   and 1 on an error. The run still saves every answer. Read it again with
+   the exact ID from its closing command:
+
+   ```sh
+   decide runs view RUN_ID --top 1
+   ```
+
+   Substitute the printed ID for `RUN_ID`. Viewing it makes no model
+   requests. Passing an ID keeps another process's later run from taking
+   its place.
+
+</Steps>
+
+## Make it useful for your team
+
+Try labeled examples from your own tickets, including invoice questions,
+failed payments, and refund requests that do not describe a billing mistake.
+Read confident mistakes and adjust the question or threshold. Keep separate
+examples for checking a change after you tune it; two demonstration tickets
+cannot establish accuracy.
+
+To share the template, commit `.decide/templates/refund-check` in an existing
+repository. Review the diff when its instructions or flag change. Project
+templates take precedence over your own templates and built-ins with the
+same name; use a distinct name so that precedence is deliberate.
+
+## What next
+
+<CardGrid>
+<LinkCard title="More question types" description="Choices, score levels, parameters, and the template format." href="/reference/templates/#write-your-own-template" />
+<LinkCard title="Triage issues" description="Use a template's exit code to label new GitHub issues." href="/tutorials/triage-issues/" />
+</CardGrid>
