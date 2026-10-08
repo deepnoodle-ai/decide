@@ -18,8 +18,8 @@ export default defineConfig({
 			description:
 				'A Go library and CLI for decision models: ask typed questions, get answers with probabilities.',
 			favicon: '/favicon.svg',
-			// Fails the build on a broken link or heading between pages.
-			plugins: [starlightLinksValidator()],
+			// Fails on broken paths and headings, including absolute same-site links.
+			plugins: [starlightLinksValidator({ sameSitePolicy: 'validate' })],
 			routeMiddleware: './src/routeData.ts',
 			head: beacon
 				? [
@@ -61,6 +61,7 @@ export default defineConfig({
 						{ label: 'Check agent commands', link: '/tutorials/check-agent-commands/' },
 						{ label: 'Triage new issues', link: '/tutorials/triage-issues/' },
 						{ label: 'Review pull requests', link: '/tutorials/review-pull-requests/' },
+						{ label: 'Find security bugs', link: '/tutorials/find-security-bugs/' },
 					],
 				},
 				{

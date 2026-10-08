@@ -58,7 +58,7 @@ func TestTapes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds decide")
 	}
-	for _, tool := range []string{"sh", "git", "go"} {
+	for _, tool := range []string{"sh", "git", "go", "jq"} {
 		if _, err := exec.LookPath(tool); err != nil {
 			t.Skipf("%s is not installed", tool)
 		}

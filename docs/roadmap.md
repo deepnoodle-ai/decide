@@ -112,7 +112,7 @@ off, or remove them, as they land.
       real runs made from VHS tapes. See the
       [PRD](prds/docs-site.md) and [design](design/docs-site.md). Launched
       with v0.4.0 (#68, #70, #72).
-- [ ] **Security tutorial.** Find security bugs with Claude Code (#75).
+- [x] **Security tutorial.** Find security bugs with Claude Code (#75).
 - [ ] **Go tutorial.** Make a decision policy from Go (#76).
 - [ ] **Template tutorial.** Write and test a project template (#77).
 - [x] **Launch follow-ups.** Analytics, agent docs, and landing recordings (#74).

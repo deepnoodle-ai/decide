@@ -1,0 +1,127 @@
+---
+title: Find security bugs with Claude Code
+description: Rank functions with Decide, then use Claude to confirm which candidates are real bugs.
+tableOfContents: false
+answer: "! command_injection  yes"
+---
+
+import { Steps, Code, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Goal from '../../../components/Goal.astro';
+import Terminal from '../../../components/Terminal.astro';
+import admin from '../../../../../demo/repo/admin/admin.go?raw';
+export const exportFunction = (() => {
+	const body = admin.match(/func \(s \*Server\) ExportOrders[\s\S]*?\n}\n/);
+	if (!body) throw new Error('The security tutorial needs demo/repo/admin/admin.go: ExportOrders');
+	return body[0];
+})();
+
+A model can point to a suspicious function without proving there is a bug.
+Here Decide ranks where to look, and Claude reads each candidate with its
+callers before reporting a finding.
+
+<Goal answer="! command_injection  yes">
+<Fragment slot="end">
+A table of confirmed and suspected security findings, with the code path
+that supports each one.
+</Fragment>
+<Fragment slot="need">
+- decide and a [provider key](/start/)
+- Claude Code 2.1.287 or later, with the [Decide plugin](/reference/claude-code/#in-three-steps)
+- Git and [jq](https://jqlang.org/)
+</Fragment>
+</Goal>
+
+<Steps>
+
+1. ## Get a repository to review
+
+   The demo has six planted security bugs beside safe versions of the same
+   operations. Clone it and make the shop repository:
+
+   ```sh
+   git clone --depth 1 https://github.com/deepnoodle-ai/decide
+   sh decide/demo/setup.sh shop && cd shop
+   ```
+
+   If you already cloned Decide for another tutorial, skip the clone.
+   If you already made `shop`, enter that folder instead of making it again.
+   The code is a fixture to read; do not start its server.
+
+2. ## See where to look
+
+   Run `security` on the admin functions, then list the six nearest their
+   flags. The output names the source, the function, and every question
+   whose probability of yes is at least 30%:
+
+   <Terminal tape="security-rank" title="~/shop" label="A security run followed by the top six candidates, including Server.ExportOrders">
+   `Server.ExportOrders` is a candidate for command injection. Its position
+   and probabilities can differ on another run. Viewing this saved ranking
+   makes no new model requests.
+   </Terminal>
+
+   The run saves every answer even though stdout went to `/dev/null`.
+   `runs view` reads the latest run by default. If another process is also
+   running Decide, pass the ID from the run's closing line instead.
+   If the run exits with code 1, some functions failed: run
+   `decide runs resume <run ID> > /dev/null`, once or twice, until it exits 0,
+   then view the ranking.
+
+3. ## Ask Claude to confirm the candidates
+
+   Start Claude Code in `shop`:
+
+   ```sh
+   claude
+   ```
+
+   Then run the plugin's audit skill:
+
+   ```text
+   /decide:audit admin
+   ```
+
+   Claude previews the scope, ranks the functions, and reads up to 15
+   candidates with their callers. The answer cache reuses the preceding
+   run when the function, questions, and resolved model match.
+
+   Each finding has a verdict: **confirmed** when untrusted input reaches
+   an operation that does harm, **suspected** when reachability or harm is
+   unresolved, or **dismissed** when the code prevents it. A high model
+   score alone is never a confirmed finding.
+
+4. ## Follow one finding to its source
+
+   This is the demo's `Server.ExportOrders`, read directly from its source:
+
+   <Code code={exportFunction} lang="go" title="admin/admin.go" />
+
+   The request's `folder` value becomes part of a string sent to `sh -c`.
+   Shell metacharacters in that value can become another command. The safe
+   `Backup` function beside it passes fixed arguments to `pg_dump` without
+   a shell. This is why reading the code matters.
+
+   Ask Claude to write a failing test for the confirmed finding and propose
+   a fix. Review that test and fix before applying them to your own code.
+   The tutorial's result is the audit report, not an automatic code change.
+
+</Steps>
+
+## Use it on your repository
+
+Run `/decide:audit` from your own repository, or name just its request-serving
+packages. The skill leaves out tests, generated files, examples, and build
+output; it asks before a scope over 5,000 functions. Source code is sent to
+your selected provider, so choose a scope you can share with that provider.
+
+The template asks eight questions: SQL and command injection, SSRF, XSS,
+weak ciphers, weak hashes, weak randomness, and disabled TLS verification.
+It does not cover path traversal, authorization, or deserialization, and a
+bug spread across several functions can rank low. Read callers and guards
+even when the ranking looks confident.
+
+## What next
+
+<CardGrid>
+<LinkCard title="Find the rest of a fixed bug" description="Give /decide:hunt a fix and look for the same mistake elsewhere." href="/reference/claude-code/#find-the-rest-of-a-fixed-bug" />
+<LinkCard title="Security questions" description="Read exactly what each question asks and where it flags." href="/reference/templates/#security" />
+</CardGrid>

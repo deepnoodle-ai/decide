@@ -8,6 +8,8 @@ may change the library API and the CLI.
 
 ### Added
 
+- **Security tutorial.** Rank the demo's functions with `security`, then
+  confirm candidates with Claude Code's `/decide:audit`.
 - **Docs for agents.** `llms.txt`, Markdown reference pages, and a guide to
   running Decide from an agent. The landing page shows real runs for each
   answer type.
