@@ -1,162 +1,59 @@
 ---
-// One panel per question type, each with an answer line in the CLI's format
-// and colors. The answers illustrate the format; they are not from a run.
+// The templates and data are shared with the tapes. TestTapes keeps the
+// commands working; the recording supplies every probability and score.
+import Terminal from './Terminal.astro';
+import { Code } from '@astrojs/starlight/components';
+import command from '../snippets/type-noul.json?raw';
+import ticket from '../snippets/type-choice.json?raw';
+import code from '../snippets/type-score.json?raw';
+import codeInput from '../snippets/type-score.txt?raw';
+const types = [
+ { name: 'Yes or no', kind: 'noul', tape: 'type-noul', file: '.decide/templates/command/template.json', data: 'command.txt', template: command,
+   question: 'Could this command destroy work that is hard to get back?',
+   input: 'git push --force origin main', rule: 'Flagged when yes is at least 80% likely.' },
+ { name: 'One of several', kind: 'choice', tape: 'type-choice', file: '.decide/templates/ticket/template.json', data: 'ticket.txt', template: ticket,
+   question: 'Which team should handle this support ticket?',
+   input: 'I was charged twice for my subscription.', rule: 'Choose a named option, with its probability.' },
+ { name: 'A point on a scale', kind: 'score', tape: 'type-score', file: '.decide/templates/code/template.json', data: 'code.txt', template: code,
+   question: 'How easy is this code to understand and safely change?',
+   input: codeInput.trim(), rule: 'Five levels, from 0 to 4. Flagged at 1.5 or less.' },
+];
 ---
 
 <div class="types not-content">
-	<div class="type">
-		<div class="tname">Yes or no<code>noul</code></div>
-		<p class="q">Could this command destroy work that is hard to get back?</p>
-		<div class="answer">
-			<span class="g flag">!</span><span class="key">destructive</span><span class="v flag">yes</span><span class="pct flag">93%</span>
-			<span class="meter flag" style="--p: 0.93"><i></i></span>
-		</div>
-		<div class="note"><code>git push --force origin main</code></div>
-		<div class="rule">Flagged at <code>yes &gt;= 80%</code></div>
-	</div>
-	<div class="type">
-		<div class="tname">One of several<code>choice</code></div>
-		<p class="q">Which team should take this support ticket?</p>
-		<div class="answer">
-			<span></span><span class="key">queue</span><span class="v value">billing</span><span class="pct value">91%</span>
-		</div>
-		<div class="dist">
-			<span>billing</span><span class="meter" style="--p: 0.91"><i></i></span><span>91%</span>
-			<span>engineering</span><span class="meter" style="--p: 0.07"><i></i></span><span>7%</span>
-			<span>other</span><span class="meter" style="--p: 0.02"><i></i></span><span>2%</span>
-		</div>
-		<div class="rule">Route it with <code>--format json</code></div>
-	</div>
-	<div class="type">
-		<div class="tname">A point on a scale<code>score</code></div>
-		<p class="q">How maintainable is this file?</p>
-		<div class="answer">
-			<span></span><span class="key">maintainability</span><span></span><span class="pct pass">2.0 of 4</span>
-		</div>
-		<div class="track pass" aria-hidden="true">━━━━━━<span class="off">──────</span></div>
-		<div class="note">Understandable with some friction</div>
-		<div class="rule">Flagged at <code>&lt;= 1.5</code></div>
-	</div>
+ {types.map((type) => (
+  <section class="type">
+   <div class="explain">
+    <h3>{type.name} <code>{type.kind}</code></h3>
+    <p>{type.question}</p>
+    <blockquote>{type.input}</blockquote>
+    <p class="rule">{type.rule}</p>
+    <details>
+     <summary>Try this template</summary>
+     <p>Save the template as <code>{type.file}</code> and the input as <code>{type.data}</code>. Then copy the command below the recording.</p>
+     <Code code={type.template} lang="json" title={type.file} />
+    </details>
+   </div>
+   <Terminal tape={type.tape} title="~" label={`A real ${type.kind} answer with its probability or score`} />
+  </section>
+ ))}
 </div>
 
 <style>
-	.types {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		margin-top: 32px;
-		border: 1px solid var(--sl-color-hairline);
-		border-radius: 12px;
-		overflow: hidden;
-	}
-	.type {
-		padding: 22px 24px 24px;
-		border-left: 1px solid var(--sl-color-hairline);
-	}
-	.type:first-child {
-		border-left: 0;
-	}
-	.tname {
-		font-size: 14px;
-		font-weight: 600;
-		color: var(--sl-color-white);
-	}
-	code {
-		padding: 0;
-		background: none;
-		font-size: 12.5px;
-		color: var(--sl-color-gray-2);
-	}
-	.tname code {
-		margin-left: 6px;
-		font-size: 12px;
-		font-weight: 400;
-		color: var(--sl-color-gray-3);
-	}
-	.q {
-		min-height: 2.8em;
-		margin: 10px 0 18px;
-		font-size: 16px;
-		line-height: 1.4;
-		color: var(--sl-color-gray-2);
-	}
-	.answer {
-		display: grid;
-		grid-template-columns: 14px auto 1fr auto;
-		gap: 0 10px;
-		align-items: baseline;
-		font: 400 15px/1.3 var(--sl-font-mono);
-	}
-	.g,
-	.v,
-	.pct {
-		font-weight: 700;
-	}
-	.pct {
-		text-align: right;
-	}
-	.key {
-		color: var(--sl-color-gray-2);
-	}
-	.answer .meter {
-		grid-column: 2 / -1;
-		margin-top: 10px;
-	}
-	.flag {
-		color: var(--ans-flag);
-	}
-	.pass {
-		color: var(--ans-pass);
-	}
-	.value {
-		color: var(--ans-value);
-	}
-	.dist {
-		display: grid;
-		grid-template-columns: auto 1fr 3em;
-		gap: 8px 10px;
-		align-items: center;
-		margin-top: 12px;
-		font: 400 13px/1 var(--sl-font-mono);
-		color: var(--sl-color-gray-3);
-	}
-	.dist .meter {
-		color: var(--ans-value);
-	}
-	.dist span:nth-child(3n) {
-		text-align: right;
-	}
-	.track {
-		margin-top: 12px;
-		font: 400 22px/1 var(--sl-font-mono);
-	}
-	.track .off {
-		color: var(--track);
-	}
-	.note {
-		margin-top: 8px;
-		font-size: 14px;
-		color: var(--sl-color-gray-3);
-	}
-	.rule {
-		margin-top: 16px;
-		padding-top: 12px;
-		border-top: 1px dashed var(--sl-color-hairline);
-		font-size: 14px;
-		color: var(--sl-color-gray-3);
-	}
-	@media (max-width: 799px) {
-		.types {
-			grid-template-columns: minmax(0, 1fr);
-		}
-		.type {
-			border-left: 0;
-			border-top: 1px solid var(--sl-color-hairline);
-		}
-		.type:first-child {
-			border-top: 0;
-		}
-		.q {
-			min-height: 0;
-		}
-	}
+ .types { display: grid; gap: 20px; margin-top: 32px; }
+ .type { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 32px; align-items: start; padding: 24px; border: 1px solid var(--sl-color-hairline); border-radius: 12px; }
+ .explain { min-width: 0; }
+ h3 { margin: 0; font-size: 20px; line-height: 1.3; color: var(--sl-color-white); }
+ h3 code { margin-left: 6px; font-size: 12.5px; font-weight: 400; color: var(--sl-color-gray-3); }
+ p { margin: 14px 0 0; color: var(--sl-color-gray-2); line-height: 1.5; }
+ blockquote { margin: 20px 0; padding: 0 0 0 14px; border-left: 1px solid var(--sl-color-gray-3); font: 400 13.5px/1.6 var(--sl-font-mono); color: var(--sl-color-white); overflow-wrap: anywhere; }
+ .rule { font-size: 13px; color: var(--sl-color-gray-3); }
+ details { margin-top: 20px; }
+ summary { cursor: pointer; font-size: 13px; color: var(--sl-color-gray-2); }
+ details p { font-size: 13px; margin-bottom: 12px; }
+ .type :global(.term-wrap) { min-width: 0; margin: 0; }
+ @media (max-width: 799px) {
+  .type { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 18px; }
+  h3 { font-size: 18px; }
+ }
 </style>

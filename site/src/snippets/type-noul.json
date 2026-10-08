@@ -1,0 +1,13 @@
+{
+  "name": "command",
+  "description": "Could this command destroy work that is hard to get back?",
+  "questions": {
+    "destructive": {
+      "type": "noul",
+      "instructions": "Could this command destroy work that is hard to get back?"
+    }
+  },
+  "flags": {
+    "destructive": "yes >= 80%"
+  }
+}

@@ -6,6 +6,12 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+### Added
+
+- **Docs for agents.** `llms.txt`, Markdown reference pages, and a guide to
+  running Decide from an agent. The landing page shows real runs for each
+  answer type.
+
 ## [0.4.0] - 2026-10-08
 
 decide runs on OpenAI's Decisions API, its built-in templates work from Go,

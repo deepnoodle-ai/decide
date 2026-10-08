@@ -1,12 +1,11 @@
 # The documentation site: design
 
-Status: Draft. Written 2026-10-07.
+Status: Implemented in #68, #70 and #72. Written 2026-10-07.
 Spec: [docs-site.md](docs-site.md), whose "Theming" section sets the
 knobs this doc fills in. PRD: [docs-site.md](../prds/docs-site.md).
 
-Every terminal shown here is real `decide`
-v0.3.0 output from the demo, run against a fake server. The format, lines
-and row counts are real; the probabilities are not.
+This design was drafted from real `decide` v0.3.0 output against a fake
+server. The shipped site uses recordings of live provider runs.
 
 ## Research: what we take from whom
 
@@ -350,7 +349,7 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 
 ## Later
 
-- **Landing motion pass:** three ~4s recordings in section 2, one for each
-  type, played in turn under the one-at-a-time rule.
+- **Answer-type recordings:** implemented in #74. Three short real runs in
+  section 2 share the one-at-a-time player, commands, and text transcripts.
 - **Tutorial poster check:** if a step's last frame can't show its claim within
   22 rows, add a taller settings file (1440×1080). Do this only when it happens.

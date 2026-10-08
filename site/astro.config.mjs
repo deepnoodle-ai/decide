@@ -75,6 +75,7 @@ export default defineConfig({
 						{ label: 'Output formats', link: '/reference/output/' },
 						{ label: 'The answer cache', link: '/reference/cache/' },
 						{ label: 'Claude Code', link: '/reference/claude-code/' },
+						{ label: 'For agents', link: '/reference/agents/' },
 					],
 				},
 				{

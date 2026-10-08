@@ -1,6 +1,6 @@
 # The documentation site
 
-Status: Draft. Written 2026-10-07.
+Status: Implemented in #68, #70 and #72. Written 2026-10-07.
 Workflow: spec, then build on the PRD branch while the PRD PR is in review.
 PRD: [docs-site.md](../prds/docs-site.md)
 
@@ -497,3 +497,18 @@ phone before the merge.
    runs `record.sh`.
 4. The first `v*` tag after the merge deploys the site. Then we add the
    site to the repository's homepage field and to the CHANGELOG.
+
+## Follow-up: agent docs and answer-type recordings
+
+The launch follow-up in #74 adds `/reference/agents/` and `/llms.txt`. The
+index links to Markdown copies of the reference pages. The copies are made
+from the existing `.md` sources at build time, with their title and description;
+there is no second authored guide and no MDX-to-Markdown parser. MDX tutorials
+keep their human-readable site links. Each HTML reference page advertises its
+Markdown alternate and the llms index.
+
+The three answer-type panels use real runs from small example templates in
+`site/src/snippets`, with commands, transcripts, and still images. They reuse
+the existing player, so only one video plays and reduced motion never autoplays.
+The templates and tapes run through `TestTapes`; they are examples, not new
+built-in templates.

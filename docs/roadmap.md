@@ -110,11 +110,14 @@ off, or remove them, as they land.
 - [x] **Documentation site.** `decide.deepnoodle.ai`: a quickstart,
       tutorials that each do one job, and reference, with recordings of
       real runs made from VHS tapes. See the
-      [PRD](prds/docs-site.md) and [design](design/docs-site.md). It goes
-      live with the next release.
-- [ ] **More tutorials.** Security bugs with Claude Code, decisions from
-      Go, and writing a template, one pull request each, after the site
-      launches.
+      [PRD](prds/docs-site.md) and [design](design/docs-site.md). Launched
+      with v0.4.0 (#68, #70, #72).
+- [ ] **Security tutorial.** Find security bugs with Claude Code (#75).
+- [ ] **Go tutorial.** Make a decision policy from Go (#76).
+- [ ] **Template tutorial.** Write and test a project template (#77).
+- [x] **Launch follow-ups.** Analytics, agent docs, and landing recordings (#74).
+- [ ] **Newcomer check.** Time two or three first-time users through the
+      quickstart, excluding provider signup (#78).
 - [x] **Demo.** A short README recording made with VHS: the landing
       tape's GIF.
 - [x] **Recipes.** GitHub Actions reviews, comments, and gates, issue
