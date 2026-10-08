@@ -1,0 +1,1 @@
+func total(prices []int) int { sum := 0; for _, price := range prices { sum += price }; return sum }

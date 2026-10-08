@@ -1,0 +1,20 @@
+{
+  "name": "code",
+  "description": "How easy is this code to understand and safely change?",
+  "questions": {
+    "maintainability": {
+      "type": "score",
+      "instructions": "How easy is this code to understand and safely change?",
+      "criteria": [
+        "Hard to follow; responsibilities tangled",
+        "Several unclear or fragile responsibilities",
+        "Understandable with some friction",
+        "Clear responsibilities and mostly direct flow",
+        "Exceptionally clear and focused"
+      ]
+    }
+  },
+  "flags": {
+    "maintainability": "<= 1.5"
+  }
+}

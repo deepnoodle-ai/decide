@@ -1,7 +1,10 @@
 # Learn decide by watching it work
 
-Status: Draft
-PRD PR: #67  Implementation PR: none yet  Updated: 2026-10-07
+Status: Shipped in #68, #70 and #72
+PRD PR: #67  Implementation PRs: #68, #70, #72  Updated: 2026-10-08
+
+The initial site launched with v0.4.0. Follow-up tutorials and agent docs are
+tracked in [the roadmap](../roadmap.md). Newcomer timing is still pending (#78).
 
 ## Problem
 
@@ -66,12 +69,12 @@ sentence about decision models, a terminal that plays a real run, and
 three ways in: the CLI, Go, and Claude Code.
 
 Acceptance:
-- [ ] At 1280×720 the first screen shows the sentence, the playing
+- [x] At 1280×720 the first screen shows the sentence, the playing
       terminal, and the three ways in, with no scroll. At 390×844 it
       shows the sentence and the terminal, and the rest follows.
-- [ ] The terminal shows typed answers with probabilities for several
-      items.
-- [ ] A reader who never scrolls can still find the install command.
+- [x] The terminal shows typed answers with probabilities across real
+      example runs.
+- [x] A reader who never scrolls can still find the install command.
 
 ### UC-2: Get a first result
 
@@ -82,12 +85,12 @@ files from us. Each step shows the command, and the runs show a
 recording of their output.
 
 Acceptance:
-- [ ] The quickstart has at most five steps, and each step shows the
+- [x] The quickstart has at most five steps, and each step shows the
       exact command to copy.
-- [ ] Each command has a copy button.
-- [ ] The reader's output has the same shape as the recording: the same
+- [x] Each command has a copy button.
+- [x] The reader's output has the same shape as the recording: the same
       kind of lines, and a typed answer with a probability for each item.
-- [ ] The last step tells the reader what to try next.
+- [x] The last step tells the reader what to try next.
 
 ### UC-3: Do one job from start to finish
 
@@ -104,14 +107,14 @@ These follow, one pull request each: find security bugs with Claude
 Code, make a decision from Go, and write your own template.
 
 Acceptance:
-- [ ] Each tutorial names its goal and what the reader needs in its first
+- [x] Each tutorial names its goal and what the reader needs in its first
       lines.
-- [ ] Each tutorial shows a real run: a terminal recording, or a
+- [x] Each tutorial shows a real run: a terminal recording, or a
       screenshot where the result is not in a terminal, such as a check
       on a pull request.
-- [ ] Each command in a tutorial runs as shown, from a fresh shell that
+- [x] Each command in a tutorial runs as shown, from a fresh shell that
       followed the earlier steps.
-- [ ] Each tutorial ends with a working result: a hook, a workflow file,
+- [x] Each tutorial ends with a working result: a hook, a workflow file,
       or a saved run.
 
 ### UC-4: Look something up
@@ -120,16 +123,16 @@ The developer searches for a flag, an exit code or an output format, and
 lands on the reference.
 
 Acceptance:
-- [ ] Search finds each CLI flag and each built-in template by name.
-- [ ] The reference covers what `docs/cli.md` covers today.
-- [ ] Go API questions link to pkg.go.dev. The site does not copy them.
+- [x] Search finds each CLI flag and each built-in template by name.
+- [x] The reference covers what `docs/cli.md` covers today.
+- [x] Go API questions link to pkg.go.dev. The site does not copy them.
 
 ### UC-5: Share a page
 
 The developer pastes a link into Slack, a post or a slide.
 
 Acceptance:
-- [ ] Each page has a title, a description and a preview image for link
+- [x] Each page has a title, a description and a preview image for link
       unfurls.
 
 ## Requirements
