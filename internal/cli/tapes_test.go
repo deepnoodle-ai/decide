@@ -17,7 +17,8 @@ import (
 // site/src/lib/tapes.ts does.
 var typeOrEnter = regexp.MustCompile("Type(?:@\\S+)?\\s+(?:\"([^\"]*)\"|'([^']*)'|`([^`]*)`)|\\bEnter\\b")
 
-// tapeCommands returns every command a tape types, hidden ones too.
+// tapeCommands returns every command a tape types, hidden ones too. A line
+// that ends with a pipe continues on the next, as it does in the shell.
 func tapeCommands(tape string) []string {
 	var commands []string
 	var typed strings.Builder
@@ -28,6 +29,10 @@ func tapeCommands(tape string) []string {
 		}
 		for _, m := range typeOrEnter.FindAllStringSubmatch(line, -1) {
 			if m[0] == "Enter" {
+				if strings.HasSuffix(strings.TrimSpace(typed.String()), "|") {
+					typed.WriteString("\n")
+					continue
+				}
 				commands = append(commands, typed.String())
 				typed.Reset()
 				continue
@@ -39,8 +44,8 @@ func tapeCommands(tape string) []string {
 }
 
 func TestTapeCommands(t *testing.T) {
-	got := tapeCommands("# a comment\nHide\nType \"cd shop\" Enter\nShow\nType `echo \"hi\"` Sleep 500ms Enter\nType@10ms 'a' Type \"b\"\nEnter\n")
-	want := []string{"cd shop", `echo "hi"`, "ab"}
+	got := tapeCommands("# a comment\nHide\nType \"cd shop\" Enter\nShow\nType `echo \"hi\"` Sleep 500ms Enter\nType@10ms 'a' Type \"b\"\nEnter\nType \"echo x |\" Enter\nType \"  cat\" Enter\n")
+	want := []string{"cd shop", `echo "hi"`, "ab", "echo x |\n  cat"}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
@@ -73,6 +78,11 @@ func TestTapes(t *testing.T) {
 		t.Fatalf("go build: %v\n%s", err, out)
 	}
 	server := decidetest.NewServer(t)
+	// command-risk flags every command, so a tape that runs a command only
+	// when decide passes it, as checked.sh does, never runs it here.
+	for _, key := range []string{"destructive", "leak", "publish", "severe"} {
+		server.Answer(key, decidetest.NoulAnswer(0.99))
+	}
 
 	for _, path := range tapes {
 		name := strings.TrimSuffix(filepath.Base(path), ".tape")

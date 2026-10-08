@@ -1,0 +1,100 @@
+---
+// The landing page's three tutorials, each with the line the reader sees
+// when it works. The lines are verdicts, never percentages.
+const tutorials = [
+	{
+		href: '/tutorials/check-agent-commands/',
+		title: 'Check a command before an agent runs it',
+		job: 'A script that runs a command only when nothing is flagged.',
+		answer: [['flag', '! severe'], ['', '  '], ['flag', 'yes']],
+	},
+	{
+		href: '/tutorials/triage-issues/',
+		title: 'Triage new issues',
+		job: 'A workflow that labels the issues that aren’t ready to start.',
+		answer: [['flag', '! ready'], ['', '  '], ['flag', 'no']],
+	},
+	{
+		href: '/tutorials/review-pull-requests/',
+		title: 'Review pull requests',
+		job: 'A check that marks risky functions, and blocks the merge.',
+		answer: [['flag', '! risk'], ['', '  '], ['flag', 'yes']],
+	},
+];
+---
+
+<ul class="tutorials not-content">
+	{
+		tutorials.map((t) => (
+			<li>
+				<a href={t.href}>
+					<span class="title">{t.title} →</span>
+					<span class="job">{t.job}</span>
+					<code class="answer">
+						{t.answer.map(([tone, text]) => <span class={tone}>{text}</span>)}
+					</code>
+				</a>
+			</li>
+		))
+	}
+</ul>
+
+<style>
+	.tutorials {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 16px;
+		margin: 32px 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	li {
+		margin: 0;
+	}
+	a {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		height: 100%;
+		padding: 20px 22px 22px;
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 12px;
+		text-decoration: none;
+		transition: border-color 120ms var(--ease);
+	}
+	a:hover {
+		border-color: var(--sl-color-gray-3);
+	}
+	.title {
+		font-size: 16px;
+		font-weight: 600;
+		color: var(--sl-color-white);
+	}
+	.job {
+		flex: 1;
+		font-size: 15px;
+		line-height: 1.45;
+		color: var(--sl-color-gray-2);
+	}
+	.answer {
+		align-self: flex-start;
+		margin-top: 6px;
+		padding: 6px 10px;
+		border: 1px solid var(--term-border);
+		border-radius: 8px;
+		background: var(--term-bg);
+		font-family: var(--sl-font-mono);
+		font-size: 13px;
+		white-space: pre;
+		color: var(--term-fg);
+	}
+	/* Always on a dark ground, so the dark theme's verdict color. */
+	.flag {
+		color: #f7666f;
+	}
+	@media (max-width: 799px) {
+		.tutorials {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+</style>

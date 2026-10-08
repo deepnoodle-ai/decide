@@ -97,7 +97,11 @@ CONTRIBUTING.md, `plugin/README.md` and the comment in
 `cmd/decide/main.go`.
 
 `/start/go/` imports `examples/<name>/main.go` as raw text, so the code
-the reader sees is the code that `go build ./...` compiles. Vite needs
+the reader sees is the code that `go build ./...` compiles. In the same
+way, a script that a tutorial shows and a tape runs, such as
+`checked.sh`, lives once in `site/src/snippets`. `/reference/templates/`
+reads each built-in template's `template.json` and `README.md` at build
+time, so it can't drift from the templates decide runs. Vite needs
 `server.fs.allow` to include the repository root for this. Later
 tutorials follow, one pull request each: security bugs with Claude Code,
 a Go tutorial, and writing a template.
@@ -225,8 +229,12 @@ the same tape as the site's hero.
 - **Tapes parse:** `vhs validate site/tapes/*.tape`, in the same image.
 - **Every tape is recorded:** the build fetches each transcript. If one is
   missing, the build fails and prints the `record.sh` command to run.
-- **Site builds:** `npm ci`, `astro check`, `astro build`, and Starlight's
-  link checker for internal links.
+- **Site builds:** `npm ci`, `astro check`, `astro build`, and
+  `starlight-links-validator`, which fails the build on a broken link or
+  heading between pages.
+- **A tape never runs a command decide should refuse.** The tape test's
+  fake server answers `command-risk` as dangerous, so `checked.sh` refuses
+  every command there.
 
 ### Workflow: `.github/workflows/site.yml`
 
@@ -293,10 +301,14 @@ request builds and runs the checks, but gets no preview. A change to
 ### The rest
 
 - **Analytics:** Cloudflare Web Analytics. It uses no cookies, and its
-  beacon goes in Starlight's `head` config (R-9).
+  beacon goes in Starlight's `head` config (R-9). Its site token is the
+  repository variable `CF_BEACON_TOKEN`, which `site.yml` passes only to
+  builds from a tag, so previews count nothing.
 - **Link previews:** `astro-og-canvas` makes a preview image for each page
   at build time, from its title and description, and a route middleware
-  adds the `og:image` tag to each page (UC-5). No image is committed.
+  adds the `og:image` tag to each page (UC-5). No image is committed, so
+  the card has no logo: it shows the title, the description, and
+  `decide.deepnoodle.ai` in JetBrains Mono.
 - **Performance:** videos load only when they come into view, and each
   loop should be under 1 MB. Pages ship no JavaScript except search, the theme switch
   and the player.

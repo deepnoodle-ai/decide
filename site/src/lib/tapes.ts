@@ -31,7 +31,11 @@ export interface Tape {
 
 const typeOrEnter = /Type(?:@\S+)?\s+(?:"([^"]*)"|'([^']*)'|`([^`]*)`)|\bEnter\b/g;
 
-/** parse reads the commands and the size from a tape and settings.tape. */
+/**
+ * parse reads the commands and the size from a tape and settings.tape. A
+ * line that ends with a pipe continues on the next, as in the shell and in
+ * tapeCommands in internal/cli/tapes_test.go.
+ */
 export function parse(tape: string, settings: string) {
 	const commands: string[] = [];
 	const all: string[] = [];
@@ -49,6 +53,10 @@ export function parse(tape: string, settings: string) {
 		for (const m of line.matchAll(typeOrEnter)) {
 			if (m[0] !== 'Enter') {
 				typed += m[1] ?? m[2] ?? m[3];
+				continue;
+			}
+			if (typed.trim().endsWith('|')) {
+				typed += '\n';
 				continue;
 			}
 			all.push(typed);

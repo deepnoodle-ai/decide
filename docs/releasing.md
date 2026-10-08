@@ -18,8 +18,9 @@ to.
   the day a plugin change that needs it merges.
 
 Archive names have no version, such as `decide_linux_amd64.tar.gz`, so the
-[recipes](recipes.md) can download `releases/latest`. Keep the names
-unchanged, or those recipes break.
+site's tutorials and [recipes](https://decide.deepnoodle.ai/recipes/) can
+download `releases/latest`. Keep the names unchanged, or those workflows
+break.
 
 ## Choose the version
 
@@ -54,7 +55,8 @@ Before v1, any release may change the library API and the CLI.
      Each recording's name includes the version, so the site does not
      build until they are recorded. It needs Docker, `TYPESAFE_API_KEY`,
      and `npx wrangler login` in `site/` with access to the
-     `deepnoodle-public` bucket.
+     `deepnoodle-public` bucket. Then point the README's GIF at the new
+     `landing-<hash>.gif` that it prints.
 2. Make sure CI passes on `main`. CI runs `goreleaser check`, so a broken
    release configuration fails there first. The repository must be public,
    or Homebrew and the download links fail.
