@@ -10,8 +10,8 @@
 # a change to the hidden setup or the encoding below waits for the next
 # release, or for a change to each tape.
 #
-# A recording uploads only if its last frame has every "# Expect:" line of
-# its tape, and no "Error:" line.
+# A recording uploads only if its transcript (the last frame of each scene)
+# has every "# Expect:" line of its tape, and no "Error:" line.
 #
 # Each tape in site/tapes becomes <tape>-<hash>.mp4, .png and .txt (and any
 # GIF the tape asks for) under decide/site/ in the deepnoodle-public bucket,
@@ -111,10 +111,26 @@ for name in $names; do
 			-movflags +faststart $name.fast.mp4 &&
 		mv $name.fast.mp4 $name.mp4 &&
 		ffmpeg -loglevel error -sseof -0.2 -i $name.mp4 -update 1 -frames:v 1 $name.png"
-	# The last frame's text, without the blank rows and the prompt below it.
-	awk '/^─+$/ { last = cur; cur = ""; next } { cur = cur $0 "\n" } END { printf "%s", last }' "$work/$name.txt" |
-		awk '{ line[NR] = $0 } END { n = NR; while (n > 0 && line[n] ~ /^(\$ *)?$/) n--; for (i = 1; i <= n; i++) print line[i] }' \
-			> "$work/$name.last.txt"
+	# The text of each scene's last frame, without the blank rows and the
+	# prompt below it. A tape that clears the screen has several scenes: a
+	# scene ends where a frame has fewer lines than the one before it.
+	awk '
+		function trim(f,   l, n, i, out) {
+			n = split(f, l, "\n")
+			while (n > 0 && l[n] ~ /^([$>] *)?$/) n--
+			for (i = 1; i <= n; i++) out = out l[i] "\n"
+			return out
+		}
+		function size(f) { return length(trim(f)) ? split(trim(f), x, "\n") : 0 }
+		function frame() {
+			if (size(cur) < size(prev) && trim(prev) != "") scenes = scenes (scenes ? "\n" : "") trim(prev)
+			if (size(cur) > 0 || size(prev) > 0) prev = cur
+			cur = ""
+		}
+		/^─+$/ { frame(); next }
+		{ cur = cur $0 "\n" }
+		END { frame(); if (trim(prev) != "") scenes = scenes (scenes ? "\n" : "") trim(prev); printf "%s", scenes }
+	' "$work/$name.txt" > "$work/$name.last.txt"
 	mv "$work/$name.last.txt" "$work/$name.txt"
 	# A provider error or an answer that changed must not reach the site.
 	bad=
@@ -124,7 +140,7 @@ for name in $names; do
 		grep -qF -- "$want" "$work/$name.txt" || bad="${bad:+$bad; }it lacks \"$want\""
 	done < "$work/$name.expect"
 	if [ -n "$bad" ]; then
-		echo "Not uploading $name: $bad. Its last frame:" >&2
+		echo "Not uploading $name: $bad. Its transcript:" >&2
 		cat "$work/$name.txt" >&2
 		exit 1
 	fi

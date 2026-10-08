@@ -144,7 +144,9 @@ in an empty folder with an empty `DECIDE_HOME`, so no answer comes from
 the cache.
 
 Each tape writes an MP4, a PNG still of its last frame, and a text
-transcript of that frame. Their names carry a hash:
+transcript. A tape can clear the screen between scenes, as the landing
+tape does for its three commands; the transcript then holds the last frame
+of each scene. Their names carry a hash:
 `decide/site/<tape>-<hash>.mp4`, `.png` and `.txt` in the R2 bucket
 `deepnoodle-public`, which serves `files.deepnoodle.ai`. The hash is the
 first 12 hex digits of the SHA-256
@@ -167,7 +169,7 @@ properties:
 `site/scripts/record.sh [--local] [tape...]` builds decide for Linux from
 the working tree and records each tape whose files are missing from R2.
 It never replaces an uploaded file, since browsers and the CDN cache it
-for a year. It uploads a recording only if the last frame has no `Error:`
+for a year. It uploads a recording only if the transcript has no `Error:`
 line and has each `# Expect:` line of the tape, such as `# Expect: !
 severe`, so a caption's claim can't silently go wrong.
 It runs VHS in its pinned Docker image (`ghcr.io/charmbracelet/vhs`),
@@ -381,9 +383,9 @@ decision, with its upgrade cost written down.
   tape is 1440×840 at `FontSize 28` (85×22 cells) and shows at 720px.
   The landing tape is 1160×644 (69×17 cells). The two sizes are two
   settings files.
-- **Written for the last frame.** The last frame is the poster, the
-  still for reduced motion and the transcript, so it must show what the
-  caption claims. A step that prints more than 22 rows records less.
+- **Written for the last frame.** The last frame is the poster and the
+  still for reduced motion, and ends the transcript, so it must show what
+  the caption claims. The landing tape ends on a flagged command. A step that prints more than 22 rows records less.
 - **Smaller files.** `Framerate 30` and `CursorBlink false`. Typing
   doesn't need 50 frames a second, and a blinking cursor changes every
   frame.

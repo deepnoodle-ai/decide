@@ -78,7 +78,7 @@ export function loadTape(name: string): Tape {
 	return { commands, all, width, height, cols, mp4: `${file}.mp4`, png: `${file}.png`, txt: `${file}.txt` };
 }
 
-/** transcript fetches a recording's last frame as text, and fails the build if it is missing. */
+/** transcript fetches a recording's text, the last frame of each scene, and fails the build if it is missing. */
 export async function transcript(name: string, tape: Tape): Promise<string> {
 	const res = await fetch(tape.txt);
 	if (!res.ok) {
