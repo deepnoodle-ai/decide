@@ -61,6 +61,7 @@ export default defineConfig({
 						{ label: 'Check agent commands', link: '/tutorials/check-agent-commands/' },
 						{ label: 'Triage new issues', link: '/tutorials/triage-issues/' },
 						{ label: 'Review pull requests', link: '/tutorials/review-pull-requests/' },
+						{ label: 'Find security bugs', link: '/tutorials/find-security-bugs/' },
 					],
 				},
 				{

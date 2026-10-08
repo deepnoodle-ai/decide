@@ -26,6 +26,7 @@ export const GET: APIRoute = async ({ site }) => {
 		`- [Check agent commands](${new URL('/tutorials/check-agent-commands/', site).href}): Gate a shell command.`,
 		`- [Triage issues](${new URL('/tutorials/triage-issues/', site).href}): Label issues that are not ready.`,
 		`- [Review pull requests](${new URL('/tutorials/review-pull-requests/', site).href}): Annotate and gate a diff.`,
+		`- [Find security bugs](${new URL('/tutorials/find-security-bugs/', site).href}): Rank functions and confirm candidates with Claude Code.`,
 		'',
 		'## Go and examples',
 		'',
