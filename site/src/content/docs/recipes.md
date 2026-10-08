@@ -11,6 +11,28 @@ happens. The tutorials walk through the three most common from the start:
 - [Triage new issues](/tutorials/triage-issues/) as they're opened.
 - [Check a command before an agent runs it](/tutorials/check-agent-commands/).
 
+## Run decide in GitHub Actions
+
+The [pull request workflow](/tutorials/review-pull-requests/#run-it-on-each-pull-request)
+runs as it is. A few things to know before you rely on it:
+
+- **Pin a version** by replacing `latest/download` with a release's
+  tag, such as `download/v0.3.0`, so an upgrade happens when you choose.
+- **The cache** keeps decide's [answers](/reference/cache/) between
+  pushes, so a function judged on an earlier push isn't asked about
+  again. A pull request's first push starts from its base branch's
+  cache. The key starts with `github.ref`, so a pull request never
+  restores a cache that a fork's pull request saved. The base branch's
+  cache is saved by a workflow that runs on pushes to it.
+- **Forks.** GitHub gives no secrets to pull requests from forks, so the
+  `if:` skips the step for them. Don't switch to `pull_request_target`
+  to get around this: it runs with your secrets and can be tricked into
+  running the fork's code.
+- **Cost.** Each judged function is one request. decide skips lockfiles
+  and generated files. Add `--limit 200` to cap a large pull request.
+- **Annotations.** GitHub shows at most 10 for each step. The job
+  summary lists up to 100 items in each table.
+
 ## Comment on the pull request
 
 To post the results of the [pull request workflow](/tutorials/review-pull-requests/#run-it-on-each-pull-request)

@@ -1,5 +1,6 @@
 // @ts-check
 import { defineEcConfig, ExpressiveCodeTheme } from '@astrojs/starlight/expressive-code';
+import { pluginCollapsibleSections } from '@expressive-code/plugin-collapsible-sections';
 import codeTheme from './src/styles/code-theme.json' with { type: 'json' };
 
 // One dark theme in both site themes: code blocks match the recordings.
@@ -7,6 +8,10 @@ const theme = ExpressiveCodeTheme.fromJSONString(JSON.stringify(codeTheme));
 
 export default defineEcConfig({
 	themes: [theme],
+	// collapse={…} folds the boilerplate in a long block, such as the
+	// install step of a workflow. Long lines wrap rather than scroll.
+	plugins: [pluginCollapsibleSections()],
+	defaultProps: { wrap: true },
 	useStarlightDarkModeSwitch: false,
 	useStarlightUiThemeColors: false,
 	styleOverrides: {
@@ -17,6 +22,12 @@ export default defineEcConfig({
 		codeLineHeight: '1.6',
 		codePaddingInline: '20px',
 		uiFontFamily: 'var(--sl-font)',
+		collapsibleSections: {
+			closedBackgroundColor: 'rgba(255, 255, 255, 0.04)',
+			closedBorderColor: 'rgba(255, 255, 255, 0.06)',
+			closedTextColor: '#A4A8AF',
+			openBackgroundColorCollapsible: 'rgba(255, 255, 255, 0.03)',
+		},
 		frames: {
 			shadowColor: 'transparent',
 			frameBoxShadowCssValue: 'var(--term-shadow)',

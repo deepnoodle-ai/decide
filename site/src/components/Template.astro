@@ -30,6 +30,8 @@ const t = files[`${dir}/template.json`];
 if (!t) throw new Error(`There is no built-in template named ${name}`);
 const Readme = readmes[`${dir}/README.md`]?.Content;
 
+// The question's first sentence, which is what it asks.
+const asks = (q: Question) => q.instructions.match(/^.*?[?.](?=\s|$)/)?.[0] ?? q.instructions;
 const kinds: Record<string, string> = { noul: 'yes or no', choice: 'one of', score: 'a score' };
 const rule = (c?: Condition) => (c === undefined ? undefined : Array.isArray(c) ? c.join(' or ') : c);
 const options = (q: Question) =>
@@ -44,7 +46,7 @@ const options = (q: Question) =>
 	</p>
 	<table>
 		<thead>
-			<tr><th>Question</th><th>Answer</th><th>{t.matches ? 'Matched when' : 'Flagged when'}</th></tr>
+			<tr><th>Question</th><th>Asks</th><th>Answer</th><th>{t.matches ? 'Matched when' : 'Flagged when'}</th></tr>
 		</thead>
 		<tbody>
 			{
@@ -54,6 +56,7 @@ const options = (q: Question) =>
 					return (
 						<tr>
 							<td><code>{key}</code></td>
+							<td class="asks">{asks(q)}</td>
 							<td>
 								{kinds[q.type] ?? q.type}
 								{opts && q.type === 'choice' && <>: {opts.map((o, i) => <>{i > 0 && ', '}<code>{o}</code></>)}</>}
@@ -94,5 +97,9 @@ const options = (q: Question) =>
 	}
 	table code {
 		white-space: nowrap;
+	}
+	.asks {
+		min-width: 18rem;
+		color: var(--sl-color-gray-2);
 	}
 </style>

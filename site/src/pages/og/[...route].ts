@@ -12,8 +12,9 @@ export const { getStaticPaths, GET } = await OGImageRoute({
 	pages,
 	getImageOptions: (_path, page: (typeof pages)[string]) => ({
 		title: page.title,
-		// No logo, so nothing binary is committed: the site's name ends the text.
-		description: `${page.description}\n\ndecide.deepnoodle.ai`,
+		// The page's answer line, as on the page, or else its description. No
+		// logo, so nothing binary is committed: the site's name ends the text.
+		description: page.answer ?? `${page.description}\n\ndecide.deepnoodle.ai`,
 		bgGradient: [[18, 19, 22]],
 		border: { color: [46, 48, 54], width: 2, side: 'block-end' },
 		padding: 72,
@@ -23,7 +24,9 @@ export const { getStaticPaths, GET } = await OGImageRoute({
 		],
 		font: {
 			title: { families: ['JetBrains Mono'], weight: 'Bold', size: 64, lineHeight: 1.15, color: [243, 244, 245] },
-			description: { families: ['JetBrains Mono'], weight: 'Normal', size: 30, lineHeight: 1.4, color: [164, 168, 175] },
+			description: page.answer
+				? { families: ['JetBrains Mono'], weight: 'Bold', size: 44, color: page.answer.startsWith('!') ? [247, 102, 111] : [76, 203, 226] }
+				: { families: ['JetBrains Mono'], weight: 'Normal', size: 30, lineHeight: 1.4, color: [164, 168, 175] },
 		},
 	}),
 });

@@ -2,13 +2,18 @@
 title: Triage new issues
 description: Find the issues that aren't ready to work on, then label each new one in GitHub Actions.
 tableOfContents: false
+answer: "! ready  no"
 ---
 
 import { Steps, LinkCard, CardGrid } from '@astrojs/starlight/components';
 import Goal from '../../../components/Goal.astro';
 import Terminal from '../../../components/Terminal.astro';
 
-<Goal answer="Exiting with code 2 because 1 item was flagged (--fail-on flagged)">
+An issue that says "checkout is slow" can't be picked up by a person or an
+agent until someone asks what it means. Here you find those issues as they
+arrive, and label them.
+
+<Goal answer="! ready  no">
 <Fragment slot="end">
 `.github/workflows/triage.yml` in your repository. It labels each new
 issue `not-ready` when `task-readiness` finds it too vague or too large to
@@ -39,11 +44,6 @@ start.
    or probably too large for one pull request. Send the answers away, and
    read the three issues nearest their flags:
 
-   ```sh
-   decide run task-readiness issues.json > /dev/null
-   decide runs view --top 3
-   ```
-
    <Terminal tape="triage-run" title="~/decide/demo" label="decide flags issues 102, 104 and 106 as not ready">
    **Three of six issues are flagged as not ready**: "Checkout is slow",
    "Move to multi-currency billing" and "Update the docs". Each says what is
@@ -58,7 +58,7 @@ start.
    Add your key as a repository secret named `TYPESAFE_API_KEY`, and create
    a `not-ready` label. Then save this as `.github/workflows/triage.yml`:
 
-   ```yaml title=".github/workflows/triage.yml"
+   ```yaml title=".github/workflows/triage.yml" collapse={15-21}
    name: triage
 
    on:
@@ -107,14 +107,7 @@ start.
 
 4. ## Check that it works
 
-   Run the workflow's command on a vague issue:
-
-   ```sh
-   TITLE='Checkout is slow'; BODY='Customers say checkout feels slow.'
-   printf '%s\n\n%s\n' "$TITLE" "$BODY" |
-     decide run task-readiness --each file --fail-on flagged
-   echo $?
-   ```
+   Run the workflow's command on a vague issue, and print the exit code:
 
    <Terminal tape="triage-check" title="~/decide/demo" label="decide flags the vague issue as not ready and exits with code 2">
    **The issue is flagged as not ready, and decide exits with code 2**, so

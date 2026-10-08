@@ -2,6 +2,7 @@
 title: Check a command before an agent runs it
 description: Judge shell commands with command-risk, then wrap them in a script that runs a command only when nothing is flagged.
 tableOfContents: false
+answer: "! severe  yes"
 ---
 
 import { Steps, Code, LinkCard, CardGrid } from '@astrojs/starlight/components';
@@ -9,7 +10,11 @@ import Goal from '../../../components/Goal.astro';
 import Terminal from '../../../components/Terminal.astro';
 import checked from '../../../snippets/checked.sh?raw';
 
-<Goal answer="decide flagged this command; not running it">
+An agent in a loop runs whatever shell command it decides on. Here you put
+decide in front of it, so a command that could do lasting harm waits for a
+person.
+
+<Goal answer="! severe  yes">
 <Fragment slot="end">
 `checked.sh` in your project. It runs a command only when `command-risk`
 flags nothing, so an agent or a script can call it in place of `sh -c`.
@@ -52,17 +57,12 @@ flags nothing, so an agent or a script can call it in place of `sh -c`.
 
 3. ## Check that it works
 
-   Run a harmless command, then a force push:
-
-   ```sh
-   ./checked.sh 'echo it ran'
-   ./checked.sh 'git push --force origin main'
-   echo $?
-   ```
+   Run a harmless command, then a force push, and print the exit code:
 
    <Terminal tape="commands-check" title="~" label="checked.sh runs echo it ran, and refuses git push --force origin main with exit code 2">
-   **The echo runs, and the force push is refused** with exit code 2. It
-   is flagged on destructive and severe, so the push never starts.
+   **The force push is refused, with exit code 2.** It is flagged on
+   destructive and severe, so the push never starts. The harmless echo,
+   just before it, ran.
    </Terminal>
 
    To flag only the worst commands, read `severe` alone with `--json`, as
