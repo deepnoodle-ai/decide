@@ -7,3 +7,4 @@ Sleep 5s
 # Expect: severe       no
 # Expect: ! severe       yes
 # Expect: ! 2 flagged
+# Expect: Flagged: stdin:1, stdin:2

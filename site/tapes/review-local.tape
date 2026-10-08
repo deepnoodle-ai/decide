@@ -11,3 +11,4 @@ Sleep 5s
 # Expect: billing/refund.go#L16  Refunds.Apply
 # Expect: billing/refund.go#L23  Refunds.Search
 # Expect: ! 2 flagged
+# Expect: Flagged: billing/refund.go#L16, billing/refund.go#L23

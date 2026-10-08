@@ -37,6 +37,9 @@ function a pull request changes, and fails the check when one is flagged.
    sh decide/demo/setup.sh shop && cd shop
    ```
 
+   If you already cloned `decide` for another tutorial, skip the first
+   line.
+
 2. ## Judge each changed function
 
    `code-risk` asks whether code could cause security or data problems, and
@@ -91,9 +94,7 @@ function a pull request changes, and fails the check when one is flagged.
            with:
              path: ~/.decide/cache
              key: decide-${{ github.ref }}-${{ github.sha }}
-             restore-keys: |
-               decide-${{ github.ref }}-
-               decide-refs/heads/${{ github.base_ref }}-
+             restore-keys: decide-${{ github.ref }}-
 
          - name: Judge the changed functions
            if: env.TYPESAFE_API_KEY != ''
