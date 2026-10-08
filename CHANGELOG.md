@@ -17,6 +17,12 @@ may change the library API and the CLI.
 - **A Claude Code guide.** [docs/claude-code.md](docs/claude-code.md) shows
   how to set up the plugin and use `/decide:audit` and `/decide:hunt`.
 
+### Changed
+
+- **A shorter run summary.** `decide run` ends with one line that tells how
+  to see the run again, and lists flagged items only when it judged more
+  than one.
+
 ## [0.3.0] - 2026-10-05
 
 decide audits a codebase for security mistakes, and pays once for each

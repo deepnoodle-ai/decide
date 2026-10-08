@@ -424,9 +424,11 @@ func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) map[string]int
 		fmt.Fprintf(w, "  %s\n", dim(fmt.Sprintf("%s from cache · %d asked",
 			humanize.PluralWord(fromCache, "answer", "answers"), answers-fromCache)))
 	}
-	list(w, "Flagged:", flaggedItems)
-	list(w, "Matched:", matchedItems)
-	fmt.Fprintf(w, "%s %s\n", dim("Saved as run"), run.ID)
+	if total > 1 { // with one item, the counts already say which
+		list(w, "Flagged:", flaggedItems)
+		list(w, "Matched:", matchedItems)
+	}
+	// The command names the run, so no line of its own says it was saved.
 	switch run.Status {
 	case runs.Interrupted:
 		fmt.Fprintf(w, "%s decide runs resume %s\n", dim("Stopped early. Continue with:"), run.ID)
