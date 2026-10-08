@@ -37,8 +37,10 @@ We don't accept pull requests that read as unreviewed agent output.
 - **Tests.** A bug fix includes a test that fails without it. New behavior
   is tested through its public API or the CLI. Tests use `decidetest` or a
   fake HTTP server and never call a live service.
-- **Docs in the same change.** Update the README, [docs/cli.md](docs/cli.md),
-  package comments, and examples wherever behavior changed. Add a short
+- **Docs in the same change.** Update the README, the site's pages in
+  [site/src/content/docs](site/src/content/docs), package comments, and
+  examples wherever behavior changed. `cd site && npm ci && npm run dev`
+  serves the site locally; it needs Node 22. Add a short
   entry under `Unreleased` in [CHANGELOG.md](CHANGELOG.md).
 - **Passing checks:**
 

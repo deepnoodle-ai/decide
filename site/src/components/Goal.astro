@@ -1,0 +1,105 @@
+---
+// The top of a tutorial: what the reader ends with, the line they will see
+// when it works, and what they need. See "Tutorial pages" in
+// docs/design/docs-site-look.md. The answer line is a verdict, never a
+// percentage, since each release records again.
+interface Props {
+	/** The line the reader sees when it works, such as an exit message. */
+	answer: string;
+	/** flag: the line is red, as a refusal or a flag. pass: green. */
+	tone?: 'flag' | 'pass';
+}
+const { answer, tone = 'flag' } = Astro.props;
+---
+
+<div class="goal not-content">
+	<div class="cell">
+		<div class="label">You'll end with</div>
+		<div class="body"><slot name="end" /></div>
+		<div class={`answer ${tone}`}><code>{answer}</code></div>
+	</div>
+	<div class="cell">
+		<div class="label">You need</div>
+		<div class="body need"><slot name="need" /></div>
+	</div>
+</div>
+
+<style>
+	.goal {
+		display: grid;
+		grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+		margin-top: 1.5rem;
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 12px;
+		overflow: hidden;
+	}
+	.cell {
+		padding: 18px 20px 20px;
+	}
+	.cell + .cell {
+		border-left: 1px solid var(--sl-color-hairline);
+	}
+	.label {
+		font-size: 12px;
+		font-weight: 600;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--sl-color-gray-3);
+	}
+	.body {
+		margin-top: 8px;
+		font-size: 15px;
+		line-height: 1.5;
+		color: var(--sl-color-gray-2);
+	}
+	.body :global(p) {
+		margin: 0;
+	}
+	.body :global(code) {
+		font-size: 13.5px;
+	}
+	.body :global(a) {
+		color: var(--sl-color-white);
+		text-decoration-color: var(--sl-color-gray-4);
+	}
+	.need :global(ul) {
+		margin: 0;
+		padding-left: 1.1em;
+	}
+	.need :global(li + li) {
+		margin-top: 4px;
+	}
+	.answer {
+		margin-top: 14px;
+		padding: 9px 12px;
+		border: 1px solid var(--term-border);
+		border-radius: 8px;
+		background: var(--term-bg);
+		box-shadow: var(--term-shadow);
+		overflow-wrap: anywhere;
+	}
+	.answer code {
+		padding: 0;
+		background: none;
+		font-family: var(--sl-font-mono);
+		font-size: 13px;
+		line-height: 1.5;
+	}
+	/* The answer line is always on a dark ground, so it takes the dark
+	   theme's verdict colors in both themes. */
+	.answer.flag code {
+		color: #f7666f;
+	}
+	.answer.pass code {
+		color: #5fd38d;
+	}
+	@media (max-width: 799px) {
+		.goal {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.cell + .cell {
+			border-left: 0;
+			border-top: 1px solid var(--sl-color-hairline);
+		}
+	}
+</style>

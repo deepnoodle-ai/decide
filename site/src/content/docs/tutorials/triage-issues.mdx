@@ -1,0 +1,132 @@
+---
+title: Triage new issues
+description: Find the issues that aren't ready to work on, then label each new one in GitHub Actions.
+tableOfContents: false
+---
+
+import { Steps, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Goal from '../../../components/Goal.astro';
+import Terminal from '../../../components/Terminal.astro';
+
+<Goal answer="Exiting with code 2 because 1 item was flagged (--fail-on flagged)">
+<Fragment slot="end">
+`.github/workflows/triage.yml` in your repository. It labels each new
+issue `not-ready` when `task-readiness` finds it too vague or too large to
+start.
+</Fragment>
+<Fragment slot="need">
+- decide, [installed](/start/#install-decide)
+- An API key: [get one](/start/#get-a-key)
+- A GitHub repository where you can add a workflow
+</Fragment>
+</Goal>
+
+<Steps>
+
+1. ## Get the demo
+
+   decide's repository has six sample issues, some clear and some vague:
+
+   ```sh
+   git clone --depth 1 https://github.com/deepnoodle-ai/decide
+   cd decide/demo
+   ```
+
+2. ## Judge the issues
+
+   `task-readiness` asks two questions about each issue: is it ready to
+   start, and how large is it? It flags an issue that is probably not ready,
+   or probably too large for one pull request. Send the answers away, and
+   read the three issues nearest their flags:
+
+   ```sh
+   decide run task-readiness issues.json > /dev/null
+   decide runs view --top 3
+   ```
+
+   <Terminal tape="triage-run" title="~/decide/demo" label="decide flags issues 102, 104 and 106 as not ready">
+   **Three of six issues are flagged as not ready**: "Checkout is slow",
+   "Move to multi-currency billing" and "Update the docs". Each says what is
+   wrong but not what to change or how to tell when it's done.
+   </Terminal>
+
+   A JSON array is read one record at a time, so each issue is one item.
+   `runs view` reads the saved run, so it asks the model nothing.
+
+3. ## Add the workflow
+
+   Add your key as a repository secret named `TYPESAFE_API_KEY`, and create
+   a `not-ready` label. Then save this as `.github/workflows/triage.yml`:
+
+   ```yaml title=".github/workflows/triage.yml"
+   name: triage
+
+   on:
+     issues:
+       types: [opened]
+
+   permissions:
+     issues: write
+
+   jobs:
+     readiness:
+       runs-on: ubuntu-latest
+       steps:
+         - name: Install decide
+           run: |
+             base=https://github.com/deepnoodle-ai/decide/releases/latest/download
+             curl -fsSLO "$base/decide_linux_amd64.tar.gz"
+             curl -fsSLO "$base/checksums.txt"
+             sha256sum --check --ignore-missing checksums.txt
+             tar -xzf decide_linux_amd64.tar.gz decide
+             sudo mv decide /usr/local/bin/
+
+         - name: Label the issue if it isn't ready
+           env:
+             TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+             GH_TOKEN: ${{ github.token }}
+             TITLE: ${{ github.event.issue.title }}
+             BODY: ${{ github.event.issue.body }}
+             NUMBER: ${{ github.event.issue.number }}
+           run: |
+             status=0
+             printf '%s\n\n%s\n' "$TITLE" "$BODY" |
+               decide run task-readiness --each file --fail-on flagged ||
+               status=$?
+             if [ "$status" -eq 2 ]; then
+               gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --add-label not-ready
+             elif [ "$status" -ne 0 ]; then
+               exit "$status"
+             fi
+   ```
+
+   `--each file` makes the whole issue one item, since piped text is
+   otherwise judged line by line. Pass the issue's text through `env`, as
+   above. Never write `${{ github.event.issue.body }}` into the script,
+   where an issue's text could run commands.
+
+4. ## Check that it works
+
+   Run the workflow's command on a vague issue:
+
+   ```sh
+   TITLE='Checkout is slow'; BODY='Customers say checkout feels slow.'
+   printf '%s\n\n%s\n' "$TITLE" "$BODY" |
+     decide run task-readiness --each file --fail-on flagged
+   echo $?
+   ```
+
+   <Terminal tape="triage-check" title="~/decide/demo" label="decide flags the vague issue as not ready and exits with code 2">
+   **The issue is flagged as not ready, and decide exits with code 2**, so
+   the workflow adds the label. Open an issue in your repository to see it
+   run in GitHub.
+   </Terminal>
+
+</Steps>
+
+## What next
+
+<CardGrid>
+<LinkCard title="Review pull requests" description="Judge each changed function, then block a merge." href="/tutorials/review-pull-requests/" />
+<LinkCard title="Built-in templates" description="task-readiness, triage, ticket-routing, and the rest." href="/reference/templates/#task-readiness" />
+</CardGrid>

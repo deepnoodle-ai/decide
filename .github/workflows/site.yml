@@ -12,6 +12,7 @@ on:
       - "site/**"
       - "demo/**"
       - "examples/**"
+      - "internal/template/builtin/**"
       - "plugin/.claude-plugin/plugin.json"
       - ".github/workflows/site.yml"
       - ".github/workflows/site-preview.yml"
@@ -52,6 +53,9 @@ jobs:
       # The build fails, naming the record.sh command, if a tape is not recorded.
       - name: check and build
         run: npm run build
+        env:
+          # Visits are counted only on the live site, built from a tag.
+          CF_BEACON_TOKEN: ${{ startsWith(github.ref, 'refs/tags/v') && vars.CF_BEACON_TOKEN || '' }}
       - uses: actions/upload-artifact@v4
         with:
           name: site

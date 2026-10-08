@@ -18,6 +18,10 @@ Guidance for coding agents and people working in this repository. See
 - `plugin`: the Claude Code plugin, a mod in TypeScript that runs the
   CLI. `.claude-plugin/marketplace.json` lists it. The templates it runs
   are built in, and `TestPluginTemplatesAreBuiltin` keeps them in step.
+- `site`: the documentation site at decide.deepnoodle.ai, in Astro
+  Starlight. It holds the user guides: the quickstart, tutorials, reference
+  and recipes. Its terminal recordings are VHS tapes in `site/tapes`, and
+  `TestTapes` runs their commands.
 - `spikes/<name>`: experiments behind a design doc, with their inputs,
   results, and a way to run them again. They are not part of the build.
 - `cmd/decide` and `internal/`: the CLI. `internal/cli` handles commands
@@ -49,9 +53,12 @@ Before v1, any API may change. The CLI is experimental.
 
 ## Docs
 
-Keep the README, [docs/cli.md](docs/cli.md), package comments, and
-[examples/README.md](examples/README.md) in step with behavior in the same
-pull request. Add a user-visible change to `## [Unreleased]` in
+Keep the README, the site's pages in `site/src/content/docs`, package
+comments, and [examples/README.md](examples/README.md) in step with
+behavior in the same pull request. `docs/cli.md`, `docs/recipes.md` and
+`docs/claude-code.md` only point to the site; don't add to them. A change
+to a recorded command's output needs its tape recorded again: see
+[docs/releasing.md](docs/releasing.md). Add a user-visible change to `## [Unreleased]` in
 [CHANGELOG.md](CHANGELOG.md), in one to three lines. Track planned work in [docs/roadmap.md](docs/roadmap.md), and
 update it when an item lands or changes. Keep reviews out of the repository.
 

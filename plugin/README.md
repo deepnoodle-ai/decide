@@ -29,7 +29,7 @@ more, with their callers, in parallel, and reports which are real and
 which it dismissed, and why.
 
 For a walk through setup and each skill, see the
-[user guide](../docs/claude-code.md).
+[user guide](https://decide.deepnoodle.ai/reference/claude-code/).
 
 ## Install
 

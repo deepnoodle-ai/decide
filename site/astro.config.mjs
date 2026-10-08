@@ -1,8 +1,14 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightLinksValidator from 'starlight-links-validator';
 
 const repo = 'https://github.com/deepnoodle-ai/decide';
+
+// Cloudflare Web Analytics, which sets no cookies. site.yml sets the token
+// from the repository variable CF_BEACON_TOKEN on release builds only, so
+// previews and local builds count nothing.
+const beacon = process.env.CF_BEACON_TOKEN;
 
 export default defineConfig({
 	site: 'https://decide.deepnoodle.ai',
@@ -12,6 +18,21 @@ export default defineConfig({
 			description:
 				'A Go library and CLI for decision models: ask typed questions, get answers with probabilities.',
 			favicon: '/favicon.svg',
+			// Fails the build on a broken link or heading between pages.
+			plugins: [starlightLinksValidator()],
+			routeMiddleware: './src/routeData.ts',
+			head: beacon
+				? [
+						{
+							tag: 'script',
+							attrs: {
+								defer: true,
+								src: 'https://static.cloudflareinsights.com/beacon.min.js',
+								'data-cf-beacon': JSON.stringify({ token: beacon }),
+							},
+						},
+					]
+				: [],
 			social: [{ icon: 'github', label: 'GitHub', href: repo }],
 			editLink: { baseUrl: `${repo}/edit/main/site/` },
 			customCss: [
@@ -34,6 +55,29 @@ export default defineConfig({
 						{ label: 'Questions and answers', link: '/start/answers/' },
 					],
 				},
+				{
+					label: 'Tutorials',
+					items: [
+						{ label: 'Check agent commands', link: '/tutorials/check-agent-commands/' },
+						{ label: 'Triage new issues', link: '/tutorials/triage-issues/' },
+						{ label: 'Review pull requests', link: '/tutorials/review-pull-requests/' },
+					],
+				},
+				{
+					label: 'Reference',
+					items: [
+						{ label: 'Overview', link: '/reference/' },
+						{ label: 'Commands and flags', link: '/reference/cli/' },
+						{ label: 'Items', link: '/reference/items/' },
+						{ label: 'Diffs', link: '/reference/diffs/' },
+						{ label: 'Templates', link: '/reference/templates/' },
+						{ label: 'Providers', link: '/reference/providers/' },
+						{ label: 'Output formats', link: '/reference/output/' },
+						{ label: 'The answer cache', link: '/reference/cache/' },
+						{ label: 'Claude Code', link: '/reference/claude-code/' },
+					],
+				},
+				{ label: 'Recipes', link: '/recipes/' },
 			],
 		}),
 	],

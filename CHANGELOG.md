@@ -14,8 +14,12 @@ may change the library API and the CLI.
 - **Built-in templates in Go.** The `templates` package returns a built-in
   template's questions, such as `templates.CommandRisk.Noul("severe")`, and
   flags answers as `decide run` does.
-- **A Claude Code guide.** [docs/claude-code.md](docs/claude-code.md) shows
-  how to set up the plugin and use `/decide:audit` and `/decide:hunt`.
+- **A documentation site.** [decide.deepnoodle.ai](https://decide.deepnoodle.ai)
+  has a quickstart, three tutorials with recordings of real runs, the
+  reference, and recipes. The guides in `docs/` moved there.
+- **A Claude Code guide.** The
+  [guide](https://decide.deepnoodle.ai/reference/claude-code/) shows how to
+  set up the plugin and use `/decide:audit` and `/decide:hunt`.
 
 ### Changed
 

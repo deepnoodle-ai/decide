@@ -1,0 +1,165 @@
+---
+title: Templates
+description: The eleven built-in templates, what each one asks and flags, and how to write your own.
+---
+
+import Template from '../../../components/Template.astro';
+
+A template is a set of questions that decide asks about each item. decide
+has eleven built in. `decide templates` lists them with your own, and
+`decide templates show NAME` explains one. To change what a built-in
+template asks or where it flags, copy it with
+`decide templates new NAME --from TEMPLATE`.
+
+A flag such as `yes` means that answer is 60% or more likely; `yes >= 80%`
+sets the line yourself. See [flags and matches](#flags-and-matches).
+
+## code-risk
+
+<Template name="code-risk" />
+
+## command-risk
+
+<Template name="command-risk" />
+
+## pr-description
+
+<Template name="pr-description" />
+
+## prompt-injection
+
+<Template name="prompt-injection" />
+
+## receipt-quality
+
+<Template name="receipt-quality" />
+
+## relevance
+
+<Template name="relevance" />
+
+## security
+
+<Template name="security" />
+
+## sentiment
+
+<Template name="sentiment" />
+
+## task-readiness
+
+<Template name="task-readiness" />
+
+## ticket-routing
+
+<Template name="ticket-routing" />
+
+## triage
+
+<Template name="triage" />
+
+## Write your own template
+
+```sh
+decide templates new my-routing --from ticket-routing
+```
+
+This creates `~/.decide/templates/my-routing/template.json`. Add `--project`
+to create it in `.decide/templates` in the current folder instead, so you can
+commit it and share it with your team. Project templates take precedence over
+your own, which take precedence over the built-in templates.
+
+A template looks like this:
+
+```json
+{
+  "name": "my-routing",
+  "description": "Route each ticket to the team that should handle it.",
+  "parameters": {
+    "product": {"description": "The product the tickets are about", "default": "Acme"}
+  },
+  "questions": {
+    "team": {
+      "type": "choice",
+      "instructions": "Which team should handle this {{product}} ticket?",
+      "criteria": {
+        "billing": "Payments, invoices, refunds",
+        "support": "How-to questions and account help",
+        "engineering": "Bugs and outages"
+      }
+    },
+    "urgent": {
+      "type": "noul",
+      "instructions": "Does this ticket need a reply within the hour?"
+    }
+  }
+}
+```
+
+A template reads text unless it says `"input": "image"`. Add `"each": "file"`
+(or `section`, `paragraph`, `function`, or `line`) to choose the unit its
+questions are written for; `--each` still overrides it.
+
+A `score` question lists its levels in order, lowest first:
+
+```json
+"clarity": {
+  "type": "score",
+  "instructions": "How clearly is this written?",
+  "criteria": ["Confusing", "Understandable", "Very clear"]
+}
+```
+
+### Flags and matches
+
+`flags` says which answers need attention, by question:
+
+```json
+"flags": {
+  "urgent": "yes",
+  "team": "engineering >= 80%",
+  "clarity": "<= 0.5"
+}
+```
+
+| Question type | Flag | Flagged when |
+| --- | --- | --- |
+| `noul` | `"yes"` or `"no"` | that answer is 60% or more likely |
+| `choice` | an option name | that option is 60% or more likely |
+| `noul` or `choice` | `"yes >= 80%"` | that answer is at least as likely as you say |
+| `score` | `"<= 1.5"`, `">= 3"`, `"< 2"`, `"> 2"` | the score passes the line |
+
+A list such as `["negative", "mixed"]` flags an item when any one holds.
+Answers to questions without a flag are never flagged, and show in cyan.
+
+`matches` takes the same conditions and marks the answers someone is
+looking for, such as the items relevant to a topic:
+
+```json
+"matches": {"relevant": "yes"}
+```
+
+Write instructions about one item at a time, and treat the item as
+evidence rather than instructions. An optional `README.md` next to
+`template.json` holds notes that `decide templates show` prints.
+
+Check your template as you go:
+
+```sh
+decide templates show my-routing
+decide run my-routing tickets.jsonl --dry-run
+```
+
+### Parameters
+
+Some templates have parameters, written `{{name}}` in their questions. Set
+them with `--param` (or `-p`):
+
+```sh
+decide run relevance notes.txt -p question="pricing"
+decide run code-risk src -p focus="SQL injection"
+```
+
+`decide templates show TEMPLATE` lists a template's parameters and their
+defaults.
+

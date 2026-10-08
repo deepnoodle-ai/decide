@@ -1,0 +1,162 @@
+---
+title: Review pull requests
+description: Judge each function a change touches, run it on every pull request in GitHub Actions, then block a merge on a flag.
+tableOfContents: false
+---
+
+import { Steps, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Goal from '../../../components/Goal.astro';
+import Terminal from '../../../components/Terminal.astro';
+
+<Goal answer="Exiting with code 2 because 2 items were flagged (--fail-on flagged)">
+<Fragment slot="end">
+`.github/workflows/decide.yml` in your repository. It marks each risky
+function a pull request changes, and fails the check when one is flagged.
+</Fragment>
+<Fragment slot="need">
+- decide, [installed](/start/#install-decide), and git
+- An API key: [get one](/start/#get-a-key)
+- A GitHub repository where you can add a workflow
+</Fragment>
+</Goal>
+
+<Steps>
+
+1. ## Get the demo
+
+   The demo builds a small shop repository with one uncommitted change, a
+   refund fix with problems planted in it:
+
+   ```sh
+   git clone --depth 1 https://github.com/deepnoodle-ai/decide
+   sh decide/demo/setup.sh shop && cd shop
+   ```
+
+2. ## Judge each changed function
+
+   `code-risk` asks whether code could cause security or data problems, and
+   how maintainable it is. With `--each function`, decide judges each
+   function the diff touches, whole, so the model sees the code around the
+   change:
+
+   <Terminal tape="review-local" title="~/shop" label="decide flags Refunds.Apply and Refunds.Search on risk">
+   **`Refunds.Apply` and `Refunds.Search` are flagged on risk.**
+   `Apply` no longer checks a refund against the payment, and `Search`
+   builds SQL from its input. Your percentages may differ a little.
+   </Terminal>
+
+   decide reads each function from the files on disk, so run it in the
+   repository the diff came from. The changes to `AGENTS.md` and
+   `docs/integrations.md` are skipped, since they aren't code. `git diff |
+   decide run prompt-injection` checks text like that.
+
+3. ## Run it on each pull request
+
+   Add your key as a repository secret named `TYPESAFE_API_KEY`. Then save
+   this as `.github/workflows/decide.yml`:
+
+   ```yaml title=".github/workflows/decide.yml"
+   name: decide
+
+   on: pull_request
+
+   permissions:
+     contents: read
+
+   jobs:
+     code-risk:
+       runs-on: ubuntu-latest
+       env:
+         TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+       steps:
+         - uses: actions/checkout@v4
+           with:
+             fetch-depth: 0 # the base branch, to diff against
+
+         - name: Install decide
+           run: |
+             base=https://github.com/deepnoodle-ai/decide/releases/latest/download
+             curl -fsSLO "$base/decide_linux_amd64.tar.gz"
+             curl -fsSLO "$base/checksums.txt"
+             sha256sum --check --ignore-missing checksums.txt
+             tar -xzf decide_linux_amd64.tar.gz decide
+             sudo mv decide /usr/local/bin/
+
+         - uses: actions/cache@v4
+           with:
+             path: ~/.decide/cache
+             key: decide-${{ github.ref }}-${{ github.sha }}
+             restore-keys: |
+               decide-${{ github.ref }}-
+               decide-refs/heads/${{ github.base_ref }}-
+
+         - name: Judge the changed functions
+           if: env.TYPESAFE_API_KEY != ''
+           env:
+             BASE: ${{ github.base_ref }}
+           run: |
+             git diff "origin/$BASE...HEAD" |
+               decide run code-risk --each function --format github
+   ```
+
+   `--format github` turns each flagged function into a warning on the pull
+   request's changes, and the job's summary page lists every answer. The job
+   passes either way, so for now the results are advice.
+
+   A few things to know:
+
+   - **Pin a version** by replacing `latest/download` with a release's
+     tag, such as `download/v0.3.0`, so an upgrade happens when you choose.
+   - **The cache** keeps decide's [answers](/reference/cache/) between
+     pushes, so a function judged on an earlier push isn't asked about
+     again. A pull request's first push starts from its base branch's
+     cache. The key starts with `github.ref`, so a pull request never
+     restores a cache that a fork's pull request saved.
+   - **Forks.** GitHub gives no secrets to pull requests from forks, so the
+     `if:` skips the step for them. Don't switch to `pull_request_target`
+     to get around this: it runs with your secrets and can be tricked into
+     running the fork's code.
+   - **Cost.** Each judged function is one request. decide skips lockfiles
+     and generated files. Add `--limit 200` to cap a large pull request.
+   - **Annotations.** GitHub shows at most 10 for each step. The job
+     summary lists up to 100 items in each table.
+
+4. ## Block a merge
+
+   Once you trust the results, add `--fail-on flagged` to the last line:
+
+   ```sh
+   git diff "origin/$BASE...HEAD" |
+     decide run code-risk --each function --format github --fail-on flagged
+   ```
+
+   The job then fails when a function is flagged, and its warnings become
+   errors. Make the job a required check in the branch's protection rules
+   to block merges on it. Exit code 1 means decide could not finish, such as
+   when the key is wrong, and fails the job too. Before you block on a
+   template, run it on a few past pull requests with `--format md` to see
+   how often it flags.
+
+5. ## Check that it works
+
+   In the shop repository, run the gate on the change:
+
+   ```sh
+   git diff | decide run code-risk --each function --fail-on flagged > /dev/null
+   echo $?
+   ```
+
+   <Terminal tape="review-gate" title="~/shop" label="decide exits with code 2 because two functions are flagged">
+   **decide exits with code 2**, so the job fails and the merge waits. The
+   answers come from the [cache](/reference/cache/), so this run asks the
+   model nothing.
+   </Terminal>
+
+</Steps>
+
+## What next
+
+<CardGrid>
+<LinkCard title="Comment on the pull request" description="Post a Markdown report as one comment that each push updates." href="/recipes/#comment-on-the-pull-request" />
+<LinkCard title="Diffs" description="Which diffs decide reads, and what one item is in each." href="/reference/diffs/" />
+</CardGrid>

@@ -1,0 +1,79 @@
+---
+title: Check a command before an agent runs it
+description: Judge shell commands with command-risk, then wrap them in a script that runs a command only when nothing is flagged.
+tableOfContents: false
+---
+
+import { Steps, Code, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Goal from '../../../components/Goal.astro';
+import Terminal from '../../../components/Terminal.astro';
+import checked from '../../../snippets/checked.sh?raw';
+
+<Goal answer="decide flagged this command; not running it">
+<Fragment slot="end">
+`checked.sh` in your project. It runs a command only when `command-risk`
+flags nothing, so an agent or a script can call it in place of `sh -c`.
+</Fragment>
+<Fragment slot="need">
+- decide, [installed](/start/#install-decide)
+- An API key: [get one](/start/#get-a-key)
+</Fragment>
+</Goal>
+
+<Steps>
+
+1. ## Ask about two commands
+
+   `command-risk` asks four yes-or-no questions about each line: could the
+   command destroy work, leak a secret, publish or deploy something, or
+   cause severe harm beyond your checkout? Try it on two commands that
+   delete things:
+
+   <Terminal tape="commands-ask" title="~" label="decide flags both commands as destructive, and only rm -rf ~/ as severe">
+   **Both are flagged as destructive. Only `rm -rf ~/` is severe.** A hard
+   reset loses local work, but it stays inside your checkout. Your
+   percentages may differ a little.
+   </Terminal>
+
+   decide only reads the text. It never runs the commands it judges.
+
+2. ## Write the script
+
+   Save this as `checked.sh` and make it executable with
+   `chmod +x checked.sh`:
+
+   <Code code={checked} lang="sh" title="checked.sh" />
+
+   `--fail-on flagged` makes decide exit with code 2 when an answer is
+   flagged. The script runs the command on 0, refuses it on 2, and refuses
+   it on 1 too, which means decide could not answer, such as when the key
+   is wrong. To run the command anyway in that case, change the last line
+   to run it.
+
+3. ## Check that it works
+
+   Run a harmless command, then a force push:
+
+   ```sh
+   ./checked.sh 'echo it ran'
+   ./checked.sh 'git push --force origin main'
+   echo $?
+   ```
+
+   <Terminal tape="commands-check" title="~" label="checked.sh runs echo it ran, and refuses git push --force origin main with exit code 2">
+   **The echo runs, and the force push is refused** with exit code 2. It
+   is flagged on destructive and severe, so the push never starts.
+   </Terminal>
+
+   To flag only the worst commands, read `severe` alone with `--json`, as
+   the Claude Code plugin does. A deploy is flagged on `publish`, so
+   `checked.sh` refuses it too.
+
+</Steps>
+
+## What next
+
+<CardGrid>
+<LinkCard title="Claude Code" description="The decide plugin checks each command in bypass mode, with no script." href="/reference/claude-code/" />
+<LinkCard title="Built-in templates" description="What command-risk asks, and the other templates." href="/reference/templates/#command-risk" />
+</CardGrid>

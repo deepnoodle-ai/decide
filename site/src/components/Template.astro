@@ -1,0 +1,98 @@
+---
+// One built-in template, read at build time from
+// internal/template/builtin/<name>, so the reference can't drift from the
+// templates decide runs: its description, its questions and when each is
+// flagged or matched, its parameters, and its README.
+interface Props {
+	name: string;
+}
+const { name } = Astro.props;
+
+type Question = { type: string; instructions: string; criteria?: Record<string, string> | string[] };
+type Condition = string | string[];
+type TemplateFile = {
+	description: string;
+	input?: string;
+	each?: string;
+	parameters?: Record<string, { description: string; default?: string }>;
+	questions: Record<string, Question>;
+	flags?: Record<string, Condition>;
+	matches?: Record<string, Condition>;
+};
+
+const files = import.meta.glob<TemplateFile>('../../../internal/template/builtin/*/template.json', {
+	eager: true,
+	import: 'default',
+});
+const readmes = import.meta.glob<{ Content: any }>('../../../internal/template/builtin/*/README.md', { eager: true });
+const dir = `../../../internal/template/builtin/${name}`;
+const t = files[`${dir}/template.json`];
+if (!t) throw new Error(`There is no built-in template named ${name}`);
+const Readme = readmes[`${dir}/README.md`]?.Content;
+
+const kinds: Record<string, string> = { noul: 'yes or no', choice: 'one of', score: 'a score' };
+const rule = (c?: Condition) => (c === undefined ? undefined : Array.isArray(c) ? c.join(' or ') : c);
+const options = (q: Question) =>
+	q.criteria === undefined ? undefined : Array.isArray(q.criteria) ? q.criteria.map((l, i) => `${i}: ${l}`) : Object.keys(q.criteria);
+---
+
+<div class="tpl">
+	<p class="desc">{t.description}</p>
+	<p class="meta">
+		Reads {t.input === 'image' ? 'images' : 'text'}{t.each && <>, one {t.each} at a time</>}.
+		Try it: <code>decide templates show {name}</code>
+	</p>
+	<table>
+		<thead>
+			<tr><th>Question</th><th>Answer</th><th>{t.matches ? 'Matched when' : 'Flagged when'}</th></tr>
+		</thead>
+		<tbody>
+			{
+				Object.entries(t.questions).map(([key, q]) => {
+					const opts = options(q);
+					const when = rule(t.flags?.[key]) ?? rule(t.matches?.[key]);
+					return (
+						<tr>
+							<td><code>{key}</code></td>
+							<td>
+								{kinds[q.type] ?? q.type}
+								{opts && q.type === 'choice' && <>: {opts.map((o, i) => <>{i > 0 && ', '}<code>{o}</code></>)}</>}
+								{opts && q.type === 'score' && <>, 0 to {opts.length - 1}</>}
+							</td>
+							<td>{when ? <code>{when}</code> : 'never'}</td>
+						</tr>
+					);
+				})
+			}
+		</tbody>
+	</table>
+	{
+		t.parameters && (
+			<p class="meta">
+				Parameters:{' '}
+				{Object.entries(t.parameters).map(([key, p], i) => (
+					<>
+						{i > 0 && '; '}
+						<code>{key}</code>, {p.description.charAt(0).toLowerCase() + p.description.slice(1)}
+						{p.default === undefined ? ' (required)' : ''}
+					</>
+				))}
+				. Set one with <code>-p {Object.keys(t.parameters)[0]}="…"</code>.
+			</p>
+		)
+	}
+	{Readme && <div class="readme"><Readme /></div>}
+</div>
+
+<style>
+	.desc {
+		font-size: 1.05rem;
+		color: var(--sl-color-white);
+	}
+	.meta {
+		color: var(--sl-color-gray-2);
+	}
+	table code {
+		white-space: nowrap;
+	}
+</style>

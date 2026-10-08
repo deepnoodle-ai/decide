@@ -1,6 +1,6 @@
 // Command decide asks typed questions about your data and saves every answer.
 //
-// Run "decide" for an overview, or see docs/cli.md.
+// Run "decide" for an overview, or see https://decide.deepnoodle.ai/reference/.
 package main
 
 import (
