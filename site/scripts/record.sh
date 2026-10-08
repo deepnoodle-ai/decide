@@ -28,8 +28,8 @@ repo=$(cd "$site/.." && pwd)
 tapes="$site/tapes"
 base=https://files.deepnoodle.ai/decide/site
 bucket=deepnoodle-public/decide/site
-: "${CLOUDFLARE_ACCOUNT_ID:=776aacf24c324e7bb825561ff1b47038}"
-export CLOUDFLARE_ACCOUNT_ID
+# The bucket's account, whatever the shell sets for other work.
+export CLOUDFLARE_ACCOUNT_ID=776aacf24c324e7bb825561ff1b47038
 
 local=false
 while [ $# -gt 0 ]; do
