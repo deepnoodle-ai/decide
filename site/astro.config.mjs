@@ -18,8 +18,8 @@ export default defineConfig({
 			description:
 				'A Go library and CLI for decision models: ask typed questions, get answers with probabilities.',
 			favicon: '/favicon.svg',
-			// Fails the build on a broken link or heading between pages.
-			plugins: [starlightLinksValidator()],
+			// Fails on broken paths and headings, including absolute same-site links.
+			plugins: [starlightLinksValidator({ sameSitePolicy: 'validate' })],
 			routeMiddleware: './src/routeData.ts',
 			head: beacon
 				? [
