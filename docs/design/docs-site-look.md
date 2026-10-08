@@ -243,7 +243,9 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
   button (icon only on phones).
 - A 1px progress line at 50% white, driven by `requestAnimationFrame` while
   playing.
-- The video, inset 16px top and bottom and 20px left and right.
+- The video fills the screen. Its 18px inset is recorded in it, because a
+  browser draws a video's colors a shade off, and a video inside a CSS
+  inset shows a box.
 - A foot at `#17181C` holding the commands strip (the visible `Type` lines, with
   a copy button) and the transcript disclosure.
 - **Dark theme:** a `rgba(255,255,255,.08)` border and an inset top highlight.
@@ -254,8 +256,10 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 
 **Sizes:**
 
-- Tutorials are 1440×840 at 2x, which is 85×22 cells at FontSize 28 and
-  LineHeight 1.35, shown at 720px.
+- Tutorials are 1552×912 at 2x, which is 85×22 cells at FontSize 28 and
+  LineHeight 1.0 with Padding 36, shown at up to 776px. VHS's line height
+  multiplies the font's own, so 1.0 gives rows about 1.33 times the font
+  size. `settings.tape` has the formula for other sizes.
 - The width comes from
   `:root[data-has-sidebar]:not([data-has-toc]) { --sl-content-width: 48rem }`
   with `tableOfContents: false`. The `data-has-sidebar` part keeps splash pages
@@ -270,7 +274,7 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 - The video shows at 0.75 of its size, anchored left, cut at the right with a
   28px fade. Text is about 10.5px, and the answers sit in the first ~40 columns.
 - The transcript is the legible version. Tap-to-fullscreen is dropped.
-- Before merging, check one real 1440×840 frame on a 3x phone.
+- Before merging, check one real 1552×912 frame on a 3x phone.
 
 **Player (one script):**
 

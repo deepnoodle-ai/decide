@@ -50,6 +50,11 @@ Before v1, any release may change the library API and the CLI.
      names the decide release the Claude Code plugin needs, and Claude Code
      offers users an update only when it changes. The release fails if it
      differs from the tag.
+   - Record the docs site's terminals again: `site/scripts/record.sh`.
+     Each recording's name includes the version, so the site does not
+     build until they are recorded. It needs Docker, `TYPESAFE_API_KEY`,
+     and `npx wrangler login` in `site/` with access to the
+     `deepnoodle-public` bucket.
 2. Make sure CI passes on `main`. CI runs `goreleaser check`, so a broken
    release configuration fails there first. The repository must be public,
    or Homebrew and the download links fail.

@@ -1,0 +1,23 @@
+{
+	"name": "decide",
+	"background": "#121316",
+	"foreground": "#ECEDEF",
+	"cursor": "#ECEDEF",
+	"selection": "#24424A",
+	"black": "#1A1B1F",
+	"red": "#F7666F",
+	"green": "#5FD38D",
+	"yellow": "#F0C04F",
+	"blue": "#6EA8FE",
+	"magenta": "#C69CF4",
+	"cyan": "#4CCBE2",
+	"white": "#C9CCD1",
+	"brightBlack": "#8A8E96",
+	"brightRed": "#FF8A91",
+	"brightGreen": "#86E3AA",
+	"brightYellow": "#F7D47F",
+	"brightBlue": "#96C0FF",
+	"brightMagenta": "#DABBFA",
+	"brightCyan": "#8FE3F1",
+	"brightWhite": "#F7F8F9"
+}
