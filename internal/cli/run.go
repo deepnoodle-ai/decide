@@ -379,7 +379,8 @@ func marked(run *runs.Run) map[string]int {
 }
 
 // summarize prints a run's summary and returns how many items were
-// "flagged" and "matched".
+// "flagged" and "matched". With no elapsed time, as in runs view, it leaves
+// out the command to see the run again, which the reader just ran.
 func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) map[string]int {
 	m := marksOf(run.Template)
 	var flaggedItems, matchedItems []string
@@ -435,6 +436,9 @@ func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) map[string]int
 	case runs.Partial:
 		fmt.Fprintf(w, "%s decide runs resume %s\n", dim("Retry the failed items with:"), run.ID)
 	default:
+		if elapsed == 0 {
+			break
+		}
 		fmt.Fprintf(w, "%s decide runs view %s\n", dim("See these results again with:"), run.ID)
 	}
 	return map[string]int{"flagged": len(flaggedItems), "matched": len(matchedItems)}

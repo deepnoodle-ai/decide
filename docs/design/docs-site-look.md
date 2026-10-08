@@ -218,7 +218,7 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
   disclosure, since the screen shows the command. The transcript is there for
   screen readers.
 - **The CLI's footer** is one line for a one-item run: `See these results
-  again with: decide runs view <id>`. The still leaves it out.
+  again with: decide runs view <id>`. The landing page's still image leaves it out.
 - **Hidden setup:** start with an empty answer cache, or the second recording
   prints `answers from cache`.
 - **The README GIF:** the same tape adds `Output landing.gif`, so the README's

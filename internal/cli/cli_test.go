@@ -477,6 +477,8 @@ func TestLargeFilesAreJudgedInParts(t *testing.T) {
 	}
 	out = h.run("", "runs", "view")
 	contains(t, out.stdout, "src/a.go  judged in 3 parts\n", "lines 3")
+	// The reader just ran the command that would see it again.
+	lacks(t, out.stderr, "See these results again")
 }
 
 func TestResumeCombinesNewAndSavedParts(t *testing.T) {

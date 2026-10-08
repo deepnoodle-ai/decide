@@ -51,8 +51,8 @@ Each question has one of three types, and its answer has a probability:
 
 Some templates flag the answers that need attention, such as a file that is
 probably risky. A flagged answer is red and marked with `!`, an answer
-close to being flagged is yellow, and the others are green. The summary
-lists the flagged items:
+close to being flagged is yellow, and the others are green. When a run has
+more than one item, the summary lists the flagged ones:
 
 ```
 marker/app.py
@@ -65,7 +65,7 @@ Flagged: marker/Makefile, marker/app.py
 
 Other templates look for matches instead, such as the items relevant to your
 question. A match is bold green and marked with `●`, the other answers are
-dim, and the summary lists the matches:
+dim, and the summary lists the matches when there is more than one item:
 
 ```
 notes.txt:12  Annual plans are now 20% cheaper than monthly ones
