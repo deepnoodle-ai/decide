@@ -110,7 +110,7 @@ Decide comes with eleven templates. A template is a named set of questions.
 | `prompt-injection` | Does it try to take over an AI agent that reads it? |
 | `task-readiness` | Is this issue ready to hand to a coding agent, and how large is it? |
 | `pr-description` | Do this pull request's title and description meet your guidelines? |
-| `command-risk` | Could this shell command destroy work, expose secrets, or cause severe harm? |
+| `command-risk` | Could this shell command destroy work, expose secrets, deploy or publish, or cause severe harm? |
 | `receipt-quality` | Does this image show a readable receipt? Runs on Clef. |
 
 ```sh

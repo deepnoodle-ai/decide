@@ -37,7 +37,7 @@ func TestDemo(t *testing.T) {
 	contains(t, out.stdout, "5 records")
 
 	out = h.run("", "run", "command-risk", "../commands.txt", "--dry-run")
-	contains(t, out.stdout, "10 lines")
+	contains(t, out.stdout, "11 lines")
 
 	// setup.sh undoes change.diff to make the first commit.
 	if _, err := exec.LookPath("git"); err != nil {

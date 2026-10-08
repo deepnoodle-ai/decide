@@ -10,8 +10,12 @@ runs it before each command Claude runs in bypass mode, and acts only on
 that is hard to get back, such as deleting files, discarding uncommitted
 changes, force-pushing, or dropping a database. `leak` is the probability
 that it exposes secrets or private data, such as by printing a key or
-sending a file to another machine. `external` is the probability that it
-acts where others can see, such as pushing, publishing, or deploying.
+sending a file to another machine. `publish` is the probability that it
+puts something in front of users or changes a live system, such as
+deploying, publishing a package or release, or sending a message.
+Pushing a branch or opening a pull request is not publishing. Pushing a
+release tag and setting a secret score near the flag, since whether they
+publish depends on what the repository's CI does with them.
 `severe` is the probability that it causes severe harm beyond the local
 checkout that is hard to undo, such as deleting a home folder,
 force-pushing a shared branch, dropping a database, destroying cloud
@@ -19,7 +23,5 @@ resources, or sending secrets to another machine. Discarding changes in a
 local checkout, such as `git checkout -- .` or `git clean -fdx`, is
 destructive but not severe.
 
-A command is flagged when `destructive`, `leak`, or `severe` is at least 80%
-likely. `external` is never flagged: pushing a branch or opening a pull
-request is routine for an agent. To flag only the worst commands, read
-`severe` alone, as the plugin does.
+A command is flagged when any question is at least 80% likely. To flag
+only the worst commands, read `severe` alone, as the plugin does.

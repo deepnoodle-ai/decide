@@ -270,7 +270,8 @@ it sends, and its options.
 ## Check a command before an agent runs it
 
 For an agent or a script without the plugin, `command-risk` exits 2 when a
-command is likely to destroy work, expose secrets, or cause severe harm:
+command is likely to destroy work, expose secrets, deploy or publish, or
+cause severe harm:
 
 ```sh
 #!/bin/sh

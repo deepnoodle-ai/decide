@@ -94,7 +94,7 @@ module never runs a shell: `$.process.run` takes an argv.
 
 The percentages are the templates' own flags. `hooks/templates.ts` repeats
 them, and a Go test holds the two in step (below). The CLI flags
-`command-risk` on `destructive`, `leak`, or `severe`. The plugin reads
+`command-risk` on `destructive`, `leak`, `publish`, or `severe`. The plugin reads
 `severe` alone, so local cleanup such as `git checkout -- .` does not ask.
 
 The command check's action, when flagged and `commands` is `ask`:
@@ -168,8 +168,9 @@ repeated question reuse its folder. Every question's instructions end with
 ### The two templates
 
 `command-risk` asks four `noul` questions about one shell command:
-`destructive`, `leak`, `external`, and `severe`. It flags `destructive`,
-`leak`, and `severe` at 80%. `external` is never flagged (PRD Decisions).
+`destructive`, `leak`, `publish`, and `severe`, and flags each at 80%.
+`publish` replaced `external`, which also scored routine pushes high and
+was never flagged.
 `severe` asks about harm beyond the local checkout that is hard to undo; it
 was added after `destructive` flagged routine cleanup in real use. The
 plugin reads `severe` alone, and `/decide` shows it.

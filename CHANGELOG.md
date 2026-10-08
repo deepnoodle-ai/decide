@@ -19,6 +19,9 @@ may change the library API and the CLI.
 
 ### Changed
 
+- **`command-risk` flags deploys and releases.** A `publish` question,
+  flagged at 80%, replaces `external`, which scored routine pushes high and
+  was never flagged. `--json` output has `publish` in place of `external`.
 - **A shorter run summary.** `decide run` ends with one line that tells how
   to see the run again, and lists flagged items only when it judged more
   than one.

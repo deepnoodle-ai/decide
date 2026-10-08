@@ -288,9 +288,10 @@ Acceptance:
   each tool call, so a mode switched mid-turn takes effect one call later.
   Rejected: always ask; it doubles the dialog in default mode.
 - **The command check does not flag pushes, releases, or pull requests.**
-  `command-risk` has an `external` question that is shown in `/decide` but
-  never flagged: in testing it scored 84–97% on routine `git push` and
-  `gh pr create`.
+  The plugin reads `severe` alone. `command-risk` first had an `external`
+  question that was never flagged: in testing it scored 84–97% on routine
+  `git push` and `gh pr create`. A `publish` question, flagged in the
+  CLI, replaced it.
 - **Fail open, visibly.** The plugin is a second opinion, not a sandbox.
   Failing closed would stop all work when a key expires. The status line and
   a one-minute backoff keep a failing provider from slowing every command.
@@ -317,7 +318,7 @@ Acceptance:
 ## Risks and open questions
 
 - **Interruptions erode trust.** If the command check asks too often, people
-  turn it off. Reduce: the `external` decision, the Success measure, and
+  turn it off. Reduce: leaving pushes and pull requests unflagged, the Success measure, and
   `decide eval` later. Not blocking.
 - **The command check reads only the command's text.** `make clean`,
   `npm run db:reset`, or a script can hide a destructive step. It is a

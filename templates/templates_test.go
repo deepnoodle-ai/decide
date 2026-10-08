@@ -78,7 +78,8 @@ func TestFlagged(t *testing.T) {
 	}{
 		{templates.CommandRisk, "severe", &decide.NoulAnswer{Noul: 0.8}, true},
 		{templates.CommandRisk, "severe", &decide.NoulAnswer{Noul: 0.79}, false},
-		{templates.CommandRisk, "external", &decide.NoulAnswer{Noul: 1}, false},  // not flagged
+		{templates.CommandRisk, "publish", &decide.NoulAnswer{Noul: 0.8}, true},
+		{templates.Relevance, "relevant", &decide.NoulAnswer{Noul: 1}, false},    // not flagged
 		{templates.PRDescription, "tested", &decide.NoulAnswer{Noul: 0.3}, true}, // "no" at the default 60%
 		{templates.Sentiment, "sentiment", choice(map[string]float64{"negative": 0.7}), true},
 		{templates.Sentiment, "sentiment", choice(map[string]float64{"negative": 0.5}), false},
@@ -96,7 +97,7 @@ func TestFlagged(t *testing.T) {
 			t.Errorf("%s %s %+v: flagged %v, want %v", tc.tmpl.Name(), tc.key, tc.a, got, tc.want)
 		}
 	}
-	if templates.CommandRisk.Flag("external") != nil {
+	if templates.Relevance.Flag("relevant") != nil {
 		t.Fatal("an unflagged question has a flag")
 	}
 }
