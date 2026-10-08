@@ -63,6 +63,7 @@ export default defineConfig({
 						{ label: 'Review pull requests', link: '/tutorials/review-pull-requests/' },
 						{ label: 'Find security bugs', link: '/tutorials/find-security-bugs/' },
 						{ label: 'Decide from Go', link: '/tutorials/decide-from-go/' },
+						{ label: 'Write a template', link: '/tutorials/write-a-template/' },
 					],
 				},
 				{

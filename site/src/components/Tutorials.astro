@@ -1,5 +1,5 @@
 ---
-// The landing page's three tutorials, each with the line the reader sees
+// The landing page's tutorials, each with the line the reader sees
 // when it works. The lines are verdicts, never percentages.
 const tutorials = [
 	{
@@ -19,6 +19,24 @@ const tutorials = [
 		title: 'Review pull requests',
 		job: 'A check that marks risky functions, and blocks the merge.',
 		answer: [['flag', '! risk'], ['', '  '], ['flag', 'yes']],
+	},
+	{
+		href: '/tutorials/find-security-bugs/',
+		title: 'Find security bugs with Claude Code',
+		job: 'Rank functions, then confirm each candidate with its callers.',
+		answer: [['flag', '! command_injection'], ['', '  '], ['flag', 'yes']],
+	},
+	{
+		href: '/tutorials/decide-from-go/',
+		title: 'Make a decision from Go',
+		job: 'Keep an allow, review, or escalate policy in your own code.',
+		answer: [['', 'allow / review / escalate']],
+	},
+	{
+		href: '/tutorials/write-a-template/',
+		title: 'Write your own template',
+		job: 'Ask your team’s question and flag the tickets that need attention.',
+		answer: [['flag', '! needs_refund'], ['', '  '], ['flag', 'yes']],
 	},
 ];
 ---
