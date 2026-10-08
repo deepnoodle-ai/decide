@@ -6,7 +6,7 @@ Wait
 Show
 Type "decide run security admin > /dev/null" Enter
 Wait
-Type `decide runs view --top 6 --json | jq -r '[.source, .input, ([.answers | to_entries[] | select(.value.noul >= 0.3) | .key] | join(", "))] | @tsv'` Enter
+Type `decide runs view --top 6 --json | jq -r '[.source, .input, ([.answers | to_entries[] | select(.value.noul >= 0.3) | .key] | join(", "))] | select(.[2] != "") | @tsv'` Enter
 Wait
 Sleep 5s
 # Expect: Server.ExportOrders
