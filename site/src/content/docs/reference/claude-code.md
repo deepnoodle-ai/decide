@@ -12,7 +12,7 @@ what each check asks, what it sends, and its options, see the
 
 ## In three steps
 
-You need Claude Code 2.1.287 or later, decide 0.3.0 or later, and a key
+You need Claude Code 2.1.287 or later, decide 0.4.0 or later, and a key
 for a decision model.
 
 1. Install decide and set your key:
