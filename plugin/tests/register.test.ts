@@ -91,7 +91,7 @@ const noul = (p: number) => ({ type: 'noul', noul: p })
 /** Command risk that judges `rm -rf` severe and nothing else. */
 const RISK: Answers = (template, text) =>
   template === 'command-risk'
-    ? { destructive: noul(text.includes('rm -rf') ? 0.98 : 0.02), leak: noul(0.03), external: noul(0.02), severe: noul(text.includes('rm -rf') ? 0.97 : 0.02) }
+    ? { destructive: noul(text.includes('rm -rf') ? 0.98 : 0.02), leak: noul(0.03), publish: noul(0.02), severe: noul(text.includes('rm -rf') ? 0.97 : 0.02) }
     : undefined
 
 /** A prompt in bypass mode, the one mode the command check runs in. */
