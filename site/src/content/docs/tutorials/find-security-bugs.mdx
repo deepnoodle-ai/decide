@@ -62,6 +62,9 @@ that supports each one.
    The run saves every answer even though stdout went to `/dev/null`.
    `runs view` reads the latest run by default. If another process is also
    running Decide, pass the ID from the run's closing line instead.
+   If the run exits with code 1, some functions failed: run
+   `decide runs resume <run ID> > /dev/null`, once or twice, until it exits 0,
+   then view the ranking.
 
 3. ## Ask Claude to confirm the candidates
 
