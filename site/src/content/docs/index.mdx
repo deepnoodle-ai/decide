@@ -1,0 +1,44 @@
+---
+title: Answers you can branch on
+description: Ask questions about your files, diffs, and records. A decision model answers each one with its probability.
+template: splash
+pagefind: false
+editUrl: false
+hero:
+  title: Answers you can branch on.
+  tagline: >-
+    <p>Ask questions about your files, diffs, and records. A decision
+    model answers each one with yes or no, a choice, or a score, and its
+    probability.</p>
+    <p class="why"><b>Why not just prompt an LLM?</b> There's no prompt to
+    write and no JSON to parse or retry. Put a threshold on the probability,
+    and your script or CI acts on it.</p>
+  actions:
+    - text: Get a first result in five minutes
+      link: /start/
+      variant: primary
+    - text: Questions and answers
+      link: /start/answers/
+      variant: minimal
+---
+
+import Ways from '../../components/Ways.astro';
+import AnswerTypes from '../../components/AnswerTypes.astro';
+
+<Ways />
+
+<section class="band not-content">
+	<h2>Every answer has a type and a probability.</h2>
+	<p class="lede">You choose the question and what counts as a problem. decide flags the answers that cross your line.</p>
+	<AnswerTypes />
+</section>
+
+<style>{`
+	.band { margin-top: 0; padding-top: 72px; }
+	.band h2 { margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.15; color: var(--sl-color-white); }
+	.band .lede { margin: 10px 0 0; max-width: 60ch; font-size: 17px; color: var(--sl-color-gray-2); }
+	@media (max-width: 799px) {
+		.band { padding-top: 48px; }
+		.band h2 { font-size: 25px; }
+	}
+`}</style>

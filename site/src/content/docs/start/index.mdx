@@ -1,0 +1,126 @@
+---
+title: Quickstart
+description: Install decide, set a key, and get typed answers with probabilities about one line of text, then about your own changes.
+tableOfContents: false
+---
+
+import { Steps, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+You'll end with typed answers, each with its probability, about a change in
+your own repository. You need a terminal and an API key for one decision
+model. Step 2 says where to get one.
+
+<Steps>
+
+1. ## Install decide
+
+   <Tabs syncKey="install">
+   <TabItem label="Homebrew">
+   ```sh
+   brew install deepnoodle-ai/tap/decide
+   ```
+   </TabItem>
+   <TabItem label="Go">
+   ```sh
+   go install github.com/deepnoodle-ai/decide/cmd/decide@latest
+   ```
+   </TabItem>
+   <TabItem label="Download">
+   Download a binary for Linux, macOS, or Windows from the
+   [releases](https://github.com/deepnoodle-ai/decide/releases), and put it
+   on your `PATH`.
+   </TabItem>
+   </Tabs>
+
+   `decide --version` prints the version you have.
+
+2. ## Get a key
+
+   decide asks a decision model. Pick one provider and export its key. The
+   commands and templates are the same with all three.
+
+   <Tabs syncKey="provider">
+   <TabItem label="Jev">
+   Jev by TypeSafe is the default. Get a key at
+   [typesafe.ai](https://typesafe.ai).
+   ```sh
+   export TYPESAFE_API_KEY=...
+   ```
+   </TabItem>
+   <TabItem label="Clef">
+   Clef runs on Cloudflare Workers AI. Create an API token that can use
+   Workers AI in the
+   [Cloudflare dashboard](https://developers.cloudflare.com/workers-ai/get-started/rest-api/).
+   ```sh
+   export CLOUDFLARE_AUTH_TOKEN=...
+   export CLOUDFLARE_ACCOUNT_ID=...
+   export DECIDE_PROVIDER=cloudflare
+   ```
+   </TabItem>
+   <TabItem label="GPT-6 Luna">
+   GPT-6 Luna runs on OpenAI's Decisions API, in beta. Create a key in the
+   [OpenAI platform](https://platform.openai.com/api-keys).
+   ```sh
+   export OPENAI_API_KEY=...
+   export DECIDE_PROVIDER=openai
+   ```
+   </TabItem>
+   </Tabs>
+
+3. ## Ask about one line
+
+   Pipe in a line of text and run the built-in `sentiment` template:
+
+   ```sh
+   echo "The new release fixed everything I cared about" | decide run sentiment
+   ```
+
+   You get a typed answer with its probability. The first line names your
+   provider and model:
+
+   ```text
+   Running sentiment on 1 line · typesafe jev-latest
+
+   stdin:1  The new release fixed everything I cared about
+     sentiment  positive  94%
+
+   ✓ 1 answered  nothing flagged  1.2s
+   Saved as run 20261002-153012-a1b2
+   See these results again with: decide runs view 20261002-153012-a1b2
+   ```
+
+   Your percentage may differ a little. Every run is saved, so `decide runs
+   view` shows it again without asking the model.
+
+4. ## Ask about your own changes
+
+   In a git repository with uncommitted changes, judge each changed file:
+
+   ```sh
+   git diff | decide run code-risk
+   ```
+
+   `code-risk` asks whether each file could cause security or data
+   problems, and how maintainable it is. A flagged answer is red and marked
+   with `!`, and the summary lists the flagged files. If nothing has
+   changed, try `git diff HEAD~1`.
+
+   To make a script or CI act on the answers, add `--fail-on flagged`.
+   decide then exits with code 2 when anything is flagged:
+
+   ```sh
+   git diff | decide run code-risk --fail-on flagged
+   ```
+
+5. ## Choose what's next
+
+   <CardGrid>
+   <LinkCard title="Questions and answers" description="The three answer types, probabilities, and flags." href="/start/answers/" />
+   <LinkCard title="Ask from Go" description="The same questions from your own program." href="/start/go/" />
+   </CardGrid>
+
+   `decide templates` lists the eleven built-in templates, and
+   `decide templates show code-risk` shows a template's questions and when
+   it flags an answer.
+
+</Steps>

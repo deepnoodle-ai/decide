@@ -1,0 +1,85 @@
+name: site preview
+
+# Uploads the site that the site workflow built for a pull request, and
+# comments with the link. workflow_run runs this file as it is on main, so a
+# pull request cannot change the code that holds the Cloudflare token. It
+# uses only the built files from the pull request, and they are static.
+on:
+  workflow_run:
+    workflows: [site]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-preview-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    # shell: bash adds pipefail, so a failed wrangler command fails its step.
+    shell: bash
+    working-directory: site
+
+jobs:
+  preview:
+    name: preview
+    # Pull requests from forks get no preview.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.pull_requests[0].number
+    runs-on: ubuntu-latest
+    # The site-preview environment accepts only main, where this file runs.
+    environment: site-preview
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          path: site/dist
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+      - name: upload a preview
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          ALIAS: pr-${{ github.event.workflow_run.pull_requests[0].number }}
+        run: |
+          npx wrangler versions upload --preview-alias "$ALIAS" | tee "$RUNNER_TEMP/upload.txt"
+          url=$(grep -o "https://$ALIAS-[^ ]*workers.dev" "$RUNNER_TEMP/upload.txt" | head -1)
+          if [ -z "$url" ]; then
+            echo "wrangler printed no preview URL for $ALIAS"
+            exit 1
+          fi
+          echo "url=$url" >> "$GITHUB_ENV"
+      - name: comment with the link
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.workflow_run.pull_requests[0].number }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          marker='<!-- site-preview -->'
+          body="$marker
+          **Site preview:** $url
+
+          Built from $SHA."
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" >/dev/null
+          else
+            gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body "$body"
+          fi

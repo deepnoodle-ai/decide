@@ -1,0 +1,131 @@
+---
+// The landing page's first screen: the headline beside a playing terminal.
+// Starlight's hero can't hold the terminal, since its image is a fixed
+// string, so this replaces it. Only the landing page has a `hero`.
+//
+// Keep on each Starlight upgrade: the <h1>'s id and data-page-title, and
+// the shape of `data.hero`.
+import LandingTerminal from './LandingTerminal.astro';
+
+// Starlight's PAGE_TITLE_ID, which it does not export.
+const PAGE_TITLE_ID = '_top';
+
+const { data } = Astro.locals.starlightRoute.entry;
+const { title = data.title, tagline, actions = [] } = data.hero || {};
+---
+
+<section class="hero">
+	<div class="lead">
+		<h1 id={PAGE_TITLE_ID} data-page-title set:html={title} />
+		{tagline && <div class="tagline" set:html={tagline} />}
+		{
+			actions.length > 0 && (
+				<div class="actions">
+					{actions.map(({ link, text, variant }) => (
+						<a class:list={['action', variant]} href={link}>
+							{text}
+							{variant === 'primary' && <span aria-hidden="true">→</span>}
+						</a>
+					))}
+				</div>
+			)
+		}
+	</div>
+	<div class="term-area">
+		<LandingTerminal />
+	</div>
+</section>
+
+<style>
+	.hero {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) 620px;
+		gap: 28px 48px;
+		align-items: start;
+		padding-block: 0.5rem 1.25rem;
+	}
+	.hero > * {
+		min-width: 0;
+	}
+	h1 {
+		margin: 0;
+		font-size: 50px;
+		font-weight: 600;
+		line-height: 1.04;
+		letter-spacing: -0.035em;
+		color: var(--sl-color-white);
+	}
+	.tagline :global(p) {
+		margin: 18px 0 0;
+		font-size: 18px;
+		line-height: 1.55;
+		color: var(--sl-color-gray-2);
+	}
+	.tagline :global(p.why) {
+		margin-top: 14px;
+		font-size: 15px;
+		color: var(--sl-color-gray-3);
+	}
+	.tagline :global(p.why b) {
+		font-weight: 600;
+		color: var(--sl-color-gray-1);
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 12px 20px;
+		margin-top: 22px;
+	}
+	.action {
+		font-size: 15px;
+		font-weight: 500;
+		color: var(--sl-color-white);
+		text-decoration: underline;
+		text-decoration-color: var(--sl-color-gray-4);
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.22em;
+	}
+	.action:hover {
+		text-decoration-color: currentColor;
+	}
+	.action.primary {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		height: 42px;
+		padding: 0 18px;
+		border-radius: 999px;
+		background: var(--sl-color-white);
+		color: var(--sl-color-black);
+		font-weight: 600;
+		text-decoration: none;
+		transition: background 120ms var(--ease);
+	}
+	.action.primary:hover {
+		background: var(--sl-color-gray-1);
+	}
+
+	@media (max-width: 1099px) {
+		.hero {
+			grid-template-columns: minmax(0, 1fr) 540px;
+			gap: 28px 36px;
+		}
+		h1 {
+			font-size: 44px;
+		}
+		.tagline :global(p:first-child) {
+			font-size: 17px;
+		}
+	}
+	@media (max-width: 799px) {
+		.hero {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 24px;
+			padding-top: 0.5rem;
+		}
+		h1 {
+			font-size: 38px;
+		}
+	}
+</style>

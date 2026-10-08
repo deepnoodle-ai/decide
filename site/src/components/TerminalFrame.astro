@@ -1,0 +1,172 @@
+---
+// The window frame around a recording or a terminal still: a title bar, the
+// screen, the commands to copy, and the output as text. Code blocks share
+// its look. See "Recordings, transcripts and frames" in
+// docs/design/docs-site-look.md.
+import CopyButton from './CopyButton.astro';
+
+interface Props {
+	/** The folder shown in the title bar, such as ~/shop. */
+	title: string;
+	/** What the recording shows, for screen readers. */
+	label: string;
+	/** The commands the reader types, in order. */
+	commands?: string[];
+	/** The last frame as plain text. */
+	transcript?: string;
+	/** The terminal's width in cells; sizes the text to fit the frame. */
+	cols: number;
+	/** No commands strip and no disclosure: the screen shows the command. The transcript is for screen readers only. */
+	compact?: boolean;
+}
+const { title, label, commands = [], transcript, cols, compact = false } = Astro.props;
+const commandText = commands.join('\n');
+---
+
+<figure class="term not-content" role="group" aria-label={label} style={`--cols: ${cols}`}>
+	<div class="term-bar">
+		<span class="term-title">{title}</span>
+		<slot name="controls" />
+	</div>
+	<div class="term-screen"><slot /></div>
+	{compact && transcript && <pre class="sr-only">{transcript}</pre>}
+	{
+		!compact && (commandText || transcript) && (
+			<div class="term-foot">
+				{commandText && (
+					<div class="term-cmds">
+						<pre>{commandText}</pre>
+						<CopyButton text={commandText} label={commands.length > 1 ? 'Copy commands' : 'Copy command'} />
+					</div>
+				)}
+				{transcript && (
+					<details class="term-out">
+						<summary>Output as text</summary>
+						<pre>{transcript}</pre>
+					</details>
+				)}
+			</div>
+		)
+	}
+</figure>
+
+<style>
+	.term {
+		margin: 0;
+		background: var(--term-bg);
+		border: 1px solid var(--term-border);
+		border-radius: 12px;
+		box-shadow: var(--term-shadow);
+		overflow: hidden;
+		color: var(--term-fg);
+	}
+	.term-bar {
+		position: relative;
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		height: 36px;
+		padding: 0 6px 0 16px;
+		border-bottom: 1px solid var(--term-line);
+		font: 400 12px/1 var(--sl-font-mono);
+		color: var(--term-muted);
+	}
+	.term-screen {
+		container-type: inline-size;
+		padding: 16px 20px;
+		overflow: hidden;
+	}
+	/* Text that fits `cols` cells in the frame's width. A cell is 0.6em in JetBrains Mono. */
+	.term-screen :global(pre) {
+		margin: 0;
+		padding: 0;
+		background: none;
+		border: 0;
+		white-space: pre;
+		color: var(--term-fg);
+		font-family: var(--sl-font-mono);
+		font-size: min(14px, calc(100cqw / var(--cols) / 0.6));
+		line-height: 1.35;
+	}
+	.term-screen :global(.cursor) {
+		background: var(--term-fg);
+	}
+	.term-foot {
+		background: var(--term-bar);
+		border-top: 1px solid var(--term-line);
+	}
+	.term-cmds {
+		display: flex;
+		align-items: flex-start;
+		gap: 12px;
+		padding: 10px 6px 10px 20px;
+	}
+	.term-cmds pre {
+		flex: 1;
+		margin: 0;
+		padding: 4px 0 0;
+		background: none;
+		border: 0;
+		font: 400 13.5px/1.6 var(--sl-font-mono);
+		color: var(--term-fg);
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+	.term-cmds :global(.copy) {
+		border-color: rgba(255, 255, 255, 0.12);
+		color: var(--term-muted);
+	}
+	.term-cmds :global(.copy:hover) {
+		color: var(--term-fg);
+	}
+	.term-out {
+		border-top: 1px solid var(--term-line);
+	}
+	.term-out summary {
+		list-style: none;
+		cursor: pointer;
+		padding: 9px 20px;
+		font: 400 12.5px/1.2 var(--sl-font-mono);
+		color: var(--term-muted);
+	}
+	.term-out summary::-webkit-details-marker {
+		display: none;
+	}
+	.term-out summary::before {
+		content: '▸ ';
+	}
+	.term-out[open] summary::before {
+		content: '▾ ';
+	}
+	.term-out pre {
+		margin: 0;
+		padding: 0 20px 14px;
+		background: none;
+		border: 0;
+		font: 400 12.5px/1.45 var(--sl-font-mono);
+		color: var(--term-fg);
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+
+	/* Phones: text no smaller than 10.5px, cut at the right with a fade. Read the rest as text. */
+	@media (max-width: 49.99rem) {
+		.term-screen {
+			position: relative;
+			padding: 12px 0 12px 14px;
+		}
+		.term-screen :global(pre) {
+			font-size: max(10.5px, min(14px, calc(100cqw / var(--cols) / 0.6)));
+		}
+		.term-screen::after {
+			content: '';
+			position: absolute;
+			inset: 0 0 0 auto;
+			width: 28px;
+			background: linear-gradient(to right, transparent, var(--term-bg));
+		}
+		.term-cmds pre {
+			font-size: 12.5px;
+		}
+	}
+</style>
