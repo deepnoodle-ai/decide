@@ -5,6 +5,7 @@ tableOfContents: false
 ---
 
 import { Steps, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Terminal from '../../../components/Terminal.astro';
 
 You'll end with typed answers, each with its probability, about a change in
 your own repository. You need a terminal and an API key for one decision
@@ -71,33 +72,22 @@ model. Step 2 says where to get one.
 
    Pipe in a line of text and run the built-in `sentiment` template:
 
-   ```sh
-   echo "The new release fixed everything I cared about" | decide run sentiment
-   ```
+   <Terminal tape="start-line" title="~" label="decide answers positive about one line of text">
+   **The answer is positive**, with its probability. The first line names your
+   provider and model. Your percentage may differ a little.
+   </Terminal>
 
-   You get a typed answer with its probability. The first line names your
-   provider and model:
-
-   ```text
-   Running sentiment on 1 line · typesafe jev-latest
-
-   stdin:1  The new release fixed everything I cared about
-     sentiment  positive  94%
-
-   ✓ 1 answered  nothing flagged  1.2s
-   See these results again with: decide runs view 20261002-153012-a1b2
-   ```
-
-   Your percentage may differ a little. Every run is saved, so `decide runs
-   view` shows it again without asking the model.
+   Every run is saved, so `decide runs view` shows it again without asking
+   the model.
 
 4. ## Ask about your own changes
 
    In a git repository with uncommitted changes, judge each changed file:
 
-   ```sh
-   git diff | decide run code-risk
-   ```
+   <Terminal tape="start-diff" title="~/shop" label="decide flags billing/refund.go on risk and maintainability">
+   **`billing/refund.go` is flagged** on risk and maintainability, in the
+   demo's shop repository. Your own files get the same two questions.
+   </Terminal>
 
    `code-risk` asks whether each file could cause security or data
    problems, and how maintainable it is. A flagged answer is red and marked

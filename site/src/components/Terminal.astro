@@ -1,0 +1,216 @@
+---
+// A recording of a VHS tape in site/tapes, in a terminal frame. It plays
+// when it is most in view, and shows its last frame with reduced motion or
+// without JavaScript. The commands strip and "Output as text" come from the
+// tape and its transcript. The default slot is the caption.
+import TerminalFrame from './TerminalFrame.astro';
+import { loadTape, transcript } from '../lib/tapes';
+
+interface Props {
+	/** The tape's name in site/tapes, without .tape. */
+	tape: string;
+	/** The folder shown in the title bar, such as ~/shop. */
+	title: string;
+	/** What the recording shows, for screen readers. */
+	label: string;
+	/** No commands strip and no disclosure, as on the landing page. */
+	compact?: boolean;
+}
+const { tape: name, title, label, compact = false } = Astro.props;
+const tape = loadTape(name);
+const text = await transcript(name, tape);
+const hasCaption = Astro.slots.has('default');
+---
+
+<div class:list={['term-wrap', { compact }]}>
+	<TerminalFrame title={title} label={label} commands={tape.commands} transcript={text} cols={tape.cols} compact={compact}>
+		<Fragment slot="controls">
+			<button class="term-play" type="button" data-term-play hidden>
+				<svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 3v10l8.5-5z" /></svg>
+				<svg class="i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 3h3v10H4zM9 3h3v10H9z" /></svg>
+				<span class="term-play-text">Play</span>
+			</button>
+			<span class="term-progress" aria-hidden="true"><i></i></span>
+		</Fragment>
+		<video
+			data-term
+			muted
+			loop
+			playsinline
+			preload="none"
+			poster={tape.png}
+			src={tape.mp4}
+			width={tape.width / 2}
+			height={tape.height / 2}
+			style={`--w: ${tape.width / 2}`}
+			aria-hidden="true"></video>
+	</TerminalFrame>
+	{hasCaption && <div class="term-caption"><slot /></div>}
+</div>
+
+<style>
+	.term-wrap {
+		margin-block: 1.5rem;
+	}
+	.term-wrap.compact {
+		margin: 0;
+	}
+	/* The video holds its own padding, so the screen is all video. */
+	.term-wrap :global(.term-screen) {
+		padding: 0;
+	}
+	video {
+		display: block;
+		width: 100%;
+		max-width: calc(var(--w) * 1px);
+		height: auto;
+		background: var(--term-bg);
+	}
+	.term-play {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		margin: 0 0 0 auto;
+		padding: 5px 10px;
+		background: none;
+		border: 0;
+		border-radius: 6px;
+		font: inherit;
+		color: var(--term-muted);
+		cursor: pointer;
+	}
+	.term-play:hover {
+		color: var(--term-fg);
+		background: rgba(255, 255, 255, 0.06);
+	}
+	.term-play[hidden] {
+		display: none;
+	}
+	.term-play svg {
+		width: 12px;
+		height: 12px;
+		fill: currentColor;
+	}
+	.term-play .i-pause,
+	.term-play[data-playing] .i-play {
+		display: none;
+	}
+	.term-play[data-playing] .i-pause {
+		display: block;
+	}
+	.term-progress {
+		position: absolute;
+		inset: auto 0 -1px 0;
+		height: 1px;
+		pointer-events: none;
+	}
+	.term-progress i {
+		display: block;
+		height: 100%;
+		background: rgba(255, 255, 255, 0.5);
+		transform: scaleX(0);
+		transform-origin: left;
+	}
+	.term-caption {
+		margin-top: 0.75rem;
+		max-width: 68ch;
+		color: var(--sl-color-gray-2);
+		font-size: var(--sl-text-sm);
+	}
+	.term-caption :global(p) {
+		margin: 0;
+	}
+
+	/* Phones: the video at 0.75 of its size, cut at the right. The transcript is the legible version. */
+	@media (max-width: 49.99rem) {
+		.term-wrap :global(.term-screen) {
+			padding: 0;
+		}
+		video {
+			width: calc(var(--w) * 0.75px);
+			max-width: none;
+		}
+		.term-play-text {
+			display: none;
+		}
+	}
+</style>
+
+<script>
+	// One observer for every recording on the page. The one the reader last
+	// pressed Play on, while half of it shows, plays. Otherwise the one most
+	// in view plays, the first on a tie. The others pause. With reduced
+	// motion nothing plays until the reader presses Play.
+	const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+	const seen = new Map<HTMLVideoElement, number>(); // in page order
+	let chosen: HTMLVideoElement | undefined; // the reader pressed Play
+	const stopped = new Set<HTMLVideoElement>(); // the reader pressed Pause
+
+	const frameOf = (v: HTMLVideoElement) => v.closest('.term') as HTMLElement;
+
+	function pick() {
+		let best = chosen && (seen.get(chosen) ?? 0) >= 0.5 ? chosen : undefined;
+		if (!best && !reduce.matches) {
+			let most = 0;
+			for (const [v, ratio] of seen) {
+				if (ratio >= 0.5 && ratio > most && !stopped.has(v)) {
+					best = v;
+					most = ratio;
+				}
+			}
+		}
+		for (const v of seen.keys()) if (v !== best && !v.paused) v.pause();
+		if (best?.paused) best.play().catch(() => {});
+	}
+
+	const io = new IntersectionObserver(
+		(entries) => {
+			for (const e of entries) seen.set(e.target as HTMLVideoElement, e.intersectionRatio);
+			pick();
+		},
+		{ threshold: [0, 0.25, 0.5, 0.75, 1] },
+	);
+
+	for (const v of document.querySelectorAll<HTMLVideoElement>('video[data-term]')) {
+		const frame = frameOf(v);
+		const button = frame.querySelector<HTMLButtonElement>('[data-term-play]')!;
+		const label = button.querySelector('.term-play-text')!;
+		const bar = frame.querySelector<HTMLElement>('.term-progress i')!;
+		button.hidden = false;
+		const show = () => {
+			const playing = !v.paused;
+			button.toggleAttribute('data-playing', playing);
+			label.textContent = playing ? 'Pause' : 'Play';
+			button.setAttribute('aria-label', playing ? 'Pause the recording' : 'Play the recording');
+		};
+		let raf = 0;
+		const tick = () => {
+			if (v.duration) bar.style.transform = `scaleX(${v.currentTime / v.duration})`;
+			raf = requestAnimationFrame(tick);
+		};
+		v.addEventListener('play', () => {
+			show();
+			raf = requestAnimationFrame(tick);
+		});
+		v.addEventListener('pause', () => {
+			show();
+			cancelAnimationFrame(raf);
+		});
+		button.addEventListener('click', () => {
+			if (v.paused) {
+				stopped.delete(v);
+				chosen = v;
+				for (const other of seen.keys()) if (other !== v) other.pause();
+				v.play().catch(() => {});
+			} else {
+				if (chosen === v) chosen = undefined;
+				stopped.add(v);
+				v.pause();
+			}
+		});
+		show();
+		seen.set(v, 0); // so the map is in page order
+		io.observe(v);
+	}
+	reduce.addEventListener('change', pick);
+</script>

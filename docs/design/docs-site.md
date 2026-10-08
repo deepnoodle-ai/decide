@@ -127,19 +127,26 @@ A recording is a VHS tape. VHS types commands into a real shell and
 writes video and still images.
 
 ```
-# site/tapes/triage-issues.tape
-Source site/tapes/settings.tape     # size, font, typing speed; record.sh adds the theme
+# site/tapes/start-diff.tape
+Set Height 988                       # 24 rows; settings.tape sets the rest
 Hide
-Type "cd $(mktemp -d) && ln -s $REPO decide" Enter     # stands in for the clone
-Type "sh decide/demo/setup.sh shop >/dev/null && cd shop && clear" Enter
+Type "sh $REPO/demo/setup.sh shop >/dev/null && cd shop && clear" Enter
+Wait
 Show
-Type "decide run task-readiness ../decide/demo/issues.json" Sleep 500ms Enter
-Sleep 6s
-Screenshot triage-issues.png
+Type "git diff | decide run code-risk" Sleep 500ms Enter
+Wait                                 # until the prompt comes back
+Sleep 3s                             # the loop holds the last frame
 ```
 
+A tape holds only its own `Set` lines and commands. `record.sh` puts
+`settings.tape` and the theme before them, and a hidden step that starts
+in an empty folder with an empty `DECIDE_HOME`, so no answer comes from
+the cache.
+
 Each tape writes an MP4, a PNG still of its last frame, and a text
-transcript of that frame. Their names carry a hash:
+transcript. A tape can clear the screen between scenes, as the landing
+tape does for its three commands; the transcript then holds the last frame
+of each scene. Their names carry a hash:
 `decide/site/<tape>-<hash>.mp4`, `.png` and `.txt` in the R2 bucket
 `deepnoodle-public`, which serves `files.deepnoodle.ai`. The hash is the
 first 12 hex digits of the SHA-256
@@ -152,20 +159,27 @@ properties:
 - A changed tape gets a new URL, so a preview never overwrites the media
   that the live site uses.
 - A new release changes every hash. The changelog pull request then fails
-  the recorded check until a maintainer runs `record.sh --all`, so a
-  release can't ship with recordings from the release before (R-4).
+  to build until a maintainer runs `record.sh`, so a release can't ship
+  with recordings from the release before (R-4).
 - No manifest. `Terminal.astro` reads the tape at build time, computes the
   same hash, and builds the URLs.
-- "Is this recorded?" is an HTTP HEAD request.
+- "Is this recorded?" is one HTTP request.
 - Browsers and the CDN can cache each file forever.
 
-`site/scripts/record.sh [--all] [tape...]` builds decide for Linux from
+`site/scripts/record.sh [--local] [tape...]` builds decide for Linux from
 the working tree and records each tape whose files are missing from R2.
+It never replaces an uploaded file, since browsers and the CDN cache it
+for a year. It uploads a recording only if the transcript has no `Error:`
+line and has each `# Expect:` line of the tape, such as `# Expect: !
+severe`, so a caption's claim can't silently go wrong.
 It runs VHS in its pinned Docker image (`ghcr.io/charmbracelet/vhs`),
-with the repository mounted, decide on `PATH`, and `REPO` set, so every
-recording has the same fonts on any machine. It adds the theme from
-`theme.json`, and re-muxes each MP4 with `-movflags +faststart` so it
-plays while it downloads. Then it uploads them with
+plus `git` for the demo, with the repository mounted, decide on `PATH`,
+and `REPO` set, so every recording has the same fonts on any machine. It
+adds the theme from `theme.json`. It encodes each MP4 again with tagged
+BT.709 color and `-movflags +faststart`, so it plays while it downloads,
+and takes the poster from the last frame. `record.sh --local` keeps the
+files in `site/tapes/out` instead, and `DECIDE_MEDIA` points a local
+build at them. Then it uploads them with
 `wrangler r2 object put`. A maintainer runs it with their own
 `TYPESAFE_API_KEY` and a Cloudflare login that can write to the bucket.
 CI never records, so CI holds no provider key and no R2 write access.
@@ -208,9 +222,9 @@ the same tape as the site's hero.
   set. Exit 0 and 2 pass. Exit 1, or `unknown flag` on stderr, fails and
   names the tape. It joins `TestDemo` in `go test ./...`, so a CLI change
   that breaks a tutorial fails in the pull request that makes it (R-5).
-- **Tapes parse:** `vhs validate site/tapes/*.tape`.
-- **Every tape is recorded:** a step that does a HEAD request for each
-  tape's URLs. If one is missing, it prints the `record.sh` command to run.
+- **Tapes parse:** `vhs validate site/tapes/*.tape`, in the same image.
+- **Every tape is recorded:** the build fetches each transcript. If one is
+  missing, the build fails and prints the `record.sh` command to run.
 - **Site builds:** `npm ci`, `astro check`, `astro build`, and Starlight's
   link checker for internal links.
 
@@ -369,9 +383,9 @@ decision, with its upgrade cost written down.
   tape is 1440×840 at `FontSize 28` (85×22 cells) and shows at 720px.
   The landing tape is 1160×644 (69×17 cells). The two sizes are two
   settings files.
-- **Written for the last frame.** The last frame is the poster, the
-  still for reduced motion and the transcript, so it must show what the
-  caption claims. A step that prints more than 22 rows records less.
+- **Written for the last frame.** The last frame is the poster and the
+  still for reduced motion, and ends the transcript, so it must show what
+  the caption claims. The landing tape ends on a flagged command. A step that prints more than 22 rows records less.
 - **Smaller files.** `Framerate 30` and `CursorBlink false`. Typing
   doesn't need 50 frames a second, and a blinking cursor changes every
   frame.
@@ -441,7 +455,7 @@ phone before the merge.
   the next tag. That is the cost of R-2.
 - Recordings show what the model said on the day they were made. Between
   releases, a model update can make a recording differ from a new run.
-- Each release adds a manual step: `record.sh --all`, a few minutes and
+- Each release adds a manual step: `record.sh`, a few minutes and
   one provider call per item per tape.
 - Pull requests that change tapes, from forks or not, need a maintainer to
   record them.
@@ -458,7 +472,7 @@ phone before the merge.
       still, `/start/`, `/start/go/`, `/start/answers/`, the 404 page and
       the workflow.
    2. Recordings: the tapes, `record.sh`, the `Terminal` player,
-      transcripts, the tape test and the recorded check.
+      transcripts and the tape test.
    3. Content: the tutorials, the reference and recipes moved from
       `docs/`, link previews, and the README, AGENTS.md and changelog.
    A design review covers each, with screenshots in light, dark and
