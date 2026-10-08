@@ -67,6 +67,17 @@ func TestTapes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Read the runner's caches before each tape gets an isolated home.
+	goEnv := exec.Command("go", "env", "GOMODCACHE", "GOCACHE")
+	goEnv.Dir = repo
+	out, err := goEnv.Output()
+	if err != nil {
+		t.Fatalf("go env: %v", err)
+	}
+	caches := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(caches) != 2 || caches[0] == "" || caches[1] == "" {
+		t.Fatalf("go env returned invalid cache paths: %q", out)
+	}
 	tapes, err := filepath.Glob(filepath.Join(repo, "site", "tapes", "*.tape"))
 	if err != nil {
 		t.Fatal(err)
@@ -111,6 +122,10 @@ func TestTapes(t *testing.T) {
 				"PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
 				"HOME="+t.TempDir(),
 				"DECIDE_HOME="+t.TempDir(),
+				"GOMODCACHE="+caches[0],
+				"GOCACHE="+caches[1],
+				"GOPROXY=off",
+				"GOSUMDB=off",
 				"REPO="+repo,
 				"TYPESAFE_API_KEY=test-key-00000000",
 				"TYPESAFE_BASE_URL="+server.URL,
