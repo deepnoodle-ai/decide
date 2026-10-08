@@ -6,8 +6,8 @@
 interface Props {
 	/** The line the reader sees when it works, such as an exit message. */
 	answer: string;
-	/** flag: the line is red, as a refusal or a flag. pass: green. */
-	tone?: 'flag' | 'pass';
+	/** flag: red. pass: green. neutral: a policy outcome without a verdict. */
+	tone?: 'flag' | 'pass' | 'neutral';
 }
 const { answer, tone = 'flag' } = Astro.props;
 ---
@@ -92,6 +92,9 @@ const { answer, tone = 'flag' } = Astro.props;
 	}
 	.answer.pass code {
 		color: #5fd38d;
+	}
+	.answer.neutral code {
+		color: var(--term-fg);
 	}
 	@media (max-width: 799px) {
 		.goal {

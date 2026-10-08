@@ -20,14 +20,14 @@ allow it, ask a person to review it, or escalate because the request is
 unclear. The model answers a typed question; your Go policy makes that
 decision.
 
-<Goal answer="action  allow / review / escalate">
+<Goal answer="action  allow / review / escalate" tone="neutral">
 <Fragment slot="end">
 A runnable Go program that prints a policy outcome and its reason. It
 evaluates a proposed action without executing it.
 </Fragment>
 <Fragment slot="need">
 - Go 1.27 or later
-- A [provider key](/start/#get-a-key) in your shell
+- A TypeSafe key set as `TYPESAFE_API_KEY`: [get one](/start/#get-a-key)
 </Fragment>
 </Goal>
 
@@ -46,7 +46,7 @@ evaluates a proposed action without executing it.
    Save this as `main.go`. It is the repository's runnable `gate` example,
    included directly so the tutorial and the compiled program stay in step:
 
-   <Code code={gate} lang="go" title="main.go" />
+   <Code code={gate} lang="go" title="main.go" meta={`collapse={1-${gate.split('\n').length}}`} />
 
    `decide.Choice` offers three named options. `none` means the requested
    action is unclear or the proposed operation does not match it. It is a
@@ -58,12 +58,15 @@ evaluates a proposed action without executing it.
 
 3. ## Read the policy
 
-   `gate.Asymmetric` uses the probability of the chosen option:
+   The example sets `Measure: gate.MeasureConfidence`, so `gate.Asymmetric`
+   uses the API's reported **confidence**, from 0 to 1. This is a separate
+   field from the chosen option's probability; the policy compares
+   confidence against these thresholds:
 
    | Chosen option | Outcome |
    | --- | --- |
-   | `read_file` | allow at 60% or more; below that, escalate |
-   | `delete_file` | allow at 85% or more; review from 60% to below 85%; otherwise escalate |
+   | `read_file` | allow at confidence 0.60 or more; below that, escalate |
+   | `delete_file` | allow at confidence 0.85 or more; review from 0.60 to below 0.85; otherwise escalate |
    | `none` | always escalate |
 
    These thresholds demonstrate a policy; they are not measured safety
@@ -72,6 +75,12 @@ evaluates a proposed action without executing it.
    permission: apply your application's authorization checks too.
 
 4. ## Run it
+
+   This program's `decide.NewClient` reads `TYPESAFE_API_KEY` and uses Jev.
+   For Cloudflare or OpenAI, first replace that client construction with
+   [backend.NewClient](https://pkg.go.dev/github.com/deepnoodle-ai/decide/backend)
+   configured for your provider. Setting `DECIDE_PROVIDER` alone does not
+   change the root Go client's provider.
 
    <Terminal tape="go-gate" title="~/gate" label="The Go gate example prints an outcome and its reason">
    The program prints **allow**, **review**, or **escalate**, followed by
@@ -93,8 +102,6 @@ each outcome does, such as queueing a review, requesting clarification, or
 calling an authorized operation. Keep those actions separate from model
 output, and preserve the response and policy reason when you need evidence.
 
-`decide.NewClient` reads `TYPESAFE_API_KEY`. For Cloudflare or OpenAI, create
-the client with [backend.NewClient](https://pkg.go.dev/github.com/deepnoodle-ai/decide/backend).
 Use [decidetest](https://pkg.go.dev/github.com/deepnoodle-ai/decide/decidetest)
 to test each outcome and failures without a live provider.
 
