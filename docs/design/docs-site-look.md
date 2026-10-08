@@ -217,9 +217,8 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 - **The frame is compact:** no commands strip and no "Output as text"
   disclosure, since the screen shows the command. The transcript is there for
   screen readers.
-- **The CLI's footer** (`Flagged:`, `Saved as run`, `See these results again
-  with:`) is still noise here. Calmer run output is a follow-up in the CLI,
-  and it should land before the recordings.
+- **The CLI's footer** is one line for a one-item run: `See these results
+  again with: decide runs view <id>`. The landing page's still image leaves it out.
 - **Hidden setup:** start with an empty answer cache, or the second recording
   prints `answers from cache`.
 - **The README GIF:** the same tape adds `Output landing.gif`, so the README's

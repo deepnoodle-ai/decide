@@ -1,8 +1,7 @@
 ---
 // The landing page's terminal, as text, until the landing recording
 // replaces it. A real run: Jev on one command an agent might run. The run's
-// last three lines (Flagged:, Saved as run, See these results again with:)
-// are left out until the CLI prints a calmer footer.
+// last line, which tells how to see the results again, is left out.
 import TerminalFrame from './TerminalFrame.astro';
 
 const transcript = "echo 'git push --force origin main' | decide run command-risk\nRunning command-risk on 1 line · typesafe jev-latest\n\nstdin:1  git push --force origin main\n! destructive  yes     95%\n  external     yes     97%\n  leak         no      62%\n! severe       yes     90%\n\n✓ 1 answered  ! 1 flagged  200ms";

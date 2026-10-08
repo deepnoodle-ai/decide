@@ -70,6 +70,15 @@ func contains(t *testing.T, got string, wants ...string) {
 	}
 }
 
+func lacks(t *testing.T, got string, unwanted ...string) {
+	t.Helper()
+	for _, u := range unwanted {
+		if strings.Contains(got, u) {
+			t.Errorf("output has %q:\n%s", u, got)
+		}
+	}
+}
+
 func TestOverview(t *testing.T) {
 	h := setup(t)
 	out := h.run("")
@@ -269,7 +278,9 @@ func TestFlaggedAnswers(t *testing.T) {
 	contains(t, out.stdout,
 		"! risk             yes           88%\n",
 		"  maintainability  ━━━━━━━━━━──  3.3 of 4  3\n")
-	contains(t, out.stderr, "! 1 flagged", "Flagged: src/a.go")
+	contains(t, out.stderr, "! 1 flagged", "See these results again with: decide runs view ")
+	// One item: the counts say which, and the command names the run.
+	lacks(t, out.stderr, "Flagged:", "Saved as run")
 
 	h.server.Answer("risk", decidetest.NoulAnswer(0.5))
 	out = h.run("", "run", "code-risk", "src", "--no-cache")
@@ -460,12 +471,14 @@ func TestLargeFilesAreJudgedInParts(t *testing.T) {
 	}
 	// One answer for the file: flagged, because one part is.
 	contains(t, out.stdout, "src/a.go  judged in 3 parts\n", "! risk             yes           90%  lines 3\n")
-	contains(t, out.stderr, "Running code-risk on 1 file (1 judged in parts, 3 requests)", "✓ 1 answered  ! 1 flagged", "Flagged: src/a.go")
+	contains(t, out.stderr, "Running code-risk on 1 file (1 judged in parts, 3 requests)", "✓ 1 answered  ! 1 flagged")
 	if strings.Count(out.stdout, "src/a.go") != 1 {
 		t.Fatalf("the parts printed separately:\n%s", out.stdout)
 	}
 	out = h.run("", "runs", "view")
 	contains(t, out.stdout, "src/a.go  judged in 3 parts\n", "lines 3")
+	// The reader just ran the command that would see it again.
+	lacks(t, out.stderr, "See these results again")
 }
 
 func TestResumeCombinesNewAndSavedParts(t *testing.T) {

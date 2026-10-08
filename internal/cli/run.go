@@ -379,7 +379,8 @@ func marked(run *runs.Run) map[string]int {
 }
 
 // summarize prints a run's summary and returns how many items were
-// "flagged" and "matched".
+// "flagged" and "matched". With no elapsed time, as in runs view, it leaves
+// out the command to see the run again, which the reader just ran.
 func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) map[string]int {
 	m := marksOf(run.Template)
 	var flaggedItems, matchedItems []string
@@ -424,15 +425,20 @@ func summarize(w io.Writer, run *runs.Run, elapsed time.Duration) map[string]int
 		fmt.Fprintf(w, "  %s\n", dim(fmt.Sprintf("%s from cache · %d asked",
 			humanize.PluralWord(fromCache, "answer", "answers"), answers-fromCache)))
 	}
-	list(w, "Flagged:", flaggedItems)
-	list(w, "Matched:", matchedItems)
-	fmt.Fprintf(w, "%s %s\n", dim("Saved as run"), run.ID)
+	if total > 1 { // with one item, the counts already say which
+		list(w, "Flagged:", flaggedItems)
+		list(w, "Matched:", matchedItems)
+	}
+	// The command names the run, so no line of its own says it was saved.
 	switch run.Status {
 	case runs.Interrupted:
 		fmt.Fprintf(w, "%s decide runs resume %s\n", dim("Stopped early. Continue with:"), run.ID)
 	case runs.Partial:
 		fmt.Fprintf(w, "%s decide runs resume %s\n", dim("Retry the failed items with:"), run.ID)
 	default:
+		if elapsed == 0 {
+			break
+		}
 		fmt.Fprintf(w, "%s decide runs view %s\n", dim("See these results again with:"), run.ID)
 	}
 	return map[string]int{"flagged": len(flaggedItems), "matched": len(matchedItems)}

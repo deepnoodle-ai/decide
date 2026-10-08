@@ -47,8 +47,8 @@ packages that serve requests.
 
 Run the same command without `--dry-run`, and without `2>/dev/null` or
 `grep`, sending only its results away: `decide run security . <the same
-flags> > /dev/null`. Its last lines name the run, as in `Saved as run
-20261005-001926-0b03`; use that ID below. If it exits with code 1, some
+flags> > /dev/null`. Its summary ends with a command that names the run, as in `decide runs
+view 20261005-001926-0b03`; use that ID below. If it exits with code 1, some
 functions failed: run `decide runs resume <run ID> > /dev/null`, once or
 twice, until it exits 0.
 
