@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/decidetest"
 )
 
@@ -53,7 +55,7 @@ func TestTapeCommands(t *testing.T) {
 
 // TestTapes runs each site recording's commands against a fake server, so
 // a CLI change that breaks a page of the docs site fails here. Exit codes 0
-// and 2 pass; 2 means something was flagged.
+// and 2 pass; the refund tape must flag exactly one ticket and exit 2.
 func TestTapes(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds decide")
@@ -101,6 +103,23 @@ func TestTapes(t *testing.T) {
 			continue
 		}
 		t.Run(name, func(t *testing.T) {
+			tapeServer := server
+			if name == "template-run" {
+				tapeServer = decidetest.NewServer(t)
+				tapeServer.Respond(func(req *decide.Request) (*decide.Response, error) {
+					state, err := json.Marshal(req.State)
+					if err != nil {
+						return nil, err
+					}
+					p := 0.05
+					if strings.Contains(string(state), "charged twice") {
+						p = 0.95
+					}
+					return &decide.Response{Answers: map[string]decide.Answer{
+						"needs_refund": decidetest.NoulAnswer(p),
+					}}, nil
+				})
+			}
 			tape, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatal(err)
@@ -113,8 +132,16 @@ func TestTapes(t *testing.T) {
 			// script on any exit code but 0 and 2.
 			var script strings.Builder
 			script.WriteString("clear() { :; }\n")
+			flaggedRuns := 0
 			for i, c := range commands {
 				fmt.Fprintf(&script, "%s\ns=$?\nif [ $s -ne 0 ] && [ $s -ne 2 ]; then echo \"command %d exited $s\" >&2; exit 1; fi\n", c, i+1)
+				if name == "template-run" && strings.HasPrefix(c, "decide run ") {
+					flaggedRuns++
+					fmt.Fprintf(&script, "if [ $s -ne 2 ]; then echo \"command %d exited $s, want 2\" >&2; exit 1; fi\n(exit \"$s\")\n", i+1)
+				}
+			}
+			if name == "template-run" && flaggedRuns != 1 {
+				t.Fatalf("refund tape has %d run commands, want 1", flaggedRuns)
 			}
 			cmd := exec.Command("sh", "-c", script.String())
 			cmd.Dir = t.TempDir()
@@ -128,15 +155,20 @@ func TestTapes(t *testing.T) {
 				"GOSUMDB=off",
 				"REPO="+repo,
 				"TYPESAFE_API_KEY=test-key-00000000",
-				"TYPESAFE_BASE_URL="+server.URL,
+				"TYPESAFE_BASE_URL="+tapeServer.URL,
 			)
-			var stderr bytes.Buffer
-			cmd.Stdout = new(bytes.Buffer)
+			var stdout, stderr bytes.Buffer
+			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
 			err = cmd.Run()
 			if err != nil || strings.Contains(stderr.String(), "unknown flag") {
 				t.Fatalf("site/tapes/%s.tape: %v\ncommands:\n  %s\nstderr:\n%s",
 					name, err, strings.Join(commands, "\n  "), stderr.String())
+			}
+			if name == "template-run" {
+				if !strings.Contains(stderr.String(), "! 1 flagged") || !strings.Contains(stdout.String(), "exit=2") {
+					t.Fatalf("refund tape must flag one ticket and print exit=2\nstdout:\n%s\nstderr:\n%s", &stdout, &stderr)
+				}
 			}
 		})
 	}
