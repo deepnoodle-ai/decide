@@ -62,6 +62,7 @@ export default defineConfig({
 						{ label: 'Triage new issues', link: '/tutorials/triage-issues/' },
 						{ label: 'Review pull requests', link: '/tutorials/review-pull-requests/' },
 						{ label: 'Find security bugs', link: '/tutorials/find-security-bugs/' },
+						{ label: 'Decide from Go', link: '/tutorials/decide-from-go/' },
 					],
 				},
 				{

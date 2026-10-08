@@ -8,6 +8,8 @@ may change the library API and the CLI.
 
 ### Added
 
+- **Go tutorial.** Turn a typed answer into allow, review, or escalate
+  with a policy that stays in your code.
 - **Security tutorial.** Rank the demo's functions with `security`, then
   confirm candidates with Claude Code's `/decide:audit`.
 - **Docs for agents.** `llms.txt`, Markdown reference pages, and a guide to

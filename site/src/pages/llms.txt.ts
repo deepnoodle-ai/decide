@@ -27,6 +27,7 @@ export const GET: APIRoute = async ({ site }) => {
 		`- [Triage issues](${new URL('/tutorials/triage-issues/', site).href}): Label issues that are not ready.`,
 		`- [Review pull requests](${new URL('/tutorials/review-pull-requests/', site).href}): Annotate and gate a diff.`,
 		`- [Find security bugs](${new URL('/tutorials/find-security-bugs/', site).href}): Rank functions and confirm candidates with Claude Code.`,
+		`- [Decide from Go](${new URL('/tutorials/decide-from-go/', site).href}): Apply an allow, review, or escalate policy.`,
 		'',
 		'## Go and examples',
 		'',
