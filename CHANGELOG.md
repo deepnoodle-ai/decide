@@ -6,6 +6,11 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-08
+
+decide runs on OpenAI's Decisions API, its built-in templates work from Go,
+and its guides live on a documentation site.
+
 ### Added
 
 - **OpenAI's Decisions API.** `--provider openai` runs templates on
@@ -115,7 +120,8 @@ answers with probabilities, from the command line or from Go.
 - **Install** with `brew install deepnoodle-ai/tap/decide`, or download a
   binary with checksums.
 
-[Unreleased]: https://github.com/deepnoodle-ai/decide/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/deepnoodle-ai/decide/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/deepnoodle-ai/decide/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/deepnoodle-ai/decide/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/deepnoodle-ai/decide/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/deepnoodle-ai/decide/compare/v0.1.0...v0.2.0

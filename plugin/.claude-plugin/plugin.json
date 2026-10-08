@@ -1,6 +1,6 @@
 {
   "name": "decide",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A second opinion for Claude from decide: it checks content from outside before Claude acts on it and, in bypass mode, shell commands before they run, and gives Claude a judge tool for typed questions.",
   "author": {
     "name": "Deep Noodle"
