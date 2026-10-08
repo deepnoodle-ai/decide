@@ -1,10 +1,17 @@
 #!/bin/sh
 # Records the site's terminal recordings and uploads them to R2.
 #
-#   site/scripts/record.sh                 record each tape that is not uploaded yet
-#   site/scripts/record.sh landing         record these tapes, uploaded or not
-#   site/scripts/record.sh --all           record every tape
+#   site/scripts/record.sh                 record and upload each tape not uploaded yet
+#   site/scripts/record.sh landing         only these tapes
 #   site/scripts/record.sh --local landing record into site/tapes/out, to try with DECIDE_MEDIA
+#
+# An uploaded file is cached for a year and never replaced. To record a tape
+# again, change it; a comment is enough. The hash leaves out this script, so
+# a change to the hidden setup or the encoding below waits for the next
+# release, or for a change to each tape.
+#
+# A recording uploads only if its last frame has every "# Expect:" line of
+# its tape, and no "Error:" line.
 #
 # Each tape in site/tapes becomes <tape>-<hash>.mp4, .png and .txt (and any
 # GIF the tape asks for) under decide/site/ in the deepnoodle-public bucket,
@@ -24,10 +31,9 @@ bucket=deepnoodle-public/decide/site
 : "${CLOUDFLARE_ACCOUNT_ID:=776aacf24c324e7bb825561ff1b47038}"
 export CLOUDFLARE_ACCOUNT_ID
 
-all=false local=false
+local=false
 while [ $# -gt 0 ]; do
 	case $1 in
-	--all) all=true ;;
 	--local) local=true ;;
 	-*) echo "unknown flag $1" >&2; exit 1 ;;
 	*) break ;;
@@ -49,13 +55,17 @@ if [ $# -gt 0 ]; then
 	names=$*
 else
 	names=$(cd "$tapes" && ls *.tape | sed 's/\.tape$//' | grep -v '^settings$')
-	if ! $all; then
-		missing=
-		for name in $names; do
-			curl -sfI "$base/$name-$(hash "$name").txt" >/dev/null || missing="$missing $name"
-		done
-		names=$missing
-	fi
+fi
+if ! $local; then
+	missing=
+	for name in $names; do
+		if curl -sfI "$base/$name-$(hash "$name").txt" >/dev/null; then
+			echo "$name is already uploaded. To record it again, change the tape."
+		else
+			missing="$missing $name"
+		fi
+	done
+	names=$missing
 fi
 if [ -z "$(echo $names)" ]; then
 	echo "Every tape is recorded."
@@ -106,6 +116,18 @@ for name in $names; do
 		awk '{ line[NR] = $0 } END { n = NR; while (n > 0 && line[n] ~ /^(\$ *)?$/) n--; for (i = 1; i <= n; i++) print line[i] }' \
 			> "$work/$name.last.txt"
 	mv "$work/$name.last.txt" "$work/$name.txt"
+	# A provider error or an answer that changed must not reach the site.
+	bad=
+	if grep -q '^Error:' "$work/$name.txt"; then bad="it shows an error"; fi
+	sed -n 's/^# Expect: //p' "$tape" > "$work/$name.expect"
+	while IFS= read -r want; do
+		grep -qF -- "$want" "$work/$name.txt" || bad="${bad:+$bad; }it lacks \"$want\""
+	done < "$work/$name.expect"
+	if [ -n "$bad" ]; then
+		echo "Not uploading $name: $bad. Its last frame:" >&2
+		cat "$work/$name.txt" >&2
+		exit 1
+	fi
 
 	for file in "$work/$name".*; do
 		ext=${file##*.}

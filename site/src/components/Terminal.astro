@@ -137,23 +137,26 @@ const hasCaption = Astro.slots.has('default');
 </style>
 
 <script>
-	// One observer for every recording on the page. The one most in view,
-	// if at least half of it shows, plays; the others pause. With reduced
+	// One observer for every recording on the page. The one the reader last
+	// pressed Play on, while half of it shows, plays. Otherwise the one most
+	// in view plays, the first on a tie. The others pause. With reduced
 	// motion nothing plays until the reader presses Play.
 	const reduce = matchMedia('(prefers-reduced-motion: reduce)');
-	const seen = new Map<HTMLVideoElement, number>();
-	const chosen = new Set<HTMLVideoElement>(); // the reader pressed Play
+	const seen = new Map<HTMLVideoElement, number>(); // in page order
+	let chosen: HTMLVideoElement | undefined; // the reader pressed Play
 	const stopped = new Set<HTMLVideoElement>(); // the reader pressed Pause
 
 	const frameOf = (v: HTMLVideoElement) => v.closest('.term') as HTMLElement;
 
 	function pick() {
-		let best: HTMLVideoElement | undefined;
-		let most = 0.5;
-		for (const [v, ratio] of seen) {
-			if (ratio >= most && !stopped.has(v) && (chosen.has(v) || !reduce.matches)) {
-				best = v;
-				most = ratio;
+		let best = chosen && (seen.get(chosen) ?? 0) >= 0.5 ? chosen : undefined;
+		if (!best && !reduce.matches) {
+			let most = 0;
+			for (const [v, ratio] of seen) {
+				if (ratio >= 0.5 && ratio > most && !stopped.has(v)) {
+					best = v;
+					most = ratio;
+				}
 			}
 		}
 		for (const v of seen.keys()) if (v !== best && !v.paused) v.pause();
@@ -196,16 +199,17 @@ const hasCaption = Astro.slots.has('default');
 		button.addEventListener('click', () => {
 			if (v.paused) {
 				stopped.delete(v);
-				chosen.add(v);
+				chosen = v;
 				for (const other of seen.keys()) if (other !== v) other.pause();
 				v.play().catch(() => {});
 			} else {
-				chosen.delete(v);
+				if (chosen === v) chosen = undefined;
 				stopped.add(v);
 				v.pause();
 			}
 		});
 		show();
+		seen.set(v, 0); // so the map is in page order
 		io.observe(v);
 	}
 	reduce.addEventListener('change', pick);

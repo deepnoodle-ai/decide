@@ -164,8 +164,12 @@ properties:
 - "Is this recorded?" is one HTTP request.
 - Browsers and the CDN can cache each file forever.
 
-`site/scripts/record.sh [--all] [tape...]` builds decide for Linux from
+`site/scripts/record.sh [--local] [tape...]` builds decide for Linux from
 the working tree and records each tape whose files are missing from R2.
+It never replaces an uploaded file, since browsers and the CDN cache it
+for a year. It uploads a recording only if the last frame has no `Error:`
+line and has each `# Expect:` line of the tape, such as `# Expect: !
+severe`, so a caption's claim can't silently go wrong.
 It runs VHS in its pinned Docker image (`ghcr.io/charmbracelet/vhs`),
 plus `git` for the demo, with the repository mounted, decide on `PATH`,
 and `REPO` set, so every recording has the same fonts on any machine. It
@@ -449,7 +453,7 @@ phone before the merge.
   the next tag. That is the cost of R-2.
 - Recordings show what the model said on the day they were made. Between
   releases, a model update can make a recording differ from a new run.
-- Each release adds a manual step: `record.sh --all`, a few minutes and
+- Each release adds a manual step: `record.sh`, a few minutes and
   one provider call per item per tape.
 - Pull requests that change tapes, from forks or not, need a maintainer to
   record them.

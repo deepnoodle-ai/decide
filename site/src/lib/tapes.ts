@@ -83,7 +83,7 @@ export async function transcript(name: string, tape: Tape): Promise<string> {
 	const res = await fetch(tape.txt);
 	if (!res.ok) {
 		throw new Error(
-			`The ${name} tape is not recorded (${res.status} for ${tape.txt}). Run: site/scripts/record.sh ${name}`,
+			`The ${name} tape is not recorded (${res.status} for ${tape.txt}). Run: site/scripts/record.sh`,
 		);
 	}
 	return (await res.text()).replace(/\s+$/, '');

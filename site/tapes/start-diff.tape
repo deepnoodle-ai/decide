@@ -7,3 +7,7 @@ Show
 Type "git diff | decide run code-risk" Sleep 500ms Enter
 Wait
 Sleep 3s
+# Expect: Flagged: billing/refund.go
+# Expect: ✓ 4 answered
+# Expect: ! risk
+# Expect: ! maintainability
