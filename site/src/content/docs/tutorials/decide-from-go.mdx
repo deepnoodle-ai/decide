@@ -1,0 +1,106 @@
+---
+title: Make a decision from Go
+description: Ask which action a user requested, then choose allow, review, or escalate with a policy you own.
+tableOfContents: false
+answer: "action  allow / review / escalate"
+---
+
+import { Steps, Code, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import Goal from '../../../components/Goal.astro';
+import Terminal from '../../../components/Terminal.astro';
+import source from '../../../../../examples/gate/main.go?raw';
+export const gate = (() => {
+	const line = '//\n//\tTYPESAFE_API_KEY=... go run ./examples/gate\n';
+	if (!source.includes(line)) throw new Error('examples/gate/main.go changed: update the tutorial run comment');
+	return source.replace(line, '');
+})();
+
+An agent proposes a file operation. You need a decision about whether to
+allow it, ask a person to review it, or escalate because the request is
+unclear. The model answers a typed question; your Go policy makes that
+decision.
+
+<Goal answer="action  allow / review / escalate">
+<Fragment slot="end">
+A runnable Go program that prints a policy outcome and its reason. It
+evaluates a proposed action without executing it.
+</Fragment>
+<Fragment slot="need">
+- Go 1.27 or later
+- A [provider key](/start/#get-a-key) in your shell
+</Fragment>
+</Goal>
+
+<Steps>
+
+1. ## Create a module
+
+   ```sh
+   mkdir gate && cd gate
+   go mod init example.com/gate
+   go get github.com/deepnoodle-ai/decide
+   ```
+
+2. ## Ask what the user requested
+
+   Save this as `main.go`. It is the repository's runnable `gate` example,
+   included directly so the tutorial and the compiled program stay in step:
+
+   <Code code={gate} lang="go" title="main.go" />
+
+   `decide.Choice` offers three named options. `none` means the requested
+   action is unclear or the proposed operation does not match it. It is a
+   real answer, so the policy can escalate it rather than guessing.
+
+   The model sees the user's words and the proposed call together. The
+   `context.Context` travels with the network request. If the request fails,
+   a missing response escalates instead of allowing the operation.
+
+3. ## Read the policy
+
+   `gate.Asymmetric` uses the probability of the chosen option:
+
+   | Chosen option | Outcome |
+   | --- | --- |
+   | `read_file` | allow at 60% or more; below that, escalate |
+   | `delete_file` | allow at 85% or more; review from 60% to below 85%; otherwise escalate |
+   | `none` | always escalate |
+
+   These thresholds demonstrate a policy; they are not measured safety
+   guarantees. Use labeled examples from your own traffic to choose them,
+   and check them on held-out examples. A model's answer does not grant
+   permission: apply your application's authorization checks too.
+
+4. ## Run it
+
+   <Terminal tape="go-gate" title="~/gate" label="The Go gate example prints an outcome and its reason">
+   The program prints **allow**, **review**, or **escalate**, followed by
+   the reason. The request to “clean up the drafts” is ambiguous, so your
+   model may decline to choose a file operation. The exact outcome can vary.
+   </Terminal>
+
+   Change the request to a clear instruction such as “Show me the contents
+   of drafts/final.txt,” and change the proposed operation to `read_file`.
+   Run it again. The policy stays in your code while the model answers the
+   new question.
+
+</Steps>
+
+## Put it in your application
+
+The example stops at printing the decision. Your application decides what
+each outcome does, such as queueing a review, requesting clarification, or
+calling an authorized operation. Keep those actions separate from model
+output, and preserve the response and policy reason when you need evidence.
+
+`decide.NewClient` reads `TYPESAFE_API_KEY`. For Cloudflare or OpenAI, create
+the client with [backend.NewClient](https://pkg.go.dev/github.com/deepnoodle-ai/decide/backend).
+Use [decidetest](https://pkg.go.dev/github.com/deepnoodle-ai/decide/decidetest)
+to test each outcome and failures without a live provider.
+
+## What next
+
+<CardGrid>
+<LinkCard title="Calibrate a threshold" description="Fit a cutoff on labeled cases and test it on held-out examples." href="https://github.com/deepnoodle-ai/decide/tree/main/examples/calibrate" />
+<LinkCard title="Gate an agent command" description="The same boundary, applied from a shell script." href="/tutorials/check-agent-commands/" />
+</CardGrid>
