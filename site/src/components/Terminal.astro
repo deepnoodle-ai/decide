@@ -15,15 +15,18 @@ interface Props {
 	label: string;
 	/** No commands strip and no disclosure, as on the landing page. */
 	compact?: boolean;
+	/** The three window buttons before the title. */
+	lights?: boolean;
 }
-const { tape: name, title, label, compact = false } = Astro.props;
+const { tape: name, title, label, compact = false, lights = false } = Astro.props;
 const tape = loadTape(name);
 const text = await transcript(name, tape);
 const hasCaption = Astro.slots.has('default');
 ---
 
 <div class:list={['term-wrap', { compact }]}>
-	<TerminalFrame title={title} label={label} commands={tape.commands} transcript={text} cols={tape.cols} compact={compact}>
+	<TerminalFrame title={title} label={label} commands={tape.commands} transcript={text} cols={tape.cols} compact={compact} lights={lights}>
+		<Fragment slot="tabs"><slot name="tabs" /></Fragment>
 		<Fragment slot="controls">
 			<button class="term-play" type="button" data-term-play hidden>
 				<svg class="i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 3v10l8.5-5z" /></svg>

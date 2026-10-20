@@ -1,0 +1,116 @@
+---
+// The landing page's last band: one more command, the quickstart, and the
+// source. Drool sits large and faint at the right, cropped by the band, so
+// he reads as texture. He is hidden on narrow screens, where he would sit
+// under the text.
+import CopyButton from './CopyButton.astro';
+import Doodle from './Doodle.astro';
+
+const command = 'brew install deepnoodle-ai/tap/decide';
+---
+
+<section class="closing not-content">
+	<div class="in">
+		<h2>Get your first answer in five minutes.</h2>
+		<p>Install it, set your key, and point it at a file. No prompt to write.</p>
+		<div class="cmd">
+			<pre><span class="pr">$ </span>{command}</pre>
+			<CopyButton text={command} />
+		</div>
+		<div class="actions">
+			<a class="btn" href="/start/">Quickstart →</a>
+			<a class="btn ghost" href="https://github.com/deepnoodle-ai/decide">Read the source</a>
+		</div>
+	</div>
+	<div class="mark"><Doodle size={480} /></div>
+</section>
+
+<style>
+	.closing {
+		position: relative;
+		overflow: hidden;
+		margin-top: clamp(96px, 12vw, 144px);
+		padding-block: clamp(72px, 9vw, 104px);
+		border-top: 1px solid var(--sl-color-hairline);
+	}
+	.in {
+		position: relative;
+		z-index: 1;
+		max-width: 34rem;
+	}
+	h2 {
+		max-width: 18ch;
+		margin: 0;
+		font-size: clamp(28px, 3.8vw, 44px);
+		font-weight: 500;
+		line-height: 1.1;
+		letter-spacing: -0.03em;
+		color: var(--sl-color-white);
+		text-wrap: balance;
+	}
+	p {
+		max-width: 40ch;
+		margin: 16px 0 0;
+		color: var(--sl-color-gray-3);
+	}
+	.cmd {
+		display: inline-flex;
+		align-items: center;
+		gap: 14px;
+		max-width: 100%;
+		margin-top: 32px;
+		padding: 10px 10px 10px 18px;
+		border: 1px solid var(--sl-color-gray-4);
+	}
+	.cmd pre {
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		background: none;
+		border: 0;
+		font: 400 14px/1.5 var(--sl-font-mono);
+		color: var(--sl-color-white);
+		white-space: pre;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+	.pr {
+		color: var(--sl-color-gray-4);
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+		margin-top: 22px;
+	}
+	.btn {
+		display: inline-block;
+		padding: 11px 18px;
+		border: 1px solid var(--sl-color-white);
+		background: var(--sl-color-white);
+		font: 500 13px/1 var(--sl-font-mono);
+		color: var(--sl-color-black);
+		text-decoration: none;
+	}
+	.btn:hover,
+	.btn.ghost {
+		background: transparent;
+		color: var(--sl-color-white);
+	}
+	.btn.ghost:hover {
+		background: var(--sl-color-white);
+		color: var(--sl-color-black);
+	}
+	.mark {
+		position: absolute;
+		right: -70px;
+		bottom: -180px;
+		color: var(--sl-color-gray-5);
+		pointer-events: none;
+	}
+	@media (max-width: 860px) {
+		.mark {
+			display: none;
+		}
+	}
+</style>
