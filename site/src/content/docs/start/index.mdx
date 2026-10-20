@@ -10,7 +10,8 @@ import Terminal from '../../../components/Terminal.astro';
 
 You'll end with typed answers, each with its probability, about a change in
 your own repository. You need a terminal and an API key for one decision
-model. Step 2 says where to get one.
+model, a model that answers typed questions instead of writing text. Step 2
+says where to get one.
 
 <Steps>
 
@@ -39,7 +40,8 @@ model. Step 2 says where to get one.
 2. ## Get a key
 
    decide asks a decision model. Pick one provider and export its key. The
-   commands and templates are the same with all three.
+   commands and templates are the same with all three, except image
+   templates, which need Clef.
 
    <Tabs syncKey="provider">
    <TabItem label="Jev">
@@ -69,31 +71,39 @@ model. Step 2 says where to get one.
    </TabItem>
    </Tabs>
 
+   decide sends the text it asks about, such as your diff, to the provider
+   you chose, using your key.
+
+   No key yet? Add `--dry-run` to a `decide run` command to see what would
+   be asked, without calling the model.
+
 3. ## Ask about one line
 
-   Pipe in a line of text and run the built-in `sentiment` template:
+   Pipe in a line of text and run the built-in `sentiment` template. A
+   template is a named set of questions:
 
    <Terminal tape="start-line" title="~" label="decide answers positive about one line of text">
    **The answer is positive**, with its probability. The first line names your
    provider and model. Your percentage may differ a little.
    </Terminal>
 
-   Every run is saved, so `decide runs view` shows it again without asking
-   the model.
+   Each pass of a template over your data is a run, and every run is saved,
+   so `decide runs view` shows it again without asking the model.
 
 4. ## Ask about your own changes
 
-   In a git repository with uncommitted changes, judge each changed file:
+   In a git repository with unstaged changes, judge each changed file:
 
    <Terminal tape="start-diff" title="~/shop" label="decide flags billing/refund.go on risk and maintainability">
-   **`billing/refund.go` is flagged** on risk and maintainability, in the
-   demo's shop repository. Your own files get the same two questions.
+   **`billing/refund.go` is flagged**, which means it needs attention, on risk
+   and maintainability, in the demo's shop repository. Your own files get the same two questions.
    </Terminal>
 
    `code-risk` asks whether each file could cause security or data
    problems, and how maintainable it is. A flagged answer is red and marked
-   with `!`, and the summary lists the flagged files. If nothing has
-   changed, try `git diff HEAD~1`.
+   with `!`, and the summary lists the flagged files. `git diff` shows
+   unstaged changes. Use `git diff HEAD` to include staged ones. If nothing
+   has changed, try `git diff HEAD~1`.
 
    To make a script or CI act on the answers, add `--fail-on flagged`.
    decide then exits with code 2 when anything is flagged:

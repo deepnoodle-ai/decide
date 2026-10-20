@@ -15,13 +15,15 @@ templates:
 
 - **Clef** by [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/models/clef/),
   with the `clef` model, or `clef-flash` for lower latency. Image templates
-  always use Clef.
+  use Clef by default, and need it: another provider is an error.
 
   ```sh
   export CLOUDFLARE_AUTH_TOKEN=...
   export CLOUDFLARE_ACCOUNT_ID=...
   export DECIDE_PROVIDER=cloudflare
   ```
+
+  Set `CLOUDFLARE_BASE_URL` to send requests somewhere other than Workers AI.
 
 - **GPT-6 Luna** by [OpenAI](https://developers.openai.com/api/docs/guides/decisions),
   with the `gpt-6-luna` model, through the Decisions API, which is in beta.
@@ -45,6 +47,18 @@ decide run sentiment notes.txt --model my-model
 Choose for one run with `--provider typesafe|cloudflare|openai` and `--model NAME`,
 or for every run with `DECIDE_PROVIDER` and `DECIDE_MODEL`. `--workers` sets how many
 requests run at once (default 4).
+
+## Limits
+
+decide checks a request against the provider's limits before it sends it.
+
+| | Clef | GPT-6 Luna |
+| --- | --- | --- |
+| Questions per request | 64 | 200 |
+| Question IDs | up to 100 ASCII letters, digits, `_`, `.` or `-` | |
+| Options per `choice` | 2 to 255 | at least 2 |
+| Levels per `score` | 2 to 10 | at least 2 |
+| Images | four per request, 4 MiB and 16 megapixels each, 8 MiB decoded combined, 13 MiB per request | not supported yet |
 
 Each provider names its own model versions. The [answer cache](/reference/cache/)
 keeps answers for each provider, address, and model name apart.

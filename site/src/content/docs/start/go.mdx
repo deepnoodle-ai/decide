@@ -1,5 +1,5 @@
 ---
-title: From Go
+title: Ask from Go
 description: Ask questions from your own Go program, and rank passages by the answers.
 tableOfContents: false
 ---
@@ -34,9 +34,20 @@ later and a [key for one provider](/start/#get-a-key).
    <Code code={rank} lang="go" title="main.go" />
 
    `decide.NewClient` reads `TYPESAFE_API_KEY`. For Clef or GPT-6 Luna,
-   create the client with `backend.NewClient`, as the
-   [package documentation](https://pkg.go.dev/github.com/deepnoodle-ai/decide/backend)
-   shows. The rest of the program stays the same.
+   create the client with `backend.NewClient` instead. It reads no
+   environment variables, so you pass the key yourself. `AccountID` is for
+   Cloudflare only:
+
+   ```go
+   client, err := backend.NewClient(backend.Config{
+   	Provider:  backend.Cloudflare, // or backend.OpenAI
+   	APIKey:    os.Getenv("CLOUDFLARE_AUTH_TOKEN"),
+   	AccountID: os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
+   })
+   ```
+
+   The [package documentation](https://pkg.go.dev/github.com/deepnoodle-ai/decide/backend)
+   has every option. The rest of the program stays the same.
 
 3. ## Run it
 

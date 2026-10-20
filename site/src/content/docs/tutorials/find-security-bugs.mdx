@@ -25,7 +25,8 @@ A table of confirmed and suspected security findings, with the code path
 that supports each one.
 </Fragment>
 <Fragment slot="need">
-- decide and a [provider key](/start/)
+- decide, [installed](/start/#install-decide)
+- An API key for one provider: [get one](/start/#get-a-key)
 - Claude Code 2.1.287 or later, with the [Decide plugin](/reference/claude-code/#in-three-steps)
 - Git and [jq](https://jqlang.org/)
 </Fragment>
@@ -44,7 +45,8 @@ that supports each one.
    ```
 
    If you already cloned Decide for another tutorial, skip the clone.
-   If you already made `shop`, enter that folder instead of making it again.
+   If you already made `shop`, enter that folder instead of making it
+   again.
    The code is a fixture to read; do not start its server.
 
 2. ## See where to look
@@ -81,8 +83,8 @@ that supports each one.
    ```
 
    Claude previews the scope, ranks the functions, and reads up to 15
-   candidates with their callers. The answer cache reuses the preceding
-   run when the function, questions, and resolved model match.
+   candidates with their callers. The [answer cache](/reference/cache/) reuses the preceding
+   run when the function, the questions, and the model are the same.
 
    Each finding has a verdict: **confirmed** when untrusted input reaches
    an operation that does harm, **suspected** when reachability or harm is

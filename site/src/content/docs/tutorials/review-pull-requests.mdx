@@ -20,7 +20,7 @@ function a pull request changes, and fails the check when one is flagged.
 </Fragment>
 <Fragment slot="need">
 - decide, [installed](/start/#install-decide), and git
-- An API key: [get one](/start/#get-a-key)
+- An API key for one provider: [get one](/start/#get-a-key)
 - A GitHub repository where you can add a workflow
 </Fragment>
 </Goal>
@@ -38,7 +38,8 @@ function a pull request changes, and fails the check when one is flagged.
    ```
 
    If you already cloned `decide` for another tutorial, skip the first
-   line.
+   line. If you already made `shop`, enter that folder instead of making it
+   again.
 
 2. ## Judge each changed function
 
@@ -106,7 +107,7 @@ function a pull request changes, and fails the check when one is flagged.
    ```
 
    `--format github` turns each flagged function into a warning on the pull
-   request's changes, and the job's summary page lists every answer. The job
+   request's changes, and the job's summary page lists the answers, up to 100 in each table. The job
    passes either way, so for now the results are advice. The `if:` skips
    pull requests from forks, since GitHub gives them no secrets.
    [Recipes](/recipes/#run-decide-in-github-actions) covers pinning a
