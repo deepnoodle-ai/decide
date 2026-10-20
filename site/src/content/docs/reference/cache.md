@@ -4,7 +4,8 @@ description: decide keeps every answer and asks again only about what changed.
 ---
 
 decide keeps every answer it gets, and asks again only about what changed.
-Run a template a second time over the same files and nothing is sent:
+Run a template a second time over the same files and only the new or changed
+items are asked:
 
 ```
 ✓ 41212 answered  ! 3 flagged  48s
@@ -45,7 +46,8 @@ it. Workers AI names no version, so Clef answers stay until `--no-cache`.
 `--no-cache` asks every question again, and keeps the new answers in place
 of the old. `runs resume` keeps the setting of the run it resumes.
 
-The cache is the folder `~/.decide/cache`, readable only by you. It holds
+The cache is the folder `~/.decide/cache`, or `cache` inside `DECIDE_HOME`
+if you set it, readable only by you. It holds
 hashes and answers, never your text, file names, or images. Several decide
 processes can use it at once. Delete the folder to clear it. If it can't be
 read or written, decide warns and asks every question.

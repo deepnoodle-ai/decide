@@ -71,7 +71,7 @@ You don't need to do anything for these:
   items, such as which of these issues are bugs.
 
 The footer shows a count, such as `decide 12 checked, 1 flagged`, and
-`/decide` shows the session's checks in a table. A ⚠ in the status line
+`/decide` shows the last 15 of the session's checks in a table. A ⚠ in the status line
 means some actions went unchecked or a check is off; `/decide` says why.
 
 ## Audit for security bugs
@@ -121,8 +121,8 @@ With no argument, it uses the last commit. Claude then:
 
 1. Reads the fix and picks the one mistake most likely to be repeated.
 2. Writes one yes-or-no question about that mistake.
-3. Tests the question: it must flag the code before the fix and pass the
-   code after it. If it doesn't, Claude rewrites it.
+3. Tests the question: it must match the code before the fix and not match
+   the code after it. If it doesn't, Claude rewrites it.
 4. Asks the question of every function, and reads up to ten of the
    highest, those that score 30% or more.
 5. Reports which are the same bug and which aren't.
@@ -157,5 +157,6 @@ DECIDE_HOME=~/.decide/agent decide runs
 Each check sends the text it checks to the decision model's provider,
 with your key: in bypass mode, each shell command; each outside result
 the content check reads; and with an audit or a hunt, every function it
-covers. Runs and answers stay in `~/.decide` on your disk. See
+covers. The plugin saves its runs and answers on your disk, under
+`~/.decide/agent/runs`. See
 [What it sends and keeps](https://github.com/deepnoodle-ai/decide/blob/main/plugin/README.md#what-it-sends-and-keeps).

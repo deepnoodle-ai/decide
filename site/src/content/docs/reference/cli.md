@@ -14,7 +14,7 @@ decide templates list | show TEMPLATE | new NAME
 
 ## `decide run`
 
-Asks a template's questions about each item in your data. With no files
+Asks a template's questions about each [item](/reference/items/) in your data. With no files
 named, it reads stdin.
 
 ```sh
@@ -23,7 +23,9 @@ git diff main | decide run code-risk --each function
 echo "This is great" | decide run sentiment
 ```
 
-Over 100 items, it asks before it starts, unless you add `--yes`.
+Over 100 items, it asks before it starts, unless you add `--yes`. It asks
+only when stdin is a terminal. With piped input or in CI it never asks, so
+check the size first with `--limit` or `--dry-run`.
 
 ### Choosing the data
 
@@ -75,7 +77,7 @@ decide run ticket-routing tickets.jsonl --field body
 
 #### `--limit`, `-n`
 
-Stops after this many items.
+Stops after this many items. You can't combine it with `--sample`.
 
 ```sh
 decide run code-risk . --limit 5
@@ -83,7 +85,7 @@ decide run code-risk . --limit 5
 
 #### `--sample`
 
-Picks this many items at random.
+Picks this many items at random. You can't combine it with `--limit`.
 
 ```sh
 decide run sentiment reviews.txt --sample 50
@@ -104,7 +106,7 @@ decide run relevance notes.txt -p question="pricing"
 #### `--dry-run`
 
 Shows what a run would look at and how many answers the
-[cache](/reference/cache/) already holds, without calling the model.
+[cache](/reference/cache/) already holds, without calling the model. It works only with text or JSON output.
 
 ```sh
 decide run code-risk . --dry-run
@@ -121,7 +123,9 @@ decide run code-risk src --no-cache
 #### `--provider`
 
 Chooses the model's provider for this run: `typesafe`, `cloudflare`, or
-`openai`. See [Providers](/reference/providers/).
+`openai`. The default is `typesafe`, or `cloudflare` for a template that
+reads images. `DECIDE_PROVIDER` sets it for every run. See
+[Providers](/reference/providers/).
 
 ```sh
 decide run sentiment notes.txt --provider cloudflare
@@ -129,7 +133,8 @@ decide run sentiment notes.txt --provider cloudflare
 
 #### `--model`, `-m`
 
-Chooses the model by name. The default is the provider's own.
+Chooses the model by name. The default is each provider's own model: `jev-latest` for `typesafe`,
+`clef` for `cloudflare`, and `gpt-6-luna` for `openai`.
 
 ```sh
 decide run sentiment notes.txt --model jev-1.13.0
@@ -155,7 +160,7 @@ decide run code-risk . --yes
 
 #### `--details`, `-d`
 
-Shows the probability of every option, and the model's confidence.
+Shows the probability of every option, and the model's confidence. It works only with text output.
 
 ```sh
 echo "It's fine, I guess" | decide run sentiment --details
@@ -181,7 +186,8 @@ decide run code-risk src --json | jq .answers
 #### `--fail-on`
 
 Exits with code 2 if any item is `flagged`, or `matched`, so a script or CI
-job can stop on the result. An answer close to being flagged doesn't count.
+job can stop on the result. An answer in the yellow band, close to being flagged, doesn't count. See
+[flags and matches](/start/answers/#flags-and-matches).
 
 ```sh
 git diff main | decide run code-risk --each function --fail-on flagged
@@ -207,13 +213,15 @@ Lists saved runs, newest first. `decide runs` alone does the same.
 ### `decide runs view`
 
 Shows a run's results again, without calling the model. It takes a run
-ID, or the start of one, and shows the latest run by default. It takes
+ID, or the start of one, and shows the latest run by default. If the start
+of an ID matches several runs, decide stops and asks for more of the ID. It takes
 `--details`, `--format`, and `--json` as `run` does.
 
 #### `--top`
 
 Shows only this many items: the flagged ones first, then those nearest a
-flag.
+flag. It works with text, JSON, and CSV output, not `md` or `github`. It
+is also refused for a template that flags no yes-or-no or choice answer.
 
 ```sh
 decide runs view --top 15
@@ -282,7 +290,7 @@ decide templates new my-routing --project
 
 | Code | Meaning |
 | --- | --- |
-| 0 | Every item was answered, or a diff had nothing to judge. With `--fail-on`, none was flagged or matched. |
+| 0 | Every item was answered, a diff had nothing to judge, or you declined the confirmation and nothing was sent. With `--fail-on`, none was flagged or matched. |
 | 1 | An error, or some items failed or were not reached. This wins over 2, even if items were flagged. |
 | 2 | With `--fail-on`, at least one item was flagged or matched. |
 | 130 | Stopped with Ctrl-C. Resume with `decide runs resume`. |
@@ -298,10 +306,12 @@ change them.
 | `TYPESAFE_API_KEY` | the key for Jev, the default provider |
 | `TYPESAFE_BASE_URL` | another service that speaks the Jev API |
 | `CLOUDFLARE_AUTH_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | the token and account for Clef on Workers AI |
+| `CLOUDFLARE_BASE_URL` | another address for the Workers AI API |
 | `OPENAI_API_KEY` | the key for GPT-6 Luna |
 | `OPENAI_BASE_URL` | another address for OpenAI's API |
 | `DECIDE_PROVIDER` | the provider for every run: `typesafe`, `cloudflare`, or `openai` |
 | `DECIDE_MODEL` | the model for every run |
 | `DECIDE_HOME` | where templates, runs, and the cache live, in place of `~/.decide` |
+| `GITHUB_STEP_SUMMARY` | the file where decide writes its Markdown report in GitHub Actions. GitHub sets it. |
 
 See [Providers](/reference/providers/) for each provider's setup.

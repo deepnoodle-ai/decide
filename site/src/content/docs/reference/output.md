@@ -37,8 +37,8 @@ matched item becomes a notice. The items that `--fail-on` names are errors
 instead, since they fail the job. Run decide from the top of the
 repository so the files' paths match. In a GitHub Actions job, decide also
 adds the Markdown report to the job's summary page. GitHub shows at most
-10 annotations of each kind for a step, so the summary is the place to see
-more. [Review pull requests](/tutorials/review-pull-requests/) has a workflow to copy.
+10 annotations of each kind for a step. That is GitHub's limit, not
+decide's, so the summary is the place to see more. [Review pull requests](/tutorials/review-pull-requests/) has a workflow to copy.
 
 `runs resume` prints the items answered before the run stopped as well
 as the new ones, so its output covers the whole run in every format.

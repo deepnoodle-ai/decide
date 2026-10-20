@@ -11,8 +11,8 @@ import Terminal from '../../../components/Terminal.astro';
 import checked from '../../../snippets/checked.sh?raw';
 
 An agent in a loop runs whatever shell command it decides on. Here you put
-decide in front of it, so a command that could do lasting harm waits for a
-person.
+decide in front of it, so a command the model judges likely to do lasting
+harm waits for a person. It is a second check, not a guarantee.
 
 <Goal answer="! severe  yes">
 <Fragment slot="end">
@@ -21,7 +21,7 @@ flags nothing, so an agent or a script can call it in place of `sh -c`.
 </Fragment>
 <Fragment slot="need">
 - decide, [installed](/start/#install-decide)
-- An API key: [get one](/start/#get-a-key)
+- An API key for one provider: [get one](/start/#get-a-key)
 </Fragment>
 </Goal>
 
@@ -40,7 +40,9 @@ flags nothing, so an agent or a script can call it in place of `sh -c`.
    percentages may differ a little.
    </Terminal>
 
-   decide only reads the text. It never runs the commands it judges.
+   decide only reads the text. It never runs the commands it judges, and it
+   judges a command as written, so a script it calls, such as
+   `sh ./deploy.sh`, is not read.
 
 2. ## Write the script
 
@@ -52,7 +54,7 @@ flags nothing, so an agent or a script can call it in place of `sh -c`.
    `--fail-on flagged` makes decide exit with code 2 when an answer is
    flagged. The script runs the command on 0, refuses it on 2, and refuses
    it on 1 too, which means decide could not answer, such as when the key
-   is wrong. To run the command anyway in that case, change the last line
+   is wrong. To run the command anyway in that case, change the `*)` arm
    to run it.
 
 3. ## Check that it works
@@ -66,7 +68,15 @@ flags nothing, so an agent or a script can call it in place of `sh -c`.
    </Terminal>
 
    To flag only the worst commands, read `severe` alone with `--json`, as
-   the Claude Code plugin does. A deploy is flagged on `publish`, so
+   the Claude Code plugin does. Each result is one JSON line, so `jq -e`
+   exits 0 when `severe` is at least 80% likely:
+
+   ```sh
+   printf '%s\n' 'rm -rf ~/' | decide run command-risk --json |
+     jq -e '.answers.severe.noul >= 0.8'
+   ```
+
+   A deploy is flagged on `publish`, so
    `checked.sh` refuses it too.
 
 </Steps>

@@ -27,7 +27,7 @@ program can act on it directly. There is no prose to parse.
 
 | Type | Asks | Shown as |
 | --- | --- | --- |
-| `noul` | a yes-or-no question | `risk  no  88%`, or `unsure  52% yes` between 40% and 60% |
+| `noul` | a yes-or-no question | `risk  no  88%`, or `unsure, 52% yes` between 40% and 60% |
 | `choice` | which one of several options fits | `queue  billing  91%` |
 | `score` | where something falls on a scale | `maintainability  ━━━━━━━━────  2.7 of 4` |
 
@@ -53,14 +53,7 @@ template: the model is unsure.
 
 ## Providers
 
-decide runs on three decision models, with the same commands, templates,
-and Go code:
-
-| Model | By | Runs on |
-| --- | --- | --- |
-| `jev-latest`, the default | [TypeSafe](https://docs.typesafe.ai/introduction) | the TypeSafe API |
-| `clef`, and `clef-flash` for lower latency | [Cloudflare](https://developers.cloudflare.com/workers-ai/models/clef/) | Workers AI |
-| `gpt-6-luna` | [OpenAI](https://developers.openai.com/api/docs/guides/decisions) | the Decisions API, in beta |
-
-Any other service that speaks the Jev API works too. The
-[quickstart](/start/#get-a-key) shows how to set a key for each.
+decide runs on three decision models, and `jev-latest` is the default. The
+commands, templates, and Go code are the same with all three, except image
+templates, which need Clef. See [Providers](/reference/providers/) for the
+models, keys, and settings.

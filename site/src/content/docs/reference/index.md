@@ -77,6 +77,7 @@ confidence, or choose another [output format](/reference/output/).
 | [Providers](/reference/providers/) | Jev, Clef, GPT-6 Luna, and your own service |
 | [Output formats](/reference/output/) | JSON, CSV, Markdown, and GitHub annotations |
 | [The answer cache](/reference/cache/) | when decide asks again, and when it doesn't |
+| [Use Decide from an agent](/reference/agents/) | running a template from an agent, reading typed JSON, and keeping the policy in your code |
 | [Claude Code](/reference/claude-code/) | the plugin, the audit, and the hunt |
 
 For the Go library, see the

@@ -97,8 +97,10 @@ A template looks like this:
 ```
 
 A template reads text unless it says `"input": "image"`. Add `"each": "file"`
-(or `section`, `paragraph`, `function`, or `line`) to choose the unit its
-questions are written for; `--each` still overrides it.
+(or `section`, `paragraph`, `function`, `hunk`, or `line`) to choose the unit
+its questions are written for; `--each` still overrides it. A `hunk` is one
+block of changes in a diff. An image template reads one image at a time, so
+it takes no `each`.
 
 A `score` question lists its levels in order, lowest first:
 
@@ -128,6 +130,10 @@ A `score` question lists its levels in order, lowest first:
 | `choice` | an option name | that option is 60% or more likely |
 | `noul` or `choice` | `"yes >= 80%"` | that answer is at least as likely as you say |
 | `score` | `"<= 1.5"`, `">= 3"`, `"< 2"`, `"> 2"` | the score passes the line |
+
+The number in a score flag is the score on the question's levels, counted from
+0 for the first level. In the `clarity` example above, `"<= 0.5"` flags text
+that is closer to Confusing than to Understandable.
 
 A list such as `["negative", "mixed"]` flags an item when any one holds.
 Answers to questions without a flag are never flagged, and show in cyan.
