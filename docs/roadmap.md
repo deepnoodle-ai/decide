@@ -27,7 +27,8 @@ off, or remove them, as they land.
       each with planted problems in the demo.
 - [ ] **`decide eval`.** Measure a template on labeled examples: agreement
       per question, confident mistakes, suggested thresholds, and
-      `--fail-under` for CI. Ship examples with each built-in template.
+      `--fail-under` for CI. Ship `command-risk`'s examples first, then
+      each other built-in's in its own pull request.
       Propose the design before building it.
 - [ ] **Built-in names.** A way to run a built-in template that no project
       or user template can replace. The Claude Code plugin works around it

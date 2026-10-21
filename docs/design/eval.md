@@ -47,8 +47,8 @@ losing its labels, and a run combines parts by flag. So an example too
 large to send whole is an error. Before any request, eval checks each
 label against its question: an unknown key, a wrong type, an unknown
 option or a level off the scale is an error. So are two examples with the
-same input, which would count twice and break the split in section 3.
-Each error names the line.
+same input, which would count one case twice in every number. Each error
+names the line.
 
 **Where examples live.** Beside the template:
 `internal/template/builtin/<name>/examples.jsonl`, embedded with
@@ -68,9 +68,15 @@ reads no flag and no threshold.
 
 | Type | decide's answer | Right when |
 | --- | --- | --- |
-| noul | yes when `noul >= 0.5` | it equals the label |
+| noul | what decide prints: yes at 60% or more, no at 40% or less, unsure between | it equals the label; unsure never does |
 | choice | `Choice`, the most likely option | it equals the label |
 | score | `Level()`, the most likely level | it equals the label |
+
+**Unsure counts as wrong.** It stays in the count, and the report shows
+how many were unsure. Leaving unsure out would let a model that hedges on
+the hard cases raise its own agreement, and grading at 0.5 would call
+right an answer decide prints as unsure. A third bucket outside agreement
+would need its own gate.
 
 Score also shows agreement within one level, and the mean distance of
 `Score`, the expected level, from the label.
@@ -100,7 +106,7 @@ command-risk on examples.jsonl · 50 examples · typesafe jev-latest
 
 Agreement
   destructive   48 of 50   96%
-  severe        47 of 50   94%
+  severe        47 of 50   94%   1 unsure
   leak          44 of 50   88%
 
 Flags                         misses     false alarms
@@ -123,8 +129,9 @@ with several conditions.
 
 **Confident mistakes.** An answer wrong by section 2 whose chosen answer
 had probability 0.8 or more. That is `gate.MeasureTop`, the number decide
-prints, and 0.8 is the bar the built-in flags use (`yes >= 80%`). It is
-fixed in the first PR. They are listed most confident first, with the
+prints. The 0.8 is fixed in the first PR and follows no flag:
+`command-risk` flags at 80%, `security` at 50% and 90%, and a bare `yes`
+at 60% (`DefaultFlagAt`). Open question 2 asks whether it should. They are listed most confident first, with the
 input passed through `clean`.
 
 **Suggested thresholds** reuse `calibrate.Fit`, for flags with one noul
@@ -143,7 +150,9 @@ accept 3 false alarms." A miss lets the danger through; a false alarm
 costs attention.
 
 **Splits.** An example goes to fit or held out by the parity of a hash of
-its input, so adding or reordering examples never moves an old one. The
+its input as canonical JSON, with keys sorted and no spacing, so adding or
+reordering examples, or reformatting an object input, never moves an old
+one. The duplicate check in section 1 compares the same form. The
 held out split never changes the cutoff; it only reports it.
 
 **When to show one.** Only when each split holds at least 10 positives and
@@ -151,9 +160,9 @@ held out split never changes the cutoff; it only reports it.
 moves the held out rate by more than 10 points, and `examples/calibrate`
 already warns that six cases are too few. Otherwise the report says how
 many more labels it needs. `ErrNoFit` means no cutoff lets one fit
-example through without a labeled yes: the lowest `yes` probability
-belongs to, or ties, a labeled yes, so catching every yes flags
-everything. Answers on mixed versions get no suggestion (section 5).
+example through without a labeled yes: the lowest scoring example is a
+labeled yes or ties one, so any cutoff that leaves one example unflagged
+misses a yes. Answers on mixed versions get no suggestion (section 5).
 
 Rejected: fitting and reporting on the same examples, which grades the fit
 on its own answers. Rejected: a new fitter in the CLI, when Fit is built
@@ -165,11 +174,22 @@ and tested.
 is below 0.9, a fraction from 0 to 1. It compares the lowest agreement
 across questions and names each question below the bar.
 
+A question needs at least 10 labeled examples before the gate counts it,
+the same bar as each split in section 3: below that, one example moves
+agreement by more than 10 points. With `--fail-under`, a question with
+some labels but fewer than 10 is an error before any request, naming the
+question and how many more it needs. Skipping it would pass a gate that
+checked nothing, and exit 2 would read as a model failure. Without the
+flag, the report marks it "too few labels". A question with no labels is
+not graded and not gated.
+
 Exit codes match `decide run`: 0 when all pass, 2 for `--fail-under` as
 for `--fail-on`, 130 when stopped, and 1 for an error or for a run where
 any example failed. An example with no answer can't be graded, and
-counting it either way would move the number, so eval grades nothing and
-says to run the same command again.
+counting it either way would move the number. So eval asks every example,
+then, if any failed, prints no report, lists the failed examples and
+exits 1, saying to run the same command again. The cache keeps the
+answered ones, so the rerun asks only the failed.
 
 **Agreement alone can pass a broken safety check.** With 99 safe
 commands and one dangerous one, a model that always answers "safe" agrees
@@ -231,7 +251,7 @@ is a summary, not a line per item. It is printed unchanged, as run's is.
 {"template": "command-risk", "examples": "examples.jsonl", "run": "20261020-1",
  "provider": "typesafe", "model": "jev-latest", "count": 50, "cached": 0,
  "questions": {"severe": {"type": "noul", "graded": 50, "agree": 47,
-   "agreement": 0.94, "confident_mistakes": 1}},
+   "unsure": 1, "agreement": 0.94, "confident_mistakes": 1}},
  "flags": {"severe": {"flag": "yes >= 80%", "positives": 20, "negatives": 30,
    "misses": 1, "false_alarms": 2,
    "suggested": {"flag": "yes > 71%", "version": "jev-1.13.0",
@@ -242,8 +262,9 @@ is a summary, not a line per item. It is printed unchanged, as run's is.
  "fail_under": 0.9, "below": [], "max_misses": 0, "over": ["severe"]}
 ```
 
-Each count is for the rule in `flag`. Score questions add `within_one`
-and `mean_distance`.
+Each count is for the rule in `flag`. `unsure` counts answers already
+outside `agree`; only noul questions have it. Score questions add
+`within_one` and `mean_distance`.
 
 ## 6. Not in the first PR
 
