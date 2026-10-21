@@ -18,6 +18,12 @@ may change the library API and the CLI.
   running Decide from an agent. The landing page shows real runs for each
   answer type.
 
+### Changed
+
+- **A new landing page.** One command to install, five real runs in one
+  window, why a typed answer beats a reply, the three providers, and the
+  licence in plain words.
+
 ## [0.4.0] - 2026-10-08
 
 decide runs on OpenAI's Decisions API, its built-in templates work from Go,

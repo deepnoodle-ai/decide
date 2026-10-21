@@ -1,0 +1,85 @@
+---
+// The doodle: decide's character, drawn by hand. A lumpy head the pen carried
+// past where it started, two mismatched dot eyes, one brow shoved up, a small
+// mouth and a drip. He is the question, not the answer: decide is the thing
+// that knows, he is the thing that does not.
+//
+// The wobble was generated once from a seed and baked into these paths, so it
+// is the same drawing in every build and there is no script at runtime. The
+// generator lives in docs/design/docs-site-look.md. The landing page's strip
+// also needs him lost and glad: those faces swap only the eyes, brow and
+// mouth, and keep the baked head and drip.
+//
+// He takes `currentColor`, so he follows whatever text he sits beside.
+interface Props {
+	/** Rendered size in px. */
+	size?: number;
+	/** A label, for standalone use. Omit where he is decoration. */
+	title?: string;
+	/** Asking is the canonical face. Lost and glad are for the landing page's strip, and lost for the 404 page. */
+	face?: 'ask' | 'lost' | 'glad';
+}
+const { size = 20, title, face = 'ask' } = Astro.props;
+
+const leftEye =
+	'M13.17 12.4C13.16 12.88 12.77 13.43 12.4 13.8C12.04 14.18 11.52 14.6 11 14.65C10.48 14.71 9.66 14.52 9.26 14.14C8.86 13.77 8.54 12.94 8.58 12.4C8.63 11.86 9.11 11.29 9.51 10.91C9.92 10.53 10.51 10.11 11 10.11C11.49 10.12 12.08 10.57 12.45 10.95C12.81 11.34 13.17 11.92 13.17 12.4Z';
+const rightEye =
+	'M20.5 12C20.52 12.37 20.66 12.87 20.46 13.16C20.26 13.45 19.64 13.79 19.3 13.74C18.96 13.69 18.7 13.15 18.44 12.86C18.18 12.57 17.79 12.35 17.73 12C17.67 11.65 17.82 11.05 18.08 10.78C18.34 10.51 18.92 10.34 19.3 10.36C19.68 10.39 20.17 10.65 20.37 10.93C20.57 11.2 20.49 11.63 20.5 12Z';
+---
+
+<svg
+	class="doodle"
+	width={size}
+	height={size}
+	viewBox="0 0 32 32"
+	fill="none"
+	stroke="currentColor"
+	stroke-linecap="round"
+	stroke-linejoin="round"
+	role={title ? 'img' : undefined}
+	aria-hidden={title ? undefined : 'true'}
+>
+	{title && <title>{title}</title>}
+	<g transform="rotate(-9 15.6 14.4)">
+		<path d="M18.59 4.84C19.43 5.39 22.46 7 23.61 8.14C24.76 9.27 25.21 9.98 25.5 11.63C25.79 13.27 25.8 16.2 25.35 18.01C24.9 19.83 23.96 21.49 22.8 22.52C21.65 23.55 20.14 23.96 18.43 24.21C16.72 24.46 14.31 24.47 12.55 24.01C10.79 23.54 9.02 22.67 7.86 21.43C6.69 20.18 5.81 18.36 5.56 16.55C5.32 14.73 5.74 12.19 6.39 10.55C7.03 8.9 8.35 7.72 9.42 6.67C10.48 5.61 12.22 4.64 12.78 4.23" stroke-width="2"></path>
+		{
+			face === 'ask' && (
+				<>
+					<path d={leftEye} fill="currentColor" stroke="none"></path>
+					<path d={rightEye} fill="currentColor" stroke="none"></path>
+					<path d="M16.5 7.71C16.99 7.75 18.65 7.69 19.46 7.9C20.27 8.12 21.06 8.84 21.38 9.03" stroke-width="1.7"></path>
+					<path d="M9.74 18.18C10.19 18.33 11.6 18.99 12.44 19.1C13.28 19.2 14.4 18.86 14.79 18.82" stroke-width="1.8"></path>
+				</>
+			)
+		}
+		{
+			face === 'lost' && (
+				<g stroke-width="1.75">
+					<path d="M9.1 10.6C9.9 11.6 11.3 13 12.6 14.2"></path>
+					<path d="M12.7 10.5C11.8 11.5 10.4 12.9 9.2 14.1"></path>
+					<path d="M17.9 10.5C18.6 11.2 19.6 12.2 20.6 13.1"></path>
+					<path d="M20.7 10.6C20 11.3 19 12.3 18 13.2"></path>
+					<path d="M9.5 18.5C10.5 17.7 11.4 19.3 12.6 18.6C13.6 18 14.3 18.8 14.9 18.9" stroke-width="1.8"></path>
+				</g>
+			)
+		}
+		{
+			face === 'glad' && (
+				<>
+					<path d={leftEye} fill="currentColor" stroke="none"></path>
+					<path d={rightEye} fill="currentColor" stroke="none"></path>
+					<path d="M9.7 17.9C10.9 19.6 13.3 19.9 14.9 18.3" stroke-width="1.8"></path>
+				</>
+			)
+		}
+		<path d="M10.3 18.79C10.24 19.12 9.99 20.29 9.97 20.79C9.95 21.29 10.14 21.6 10.18 21.77" stroke-width="1.24"></path>
+		<path d="M10.99 23.3C10.96 23.57 10.9 23.81 10.73 24.03C10.57 24.25 10.26 24.59 10 24.61C9.74 24.63 9.36 24.37 9.15 24.15C8.95 23.93 8.74 23.56 8.76 23.3C8.78 23.04 9.06 22.78 9.27 22.57C9.47 22.35 9.73 22.02 10 21.99C10.27 21.97 10.71 22.2 10.88 22.42C11.04 22.64 11.01 23.03 10.99 23.3Z" fill="currentColor" stroke="none"></path>
+	</g>
+</svg>
+
+<style>
+	.doodle {
+		display: block;
+		flex: none;
+	}
+</style>

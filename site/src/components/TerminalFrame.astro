@@ -18,16 +18,20 @@ interface Props {
 	cols: number;
 	/** No commands strip and no disclosure: the screen shows the command. The transcript is for screen readers only. */
 	compact?: boolean;
+	/** The three window buttons before the title, as on the landing page. */
+	lights?: boolean;
 }
-const { title, label, commands = [], transcript, cols, compact = false } = Astro.props;
+const { title, label, commands = [], transcript, cols, compact = false, lights = false } = Astro.props;
 const commandText = commands.join('\n');
 ---
 
 <figure class="term not-content" role="group" aria-label={label} style={`--cols: ${cols}`}>
 	<div class="term-bar">
+		{lights && <span class="term-lights" aria-hidden="true"><i></i><i></i><i></i></span>}
 		<span class="term-title">{title}</span>
 		<slot name="controls" />
 	</div>
+	<slot name="tabs" />
 	<div class="term-screen"><slot /></div>
 	{compact && transcript && <pre class="sr-only">{transcript}</pre>}
 	{
@@ -70,6 +74,28 @@ const commandText = commands.join('\n');
 		border-bottom: 1px solid var(--term-line);
 		font: 400 12px/1 var(--sl-font-mono);
 		color: var(--term-muted);
+	}
+	/* macOS's own window colors. They are chrome, not answers, so they sit outside the verdict palette. */
+	.term-lights {
+		display: flex;
+		gap: 8px;
+		margin-right: 6px;
+	}
+	.term-lights i {
+		display: block;
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		box-shadow: inset 0 0 0 0.5px rgba(0, 0, 0, 0.25);
+	}
+	.term-lights i:nth-child(1) {
+		background: #ff5f57;
+	}
+	.term-lights i:nth-child(2) {
+		background: #febc2e;
+	}
+	.term-lights i:nth-child(3) {
+		background: #28c840;
 	}
 	.term-screen {
 		container-type: inline-size;

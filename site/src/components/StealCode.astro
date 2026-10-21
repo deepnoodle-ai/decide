@@ -1,0 +1,142 @@
+---
+// "Steal the code. Legally.": the repository's layout beside Apache 2.0 in
+// plain words. The tree is a listing, not a run, so it has no prompt; the
+// clone command sits in the frame's copy strip. The folder notes follow
+// AGENTS.md, and the terms follow sections 2 to 8 of LICENSE.
+import TerminalFrame from './TerminalFrame.astro';
+
+const repo = 'https://github.com/deepnoodle-ai/decide';
+const tree: [string, string][] = [
+	['*.go', 'the client, questions, answers, Eval'],
+	['decidetest/', 'a fake server for your tests'],
+	['backend/', 'picks a provider'],
+	['templates/', 'the built in templates, for Go'],
+	['patterns/', 'decisions built from answers'],
+	['examples/', 'one runnable program per pattern'],
+	['cmd/decide/', 'the CLI'],
+	['plugin/', 'the Claude Code plugin'],
+	['demo/', 'a repo with planted problems'],
+	['site/', 'this site, and its recordings'],
+];
+// Built as one string: a <pre> keeps every space, so template indentation would show.
+const listing =
+	'<span class="dir">decide/</span>\n' +
+	tree
+		.map(([name, note], i) => `${i === tree.length - 1 ? '└── ' : '├── '}<span class="dir">${name.padEnd(14)}</span><span class="dim"># ${note}</span>`)
+		.join('\n');
+---
+
+<div class="open">
+	<TerminalFrame title="deepnoodle-ai/decide" label="The folders in the decide repository" cols={52} commands={[`git clone ${repo}`]} lights>
+		<pre set:html={listing} />
+	</TerminalFrame>
+	<div class="side">
+		<h3>The fine print</h3>
+		<p class="meta">Apache 2.0, in plain words</p>
+		<dl class="terms">
+			<dt class="ok">You can</dt>
+			<dd>use it at work, change it, sell what you build with it, and keep your changes private. You get a patent licence too.</dd>
+			<dt class="ok">You must</dt>
+			<dd>ship a copy of the licence, keep the copyright notices, and mark the files you changed.</dd>
+			<dt class="no">You can't</dt>
+			<dd>use the Deep Noodle name as if we endorse you, or hold us liable. It comes as is.</dd>
+		</dl>
+		<a class="more" href={`${repo}/blob/main/LICENSE`}>Read the LICENSE →</a>
+		<p class="give">Want to give back? Start with an issue, then read <a href={`${repo}/blob/main/CONTRIBUTING.md`}>CONTRIBUTING.md</a>.</p>
+	</div>
+</div>
+
+<style>
+	.open {
+		display: grid;
+		grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+		gap: 28px;
+		align-items: start;
+		margin-top: 56px;
+		text-align: left;
+	}
+	.open :global(.term-screen pre) {
+		line-height: 1.75;
+		color: var(--term-muted);
+	}
+	/* set:html content is not scoped, so these reach it through :global. */
+	.open :global(.dir) {
+		color: var(--term-fg);
+	}
+	.open :global(.dim) {
+		color: var(--term-dim);
+	}
+	h3 {
+		margin: 0 0 4px;
+		font-size: 20px;
+		font-weight: 500;
+		letter-spacing: -0.015em;
+		color: var(--sl-color-white);
+	}
+	.meta {
+		margin: 0 0 16px;
+		font: 400 12.5px/1.5 var(--sl-font-mono);
+		color: var(--sl-color-gray-4);
+	}
+	.terms {
+		display: grid;
+		grid-template-columns: max-content minmax(0, 1fr);
+		gap: 12px 18px;
+		margin: 0;
+	}
+	.terms dt {
+		margin: 0;
+		padding-top: 1px;
+		font: 700 12.5px/1.6 var(--sl-font-mono);
+		color: var(--sl-color-white);
+	}
+	.terms dt::before {
+		display: inline-block;
+		width: 1.4em;
+	}
+	/* A check and a cross are verdicts here: what passes the licence and what does not. */
+	.terms dt.ok::before {
+		content: '✓';
+		color: var(--ans-pass);
+	}
+	.terms dt.no::before {
+		content: '✗';
+		color: var(--ans-flag);
+	}
+	.terms dd {
+		margin: 0;
+		font-size: 14.5px;
+		line-height: 1.55;
+		color: var(--sl-color-gray-3);
+	}
+	.more {
+		display: inline-block;
+		margin-top: 16px;
+		font: 400 13px/1 var(--sl-font-mono);
+		color: var(--sl-color-gray-2);
+	}
+	.give {
+		margin: 22px 0 0;
+		padding-top: 20px;
+		border-top: 1px solid var(--sl-color-hairline);
+		font: 400 12.5px/1.6 var(--sl-font-mono);
+		color: var(--sl-color-gray-4);
+	}
+	.give a {
+		color: var(--sl-color-gray-2);
+	}
+	@media (max-width: 860px) {
+		.open {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+	@media (max-width: 480px) {
+		.terms {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 4px;
+		}
+		.terms dd {
+			margin-bottom: 10px;
+		}
+	}
+</style>
