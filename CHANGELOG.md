@@ -8,6 +8,9 @@ may change the library API and the CLI.
 
 ### Added
 
+- **`decide models`.** Checks that your provider accepts your credentials
+  and lists the names you can pass to `--model`. A missing or rejected key
+  names the variable to fix.
 - **Template tutorial.** Write a project template, preview its inputs,
   and read saved answers on support tickets.
 - **Go tutorial.** Turn a typed answer into allow, review, or escalate
