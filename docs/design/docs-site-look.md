@@ -135,8 +135,9 @@ text renders in `brightWhite`.
   `--sl-line-height-headings: 1.15`, weight 600.
 - **Landing headline:** 50px at ≥1100px, 44px at 800–1099px, and 38px on
   phones. Line height 1.04, tracking −0.035em.
-- **Wordmark (SiteTitle):** `decide` in JetBrains Mono 700 at 19px, then the
-  version in mono 12px gray-3. The version is read from `plugin.json`, so PR
+- **Wordmark (SiteTitle):** the doodle at 32px in the title's color, then
+  `decide` in JetBrains Mono 700 at 19px, then the version in mono 12px
+  gray-3. The version is read from `plugin.json`, so PR
   previews show the next version.
 - **Favicon:** a mono `d` in `#ECEDEF` on `#121316`. Not cyan, following
   principle 2.
