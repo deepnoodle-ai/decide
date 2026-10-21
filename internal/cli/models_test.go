@@ -699,3 +699,46 @@ func TestModelsHelpSaysCredentialsAreChecked(t *testing.T) {
 	lacks(t, all, "credentials work")
 	contains(t, all, "accepts your credentials")
 }
+
+func TestModelsTypeSafeAnswerShape(t *testing.T) {
+	cases := []struct {
+		name, body string
+		ok         bool
+	}{
+		{"empty list", `{"models":[]}`, true},
+		{"models missing", `{"data":[]}`, false},
+		{"models null", `{"models":null}`, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			clearProviderEnv(t)
+			t.Setenv("DECIDE_HOME", t.TempDir())
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			t.Cleanup(srv.Close)
+			t.Setenv("TYPESAFE_API_KEY", "ts-secret")
+			t.Setenv("TYPESAFE_BASE_URL", srv.URL)
+			out := runReal("models")
+			if tc.ok {
+				if out.code != 0 {
+					t.Fatalf("exit %d, stderr %q", out.code, out.stderr)
+				}
+				return
+			}
+			if out.code != 1 || out.stdout != "" {
+				t.Fatalf("exit %d, stdout %q", out.code, out.stdout)
+			}
+			contains(t, out.stderr, "Could not check the typesafe credentials: the answer was not what typesafe sends")
+			lacks(t, out.stderr, "key accepted")
+		})
+	}
+}
+
+func TestModelsCouldNotCheckHintDoesNotBlameBaseURL(t *testing.T) {
+	srv := newProviderServer(t, 503)
+	out := runReal(providerEnv(t, "openai", srv.URL+"/v1")...)
+	contains(t, out.stderr, "Check OPENAI_BASE_URL and your connection, or try again later if the provider is down.",
+		"decide models --provider openai")
+}

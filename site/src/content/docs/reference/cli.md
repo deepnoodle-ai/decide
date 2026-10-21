@@ -321,7 +321,7 @@ decide knows. `checked` says what decide asked the provider: `list models`
 for TypeSafe and OpenAI, `search models` for Cloudflare.
 
 ```json
-{"provider":"typesafe","listed":true,"checked":"list models","default":"jev-latest","models":[{"name":"jev-latest"}]}
+{"provider":"typesafe","listed":true,"checked":"list models","default":"jev-latest","models":[{"name":"jev-latest","description":"","release_date":""}]}
 ```
 
 Each provider is checked differently. decide builds the same client

@@ -98,9 +98,24 @@ func (a *App) listTypeSafe(c *cli.Context, res *modelsResult) error {
 	if err != nil {
 		return checkError(res.Provider, err, os.Getenv("TYPESAFE_API_KEY"))
 	}
+	if !hasModelsMember(list.Raw) {
+		return couldNotCheck(res.Provider, "the answer was not what "+res.Provider+" sends")
+	}
 	res.Listed = true
 	res.Models = append(res.Models, list.Models...)
 	return nil
+}
+
+// hasModelsMember reports whether body has a non null "models" member, so a
+// reply that is not a model list is not taken as an accepted key.
+func hasModelsMember(body []byte) bool {
+	var answer struct {
+		Models json.RawMessage `json:"models"`
+	}
+	if json.Unmarshal(body, &answer) != nil {
+		return false
+	}
+	return len(answer.Models) > 0 && string(answer.Models) != "null"
 }
 
 // redactedError hides every configured secret, and the user info of any URL,
@@ -180,7 +195,7 @@ func forbidden(provider string) error {
 
 func couldNotCheck(provider, reason string) error {
 	return cli.Errorf("Could not check the %s credentials: %s", provider, reason).
-		Hint(fmt.Sprintf("Check %s and your connection, then try again with: %s", baseURLVars[provider], modelsCommand(provider)))
+		Hint(fmt.Sprintf("Check %s and your connection, or try again later if the provider is down.\nTry again with: %s", baseURLVars[provider], modelsCommand(provider)))
 }
 
 // redact removes secrets, and the user info of any URL, from text that may
