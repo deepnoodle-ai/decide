@@ -38,6 +38,7 @@ Get started:
   decide templates                    see the built-in templates
   decide run sentiment reviews.txt    run a template on each line of a file
   decide runs view                    look at your latest results
+  decide models                       check your key and list models
 
 Set TYPESAFE_API_KEY before your first run.`
 
@@ -64,6 +65,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		app.Version(a.Version)
 	}
 	a.addRun(app)
+	a.addModels(app)
 	a.addTemplates(app)
 	a.addRuns(app)
 
@@ -104,32 +106,47 @@ func (a *App) interactiveStdin() bool {
 // Default models, shown in output when no model is chosen.
 var defaultModels = map[string]string{"typesafe": "jev-latest", "cloudflare": "clef", "openai": "gpt-6-luna"}
 
+// Model names decide knows for providers that cannot list them, the default
+// first.
+var knownModels = map[string][]string{"cloudflare": {"clef", "clef-flash"}, "openai": {"gpt-6-luna"}}
+
 // connect builds a client from environment credentials.
 func connect(provider, model string) (*decide.Client, error) {
-	cfg := backend.Config{Provider: backend.Provider(provider), Model: model}
+	cfg, err := credentials(provider)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Model = model
+	return backend.NewClient(cfg)
+}
+
+// credentials reads a provider's credentials and base URL from the
+// environment, and says which to set when they are missing.
+func credentials(provider string) (backend.Config, error) {
+	cfg := backend.Config{Provider: backend.Provider(provider)}
 	switch provider {
 	case "cloudflare":
 		cfg.APIKey = os.Getenv("CLOUDFLARE_AUTH_TOKEN")
 		cfg.AccountID = os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 		cfg.BaseURL = os.Getenv("CLOUDFLARE_BASE_URL")
 		if cfg.APIKey == "" || cfg.AccountID == "" {
-			return nil, cli.Error("Cloudflare credentials are not set").
+			return backend.Config{}, cli.Error("Cloudflare credentials are not set").
 				Hint("Set your Workers AI API token and account ID:\n  export CLOUDFLARE_AUTH_TOKEN=...\n  export CLOUDFLARE_ACCOUNT_ID=...")
 		}
 	case "openai":
 		cfg.APIKey = os.Getenv("OPENAI_API_KEY")
 		cfg.BaseURL = os.Getenv("OPENAI_BASE_URL")
 		if cfg.APIKey == "" {
-			return nil, cli.Error("OPENAI_API_KEY is not set").
+			return backend.Config{}, cli.Error("OPENAI_API_KEY is not set").
 				Hint("Set your OpenAI API key:\n  export OPENAI_API_KEY=...\nTo check your data first without a key, add --dry-run.")
 		}
 	default:
 		cfg.APIKey = os.Getenv("TYPESAFE_API_KEY")
 		cfg.BaseURL = os.Getenv("TYPESAFE_BASE_URL")
 		if cfg.APIKey == "" {
-			return nil, cli.Error("TYPESAFE_API_KEY is not set").
+			return backend.Config{}, cli.Error("TYPESAFE_API_KEY is not set").
 				Hint("Set your TypeSafe API key:\n  export TYPESAFE_API_KEY=...\nTo check your data first without a key, add --dry-run.")
 		}
 	}
-	return backend.NewClient(cfg)
+	return cfg, nil
 }

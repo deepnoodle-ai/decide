@@ -7,6 +7,7 @@ description: Every decide command and flag, saved runs, exit codes, and environm
 decide run [flags] TEMPLATE [DATA...]
 decide runs list | view [RUN] | resume [RUN]
 decide templates list | show TEMPLATE | new NAME
+decide models [--provider NAME] [--json]
 ```
 
 `decide --help`, and `--help` on any command, prints the same flags.
@@ -278,12 +279,90 @@ your team.
 decide templates new my-routing --project
 ```
 
+## `decide models`
+
+Checks that your provider accepts your credentials, and lists the model
+names you can pass to `--model`. It asks no model anything. It checks
+credentials only, not permission to run decisions, credit, or access to a
+particular model.
+
+```sh
+decide models
+```
+
+```text
+typesafe  key accepted
+  jev-latest    (default)
+  jev-preview
+
+Choose one with: decide run sentiment notes.txt --model jev-latest
+Checked by listing models.
+Not checked: running decisions, credit, or access to a model.
+```
+
+A missing or rejected key names the variable to fix and exits with code 1.
+An accepted key may still be out of credit or unable to run decisions; decide
+does not check that.
+
+#### `--provider`
+
+Checks `typesafe`, `cloudflare`, or `openai`. It reads `DECIDE_PROVIDER`
+too, and defaults to `typesafe`. `DECIDE_MODEL` has no effect here.
+
+```sh
+decide models --provider cloudflare
+```
+
+#### `--json`
+
+Prints one JSON object instead of text, for scripts. `listed` is true when
+the provider listed its models, and false when `models` holds the names
+decide knows. `checked` says what decide asked the provider: `list models`
+for TypeSafe and OpenAI, `search models` for Cloudflare.
+
+```json
+{"provider":"typesafe","listed":true,"checked":"list models","default":"jev-latest","models":[{"name":"jev-latest","description":"","release_date":""}]}
+```
+
+Each provider is checked differently. decide builds the same client
+`decide run` would, so a bad base URL or account ID fails here with the same
+error. It shows no part of an answer other than TypeSafe's model names.
+
+- **TypeSafe** lists its models with `GET /v1/models`, which shows the key
+  is accepted. The request goes through the same client as `decide run`, so
+  it retries up to 2 times on a `408`, a `429`, a `5xx`, or a timeout or
+  connection error, and follows redirects as Go's default HTTP client does.
+- **Cloudflare** does not list models. decide sends one
+  `GET /accounts/ACCOUNT_ID/ai/models/search?per_page=1` with the token as a
+  bearer token. It follows no redirects and does not retry. It expects JSON with `"success": true`, and shows the models
+  it knows: `clef` and `clef-flash`.
+- **OpenAI** does not say which models its Decisions API takes. decide
+  sends one `GET /v1/models` with the key as a bearer token. It follows no
+  redirects and does not retry. It expects a JSON
+  list, ignores the models in it, and shows `gpt-6-luna`.
+
+What the status means:
+
+- `401` means the credentials were rejected. TypeSafe answers `403` the same
+  way, because it sends `403` for a missing or wrong key.
+- `403` from Cloudflare or OpenAI means decide could not confirm the key,
+  and exits with 1. A restricted OpenAI key may lack permission to list
+  models and still work for decisions. Cloudflare answers `403` when the
+  token lacks Workers AI access or the account ID is wrong. Check the key's
+  permissions, or try a small `decide run`.
+- Any other failure says decide could not check, and does not blame the
+  key. For Cloudflare and OpenAI that includes a redirect, a `200` that is not the expected JSON, and
+  an answer that cannot be read.
+
+Error text never includes your key, token, account ID, or the user info of a
+URL.
+
 ## Exit codes
 
 | Code | Meaning |
 | --- | --- |
 | 0 | Every item was answered, or a diff had nothing to judge. With `--fail-on`, none was flagged or matched. |
-| 1 | An error, or some items failed or were not reached. This wins over 2, even if items were flagged. |
+| 1 | An error, or some items failed or were not reached. This wins over 2, even if items were flagged. `decide models` exits with 1 when a key is missing or rejected, or cannot be checked. |
 | 2 | With `--fail-on`, at least one item was flagged or matched. |
 | 130 | Stopped with Ctrl-C. Resume with `decide runs resume`. |
 
