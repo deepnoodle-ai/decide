@@ -66,8 +66,9 @@ off, or remove them, as they land.
       run `gpt-6-luna` through `POST /v1/decisions`, in beta.
 - [ ] **Images on OpenAI.** Send image templates to the Decisions API as
       base64 data URLs, as `cloudflare.SetImages` does for Clef.
-- [ ] **`decide models`.** List models and confirm the credentials work.
-      Cloudflare can't list models, so verify the token instead.
+- [x] **`decide models`.** List models and check that the provider accepts the credentials.
+      Cloudflare and OpenAI can't list models, so they check credentials
+      through a read endpoint and show the names decide knows.
 - [ ] **Gateways.** Test Vercel AI Gateway and OpenRouter through
       `TYPESAFE_BASE_URL`, then document them.
 - [ ] **Saved credentials.** `decide auth login`, so keys need not be

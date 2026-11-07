@@ -331,6 +331,13 @@ func (a *App) confirm(c *cli.Context, question string) bool {
 	}
 }
 
+// keyVars names the variables that hold each provider's credentials.
+var keyVars = map[string]string{
+	"typesafe":   "TYPESAFE_API_KEY",
+	"cloudflare": "CLOUDFLARE_AUTH_TOKEN or CLOUDFLARE_ACCOUNT_ID",
+	"openai":     "OPENAI_API_KEY",
+}
+
 func credentialHint(provider string) string {
 	switch provider {
 	case "cloudflare":

@@ -48,6 +48,10 @@ Choose for one run with `--provider typesafe|cloudflare|openai` and `--model NAM
 or for every run with `DECIDE_PROVIDER` and `DECIDE_MODEL`. `--workers` sets how many
 requests run at once (default 4).
 
+Check your setup with `decide models`. It checks that the provider accepts the key or
+token, and lists the model names you can pass to `--model`. See
+[`decide models`](/reference/cli/#decide-models).
+
 ## Limits
 
 decide checks a request against the provider's limits before it sends it.
@@ -55,7 +59,7 @@ decide checks a request against the provider's limits before it sends it.
 | | Clef | GPT-6 Luna |
 | --- | --- | --- |
 | Questions per request | 64 | 200 |
-| Question IDs | up to 100 ASCII letters, digits, `_`, `.` or `-` | |
+| Question IDs | up to 100 ASCII letters, digits, `_`, `.` or `-` | not checked |
 | Options per `choice` | 2 to 255 | at least 2 |
 | Levels per `score` | 2 to 10 | at least 2 |
 | Images | four per request, 4 MiB and 16 megapixels each, 8 MiB decoded combined, 13 MiB per request | not supported yet |

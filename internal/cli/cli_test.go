@@ -85,9 +85,11 @@ func TestOverview(t *testing.T) {
 	if out.code != 0 {
 		t.Fatalf("exit %d", out.code)
 	}
-	contains(t, out.stdout, "Get started", "decide templates", "TYPESAFE_API_KEY")
+	contains(t, out.stdout, "Get started", "decide templates", "decide models", "TYPESAFE_API_KEY")
 	out = h.run("", "run", "--help")
 	contains(t, out.stdout, "Examples:", "--dry-run", "--param")
+	out = h.run("", "models", "--help")
+	contains(t, out.stdout, "--json", "--provider", "Examples:")
 }
 
 func TestVersion(t *testing.T) {
