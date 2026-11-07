@@ -48,6 +48,10 @@ Choose for one run with `--provider typesafe|cloudflare|openai` and `--model NAM
 or for every run with `DECIDE_PROVIDER` and `DECIDE_MODEL`. `--workers` sets how many
 requests run at once (default 4).
 
+Check your setup with `decide models`. It checks that the provider accepts the key or
+token, and lists the model names you can pass to `--model`. See
+[`decide models`](/reference/cli/#decide-models).
+
 ## Limits
 
 decide checks a request against the provider's limits before it sends it.

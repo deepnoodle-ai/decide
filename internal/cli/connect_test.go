@@ -22,3 +22,11 @@ func TestConnectOpenAI(t *testing.T) {
 		t.Fatalf("default model %q", defaultModels["openai"])
 	}
 }
+
+func TestKnownModels(t *testing.T) {
+	for _, p := range []string{"cloudflare", "openai"} {
+		if len(knownModels[p]) == 0 || knownModels[p][0] != defaultModels[p] {
+			t.Errorf("%s: knownModels %v should start with the default %q", p, knownModels[p], defaultModels[p])
+		}
+	}
+}
