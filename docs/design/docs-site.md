@@ -65,7 +65,7 @@ build ./...`, `go vet ./...` and `go mod tidy` skip `site/` and its
 ### Pages
 
 ```
-/                          landing: headline, a playing terminal, three ways in
+/                          landing: superseded, see docs-site-look.md
 /start/                    quickstart: install, key, one line, your own git diff
 /start/go/                 go get, a key, one program from examples/, go run
 /start/answers/            the concepts: question types, probability, flags, providers

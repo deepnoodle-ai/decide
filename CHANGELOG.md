@@ -18,14 +18,13 @@ may change the library API and the CLI.
 - **Security tutorial.** Rank the demo's functions with `security`, then
   confirm candidates with Claude Code's `/decide:audit`.
 - **Docs for agents.** `llms.txt`, Markdown reference pages, and a guide to
-  running Decide from an agent. The landing page shows real runs for each
-  answer type.
+  running Decide from an agent.
 
 ### Changed
 
 - **A new landing page.** One command to install, five real runs in one
   window, why a typed answer beats a reply, the three providers, and the
-  licence in plain words.
+  licence in plain words. The header shows the doodle and a Docs link.
 
 ## [0.4.0] - 2026-10-08
 
