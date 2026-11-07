@@ -80,7 +80,7 @@ sees the same name.
 Folders are read recursively. decide skips hidden files and folders (such
 as `.git` and `.env`), files listed in `.gitignore` or `.decideignore`,
 binary files, and text files over 1 MiB. Dataset files (JSON, JSONL, and
-CSV) are read up to 64 MiB. A file you name directly is never skipped
+CSV) are read up to 64 MiB, or up to 1 MiB with `--each file`. A file you name directly is never skipped
 quietly: if it is over the limit, decide stops with an error. With no files
 named, decide reads stdin.
 
