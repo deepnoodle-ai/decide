@@ -178,6 +178,23 @@ func TestMissingKeyHintMentionsDryRunOnlyForRun(t *testing.T) {
 	}
 }
 
+func TestResumeMissingKeyHintOmitsDryRun(t *testing.T) {
+	h := setup(t)
+	h.server.FailNext(422)
+	if out := h.run("one\ntwo\n", "run", "sentiment", "--workers", "1"); out.code != 1 {
+		t.Fatalf("run: exit %d", out.code)
+	}
+	clearProviderEnv(t)
+	out := runReal("runs", "resume")
+	if out.code != 1 {
+		t.Fatalf("exit %d, stderr %q", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "export TYPESAFE_API_KEY=...")
+	if strings.Contains(out.stderr, "--dry-run") {
+		t.Fatalf("runs resume has no --dry-run, but the hint mentions it: %q", out.stderr)
+	}
+}
+
 // providerServer answers every request with status and records the last.
 type providerServer struct {
 	*httptest.Server

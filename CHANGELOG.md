@@ -23,7 +23,7 @@ may change the library API and the CLI.
 
 ### Fixed
 
-- **`decide models` key hint.** A missing key no longer suggests `--dry-run`, which `decide models` does not have.
+- **Key hints.** A missing key no longer suggests `--dry-run` in `decide models` and `decide runs resume`, which do not have it.
 
 ## [0.4.0] - 2026-10-08
 

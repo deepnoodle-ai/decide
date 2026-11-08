@@ -90,11 +90,7 @@ func (a *App) models(c *cli.Context) error {
 
 // listTypeSafe lists TypeSafe's models, which also shows the key is accepted.
 func (a *App) listTypeSafe(c *cli.Context, res *modelsResult) error {
-	newClient := a.NewClient
-	if a.envClient {
-		newClient = connectForModels
-	}
-	client, err := newClient(res.Provider, res.Default)
+	client, err := a.newClientWithoutDryRun(res.Provider, res.Default)
 	if err != nil {
 		return err
 	}

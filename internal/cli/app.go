@@ -120,9 +120,18 @@ func connect(provider, model string) (*decide.Client, error) {
 	return connectWith(provider, model, true)
 }
 
-// connectForModels is connect for decide models, which has no --dry-run.
-func connectForModels(provider, model string) (*decide.Client, error) {
+// connectWithoutDryRun is connect for commands that have no --dry-run.
+func connectWithoutDryRun(provider, model string) (*decide.Client, error) {
 	return connectWith(provider, model, false)
+}
+
+// newClientWithoutDryRun is NewClient for commands that have no --dry-run,
+// so a missing key does not suggest a flag they reject.
+func (a *App) newClientWithoutDryRun(provider, model string) (*decide.Client, error) {
+	if a.envClient {
+		return connectWithoutDryRun(provider, model)
+	}
+	return a.NewClient(provider, model)
 }
 
 func connectWith(provider, model string, dryRunHint bool) (*decide.Client, error) {
