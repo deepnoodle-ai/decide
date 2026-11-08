@@ -90,7 +90,11 @@ func (a *App) models(c *cli.Context) error {
 
 // listTypeSafe lists TypeSafe's models, which also shows the key is accepted.
 func (a *App) listTypeSafe(c *cli.Context, res *modelsResult) error {
-	client, err := a.NewClient(res.Provider, res.Default)
+	newClient := a.NewClient
+	if a.envClient {
+		newClient = connectForModels
+	}
+	client, err := newClient(res.Provider, res.Default)
 	if err != nil {
 		return err
 	}
@@ -216,7 +220,7 @@ var userInfo = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/\s@"]*@`)
 // a configuration a run rejects is rejected here with the same error. It
 // never follows a redirect and never prints the response body.
 func checkProvider(ctx context.Context, provider string) error {
-	cfg, err := credentials(provider)
+	cfg, err := credentials(provider, false)
 	if err != nil {
 		return err
 	}

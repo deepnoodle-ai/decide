@@ -26,6 +26,10 @@ type App struct {
 
 	// Version is printed by "decide --version".
 	Version string
+
+	// envClient is set when NewClient is the default that reads the
+	// environment, not a replacement.
+	envClient bool
 }
 
 const overview = `Decide asks typed questions about your data and saves every answer.
@@ -55,6 +59,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	}
 	if a.NewClient == nil {
 		a.NewClient = connect
+		a.envClient = true
 	}
 	app := cli.New("decide").
 		Description("Ask typed questions about your data").
@@ -112,7 +117,16 @@ var knownModels = map[string][]string{"cloudflare": {"clef", "clef-flash"}, "ope
 
 // connect builds a client from environment credentials.
 func connect(provider, model string) (*decide.Client, error) {
-	cfg, err := credentials(provider)
+	return connectWith(provider, model, true)
+}
+
+// connectForModels is connect for decide models, which has no --dry-run.
+func connectForModels(provider, model string) (*decide.Client, error) {
+	return connectWith(provider, model, false)
+}
+
+func connectWith(provider, model string, dryRunHint bool) (*decide.Client, error) {
+	cfg, err := credentials(provider, dryRunHint)
 	if err != nil {
 		return nil, err
 	}
@@ -121,8 +135,13 @@ func connect(provider, model string) (*decide.Client, error) {
 }
 
 // credentials reads a provider's credentials and base URL from the
-// environment, and says which to set when they are missing.
-func credentials(provider string) (backend.Config, error) {
+// environment, and says which to set when they are missing. The hint
+// suggests --dry-run only when dryRunHint is set, for commands that have it.
+func credentials(provider string, dryRunHint bool) (backend.Config, error) {
+	dryRun := ""
+	if dryRunHint {
+		dryRun = "\nTo check your data first without a key, add --dry-run."
+	}
 	cfg := backend.Config{Provider: backend.Provider(provider)}
 	switch provider {
 	case "cloudflare":
@@ -138,14 +157,14 @@ func credentials(provider string) (backend.Config, error) {
 		cfg.BaseURL = os.Getenv("OPENAI_BASE_URL")
 		if cfg.APIKey == "" {
 			return backend.Config{}, cli.Error("OPENAI_API_KEY is not set").
-				Hint("Set your OpenAI API key:\n  export OPENAI_API_KEY=...\nTo check your data first without a key, add --dry-run.")
+				Hint("Set your OpenAI API key:\n  export OPENAI_API_KEY=..." + dryRun)
 		}
 	default:
 		cfg.APIKey = os.Getenv("TYPESAFE_API_KEY")
 		cfg.BaseURL = os.Getenv("TYPESAFE_BASE_URL")
 		if cfg.APIKey == "" {
 			return backend.Config{}, cli.Error("TYPESAFE_API_KEY is not set").
-				Hint("Set your TypeSafe API key:\n  export TYPESAFE_API_KEY=...\nTo check your data first without a key, add --dry-run.")
+				Hint("Set your TypeSafe API key:\n  export TYPESAFE_API_KEY=..." + dryRun)
 		}
 	}
 	return cfg, nil
