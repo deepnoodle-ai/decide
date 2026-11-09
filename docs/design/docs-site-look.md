@@ -138,9 +138,7 @@ text renders in `brightWhite`.
 - **Wordmark (SiteTitle):** the doodle at 32px in the title's color, then
   `decide` in JetBrains Mono 700 at 19px, then the version in mono 12px
   gray-3. The version is read from `plugin.json`, so PR
-  previews show the next version. The asking face looks up at three
-  thought dots; hover the wordmark or the footer line and the dots light up
-  in turn. Reduced motion keeps him still.
+  previews show the next version.
 - **Favicon:** a mono `d` in `#ECEDEF` on `#121316`. Not cyan, following
   principle 2.
 

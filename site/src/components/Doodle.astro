@@ -1,18 +1,13 @@
 ---
 // The doodle: decide's character, drawn by hand. A lumpy head the pen carried
-// past where it started, two mismatched dot eyes looking up at three rising
-// thought dots, one brow shoved up, a small mouth and a drip. He is the
-// question, not the answer: decide is the thing that knows, he is the thing
-// still thinking it over.
+// past where it started, two mismatched dot eyes, one brow shoved up, a small
+// mouth and a drip. He is the question, not the answer: decide is the thing
+// that knows, he is the thing that does not.
 //
 // The wobble was generated once from a seed and baked into these paths, so it
 // is the same drawing in every build and there is no script at runtime. The
 // landing page's strip also needs him lost and glad: those faces swap only
 // the eyes, brow and mouth, and keep the baked head and drip.
-//
-// The asking face thinks while an ancestor marked `data-doodle-hover` is
-// hovered, or always with `thinking`: the dots light up in turn and the eyes
-// drift up. Reduced motion keeps him still, and at rest every dot shows.
 //
 // He takes `currentColor`, so he follows whatever text he sits beside.
 interface Props {
@@ -22,10 +17,8 @@ interface Props {
 	title?: string;
 	/** Asking is the canonical face. Lost and glad are for the landing page's strip, and lost for the 404 page. */
 	face?: 'ask' | 'lost' | 'glad';
-	/** Think continuously, not only on hover. Asking face only. */
-	thinking?: boolean;
 }
-const { size = 20, title, face = 'ask', thinking = false } = Astro.props;
+const { size = 20, title, face = 'ask' } = Astro.props;
 
 const leftEye =
 	'M13.17 12.4C13.16 12.88 12.77 13.43 12.4 13.8C12.04 14.18 11.52 14.6 11 14.65C10.48 14.71 9.66 14.52 9.26 14.14C8.86 13.77 8.54 12.94 8.58 12.4C8.63 11.86 9.11 11.29 9.51 10.91C9.92 10.53 10.51 10.11 11 10.11C11.49 10.12 12.08 10.57 12.45 10.95C12.81 11.34 13.17 11.92 13.17 12.4Z';
@@ -34,7 +27,7 @@ const rightEye =
 ---
 
 <svg
-	class:list={['doodle', { thinking }]}
+	class="doodle"
 	width={size}
 	height={size}
 	viewBox="0 0 32 32"
@@ -51,12 +44,10 @@ const rightEye =
 		{
 			face === 'ask' && (
 				<>
-					<g class="eyes" fill="currentColor" stroke="none">
-						<ellipse cx="11.7" cy="11.2" rx="2.15" ry="2.3"></ellipse>
-						<ellipse cx="19.8" cy="10.75" rx="1.35" ry="1.6"></ellipse>
-					</g>
-					<path d="M16.6 7C17.5 6.7 19.4 6.75 20.3 7.15C21.1 7.5 21.6 8.1 21.9 8.4" stroke-width="1.7"></path>
-					<path d="M9.8 18.35C10.9 18.8 12.6 19 14.3 18.7" stroke-width="1.8"></path>
+					<path d={leftEye} fill="currentColor" stroke="none"></path>
+					<path d={rightEye} fill="currentColor" stroke="none"></path>
+					<path d="M16.5 7.71C16.99 7.75 18.65 7.69 19.46 7.9C20.27 8.12 21.06 8.84 21.38 9.03" stroke-width="1.7"></path>
+					<path d="M9.74 18.18C10.19 18.33 11.6 18.99 12.44 19.1C13.28 19.2 14.4 18.86 14.79 18.82" stroke-width="1.8"></path>
 				</>
 			)
 		}
@@ -83,44 +74,11 @@ const rightEye =
 		<path d="M10.3 18.79C10.24 19.12 9.99 20.29 9.97 20.79C9.95 21.29 10.14 21.6 10.18 21.77" stroke-width="1.24"></path>
 		<path d="M10.99 23.3C10.96 23.57 10.9 23.81 10.73 24.03C10.57 24.25 10.26 24.59 10 24.61C9.74 24.63 9.36 24.37 9.15 24.15C8.95 23.93 8.74 23.56 8.76 23.3C8.78 23.04 9.06 22.78 9.27 22.57C9.47 22.35 9.73 22.02 10 21.99C10.27 21.97 10.71 22.2 10.88 22.42C11.04 22.64 11.01 23.03 10.99 23.3Z" fill="currentColor" stroke="none"></path>
 	</g>
-	{
-		face === 'ask' && (
-			<g fill="currentColor" stroke="none">
-				<circle class="dot" cx="26.7" cy="6.7" r="0.85"></circle>
-				<circle class="dot" cx="28.7" cy="4.1" r="1.15"></circle>
-				<circle class="dot" cx="30.5" cy="1.5" r="1.4"></circle>
-			</g>
-		)
-	}
 </svg>
 
 <style>
 	.doodle {
 		display: block;
 		flex: none;
-	}
-	@media (prefers-reduced-motion: no-preference) {
-		.doodle.thinking .eyes,
-		:global([data-doodle-hover]:hover) .doodle .eyes {
-			animation: drift 4.8s ease-in-out infinite;
-		}
-		.doodle.thinking .dot,
-		:global([data-doodle-hover]:hover) .doodle .dot {
-			animation: rise 2.4s ease-in-out infinite;
-		}
-		.dot:nth-child(2) {
-			animation-delay: 0.3s;
-		}
-		.dot:nth-child(3) {
-			animation-delay: 0.6s;
-		}
-	}
-	@keyframes drift {
-		0%, 20%, 100% { transform: translate(0, 0); }
-		45%, 70% { transform: translate(1.1px, -1.1px); }
-	}
-	@keyframes rise {
-		0%, 100% { opacity: 0.15; }
-		40%, 70% { opacity: 1; }
 	}
 </style>
