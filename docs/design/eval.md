@@ -45,11 +45,14 @@ JSONL, one example per line:
 - `id` is optional and defaults to the item's label, `examples.jsonl:3`.
 
 **Inputs must match what `decide run` sends.** eval grades the prompt it
-sends, so an object input has to have the same fields a run would build.
-For `code-risk` that is `{path, language, function, lines, context,
-content}`, not a hand-picked subset. Otherwise eval grades a prompt
+sends, so an object input has to have the same fields a run would build,
+not a hand-picked subset. The shape depends on how the run read its data:
+`code-risk` over files sends `{path, language, function, lines, context,
+content}`, and over a diff (`git diff | decide run code-risk --each
+function`, as the demo runs it) sends `{path, old_path, language, change,
+function, context, lines, part, diff}`. Otherwise eval grades a prompt
 production never sends, and misses the cache. The reliable source is a
-real run: each saved run keeps the exact `state` it sent in
+real run of the same kind: each saved run keeps the exact `state` it sent in
 `DECIDE_HOME/runs/<id>/inputs.jsonl`. The docs show how to copy inputs
 from there. A command that turns a run into an examples file is
 follow-up work.
@@ -249,9 +252,10 @@ evals on each push and a `--no-cache` eval on a schedule or before a
 release.
 
 **No saved run.** eval discards its run with `Run.Discard` after the
-report. `Discard` is documented for runs that were never ready; it
-removes a finished one the same way, and the PR updates its comment. The answers stay in the cache, so a rerun is cheap, and nothing
-new enters the saved run format: no `"kind"`, no eval in
+report. `Discard`'s doc comment speaks of runs that were never ready; it
+removes a finished one the same way, and the implementation updates that
+comment to say so. The answers stay in the cache, so a rerun is cheap,
+and nothing new enters the saved run format: no `"kind"`, no eval in
 `decide runs list`, and no `runs resume` for a run whose gates it could
 not keep.
 
@@ -262,8 +266,13 @@ is a summary, not a line per item. It is printed unchanged, as run's is.
 {"template": "command-risk", "examples": "examples.jsonl", "params": {},
  "provider": "typesafe", "model": "jev-latest", "versions": ["jev-1.13.0"],
  "count": 50, "cached": 41, "failed": [],
- "questions": {"severe": {"type": "noul", "graded": 50, "agree": 47,
-   "unsure": 1, "agreement": 0.94, "confident_mistakes": 1}},
+ "questions": {
+   "destructive": {"type": "noul", "graded": 50, "agree": 48,
+   "unsure": 0, "agreement": 0.96, "confident_mistakes": 0},
+   "severe": {"type": "noul", "graded": 50, "agree": 47,
+   "unsure": 1, "agreement": 0.94, "confident_mistakes": 1},
+   "leak": {"type": "noul", "graded": 50, "agree": 44,
+   "unsure": 0, "agreement": 0.88, "confident_mistakes": 0}},
  "flags": {"severe": {"flag": "yes >= 80%", "positives": 20, "negatives": 30,
    "misses": 1, "false_alarms": 2},
    "leak": {"flag": "yes >= 80%", "positives": 6, "negatives": 44,
