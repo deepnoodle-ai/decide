@@ -27,8 +27,9 @@ off, or remove them, as they land.
       each with planted problems in the demo.
 - [ ] **`decide eval`.** Measure a template on labeled examples: agreement
       per question, confident mistakes, suggested thresholds, and
-      `--fail-under` for CI. Ship examples with each built-in template.
-      Propose the design before building it.
+      `--fail-under` for CI. Grading and `command-risk`'s examples first,
+      then suggested thresholds, then each other built-in's examples in
+      its own pull request. Design: [docs/design/eval.md](design/eval.md).
 - [ ] **Built-in names.** A way to run a built-in template that no project
       or user template can replace. The Claude Code plugin works around it
       by running decide from its own folder.
