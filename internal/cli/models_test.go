@@ -150,6 +150,51 @@ func TestModelsMissingKey(t *testing.T) {
 	}
 }
 
+func TestMissingKeyHintMentionsDryRunOnlyForRun(t *testing.T) {
+	cases := []struct {
+		name     string
+		args     []string
+		dryRun   bool
+		variable string
+	}{
+		{"models", []string{"models"}, false, "TYPESAFE_API_KEY"},
+		{"models openai", []string{"models", "--provider", "openai"}, false, "OPENAI_API_KEY"},
+		{"run", []string{"run", "sentiment", "notes.txt"}, true, "TYPESAFE_API_KEY"},
+		{"run openai", []string{"run", "sentiment", "notes.txt", "--provider", "openai"}, true, "OPENAI_API_KEY"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			clearProviderEnv(t)
+			t.Setenv("DECIDE_HOME", t.TempDir())
+			out := runReal(tc.args...)
+			if out.code != 1 {
+				t.Fatalf("exit %d, stderr %q", out.code, out.stderr)
+			}
+			contains(t, out.stderr, "export "+tc.variable+"=...")
+			if got := strings.Contains(out.stderr, "--dry-run"); got != tc.dryRun {
+				t.Fatalf("mentions --dry-run = %v, want %v: %q", got, tc.dryRun, out.stderr)
+			}
+		})
+	}
+}
+
+func TestResumeMissingKeyHintOmitsDryRun(t *testing.T) {
+	h := setup(t)
+	h.server.FailNext(422)
+	if out := h.run("one\ntwo\n", "run", "sentiment", "--workers", "1"); out.code != 1 {
+		t.Fatalf("run: exit %d", out.code)
+	}
+	clearProviderEnv(t)
+	out := runReal("runs", "resume")
+	if out.code != 1 {
+		t.Fatalf("exit %d, stderr %q", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "export TYPESAFE_API_KEY=...")
+	if strings.Contains(out.stderr, "--dry-run") {
+		t.Fatalf("runs resume has no --dry-run, but the hint mentions it: %q", out.stderr)
+	}
+}
+
 // providerServer answers every request with status and records the last.
 type providerServer struct {
 	*httptest.Server

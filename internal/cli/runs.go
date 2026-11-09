@@ -247,7 +247,7 @@ func (a *App) runsResume(c *cli.Context) error {
 		}
 		return failExit(c, failOn, marked(r))
 	}
-	client, err := a.NewClient(r.Provider, r.Model)
+	client, err := a.newClientWithoutDryRun(r.Provider, r.Model)
 	if err != nil {
 		return err
 	}

@@ -21,6 +21,10 @@ may change the library API and the CLI.
   running Decide from an agent. The landing page shows real runs for each
   answer type.
 
+### Fixed
+
+- **`decide runs resume` key hint.** A missing key no longer suggests `--dry-run`, which `runs resume` does not have.
+
 ## [0.4.0] - 2026-10-08
 
 decide runs on OpenAI's Decisions API, its built-in templates work from Go,
