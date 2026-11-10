@@ -85,6 +85,11 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return 130
 	}
 	app.PrintError(safeError{err})
+	if cli.IsUsageError(err) {
+		// Wonton exits 2 for usage errors, but 2 means "flagged" here, so a
+		// mistyped flag in CI must not look like a flagged item.
+		return 1
+	}
 	return cli.GetExitCode(err)
 }
 
