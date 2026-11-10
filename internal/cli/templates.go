@@ -35,7 +35,7 @@ Examples:
   decide templates new my-template --project`).
 		AddArg(&cli.Arg{Name: "name", Description: "A name for the new template, like my-triage", Required: true}).
 		Flags(
-			cli.String("from").Help("Start from a copy of this template"),
+			cli.String("from").Placeholder("TEMPLATE").Help("Start from a copy of this template"),
 			cli.Bool("project").Help("Save it in this folder's .decide/templates, to share with your team"),
 		).
 		Run(a.templatesNew)

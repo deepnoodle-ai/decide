@@ -44,7 +44,7 @@ func (a *App) addModels(app *cli.App) {
 		Description("Check your key and list models").
 		Long(modelsHelp).
 		Flags(
-			cli.String("provider").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai").
+			cli.String("provider").Placeholder("NAME").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai").
 				Help("Model provider: typesafe, cloudflare, or openai (default: typesafe)"),
 			cli.Bool("json").Help("Print the result as one JSON object"),
 		).
