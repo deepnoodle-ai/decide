@@ -67,24 +67,24 @@ func (a *App) addRun(app *cli.App) {
 		AddArg(&cli.Arg{Name: "template", Description: "The template to run; see them with: decide templates"}).
 		AddArg(&cli.Arg{Name: "data", Description: "Files and folders to read (default: stdin)", Variadic: true}).
 		Flags(
-			cli.Strings("include", "i").Help("Only read files that match this pattern, like '*.go' (repeatable)"),
-			cli.Strings("exclude", "x").Help("Skip files that match this pattern (repeatable)"),
-			cli.Strings("param", "p").Help("Set a template parameter, as name=value (repeatable)"),
-			cli.String("each").Enum(template.Units...).Help("What one item is: file, line, paragraph, section, function, or hunk (default: depends on the data)"),
-			cli.String("field").Help("Ask about one field of each JSON record, like body or ticket.body"),
-			cli.String("items").Help("Where the records are inside a JSON file, like data.tickets"),
-			cli.Int("limit", "n").Help("Stop after this many items"),
-			cli.Int("sample").Help("Pick this many items at random"),
+			cli.Strings("include", "i").Placeholder("PATTERN").Help("Only read files that match this pattern, like '*.go' (repeatable)"),
+			cli.Strings("exclude", "x").Placeholder("PATTERN").Help("Skip files that match this pattern (repeatable)"),
+			cli.Strings("param", "p").Placeholder("NAME=VALUE").Help("Set a template parameter, as name=value (repeatable)"),
+			cli.String("each").Placeholder("UNIT").Enum(template.Units...).Help("What one item is: file, line, paragraph, section, function, or hunk (default: depends on the data)"),
+			cli.String("field").Placeholder("FIELD").Help("Ask about one field of each JSON record, like body or ticket.body"),
+			cli.String("items").Placeholder("PATH").Help("Where the records are inside a JSON file, like data.tickets"),
+			cli.Int("limit", "n").Placeholder("N").Help("Stop after this many items"),
+			cli.Int("sample").Placeholder("N").Help("Pick this many items at random"),
 			cli.Bool("dry-run").Help("Show what would be asked, without calling the model"),
 			cli.Bool("no-cache").Help("Ask every question again, instead of reusing answers from earlier runs"),
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
-			cli.String("format", "f").Enum(formats...).Help(formatHelp),
-			cli.String("fail-on").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
-			cli.String("provider").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai").
+			cli.String("format", "f").Placeholder("FORMAT").Enum(formats...).Help(formatHelp),
+			cli.String("fail-on").Placeholder("WHEN").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
+			cli.String("provider").Placeholder("NAME").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai").
 				Help("Model provider: typesafe, cloudflare, or openai (default: typesafe; cloudflare for images)"),
-			cli.String("model", "m").Env("DECIDE_MODEL").Help("Model name (default: the provider's default)"),
-			cli.Int("workers").Default(4).Help("How many requests to send at once"),
+			cli.String("model", "m").Placeholder("MODEL").Env("DECIDE_MODEL").Help("Model name (default: the provider's default)"),
+			cli.Int("workers").Placeholder("N").Default(4).Help("How many requests to send at once"),
 			cli.Bool("yes", "y").Help(fmt.Sprintf("Don't ask before running more than %d items", confirmAbove)),
 		).
 		Run(a.run)

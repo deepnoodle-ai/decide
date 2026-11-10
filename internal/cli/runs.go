@@ -25,8 +25,8 @@ func (a *App) addRuns(app *cli.App) {
 		Flags(
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
-			cli.String("format", "f").Enum(formats...).Help(formatHelp),
-			cli.Int("top").Help("Show only this many items: the flagged ones first, then those nearest a flag"),
+			cli.String("format", "f").Placeholder("FORMAT").Enum(formats...).Help(formatHelp),
+			cli.Int("top").Placeholder("N").Help("Show only this many items: the flagged ones first, then those nearest a flag"),
 		).
 		Run(a.runsView)
 	g.Command("resume").
@@ -35,9 +35,9 @@ func (a *App) addRuns(app *cli.App) {
 		Flags(
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
-			cli.String("format", "f").Enum(formats...).Help(formatHelp),
-			cli.Int("workers").Default(4).Help("How many requests to send at once"),
-			cli.String("fail-on").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
+			cli.String("format", "f").Placeholder("FORMAT").Enum(formats...).Help(formatHelp),
+			cli.Int("workers").Placeholder("N").Default(4).Help("How many requests to send at once"),
+			cli.String("fail-on").Placeholder("WHEN").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
 		).
 		Run(a.runsResume)
 }

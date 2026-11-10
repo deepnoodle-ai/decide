@@ -21,6 +21,11 @@ may change the library API and the CLI.
   running Decide from an agent. The landing page shows real runs for each
   answer type.
 
+### Changed
+
+- `--help` names what each flag takes, such as `--limit N` and
+  `--include PATTERN`, so flags that take a value stand out.
+
 ### Fixed
 
 - **`decide runs resume` key hint.** A missing key no longer suggests `--dry-run`, which `runs resume` does not have.

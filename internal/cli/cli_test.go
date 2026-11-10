@@ -87,9 +87,15 @@ func TestOverview(t *testing.T) {
 	}
 	contains(t, out.stdout, "Get started", "decide templates", "decide models", "TYPESAFE_API_KEY")
 	out = h.run("", "run", "--help")
-	contains(t, out.stdout, "Examples:", "--dry-run", "--param")
+	contains(t, out.stdout, "Examples:", "--dry-run", "--param NAME=VALUE", "--limit N")
 	out = h.run("", "models", "--help")
-	contains(t, out.stdout, "--json", "--provider", "Examples:")
+	contains(t, out.stdout, "--json", "--provider NAME", "Examples:")
+	out = h.run("", "runs", "view", "--help")
+	contains(t, out.stdout, "--top N", "--format FORMAT")
+	out = h.run("", "runs", "resume", "--help")
+	contains(t, out.stdout, "--workers N", "--fail-on WHEN")
+	out = h.run("", "templates", "new", "--help")
+	contains(t, out.stdout, "--from TEMPLATE")
 }
 
 func TestVersion(t *testing.T) {
