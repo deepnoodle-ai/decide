@@ -166,7 +166,7 @@ func TestRejectsRequestsTheAPICannotTake(t *testing.T) {
 		"one option":     {oneOption, decide.ErrInvalidRequest},
 		"key":            {badKey, decide.ErrInvalidRequest},
 		"empty level":    {emptyLevel, decide.ErrInvalidRequest},
-		"images":         {image, errors.ErrUnsupported},
+		"data URL image": {image, decide.ErrInvalidRequest},
 	} {
 		if _, err := client.SystemOne(context.Background(), tc.req); !errors.Is(err, tc.want) {
 			t.Errorf("%s: got %v, want %v", name, err, tc.want)
