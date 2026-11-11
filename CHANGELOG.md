@@ -40,9 +40,6 @@ and its guides live on a documentation site.
 
 ### Added
 
-- **Gemini Decision.** `--provider gemini` and `backend.Gemini` run
-  `gemini-decision-1` through Google's Gemini Decisions API, in beta. Set
-  `GEMINI_API_KEY`.
 - **OpenAI's Decisions API.** `--provider openai` runs templates on
   `gpt-6-luna` with `OPENAI_API_KEY`; Go code uses `backend.OpenAI`. The API
   is in beta, and image templates don't run on it yet.
@@ -72,9 +69,6 @@ answer. The plugin drops its reply check.
 
 ### Added
 
-- **Gemini Decision.** `--provider gemini` and `backend.Gemini` run
-  `gemini-decision-1` through Google's Gemini Decisions API, in beta. Set
-  `GEMINI_API_KEY`.
 - **`decide runs view --top N`.** Show the flagged items first, then those
   nearest a flag, to read a long run from the top.
 - **`/decide:audit`.** A plugin skill: decide ranks every function with
@@ -117,9 +111,6 @@ before risky commands, on content from outside, and on its own replies.
 
 ### Added
 
-- **Gemini Decision.** `--provider gemini` and `backend.Gemini` run
-  `gemini-decision-1` through Google's Gemini Decisions API, in beta. Set
-  `GEMINI_API_KEY`.
 - **`command-risk` and `reply-check`.** Judge a shell command before it
   runs, and check a coding agent's reply against the tools it ran.
 - **A Claude Code plugin.** `/plugin marketplace add deepnoodle-ai/decide`
@@ -141,9 +132,6 @@ answers with probabilities, from the command line or from Go.
 
 ### Added
 
-- **Gemini Decision.** `--provider gemini` and `backend.Gemini` run
-  `gemini-decision-1` through Google's Gemini Decisions API, in beta. Set
-  `GEMINI_API_KEY`.
 - **The `decide` CLI.** Run a template on files, folders, JSONL, JSON, CSV,
   text, Markdown, source code, and images. Runs are saved and can resume.
 - **Nine templates,** from `sentiment` and `triage` to `code-risk` and
