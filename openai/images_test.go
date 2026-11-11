@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -82,6 +83,19 @@ func TestImagesWireAndOwnership(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got["input"], want) {
 		t.Errorf("object shape input = %#v", got["input"])
+	}
+
+	// Base64 wrapped at 76 columns is sent without its line breaks.
+	var wrapped strings.Builder
+	for i := 0; i < len(encoded); i += 76 {
+		wrapped.WriteString(encoded[i:min(i+76, len(encoded))] + "\r\n")
+	}
+	req.Extra["images"] = []map[string]string{{"content_type": "image/png", "base64": wrapped.String()}}
+	if _, err := client.SystemOne(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got["input"], want) {
+		t.Errorf("wrapped base64 input = %#v", got["input"])
 	}
 
 	// Without text state, only the images are sent.

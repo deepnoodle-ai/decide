@@ -83,7 +83,8 @@ func imageURLs(value any) ([]string, error) {
 		if err := checkImage(contentType, decoded); err != nil {
 			return nil, err
 		}
-		urls = append(urls, "data:"+contentType+";base64,"+data)
+		// Encode again so line breaks that decoding skips never reach the API.
+		urls = append(urls, "data:"+contentType+";base64,"+base64.StdEncoding.EncodeToString(decoded))
 	}
 	return urls, nil
 }
