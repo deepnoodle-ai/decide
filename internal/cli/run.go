@@ -81,8 +81,8 @@ func (a *App) addRun(app *cli.App) {
 			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
 			cli.String("format", "f").Placeholder("FORMAT").Enum(formats...).Help(formatHelp),
 			cli.String("fail-on").Placeholder("WHEN").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
-			cli.String("provider").Placeholder("NAME").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai").
-				Help("Model provider: typesafe, cloudflare, or openai (default: typesafe; cloudflare for images)"),
+			cli.String("provider").Placeholder("NAME").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai", "gemini").
+				Help("Model provider: typesafe, cloudflare, openai, or gemini (default: typesafe; cloudflare for images)"),
 			cli.String("model", "m").Placeholder("MODEL").Env("DECIDE_MODEL").Help("Model name (default: the provider's default)"),
 			cli.Int("workers").Placeholder("N").Default(4).Help("How many requests to send at once"),
 			cli.Bool("yes", "y").Help(fmt.Sprintf("Don't ask before running more than %d items", confirmAbove)),
@@ -336,6 +336,7 @@ var keyVars = map[string]string{
 	"typesafe":   "TYPESAFE_API_KEY",
 	"cloudflare": "CLOUDFLARE_AUTH_TOKEN or CLOUDFLARE_ACCOUNT_ID",
 	"openai":     "OPENAI_API_KEY",
+	"gemini":     "GEMINI_API_KEY",
 }
 
 func credentialHint(provider string) string {
@@ -344,6 +345,8 @@ func credentialHint(provider string) string {
 		return "Check CLOUDFLARE_AUTH_TOKEN and CLOUDFLARE_ACCOUNT_ID."
 	case "openai":
 		return "Check that OPENAI_API_KEY holds a valid key."
+	case "gemini":
+		return "Check that GEMINI_API_KEY holds a valid key."
 	}
 	return "Check that TYPESAFE_API_KEY holds a valid key."
 }
