@@ -148,15 +148,15 @@ func TestRejectsRequestsTheAPICannotTake(t *testing.T) {
 	}
 	oneOption := decide.NewRequest("hello")
 	decide.Ask(oneOption, "c", decide.Choice("Which?", decide.Option("only")))
-	image := decide.NewRequest("hello", decide.WithRequestExtra("images", []string{"data:image/png;base64,AA=="}))
-	decide.Ask(image, "a", decide.Noul("A?"))
+	video := decide.NewRequest("hello", decide.WithRequestExtra("videos", []string{"data:video/mp4;base64,AA=="}))
+	decide.Ask(video, "a", decide.Noul("A?"))
 	for name, tc := range map[string]struct {
 		req  *decide.Request
 		want error
 	}{
 		"201 questions": {many, decide.ErrInvalidRequest},
 		"one option":    {oneOption, decide.ErrInvalidRequest},
-		"images":        {image, errors.ErrUnsupported},
+		"videos":        {video, errors.ErrUnsupported},
 	} {
 		if _, err := client.SystemOne(context.Background(), tc.req); !errors.Is(err, tc.want) {
 			t.Errorf("%s: got %v, want %v", name, err, tc.want)
