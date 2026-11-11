@@ -109,6 +109,17 @@ func TestImagesWireAndOwnership(t *testing.T) {
 	if !reflect.DeepEqual(got["input"], want) {
 		t.Errorf("empty state input = %#v", got["input"])
 	}
+
+	// No images: the input stays a string, never an empty content list.
+	if err := openai.SetImages(req); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := client.SystemOne(context.Background(), req); err != nil {
+		t.Fatal(err)
+	}
+	if got["input"] != "" {
+		t.Errorf("no images input = %#v", got["input"])
+	}
 }
 
 func TestImageFormats(t *testing.T) {

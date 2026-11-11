@@ -67,7 +67,9 @@ func encodeRequest(req *decide.Request) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		body.Input = imageInput(text(state), urls)
+		if len(urls) > 0 { // no images: send the text input as usual
+			body.Input = imageInput(text(state), urls)
+		}
 	}
 	for _, key := range slices.Sorted(maps.Keys(req.Questions)) {
 		wire, err := questionWire(req.Questions[key])
