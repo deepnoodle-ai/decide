@@ -186,14 +186,14 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    two runs that use project templates say so under the window and name the
    built in template that works out of the box.
 3. **"One question, and a script that has to act on the answer."**
-   `DroolStrip.astro`: Drool asks, an agent replies with paragraphs, decide
+   `AskStrip.astro`: the doodle thinks very hard and asks, an agent replies with paragraphs, decide
    answers `! ready  no  98%`, the line the triage-check recording printed.
-4. **"Three decision models, one set of commands."** `Models.astro`: TypeSafe,
-   Cloudflare and OpenAI, each with its mark, model ids and one line.
+4. **"Four decision models, one set of commands."** `Models.astro`: TypeSafe,
+   Cloudflare, OpenAI and Google, two by two, each with its mark, model ids and one line.
 5. **"Steal the code. Legally."** `StealCode.astro`: the repository's folders
    as a listing (no prompt, so it is not a fake run) with the clone command
    in the frame's copy strip, beside Apache 2.0 in plain words.
-6. **`Closing.astro`.** One command, the quickstart and the source, with Drool
+6. **`Closing.astro`.** One command, the quickstart and the source, with the doodle
    at 480px in `gray-5`, cropped by the band and hidden under 860px.
 
 Sections open with a centred two-tone headline; their content is left
@@ -319,9 +319,10 @@ third panel).
 ## What we avoid
 
 - Gradients, glows, glass, gradient text, sparkles, mascots, 3D renders and
-  emoji. Two exceptions: Drool, the doodle, who is the one character (the
-  footer's signature, the landing page's strip, the closing band, and the
-  404 page, where he is lost), and
+  emoji. Two exceptions: the doodle, the one character, always thinking very
+  hard (the wordmark, the footer's signature, the landing page's strip,
+  the closing band, and the 404 page, where it is lost). It has no name
+  and is "it". And
   the fade on the agent's reply in the strip, which shows text running on.
 - "AI-powered" copy.
 - Bento grids, logo walls, counters and testimonials.

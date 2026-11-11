@@ -1,5 +1,5 @@
 ---
-// Why not just prompt an agent, as a three panel strip: Drool asks, an agent
+// Why not just prompt an agent, as a three panel strip: the doodle asks, an agent
 // replies with paragraphs, decide answers with a value and a probability.
 // Each panel shares the strip's four rows, so the faces, titles, what was
 // said and the captions line up across. The answer line is the one decide
@@ -9,24 +9,24 @@ import Doodle from './Doodle.astro';
 
 <div class="strip">
 	<div class="panel">
-		<div class="face"><Doodle size={56} face="ask" /><span class="who">Drool<span>asks</span></span></div>
-		<h3>He wants a yes or a no.</h3>
+		<div class="face"><Doodle size={56} face="ask" thinking /><span class="who">The doodle<span>thinks very hard, then asks</span></span></div>
+		<h3>It wants a yes or a no.</h3>
 		<div class="bubble q">Is this issue ready to work on?</div>
 		<p>One question, asked the same way about every issue in the queue.</p>
 	</div>
 	<div class="panel">
 		<div class="face"><Doodle size={56} face="lost" /><span class="who">An agent<span>replies</span></span></div>
-		<h3>He gets three paragraphs.</h3>
+		<h3>It gets three paragraphs.</h3>
 		<div class="bubble fluff">
 			That's a great question! Whether an issue is ready to work on really depends on a few things. Generally speaking, a well formed
 			issue should include reproduction steps, the expected behaviour, and some sense of scope. Based on what you've shared, there may
 			be some ambiguity around the acceptance criteria…
 		</div>
-		<p>Helpful to read. Impossible to branch on. Now he is writing a parser.</p>
+		<p>Helpful to read. Impossible to branch on. Now it is writing a parser.</p>
 	</div>
 	<div class="panel">
 		<div class="face"><Doodle size={56} face="glad" /><span class="who">decide<span>answers</span></span></div>
-		<h3>He gets a value and a number.</h3>
+		<h3>It gets a value and a number.</h3>
 		<div class="screen">
 			<div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
 			<div class="body">

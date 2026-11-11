@@ -1,7 +1,8 @@
 ---
 // The landing page's last band: one more command, the quickstart, and the
-// source. Drool sits large and faint at the right, cropped by the band, so
-// he reads as texture. He is hidden on narrow screens, where he would sit
+// source. The doodle sits large and faint at the right, cropped by the band,
+// so it reads as texture, and thinks while the band is hovered. It is hidden
+// on narrow screens, where it would sit
 // under the text.
 import CopyButton from './CopyButton.astro';
 import Doodle from './Doodle.astro';
@@ -9,7 +10,7 @@ import Doodle from './Doodle.astro';
 const command = 'brew install deepnoodle-ai/tap/decide';
 ---
 
-<section class="closing not-content">
+<section class="closing not-content" data-doodle-hover>
 	<div class="in">
 		<h2>Get your first answer in five minutes.</h2>
 		<p>Install it, set your key, and point it at a file. No prompt to write.</p>

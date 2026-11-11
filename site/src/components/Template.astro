@@ -41,7 +41,7 @@ const options = (q: Question) =>
 <div class="tpl">
 	<p class="desc">{t.description}</p>
 	<p class="meta">
-		Reads {t.input === 'image' ? 'images' : 'text'}{t.each && <>, one {t.each} at a time</>}.
+		Reads {({ image: 'images', audio: 'audio', video: 'video', pdf: 'PDFs' } as Record<string, string>)[t.input ?? ''] ?? 'text'}{t.each && <>, one {t.each} at a time</>}.
 		Try it: <code>decide templates show {name}</code>
 	</p>
 	<table>

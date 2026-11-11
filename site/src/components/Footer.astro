@@ -1,7 +1,6 @@
 ---
-// Starlight's footer, then our line. The doodle sits at the head of it: he is
-// the only place on the site with a character, and he is small and muted, so
-// he reads as a signature rather than a mascot.
+// Starlight's footer, then our line. The doodle sits at the head of it, small
+// and muted, so it reads as a signature; hover the line and it thinks.
 import Default from '@astrojs/starlight/components/Footer.astro';
 import Doodle from './Doodle.astro';
 ---
@@ -40,7 +39,7 @@ import Doodle from './Doodle.astro';
 		align-items: center;
 		gap: 10px;
 	}
-	/* He brightens with the line he belongs to, and never on his own. */
+	/* It brightens with the line it belongs to, and never on its own. */
 	.made:hover .left :global(.doodle) {
 		color: var(--sl-color-gray-2);
 	}
