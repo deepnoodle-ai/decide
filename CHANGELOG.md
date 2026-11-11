@@ -11,6 +11,8 @@ may change the library API and the CLI.
 - **Gemini Decision.** `--provider gemini` and `backend.Gemini` run
   `gemini-decision-1` through Google's Gemini Decisions API, in beta. Set
   `GEMINI_API_KEY`.
+- **Images on OpenAI.** Image templates such as `receipt-quality` run with
+  `--provider openai`, and `openai.SetImages` adds images to a request.
 - **`decide models`.** Checks that your provider accepts your credentials
   and lists the names you can pass to `--model`. A missing or rejected key
   names the variable to fix.

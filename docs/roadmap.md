@@ -69,7 +69,7 @@ off, or remove them, as they land.
       run `gemini-decision-1` through `POST /v1beta/decisions`, in beta.
 - [ ] **Media on Gemini.** Send images, audio, video, and PDFs to the
       Gemini Decisions API, which takes all of them.
-- [ ] **Images on OpenAI.** Send image templates to the Decisions API as
+- [x] **Images on OpenAI.** Send image templates to the Decisions API as
       base64 data URLs, as `cloudflare.SetImages` does for Clef.
 - [x] **`decide models`.** List models and check that the provider accepts the credentials.
       Cloudflare, OpenAI, and Gemini can't list models, so they check credentials

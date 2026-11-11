@@ -17,7 +17,13 @@
 //
 // Requests are checked against the API's limits before they are sent: at
 // most 200 questions, and at least 2 options per choice and 2 levels per
-// score. Image input is not supported yet.
+// score.
+//
+// SetImages adds embedded PNG, JPEG, or WebP images to a request. They are
+// sent as base64 data URLs in input_image parts of one user message, after
+// the state as an input_text part. Remote image URLs and video inputs are
+// unsupported. The API does not document image count or size limits, so
+// only each image's format is checked before sending.
 //
 // Config reads no environment variables. The API key is redacted from
 // formatting and response bodies. Malformed and non-JSON response bodies are
