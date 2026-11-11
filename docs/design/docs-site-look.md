@@ -190,10 +190,10 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    answers `! ready  no  98%`, the line the triage-check recording printed.
 4. **"Four decision models, one set of commands."** `Models.astro`: TypeSafe,
    Cloudflare, OpenAI and Google, two by two, each with its mark, model ids and one line.
-5. **"Steal the code. Legally."** `StealCode.astro`: the repository's folders
+5. **"No black box. Except the model."** `Source.astro`: the repository's folders
    as a listing (no prompt, so it is not a fake run) with the clone command
    in the frame's copy strip, beside Apache 2.0 in plain words.
-6. **`Closing.astro`.** "Stop thinking very hard." One command, the
+6. **`Closing.astro`.** "Your turn. Ask it something." One command, the
    quickstart and the source, with the glad-card face whole at 200px on the
    right, and at 120px above the heading under 860px.
 
@@ -366,8 +366,9 @@ reader, who is always thinking very hard. It is never decide.
 Voice:
 
 1. Put the reader in the asker's seat. Never name the face.
-2. "Thinking very hard" appears once per place, five places in all: the
-   hero, the strip, the 404, the closing band and the footer.
+2. "Thinking very hard" appears once per place, four places in all: the
+   hero, the strip, the 404 and the footer. The closing band hands the
+   reader their turn instead.
 3. decide, always lowercase, is the subject of what happens: "decide
    answers", never "this LLM".
 4. Plain, concrete words. Name the flag, the env var, the exit code. No
