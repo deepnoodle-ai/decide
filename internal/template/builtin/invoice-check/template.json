@@ -1,0 +1,23 @@
+{
+  "name": "invoice-check",
+  "description": "Check whether each PDF is a complete invoice.",
+  "input": "pdf",
+  "questions": {
+    "invoice": {
+      "type": "noul",
+      "instructions": "Is the attached PDF an invoice or a bill asking for payment?"
+    },
+    "complete": {
+      "type": "noul",
+      "instructions": "Can the invoice number, the seller, the total due, and the due date all be read from the PDF?"
+    },
+    "paid": {
+      "type": "noul",
+      "instructions": "Does the PDF mark the invoice as already paid?"
+    }
+  },
+  "flags": {
+    "invoice": "no",
+    "complete": "no"
+  }
+}
