@@ -602,6 +602,7 @@ func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions que
 	if in.Image != "" {
 		data, err := os.ReadFile(filepath.Join(r.Dir, in.Image))
 		if err == nil {
+			// The openai transport reads this shape too.
 			var im cloudflare.Image
 			if im, err = cloudflare.NewImage(in.ContentType, data); err == nil {
 				err = cloudflare.SetImages(req, im)

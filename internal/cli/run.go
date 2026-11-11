@@ -159,9 +159,9 @@ func (a *App) run(c *cli.Context) error {
 		return a.dryRun(c, resolved, paths, opts, format, &changes, provider, model)
 	}
 
-	if s.Input == template.Image && provider != "cloudflare" {
-		return cli.Errorf("%s reads images, which need the cloudflare provider", s.Name).
-			Hint("Run it with --provider cloudflare")
+	if s.Input == template.Image && provider != "cloudflare" && provider != "openai" {
+		return cli.Errorf("%s reads images, which need the cloudflare or openai provider", s.Name).
+			Hint("Run it with --provider cloudflare or --provider openai")
 	}
 	client, err := a.NewClient(provider, model)
 	if err != nil {
