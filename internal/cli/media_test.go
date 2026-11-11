@@ -136,22 +136,6 @@ func TestMediaLimitsFollowTheProvider(t *testing.T) {
 
 func templateInput(s string) template.Input { return template.Input(s) }
 
-func TestMediaProvidersWaitLongerForUploads(t *testing.T) {
-	clearProviderEnv(t)
-	t.Setenv("GEMINI_API_KEY", "gm")
-	t.Setenv("OPENAI_API_KEY", "sk")
-	t.Setenv("TYPESAFE_API_KEY", "ts")
-	for provider, want := range map[string]string{"gemini": "5m0s", "openai": "5m0s", "typesafe": "10s"} {
-		c, err := connect(provider, "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !strings.Contains(c.String(), "attempt_timeout: "+want+",") {
-			t.Errorf("%s: %s", provider, c.String())
-		}
-	}
-}
-
 func TestMediaRunsSendTwoAtOnce(t *testing.T) {
 	clearProviderEnv(t)
 	t.Setenv("DECIDE_HOME", t.TempDir())

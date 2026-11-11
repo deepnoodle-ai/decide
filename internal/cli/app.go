@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/backend"
@@ -147,17 +146,7 @@ func connectWith(provider, model string, dryRunHint bool) (*decide.Client, error
 		return nil, err
 	}
 	cfg.Model = model
-	return backend.NewClient(cfg, decide.WithAttemptTimeout(attemptTimeout(provider)))
-}
-
-// attemptTimeout is how long one attempt may take, sending the request
-// and reading the answer. OpenAI and Gemini take media files large enough
-// that uploading one takes longer than decide's 10 second default.
-func attemptTimeout(provider string) time.Duration {
-	if provider == "openai" || provider == "gemini" {
-		return 5 * time.Minute
-	}
-	return 10 * time.Second
+	return backend.NewClient(cfg)
 }
 
 // mediaWorkers is the most media requests sent at once unless --workers

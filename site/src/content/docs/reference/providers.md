@@ -66,8 +66,9 @@ stops the run before anything is sent.
 
 Choose for one run with `--provider typesafe|cloudflare|openai|gemini` and `--model NAME`,
 or for every run with `DECIDE_PROVIDER` and `DECIDE_MODEL`. `--workers` sets how many
-requests run at once (default 4, or 2 for media). OpenAI and Gemini requests may
-take up to 5 minutes each, so a large file can finish uploading.
+requests run at once (default 4, or 2 for media). A request that sends a file may
+take up to 5 minutes, so a large file can finish uploading. Text requests
+keep the 10 second limit.
 
 Check your setup with `decide models`. It checks that the provider accepts the key or
 token, and lists the model names you can pass to `--model`. See

@@ -724,9 +724,22 @@ func ValidAnswer(q decide.Question, raw json.RawMessage) bool {
 	return true
 }
 
+// MediaAttemptTimeout is how long one attempt of a request that carries a
+// media file may take, sending it and reading the answer. Uploading a large
+// file takes longer than the client's default; a text request keeps it.
+const MediaAttemptTimeout = 5 * time.Minute
+
+// callOptions gives a request that carries media the longer attempt timeout.
+func callOptions(req *decide.Request) []decide.CallOption {
+	if req.Extra["images"] != nil || req.Extra["media"] != nil {
+		return []decide.CallOption{decide.WithCallAttemptTimeout(MediaAttemptTimeout)}
+	}
+	return nil
+}
+
 // ask sends a request and records its answers in res.
 func (r *Run) ask(ctx context.Context, client *decide.Client, req *decide.Request, res Result) (Result, error) {
-	resp, err := client.SystemOne(ctx, req)
+	resp, err := client.SystemOne(ctx, req, callOptions(req)...)
 	if resp != nil {
 		res.Model, res.RequestID = resp.Model, resp.RequestID
 	}
