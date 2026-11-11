@@ -230,8 +230,16 @@ func checkMediaProvider(s *template.Template, provider string) error {
 	if len(ok) > 1 {
 		names = strings.Join(ok[:len(ok)-1], ", ") + ", or " + ok[len(ok)-1]
 	}
+	flags := make([]string, len(ok))
+	for i, p := range ok {
+		flags[i] = "--provider " + p
+	}
+	hint := flags[0]
+	if len(flags) > 1 {
+		hint = strings.Join(flags[:len(flags)-1], ", ") + ", or " + flags[len(flags)-1]
+	}
 	return cli.Errorf("%s reads %s files, which need the %s provider", s.Name, source.MediaName(s.Input), names).
-		Hint("Run it with --provider " + ok[0])
+		Hint("Run it with " + hint)
 }
 
 // mediaLimit is the largest media file a provider takes in one request.
