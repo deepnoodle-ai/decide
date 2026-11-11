@@ -1,19 +1,19 @@
 ---
 // The character: a hand-drawn lumpy head the pen carried past where it
-// started, two mismatched eyes, one brow shoved up, a small mouth and a drip.
+// started, two mismatched eyes, one brow shoved up, and a small mouth.
 // It stands in for the reader, who is always thinking very hard. It is the
 // question; decide is the answer. It never has a name: decorative uses are
 // aria-hidden, and a link around it is labeled by where it goes.
 //
 // The wobble was generated once from a seed and baked into these paths, so it
-// is the same drawing in every build. Every face keeps the head, the drip, the
+// is the same drawing in every build. Every face keeps the head, the
 // raised brow and the two eye anchors (11.7,11.2 and 19.8,10.75), and only
 // swaps what sits on those anchors.
 //
 // Pen rule: strokes use non-scaling-stroke, so the line is the same weight at
 // every size. The width comes from --doodle-pen, set by the size preset (mark
-// 1.5px, small 2px, poster 3px). Brow and mouth draw at 0.85 of it, the drip
-// at 0.6. Filled eyes scale with the drawing.
+// 1.5px, small 2px, poster 3px). Brow and mouth draw at 0.85 of it. No drip:
+// the face thinks, it does not drool. Filled eyes scale with the drawing.
 //
 // Faces:
 //   ask        thinking, with three thought dots
@@ -131,18 +131,6 @@ const animated = face === 'ask';
 			)
 		}
 		{
-			face !== 'mark' && (
-				<>
-					<path class="pen drip" d="M10.3 18.79C10.24 19.12 9.99 20.29 9.97 20.79C9.95 21.29 10.14 21.6 10.18 21.77"></path>
-					<path
-						d="M10.99 23.3C10.96 23.57 10.9 23.81 10.73 24.03C10.57 24.25 10.26 24.59 10 24.61C9.74 24.63 9.36 24.37 9.15 24.15C8.95 23.93 8.74 23.56 8.76 23.3C8.78 23.04 9.06 22.78 9.27 22.57C9.47 22.35 9.73 22.02 10 21.99C10.27 21.97 10.71 22.2 10.88 22.42C11.04 22.64 11.01 23.03 10.99 23.3Z"
-						fill="currentColor"
-						stroke="none"
-					></path>
-				</>
-			)
-		}
-		{
 			animated && (
 				<g class="dots" fill="currentColor" stroke="none">
 					<circle class="dot d1" cx="26.2" cy="8.2" r="0.85"></circle>
@@ -215,9 +203,6 @@ const animated = face === 'ask';
 	}
 	.pen.fine {
 		stroke-width: calc(var(--doodle-pen, 2px) * 0.85);
-	}
-	.pen.drip {
-		stroke-width: calc(var(--doodle-pen, 2px) * 0.6);
 	}
 	.trail-line {
 		stroke-dasharray: 0 calc(var(--doodle-pen, 2px) * 3.2);

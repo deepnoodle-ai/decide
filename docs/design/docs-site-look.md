@@ -347,7 +347,7 @@ reader, who is always thinking very hard. It is never decide.
 - **Pen rule.** Strokes keep one width at every size, from `--doodle-pen`
   with `vector-effect: non-scaling-stroke`. Presets: `mark` 1.5px
   (16–24px), `small` 2px (32–96px), `poster` 3px (160px and up). Brow and
-  mouth at 0.85 of the pen, the drip at 0.6.
+  mouth at 0.85 of the pen. There is no drip: it thinks, it does not drool.
 - **Poses.** Every face keeps the raised brow and the ask face's two eye
   positions. `ask` thinks, with thought dots that rise and swell, and every
   third 2.4s cycle the last dot turns into "?". `lost` has X eyes, and
