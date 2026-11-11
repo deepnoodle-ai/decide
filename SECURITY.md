@@ -20,5 +20,5 @@ Examples of what we want to hear about:
 - Reading or writing files the command was not asked to touch.
 - Answers accepted without being validated against their questions.
 
-Problems with the TypeSafe, Cloudflare, or OpenAI services themselves
+Problems with the TypeSafe, Cloudflare, OpenAI, or Gemini services themselves
 belong with those providers.

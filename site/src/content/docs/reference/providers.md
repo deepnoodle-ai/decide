@@ -1,9 +1,9 @@
 ---
 title: Providers
-description: The three decision models decide runs on, and how to point it at your own service.
+description: The four decision models decide runs on, and how to point it at your own service.
 ---
 
-decide runs on three decision models, through the same commands and
+decide runs on four decision models, through the same commands and
 templates:
 
 - **Jev** by [TypeSafe](https://docs.typesafe.ai/introduction), the
@@ -33,6 +33,17 @@ templates:
   export DECIDE_PROVIDER=openai
   ```
 
+- **Gemini Decision** by [Google](https://aistudio.google.com/docs/decisions-api),
+  with the `gemini-decision-1` model, through the Gemini Decisions API,
+  which is in beta. Set `GEMINI_BASE_URL` to send requests somewhere other
+  than `https://generativelanguage.googleapis.com/v1beta`. Image templates
+  don't run on it yet.
+
+  ```sh
+  export GEMINI_API_KEY=...
+  export DECIDE_PROVIDER=gemini
+  ```
+
 Any other service that speaks the Jev API works too, such as one you host
 yourself. Point decide at it with `TYPESAFE_BASE_URL`, along with
 `TYPESAFE_API_KEY` and a model name:
@@ -42,7 +53,7 @@ export TYPESAFE_BASE_URL=https://decisions.example.com
 decide run sentiment notes.txt --model my-model
 ```
 
-Choose for one run with `--provider typesafe|cloudflare|openai` and `--model NAME`,
+Choose for one run with `--provider typesafe|cloudflare|openai|gemini` and `--model NAME`,
 or for every run with `DECIDE_PROVIDER` and `DECIDE_MODEL`. `--workers` sets how many
 requests run at once (default 4).
 

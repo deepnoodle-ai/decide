@@ -34,6 +34,8 @@ func address(provider string) string {
 		return strings.TrimSpace(os.Getenv("CLOUDFLARE_ACCOUNT_ID")) + " " + base("CLOUDFLARE_BASE_URL")
 	case "openai":
 		return base("OPENAI_BASE_URL")
+	case "gemini":
+		return base("GEMINI_BASE_URL")
 	}
 	return base("TYPESAFE_BASE_URL")
 }

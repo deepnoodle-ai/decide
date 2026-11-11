@@ -32,7 +32,8 @@ func clearProviderEnv(t *testing.T) {
 	for _, name := range []string{
 		"TYPESAFE_API_KEY", "TYPESAFE_BASE_URL",
 		"CLOUDFLARE_AUTH_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_BASE_URL",
-		"OPENAI_API_KEY", "OPENAI_BASE_URL", "DECIDE_PROVIDER", "DECIDE_MODEL",
+		"OPENAI_API_KEY", "OPENAI_BASE_URL", "GEMINI_API_KEY", "GEMINI_BASE_URL",
+		"DECIDE_PROVIDER", "DECIDE_MODEL",
 	} {
 		t.Setenv(name, "")
 	}
@@ -131,6 +132,7 @@ func TestModelsMissingKey(t *testing.T) {
 		{"cloudflare", nil, []string{"models", "--provider", "cloudflare"},
 			[]string{"CLOUDFLARE_AUTH_TOKEN", "CLOUDFLARE_ACCOUNT_ID"}},
 		{"openai", nil, []string{"models", "--provider", "openai"}, []string{"OPENAI_API_KEY is not set"}},
+		{"gemini", nil, []string{"models", "--provider", "gemini"}, []string{"GEMINI_API_KEY is not set"}},
 		{"provider from the environment", map[string]string{"DECIDE_PROVIDER": "openai"},
 			[]string{"models"}, []string{"OPENAI_API_KEY is not set"}},
 	}
@@ -161,6 +163,7 @@ func TestMissingKeyHintMentionsDryRunOnlyForRun(t *testing.T) {
 		{"models openai", []string{"models", "--provider", "openai"}, false, "OPENAI_API_KEY"},
 		{"run", []string{"run", "sentiment", "notes.txt"}, true, "TYPESAFE_API_KEY"},
 		{"run openai", []string{"run", "sentiment", "notes.txt", "--provider", "openai"}, true, "OPENAI_API_KEY"},
+		{"run gemini", []string{"run", "sentiment", "notes.txt", "--provider", "gemini"}, true, "GEMINI_API_KEY"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -786,4 +789,42 @@ func TestModelsCouldNotCheckHintDoesNotBlameBaseURL(t *testing.T) {
 	out := runReal(providerEnv(t, "openai", srv.URL+"/v1")...)
 	contains(t, out.stderr, "Check OPENAI_BASE_URL and your connection, or try again later if the provider is down.",
 		"decide models --provider openai")
+}
+
+func TestModelsGemini(t *testing.T) {
+	for _, tc := range []struct {
+		status int
+		body   string
+		code   int
+		want   string
+	}{
+		{200, `{"models":[{"name":"models/gemini-decision-1"}]}`, 0, "gemini  key accepted"},
+		{200, `{"data":[]}`, 1, "the answer was not what gemini sends"},
+		{400, `{"error":{"code":400,"status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}`, 1, "The gemini provider rejected GEMINI_API_KEY (status 400)"},
+		{400, `{"error":{"code":400,"message":"User location is not supported for the API use.","status":"FAILED_PRECONDITION"}}`, 1, "Could not check the gemini credentials: status 400"},
+		{403, `{}`, 1, "Google refused it"},
+	} {
+		t.Run(strconv.Itoa(tc.status)+tc.want, func(t *testing.T) {
+			clearProviderEnv(t)
+			t.Setenv("DECIDE_HOME", t.TempDir())
+			var path, key, auth string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				path, key, auth = r.URL.Path, r.Header.Get("x-goog-api-key"), r.Header.Get("Authorization")
+				w.WriteHeader(tc.status)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			t.Cleanup(srv.Close)
+			t.Setenv("GEMINI_BASE_URL", srv.URL+"/v1beta")
+			t.Setenv("GEMINI_API_KEY", "gm-secret")
+			out := runReal("models", "--provider", "gemini")
+			if out.code != tc.code || path != "/v1beta/models" || key != "gm-secret" || auth != "" {
+				t.Fatalf("exit %d path %q key %q auth %q stderr %q", out.code, path, key, auth, out.stderr)
+			}
+			contains(t, out.stdout+out.stderr, tc.want)
+			lacks(t, out.stdout+out.stderr, "gm-secret")
+			if tc.code == 0 {
+				contains(t, out.stdout, "gemini-decision-1", "(default)", "Gemini does not list Decisions models.")
+			}
+		})
+	}
 }

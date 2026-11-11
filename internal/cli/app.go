@@ -114,11 +114,11 @@ func (a *App) interactiveStdin() bool {
 }
 
 // Default models, shown in output when no model is chosen.
-var defaultModels = map[string]string{"typesafe": "jev-latest", "cloudflare": "clef", "openai": "gpt-6-luna"}
+var defaultModels = map[string]string{"typesafe": "jev-latest", "cloudflare": "clef", "openai": "gpt-6-luna", "gemini": "gemini-decision-1"}
 
 // Model names decide knows for providers that cannot list them, the default
 // first.
-var knownModels = map[string][]string{"cloudflare": {"clef", "clef-flash"}, "openai": {"gpt-6-luna"}}
+var knownModels = map[string][]string{"cloudflare": {"clef", "clef-flash"}, "openai": {"gpt-6-luna"}, "gemini": {"gemini-decision-1"}}
 
 // connect builds a client from environment credentials.
 func connect(provider, model string) (*decide.Client, error) {
@@ -172,6 +172,13 @@ func credentials(provider string, dryRunHint bool) (backend.Config, error) {
 		if cfg.APIKey == "" {
 			return backend.Config{}, cli.Error("OPENAI_API_KEY is not set").
 				Hint("Set your OpenAI API key:\n  export OPENAI_API_KEY=..." + dryRun)
+		}
+	case "gemini":
+		cfg.APIKey = os.Getenv("GEMINI_API_KEY")
+		cfg.BaseURL = os.Getenv("GEMINI_BASE_URL")
+		if cfg.APIKey == "" {
+			return backend.Config{}, cli.Error("GEMINI_API_KEY is not set").
+				Hint("Set your Gemini API key:\n  export GEMINI_API_KEY=..." + dryRun)
 		}
 	default:
 		cfg.APIKey = os.Getenv("TYPESAFE_API_KEY")

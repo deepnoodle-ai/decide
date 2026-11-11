@@ -104,6 +104,32 @@ func TestOpenAIProvider(t *testing.T) {
 	}
 }
 
+func TestGeminiProvider(t *testing.T) {
+	var path, model, apiKey string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Model string `json:"model"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		path, model, apiKey = r.URL.Path, body.Model, r.Header.Get("x-goog-api-key")
+		fmt.Fprint(w, `{"answers":{"billing":{"type":"noul","noul":0.93,"confidence":0.93}}}`)
+	}))
+	defer srv.Close()
+	client, err := backend.NewClient(backend.Config{Provider: backend.Gemini, APIKey: testKey, BaseURL: srv.URL + "/v1beta"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := decide.NewRequest("Where is my refund?")
+	billing := decide.Ask(req, "billing", decide.Noul("Is this about billing?"))
+	resp, err := client.SystemOne(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a, err := billing.From(resp); err != nil || a.Noul != 0.93 || path != "/v1beta/decisions" || model != "gemini-decision-1" || apiKey != testKey {
+		t.Fatalf("gemini backend: path %q model %q answer %+v %v", path, model, a, err)
+	}
+}
+
 func TestRequestModelOverridesBackendDefault(t *testing.T) {
 	srv := fakeBoth()
 	defer srv.Close()
@@ -125,6 +151,7 @@ func TestInvalidConfigAndConnectionOptions(t *testing.T) {
 		{Provider: backend.Cloudflare, APIKey: testKey}, {Provider: backend.OpenAI},
 		{Provider: backend.TypeSafe, APIKey: testKey, AccountID: "account-1"},
 		{Provider: backend.OpenAI, APIKey: testKey, AccountID: "account-1"},
+		{Provider: backend.Gemini}, {Provider: backend.Gemini, APIKey: testKey, AccountID: "account-1"},
 	} {
 		if _, err := backend.NewClient(cfg); err == nil {
 			t.Fatalf("invalid config accepted: %v", cfg)

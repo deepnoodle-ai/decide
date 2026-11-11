@@ -182,6 +182,7 @@ func cleanEnv() []string {
 		name, _, _ := strings.Cut(kv, "=")
 		if strings.HasPrefix(name, "DECIDE_") || strings.HasPrefix(name, "TYPESAFE_") ||
 			strings.HasPrefix(name, "OPENAI_") || strings.HasPrefix(name, "CLOUDFLARE_") ||
+			strings.HasPrefix(name, "GEMINI_") ||
 			name == "PATH" || name == "HOME" {
 			continue
 		}

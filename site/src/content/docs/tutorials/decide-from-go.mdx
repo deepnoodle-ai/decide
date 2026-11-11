@@ -77,7 +77,7 @@ evaluates a proposed action without executing it.
 4. ## Run it
 
    This program's `decide.NewClient` reads `TYPESAFE_API_KEY` and uses Jev.
-   For Cloudflare or OpenAI, first replace that client construction with
+   For Cloudflare, OpenAI, or Gemini, first replace that client construction with
    [backend.NewClient](https://pkg.go.dev/github.com/deepnoodle-ai/decide/backend)
    configured for your provider. Setting `DECIDE_PROVIDER` alone does not
    change the root Go client's provider.

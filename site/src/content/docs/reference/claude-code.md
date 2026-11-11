@@ -22,7 +22,7 @@ for a decision model.
    export TYPESAFE_API_KEY=...
    ```
 
-   To use Workers AI or OpenAI instead, set that provider's variables, as
+   To use Workers AI, OpenAI, or Gemini instead, set that provider's variables, as
    [Providers](/reference/providers/) shows. Set them
    where Claude Code will see them, such as in your shell profile. Check
    that decide works:
