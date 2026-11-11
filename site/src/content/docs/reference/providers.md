@@ -15,7 +15,7 @@ templates:
 
 - **Clef** by [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/models/clef/),
   with the `clef` model, or `clef-flash` for lower latency. Image templates
-  always use Clef.
+  use Clef unless you choose `--provider openai`.
 
   ```sh
   export CLOUDFLARE_AUTH_TOKEN=...
@@ -26,7 +26,8 @@ templates:
 - **GPT-6 Luna** by [OpenAI](https://developers.openai.com/api/docs/guides/decisions),
   with the `gpt-6-luna` model, through the Decisions API, which is in beta.
   Set `OPENAI_BASE_URL` to send requests somewhere other than
-  `https://api.openai.com/v1`. Image templates don't run on it yet.
+  `https://api.openai.com/v1`. Image templates send each image as a base64
+  data URL.
 
   ```sh
   export OPENAI_API_KEY=...

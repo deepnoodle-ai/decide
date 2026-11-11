@@ -23,7 +23,7 @@
 // A template's parameters take their defaults. [Relevance] has a parameter
 // with no default; set it with [Template.With] before asking its question.
 // [ReceiptQuality] reads images: attach them as the provider expects, such
-// as with cloudflare.SetImages.
+// as with cloudflare.SetImages or openai.SetImages.
 //
 // The package exports flags, not the matches a template such as Relevance
 // uses to pick items out; a program applies its own rule to those answers.
