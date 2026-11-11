@@ -85,7 +85,7 @@ func (a *App) addRun(app *cli.App) {
 			cli.String("provider").Placeholder("NAME").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai", "gemini").
 				Help("Model provider: typesafe, cloudflare, openai, or gemini (default: typesafe; cloudflare for images)"),
 			cli.String("model", "m").Placeholder("MODEL").Env("DECIDE_MODEL").Help("Model name (default: the provider's default)"),
-			cli.Int("workers").Placeholder("N").Default(4).Help("How many requests to send at once"),
+			cli.Int("workers").Placeholder("N").Default(4).Help("How many requests to send at once (default 4, or 2 for media)"),
 			cli.Bool("yes", "y").Help(fmt.Sprintf("Don't ask before running more than %d items", confirmAbove)),
 		).
 		Run(a.run)
@@ -208,7 +208,7 @@ func (a *App) run(c *cli.Context) error {
 		fmt.Fprintln(c.Stderr(), dim(hint))
 	}
 	fmt.Fprintln(c.Stderr())
-	return a.execute(c, run, client, workers, format, failOn)
+	return a.execute(c, run, client, workersFor(c, s.Input), format, failOn)
 }
 
 // mediaProviders lists the providers that take each media input, the

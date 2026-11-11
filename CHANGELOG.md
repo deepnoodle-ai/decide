@@ -16,6 +16,9 @@ may change the library API and the CLI.
 - **Audio, video, and PDFs on Gemini.** Templates can read `audio`, `video`,
   or `pdf` files, and `gemini.SetMedia` attaches them from Go. The new
   `invoice-check` template checks PDF invoices.
+- **Media runs send two files at once** unless `--workers` says otherwise,
+  and OpenAI and Gemini requests may take up to 5 minutes each, so large
+  uploads finish.
 - **Image templates follow your credentials.** With no `--provider`, they
   run on Cloudflare, OpenAI, or Gemini, whichever has a key set. OpenAI and
   Gemini take images far larger than Clef's 4 MiB.

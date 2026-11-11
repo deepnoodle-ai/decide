@@ -138,7 +138,9 @@ decide run sentiment notes.txt --model jev-1.13.0
 
 #### `--workers`
 
-Sets how many requests run at once. The default is 4.
+Sets how many requests run at once. The default is 4, or 2 for a template
+that reads images, audio, video, or PDFs, since each request holds its file
+in memory.
 
 ```sh
 decide run code-risk src --workers 8

@@ -36,7 +36,7 @@ func (a *App) addRuns(app *cli.App) {
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
 			cli.String("format", "f").Placeholder("FORMAT").Enum(formats...).Help(formatHelp),
-			cli.Int("workers").Placeholder("N").Default(4).Help("How many requests to send at once"),
+			cli.Int("workers").Placeholder("N").Default(4).Help("How many requests to send at once (default 4, or 2 for media)"),
 			cli.String("fail-on").Placeholder("WHEN").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
 		).
 		Run(a.runsResume)
@@ -253,5 +253,5 @@ func (a *App) runsResume(c *cli.Context) error {
 	}
 	fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Resuming run %s: %s left · %s %s",
 		r.ID, humanize.PluralWord(r.Pending(), "request", "requests"), r.Provider, r.Model)))
-	return a.execute(c, r, client, c.Int("workers"), format, failOn)
+	return a.execute(c, r, client, workersFor(c, r.Template.Input), format, failOn)
 }

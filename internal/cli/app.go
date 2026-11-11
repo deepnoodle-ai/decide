@@ -7,9 +7,11 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/backend"
+	"github.com/deepnoodle-ai/decide/internal/template"
 	"github.com/deepnoodle-ai/wonton/cli"
 	"github.com/deepnoodle-ai/wonton/tty"
 )
@@ -145,7 +147,31 @@ func connectWith(provider, model string, dryRunHint bool) (*decide.Client, error
 		return nil, err
 	}
 	cfg.Model = model
-	return backend.NewClient(cfg)
+	return backend.NewClient(cfg, decide.WithAttemptTimeout(attemptTimeout(provider)))
+}
+
+// attemptTimeout is how long one attempt may take, sending the request
+// and reading the answer. OpenAI and Gemini take media files large enough
+// that uploading one takes longer than decide's 10 second default.
+func attemptTimeout(provider string) time.Duration {
+	if provider == "openai" || provider == "gemini" {
+		return 5 * time.Minute
+	}
+	return 10 * time.Second
+}
+
+// mediaWorkers is the most media requests sent at once unless --workers
+// says otherwise, since each one holds its file in memory several times.
+const mediaWorkers = 2
+
+// workersFor returns --workers, or at most mediaWorkers for a template that
+// reads media when --workers was not given.
+func workersFor(c *cli.Context, in template.Input) int {
+	n := c.Int("workers")
+	if in.Media() && !c.IsSet("workers") {
+		n = min(n, mediaWorkers)
+	}
+	return n
 }
 
 // credentials reads a provider's credentials and base URL from the

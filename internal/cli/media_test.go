@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/png"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/deepnoodle-ai/decide/internal/template"
 )
@@ -133,3 +135,58 @@ func TestMediaLimitsFollowTheProvider(t *testing.T) {
 }
 
 func templateInput(s string) template.Input { return template.Input(s) }
+
+func TestMediaProvidersWaitLongerForUploads(t *testing.T) {
+	clearProviderEnv(t)
+	t.Setenv("GEMINI_API_KEY", "gm")
+	t.Setenv("OPENAI_API_KEY", "sk")
+	t.Setenv("TYPESAFE_API_KEY", "ts")
+	for provider, want := range map[string]string{"gemini": "5m0s", "openai": "5m0s", "typesafe": "10s"} {
+		c, err := connect(provider, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(c.String(), "attempt_timeout: "+want+",") {
+			t.Errorf("%s: %s", provider, c.String())
+		}
+	}
+}
+
+func TestMediaRunsSendTwoAtOnce(t *testing.T) {
+	clearProviderEnv(t)
+	t.Setenv("DECIDE_HOME", t.TempDir())
+	var mu sync.Mutex
+	inFlight, most := 0, 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		inFlight++
+		most = max(most, inFlight)
+		mu.Unlock()
+		time.Sleep(50 * time.Millisecond)
+		mu.Lock()
+		inFlight--
+		mu.Unlock()
+		io.WriteString(w, `{"answers":{"invoice":{"type":"noul","noul":0.9,"confidence":0.9},
+			"complete":{"type":"noul","noul":0.9,"confidence":0.9},"paid":{"type":"noul","noul":0.1,"confidence":0.9}}}`)
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("GEMINI_BASE_URL", srv.URL+"/v1beta")
+	t.Setenv("GEMINI_API_KEY", "gm")
+	dir := t.TempDir()
+	for i := range 8 {
+		_ = os.WriteFile(filepath.Join(dir, fmt.Sprintf("%d.pdf", i)), []byte(fmt.Sprintf("%%PDF-1.4 %d", i)), 0o600)
+	}
+	if out := runReal("run", "invoice-check", dir, "--no-cache"); out.code != 0 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	if most != 2 {
+		t.Fatalf("%d requests at once, want 2", most)
+	}
+	most = 0
+	if out := runReal("run", "invoice-check", dir, "--no-cache", "--workers", "4"); out.code != 0 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	if most != 4 {
+		t.Fatalf("--workers 4 sent %d at once", most)
+	}
+}
