@@ -54,7 +54,7 @@ import (
 // Size limits. Larger files are skipped with a warning.
 const (
 	MaxFileBytes  = 1 << 20  // text files read whole
-	MaxImageBytes = 4 << 20  // the Cloudflare image limit
+	MaxImageBytes = 4 << 20  // the Cloudflare image limit, and the default MaxMediaBytes
 	MaxJSONBytes  = 64 << 20 // JSON documents split into records
 )
 
@@ -65,15 +65,18 @@ var MaxItemBytes = 64 << 10
 
 // Options selects and shapes items.
 type Options struct {
-	Input   template.Input
-	Each    string   // the unit: "file", "line", "paragraph", "section", "function", or "" for the default
-	Include []string // globs relative to each directory argument
-	Exclude []string
-	Items   string // path to the array of records in a JSON document
-	Field   string // path to the value to evaluate within each record
-	Limit   int    // stop after this many items
-	Sample  int    // pick this many items at random
-	Warn    func(msg string)
+	Input template.Input
+	// MaxMediaBytes is the largest media file read; larger ones are
+	// skipped. Zero means MaxImageBytes. It depends on the provider.
+	MaxMediaBytes int64
+	Each          string   // the unit: "file", "line", "paragraph", "section", "function", or "" for the default
+	Include       []string // globs relative to each directory argument
+	Exclude       []string
+	Items         string // path to the array of records in a JSON document
+	Field         string // path to the value to evaluate within each record
+	Limit         int    // stop after this many items
+	Sample        int    // pick this many items at random
+	Warn          func(msg string)
 
 	// Changes, when not nil, is called for each diff read, and for empty
 	// stdin, which is what git diff prints when nothing changed. A run
@@ -105,9 +108,12 @@ type Part struct {
 const (
 	UnitRecord = "record"
 	UnitImage  = "image"
+	UnitAudio  = "audio"
+	UnitVideo  = "video"
+	UnitPDF    = "pdf"
 )
 
-// ImageData is an image file's contents.
+// ImageData is a media file's contents: an image, audio, video, or PDF.
 type ImageData struct {
 	ContentType string
 	Data        []byte
@@ -404,26 +410,41 @@ func (w *walker) file(path, label string, explicit bool) error {
 	if err != nil {
 		return err
 	}
-	if w.opts.Input == template.Image {
-		if !isImageName(path) {
+	if in := w.opts.Input; in.Media() {
+		ctype, ok := mediaTypes[in][strings.ToLower(filepath.Ext(path))]
+		if !ok {
 			if explicit {
-				return fmt.Errorf("%s is not an image; this template reads PNG, JPEG, or WebP files", label)
+				return fmt.Errorf("%s is not %s; this template reads %s files", label, MediaNoun(in), MediaFormats(in))
 			}
 			return nil
 		}
-		if info.Size() > MaxImageBytes {
-			return skip("%s (images must be at most 4 MiB)", label)
+		limit := w.opts.MaxMediaBytes
+		if limit <= 0 {
+			limit = MaxImageBytes
+		}
+		if info.Size() > limit {
+			return skip("%s (%s files must be at most %s here)", label, in, humanBytes(limit))
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		ctype := http.DetectContentType(data)
-		if !strings.HasPrefix(ctype, "image/") {
-			return skip("%s (not a readable image)", label)
+		switch in {
+		case template.Image:
+			// Images are sniffed: the providers check the header too.
+			if ctype = http.DetectContentType(data); !strings.HasPrefix(ctype, "image/") {
+				return skip("%s (not a readable image)", label)
+			}
+		case template.PDF:
+			if !bytes.HasPrefix(data, []byte("%PDF-")) {
+				return skip("%s (not a readable PDF)", label)
+			}
+		}
+		if len(data) == 0 {
+			return skip("%s (empty)", label)
 		}
 		state, _ := json.Marshal(map[string]any{"path": label, "content_type": ctype})
-		return w.emit(Item{Label: label, Unit: UnitImage, State: state, Image: &ImageData{ContentType: ctype, Data: data}})
+		return w.emit(Item{Label: label, Unit: string(in), State: state, Image: &ImageData{ContentType: ctype, Data: data}})
 	}
 	if formatOf(path) == diffText && (explicit || w.opts.Each == template.EachHunk) {
 		if info.Size() > MaxJSONBytes {
@@ -727,8 +748,8 @@ func (w *walker) stdinItems() error {
 	if w.stdin == nil {
 		return errors.New("no input on stdin")
 	}
-	if w.opts.Input == template.Image {
-		return errors.New("image templates read image files, not stdin")
+	if in := w.opts.Input; in.Media() {
+		return fmt.Errorf("%s templates read %s files, not stdin", in, in)
 	}
 	br := bufio.NewReader(w.stdin)
 	peek, _ := br.Peek(64 << 10)
@@ -1056,12 +1077,55 @@ func kind(v json.RawMessage) string {
 	return "number"
 }
 
-func isImageName(path string) bool {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".png", ".jpg", ".jpeg", ".webp":
-		return true
+// mediaTypes maps each media input's file extensions to MIME types. Images
+// are sniffed after reading; the rest are named by extension.
+var mediaTypes = map[template.Input]map[string]string{
+	template.Image: {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"},
+	template.Audio: {".mp3": "audio/mpeg", ".wav": "audio/wav", ".m4a": "audio/m4a", ".aac": "audio/aac",
+		".flac": "audio/flac", ".ogg": "audio/ogg", ".oga": "audio/ogg", ".opus": "audio/opus",
+		".aif": "audio/aiff", ".aiff": "audio/aiff", ".weba": "audio/webm"},
+	template.Video: {".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/mov", ".webm": "video/webm",
+		".mpg": "video/mpeg", ".mpeg": "video/mpeg", ".avi": "video/avi", ".wmv": "video/wmv",
+		".flv": "video/x-flv", ".3gp": "video/3gpp"},
+	template.PDF: {".pdf": "application/pdf"},
+}
+
+// MediaFormats names the file formats a media input reads, such as
+// "PNG, JPEG, or WebP".
+func MediaFormats(in template.Input) string {
+	switch in {
+	case template.Image:
+		return "PNG, JPEG, or WebP"
+	case template.Audio:
+		return "MP3, WAV, M4A, AAC, FLAC, OGG, Opus, AIFF, or WebM audio"
+	case template.Video:
+		return "MP4, MOV, WebM, MPEG, AVI, WMV, FLV, or 3GP"
+	case template.PDF:
+		return "PDF"
 	}
-	return false
+	return ""
+}
+
+// MediaNoun names one item of a media input, such as "an image".
+func MediaNoun(in template.Input) string {
+	switch in {
+	case template.Image:
+		return "an image"
+	case template.Audio:
+		return "an audio file"
+	case template.Video:
+		return "a video"
+	case template.PDF:
+		return "a PDF"
+	}
+	return "a file"
+}
+
+func humanBytes(n int64) string {
+	if n%(1<<20) == 0 {
+		return fmt.Sprintf("%d MiB", n>>20)
+	}
+	return fmt.Sprintf("%.1f MiB", float64(n)/(1<<20))
 }
 
 func isBinary(data []byte) bool {

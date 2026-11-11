@@ -6,7 +6,7 @@
 //	run.json       what was asked, of what, and how far it got
 //	inputs.jsonl   every item, saved before any model calls
 //	results.jsonl  one line per answered or failed item
-//	images/        image items
+//	images/        media items: images, audio, video, and PDFs
 //
 // Resuming a run evaluates the items that have no successful result, using
 // the saved inputs and questions.
@@ -34,9 +34,11 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/cloudflare"
+	"github.com/deepnoodle-ai/decide/gemini"
 	"github.com/deepnoodle-ai/decide/internal/cache"
 	"github.com/deepnoodle-ai/decide/internal/source"
 	"github.com/deepnoodle-ai/decide/internal/template"
+	"github.com/deepnoodle-ai/decide/openai"
 )
 
 // Status values.
@@ -592,6 +594,34 @@ type questionSet struct {
 	sent    map[string][]byte
 }
 
+// attach adds a media file to req in the form the run's provider takes.
+// Cloudflare checks Clef's limits; OpenAI and Gemini check their own.
+func (r *Run) attach(req *decide.Request, contentType string, data []byte) error {
+	switch r.Provider {
+	case "openai":
+		im, err := openai.NewImage(contentType, data)
+		if err != nil {
+			return err
+		}
+		return openai.SetImages(req, im)
+	case "gemini":
+		kind, ok := gemini.MediaKind(contentType)
+		if !ok {
+			return fmt.Errorf("gemini does not take %s files", contentType)
+		}
+		m, err := gemini.NewMedia(kind, contentType, data)
+		if err != nil {
+			return err
+		}
+		return gemini.SetMedia(req, m)
+	}
+	im, err := cloudflare.NewImage(contentType, data)
+	if err != nil {
+		return err
+	}
+	return cloudflare.SetImages(req, im)
+}
+
 // evaluate answers one input. With a cache, it asks only the questions
 // whose answers the cache doesn't hold, and sends nothing when it holds
 // them all.
@@ -602,11 +632,7 @@ func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions que
 	if in.Image != "" {
 		data, err := os.ReadFile(filepath.Join(r.Dir, in.Image))
 		if err == nil {
-			// The openai transport reads this shape too.
-			var im cloudflare.Image
-			if im, err = cloudflare.NewImage(in.ContentType, data); err == nil {
-				err = cloudflare.SetImages(req, im)
-			}
+			err = r.attach(req, in.ContentType, data)
 		}
 		if err != nil {
 			res.Error = err.Error()

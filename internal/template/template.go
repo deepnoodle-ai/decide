@@ -32,7 +32,19 @@ const (
 	Text Input = "text"
 	// Image reads PNG, JPEG, and WebP files, one item per image.
 	Image Input = "image"
+	// Audio reads audio files, such as MP3 and WAV, one item per file.
+	Audio Input = "audio"
+	// Video reads video files, such as MP4 and MOV, one item per file.
+	Video Input = "video"
+	// PDF reads PDF files, one item per document.
+	PDF Input = "pdf"
 )
+
+// Media reports whether the input is media files, one item per file, rather
+// than text.
+func (in Input) Media() bool {
+	return in == Image || in == Audio || in == Video || in == PDF
+}
 
 // Units say how much of a text file is one item. The run's --each flag
 // chooses one, then the template's Each, and otherwise the data does: a
@@ -349,12 +361,12 @@ func (s *Template) Validate() error {
 		if s.Each != "" && !slices.Contains(Units, s.Each) {
 			return fmt.Errorf("each %q must be one of %s", s.Each, strings.Join(Units, ", "))
 		}
-	case Image:
+	case Image, Audio, Video, PDF:
 		if s.Each != "" {
-			return errors.New("an image template reads one image at a time, so it has no each")
+			return fmt.Errorf("an %s template reads one file at a time, so it has no each", s.Input)
 		}
 	default:
-		return fmt.Errorf(`input %q must be "text" or "image"`, s.Input)
+		return fmt.Errorf(`input %q must be "text", "image", "audio", "video", or "pdf"`, s.Input)
 	}
 	if len(s.Questions) == 0 {
 		return errors.New("at least one question is required")
