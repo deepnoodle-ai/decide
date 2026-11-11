@@ -15,6 +15,7 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/cloudflare"
+	"github.com/deepnoodle-ai/decide/gemini"
 	"github.com/deepnoodle-ai/decide/openai"
 )
 
@@ -28,17 +29,21 @@ const (
 	Cloudflare Provider = "cloudflare"
 	// OpenAI uses the Decisions API, in beta. The default model is gpt-6-luna.
 	OpenAI Provider = "openai"
+	// Gemini uses the Gemini Decisions API, in beta. The default model is
+	// gemini-decision-1.
+	Gemini Provider = "gemini"
 )
 
 // Config selects a provider and its connection settings. APIKey is a
-// TypeSafe API key, Cloudflare Workers AI API token, or OpenAI API key,
+// TypeSafe API key, Cloudflare Workers AI API token, OpenAI API key, or
+// Gemini API key,
 // depending on Provider.
 // AccountID is required only for Cloudflare. Provider must be explicit.
 type Config struct {
 	Provider   Provider
 	APIKey     string
 	AccountID  string
-	Model      string       // empty: "jev-latest", "clef", or "gpt-6-luna" by provider
+	Model      string       // empty: the provider's default model
 	BaseURL    string       // empty: provider default
 	HTTPClient *http.Client // nil: provider default
 	UserAgent  string
@@ -98,8 +103,18 @@ func NewClient(cfg Config, opts ...decide.ClientOption) (*decide.Client, error) 
 		if model == "" {
 			model = "gpt-6-luna"
 		}
+	case Gemini:
+		if cfg.AccountID != "" {
+			return nil, fmt.Errorf("%w: backend AccountID is only for Cloudflare", decide.ErrInvalidRequest)
+		}
+		transport, err = gemini.NewTransport(gemini.Config{
+			APIKey: cfg.APIKey, BaseURL: cfg.BaseURL, HTTPClient: cfg.HTTPClient, UserAgent: cfg.UserAgent,
+		})
+		if model == "" {
+			model = "gemini-decision-1"
+		}
 	default:
-		return nil, fmt.Errorf("%w: backend Provider must be typesafe, cloudflare, or openai", decide.ErrInvalidRequest)
+		return nil, fmt.Errorf("%w: backend Provider must be typesafe, cloudflare, openai, or gemini", decide.ErrInvalidRequest)
 	}
 	if err != nil {
 		return nil, err

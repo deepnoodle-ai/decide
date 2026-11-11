@@ -23,7 +23,8 @@
 // A template's parameters take their defaults. [Relevance] has a parameter
 // with no default; set it with [Template.With] before asking its question.
 // [ReceiptQuality] reads images: attach them as the provider expects, such
-// as with cloudflare.SetImages.
+// as with cloudflare.SetImages, openai.SetImages, or gemini.SetMedia.
+// [InvoiceCheck] reads PDFs: attach them with gemini.SetMedia.
 //
 // The package exports flags, not the matches a template such as Relevance
 // uses to pick items out; a program applies its own rule to those answers.
@@ -46,6 +47,7 @@ import (
 var (
 	CodeRisk        = builtin("code-risk")
 	CommandRisk     = builtin("command-risk")
+	InvoiceCheck    = builtin("invoice-check")
 	PRDescription   = builtin("pr-description")
 	PromptInjection = builtin("prompt-injection")
 	ReceiptQuality  = builtin("receipt-quality")
@@ -59,7 +61,7 @@ var (
 
 // All returns the built-in templates, sorted by name.
 func All() []*Template {
-	return []*Template{CodeRisk, CommandRisk, PRDescription, PromptInjection, ReceiptQuality,
+	return []*Template{CodeRisk, CommandRisk, InvoiceCheck, PRDescription, PromptInjection, ReceiptQuality,
 		Relevance, Security, Sentiment, TaskReadiness, TicketRouting, Triage}
 }
 

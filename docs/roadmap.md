@@ -27,8 +27,9 @@ off, or remove them, as they land.
       each with planted problems in the demo.
 - [ ] **`decide eval`.** Measure a template on labeled examples: agreement
       per question, confident mistakes, suggested thresholds, and
-      `--fail-under` for CI. Ship examples with each built-in template.
-      Propose the design before building it.
+      `--fail-under` for CI. Grading and `command-risk`'s examples first,
+      then suggested thresholds, then each other built-in's examples in
+      its own pull request. Design: [docs/design/eval.md](design/eval.md).
 - [ ] **Built-in names.** A way to run a built-in template that no project
       or user template can replace. The Claude Code plugin works around it
       by running decide from its own folder.
@@ -64,10 +65,17 @@ off, or remove them, as they land.
 
 - [x] **OpenAI's Decisions API.** `--provider openai` and `backend.OpenAI`
       run `gpt-6-luna` through `POST /v1/decisions`, in beta.
-- [ ] **Images on OpenAI.** Send image templates to the Decisions API as
+- [x] **Gemini's Decisions API.** `--provider gemini` and `backend.Gemini`
+      run `gemini-decision-1` through `POST /v1beta/decisions`, in beta.
+- [x] **Media on Gemini.** Send images, audio, video, and PDFs to the
+      Gemini Decisions API. `audio`, `video`, and `pdf` template inputs,
+      and `invoice-check`.
+- [ ] **Media by URL.** Send large files through Gemini's Files API or a
+      URL instead of inline base64.
+- [x] **Images on OpenAI.** Send image templates to the Decisions API as
       base64 data URLs, as `cloudflare.SetImages` does for Clef.
 - [x] **`decide models`.** List models and check that the provider accepts the credentials.
-      Cloudflare and OpenAI can't list models, so they check credentials
+      Cloudflare, OpenAI, and Gemini can't list models, so they check credentials
       through a read endpoint and show the names decide knows.
 - [ ] **Gateways.** Test Vercel AI Gateway and OpenRouter through
       `TYPESAFE_BASE_URL`, then document them.

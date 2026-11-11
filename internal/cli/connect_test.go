@@ -24,9 +24,24 @@ func TestConnectOpenAI(t *testing.T) {
 }
 
 func TestKnownModels(t *testing.T) {
-	for _, p := range []string{"cloudflare", "openai"} {
+	for _, p := range []string{"cloudflare", "openai", "gemini"} {
 		if len(knownModels[p]) == 0 || knownModels[p][0] != defaultModels[p] {
 			t.Errorf("%s: knownModels %v should start with the default %q", p, knownModels[p], defaultModels[p])
 		}
+	}
+}
+
+func TestConnectGemini(t *testing.T) {
+	t.Setenv("GEMINI_API_KEY", "")
+	if _, err := connect("gemini", ""); err == nil || !strings.Contains(err.Error(), "GEMINI_API_KEY") {
+		t.Fatalf("missing key: %v", err)
+	}
+	t.Setenv("GEMINI_API_KEY", "gm-test")
+	t.Setenv("GEMINI_BASE_URL", "https://gateway.example.com/v1beta/")
+	if _, err := connect("gemini", ""); err != nil {
+		t.Fatal(err)
+	}
+	if got := address("gemini"); got != "https://gateway.example.com/v1beta" {
+		t.Fatalf("cache address %q", got)
 	}
 }

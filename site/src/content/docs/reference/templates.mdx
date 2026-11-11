@@ -1,12 +1,12 @@
 ---
 title: Templates
-description: The eleven built-in templates, what each one asks and flags, and how to write your own.
+description: The twelve built-in templates, what each one asks and flags, and how to write your own.
 ---
 
 import Template from '../../../components/Template.astro';
 
 A template is a set of questions that decide asks about each item. decide
-has eleven built in. `decide templates` lists them with your own, and
+has twelve built in. `decide templates` lists them with your own, and
 `decide templates show NAME` explains one. To change what a built-in
 template asks or where it flags, copy it with
 `decide templates new NAME --from TEMPLATE`.
@@ -21,6 +21,10 @@ sets the line yourself. See [flags and matches](#flags-and-matches).
 ## `command-risk`
 
 <Template name="command-risk" />
+
+## `invoice-check`
+
+<Template name="invoice-check" />
 
 ## `pr-description`
 
@@ -96,11 +100,12 @@ A template looks like this:
 }
 ```
 
-A template reads text unless it says `"input": "image"`. Add `"each": "file"`
-(or `section`, `paragraph`, `function`, `hunk`, or `line`) to choose the unit
-its questions are written for; `--each` still overrides it. A `hunk` is one
-block of changes in a diff. An image template reads one image at a time, so
-it takes no `each`.
+A template reads text unless it says `"input"` is `"image"`, `"audio"`,
+`"video"`, or `"pdf"`. Those read one file at a time; see
+[Providers](/reference/providers/) for where each runs. Add `"each": "file"`
+(or `section`, `paragraph`, `function`, `hunk`, or `line`) to choose the
+unit its questions are written for; `--each` still overrides it. A `hunk` is
+one block of changes in a diff.
 
 A `score` question lists its levels in order, lowest first:
 
