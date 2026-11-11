@@ -12,6 +12,8 @@ import (
 	"image"
 	"image/png"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -129,5 +131,122 @@ func TestLiveMedia(t *testing.T) {
 	}
 	if a, err := invoice.From(resp); err != nil || a.Noul < 0.5 {
 		t.Errorf("invoice %+v %v", a, err)
+	}
+}
+
+// TestLiveAudioFormats sends a one-second tone in each audio format the
+// CLI reads, to check that the API takes each MIME type. It needs ffmpeg.
+func TestLiveAudioFormats(t *testing.T) {
+	if os.Getenv("GEMINI_API_KEY") == "" {
+		t.Skip("GEMINI_API_KEY is not set")
+	}
+	ffmpeg, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		t.Skip("ffmpeg is not installed")
+	}
+	transport, err := gemini.NewTransport(gemini.Config{APIKey: os.Getenv("GEMINI_API_KEY")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := decide.NewClient(decide.WithoutEnvironment(), decide.WithTransport(transport), decide.WithModel("gemini-decision-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	for _, f := range []struct{ ext, mime string }{
+		{"mp3", "audio/mpeg"}, {"wav", "audio/wav"}, {"m4a", "audio/m4a"}, {"aac", "audio/aac"},
+		{"flac", "audio/flac"}, {"ogg", "audio/ogg"}, {"opus", "audio/opus"}, {"aiff", "audio/aiff"},
+		{"weba", "audio/webm"},
+	} {
+		t.Run(f.ext, func(t *testing.T) {
+			path := filepath.Join(dir, "tone."+f.ext)
+			args := []string{"-loglevel", "error", "-f", "lavfi", "-i", "sine=frequency=440:duration=1"}
+			if f.ext == "weba" {
+				args = append(args, "-c:a", "libopus", "-f", "webm")
+			}
+			if out, err := exec.Command(ffmpeg, append(args, path)...).CombinedOutput(); err != nil {
+				t.Skipf("ffmpeg cannot write %s: %s", f.ext, out)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			m, err := gemini.NewMedia(gemini.KindAudio, f.mime, data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req := decide.NewRequest("")
+			speech := decide.Ask(req, "speech", decide.Noul("Does the attached audio contain human speech?"))
+			if err := gemini.SetMedia(req, m); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+			defer cancel()
+			resp, err := client.SystemOne(ctx, req)
+			if err != nil {
+				t.Fatalf("%s: %v", f.mime, err)
+			}
+			if a, err := speech.From(resp); err != nil || a.Noul > 0.5 {
+				t.Errorf("a tone heard as speech: %+v %v", a, err)
+			}
+		})
+	}
+}
+
+// TestLiveVideoFormats sends a one-second test pattern in each video format
+// the CLI reads. It needs ffmpeg.
+func TestLiveVideoFormats(t *testing.T) {
+	if os.Getenv("GEMINI_API_KEY") == "" {
+		t.Skip("GEMINI_API_KEY is not set")
+	}
+	ffmpeg, err := exec.LookPath("ffmpeg")
+	if err != nil {
+		t.Skip("ffmpeg is not installed")
+	}
+	transport, err := gemini.NewTransport(gemini.Config{APIKey: os.Getenv("GEMINI_API_KEY")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := decide.NewClient(decide.WithoutEnvironment(), decide.WithTransport(transport), decide.WithModel("gemini-decision-1"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	for _, f := range []struct{ ext, mime string }{
+		{"mp4", "video/mp4"}, {"mov", "video/mov"}, {"webm", "video/webm"}, {"mpg", "video/mpeg"},
+		{"avi", "video/avi"}, {"wmv", "video/wmv"}, {"flv", "video/x-flv"}, {"3gp", "video/3gpp"},
+	} {
+		t.Run(f.ext, func(t *testing.T) {
+			path := filepath.Join(dir, "pattern."+f.ext)
+			args := []string{"-loglevel", "error", "-f", "lavfi", "-i", "testsrc=size=176x144:rate=25:duration=1"}
+			if f.ext == "3gp" {
+				args = append(args, "-c:v", "h263")
+			}
+			if out, err := exec.Command(ffmpeg, append(args, path)...).CombinedOutput(); err != nil {
+				t.Skipf("ffmpeg cannot write %s: %s", f.ext, out)
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			m, err := gemini.NewMedia(gemini.KindVideo, f.mime, data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req := decide.NewRequest("")
+			people := decide.Ask(req, "people", decide.Noul("Does the attached video show people?"))
+			if err := gemini.SetMedia(req, m); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+			defer cancel()
+			resp, err := client.SystemOne(ctx, req)
+			if err != nil {
+				t.Fatalf("%s: %v", f.mime, err)
+			}
+			if a, err := people.From(resp); err != nil || a.Noul > 0.5 {
+				t.Errorf("a test pattern seen as people: %+v %v", a, err)
+			}
+		})
 	}
 }
