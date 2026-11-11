@@ -67,8 +67,11 @@ off, or remove them, as they land.
       run `gpt-6-luna` through `POST /v1/decisions`, in beta.
 - [x] **Gemini's Decisions API.** `--provider gemini` and `backend.Gemini`
       run `gemini-decision-1` through `POST /v1beta/decisions`, in beta.
-- [ ] **Media on Gemini.** Send images, audio, video, and PDFs to the
-      Gemini Decisions API, which takes all of them.
+- [x] **Media on Gemini.** Send images, audio, video, and PDFs to the
+      Gemini Decisions API. `audio`, `video`, and `pdf` template inputs,
+      and `invoice-check`.
+- [ ] **Media by URL.** Send large files through Gemini's Files API or a
+      URL instead of inline base64.
 - [x] **Images on OpenAI.** Send image templates to the Decisions API as
       base64 data URLs, as `cloudflare.SetImages` does for Clef.
 - [x] **`decide models`.** List models and check that the provider accepts the credentials.

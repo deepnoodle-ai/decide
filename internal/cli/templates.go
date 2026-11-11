@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/deepnoodle-ai/decide/internal/source"
 	"github.com/deepnoodle-ai/decide/internal/template"
 	"github.com/deepnoodle-ai/wonton/cli"
 )
@@ -152,8 +153,8 @@ func (a *App) templatesShow(c *cli.Context) error {
 // reads says what a template reads and what one item is.
 func reads(s *template.Template) string {
 	switch {
-	case s.Input == template.Image:
-		return "images, one item per PNG, JPEG, or WebP file"
+	case s.Input.Media():
+		return fmt.Sprintf("%s files, one item per file (%s)", source.MediaName(s.Input), source.MediaFormats(s.Input))
 	case s.Each != "":
 		return fmt.Sprintf("text, one item per %s (change it with --each)", s.Each)
 	}

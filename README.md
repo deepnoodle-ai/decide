@@ -111,7 +111,7 @@ a tour.
 
 ## What you can ask
 
-Decide comes with eleven templates. A template is a named set of questions.
+Decide comes with twelve templates. A template is a named set of questions.
 
 | Template | Asks about each item |
 | --- | --- |
@@ -125,7 +125,8 @@ Decide comes with eleven templates. A template is a named set of questions.
 | `task-readiness` | Is this issue ready to hand to a coding agent, and how large is it? |
 | `pr-description` | Do this pull request's title and description meet your guidelines? |
 | `command-risk` | Could this shell command destroy work, expose secrets, deploy or publish, or cause severe harm? |
-| `receipt-quality` | Does this image show a readable receipt? Runs on Clef or GPT-6 Luna. |
+| `receipt-quality` | Does this image show a readable receipt? Runs on Clef, GPT-6 Luna, or Gemini Decision. |
+| `invoice-check` | Is this PDF a complete invoice, and is it paid? Runs on Gemini Decision. |
 
 ```sh
 decide run code-risk src --include '*.go'

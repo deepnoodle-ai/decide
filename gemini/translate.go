@@ -21,7 +21,7 @@ var questionKey = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 type decisionRequest struct {
 	Model     string                      `json:"model"`
-	Input     string                      `json:"input"`
+	Input     any                         `json:"input"` // a string, or text and media blocks
 	Questions map[string]decisionQuestion `json:"questions"`
 }
 
@@ -50,16 +50,25 @@ func encodeRequest(req *decide.Request) ([]byte, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	for _, key := range []string{"images", "videos"} {
-		if _, ok := req.Extra[key]; ok {
-			return nil, fmt.Errorf("%w: gemini %s input", errors.ErrUnsupported, key)
-		}
+	media, err := mediaBlocks(req.Extra)
+	if err != nil {
+		return nil, err
 	}
 	if len(req.Questions) > maxQuestions {
 		return nil, invalid(fmt.Sprintf("at most %d questions are supported", maxQuestions))
 	}
 	state, _ := json.Marshal(req.State) // req.Validate already checked encoding
 	body := decisionRequest{Model: req.Model, Input: text(state), Questions: make(map[string]decisionQuestion, len(req.Questions))}
+	if len(media) > 0 {
+		blocks := []any{}
+		if s := text(state); s != "" {
+			blocks = append(blocks, map[string]string{"type": "text", "text": s + "\n"})
+		}
+		for _, m := range media {
+			blocks = append(blocks, m)
+		}
+		body.Input = blocks
+	}
 	for key, question := range req.Questions {
 		if !questionKey.MatchString(key) {
 			return nil, invalid(fmt.Sprintf("question key %q must be 1 to 64 letters, digits, _ or -", key))
@@ -116,7 +125,7 @@ func encodeRequest(req *decide.Request) ([]byte, error) {
 	var merged map[string]json.RawMessage
 	_ = json.Unmarshal(raw, &merged)
 	for k, v := range req.Extra {
-		if _, taken := merged[k]; taken {
+		if _, taken := merged[k]; taken || k == "media" || k == "images" {
 			continue
 		}
 		b, err := json.Marshal(v)

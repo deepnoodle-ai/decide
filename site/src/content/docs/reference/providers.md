@@ -14,8 +14,8 @@ templates:
   ```
 
 - **Clef** by [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/models/clef/),
-  with the `clef` model, or `clef-flash` for lower latency. Image templates
-  use Clef unless you choose `--provider openai`.
+  with the `clef` model, or `clef-flash` for lower latency. It takes
+  images of up to 4 MiB and 16 megapixels each.
 
   ```sh
   export CLOUDFLARE_AUTH_TOKEN=...
@@ -27,8 +27,9 @@ templates:
   with the `gpt-6-luna` model, through the Decisions API, which is in beta.
   Set `OPENAI_BASE_URL` to send requests somewhere other than
   `https://api.openai.com/v1`. Image templates send each image as a base64
-  data URL. The CLI keeps Clef's image limits for it too: 4 MiB and 16
-  megapixels per image.
+  data URL. The CLI takes images of up to 50 MiB, with no limit on
+  their pixels. OpenAI's image guide allows 512 MB per request, but decide
+  builds each request in memory, several at once.
 
   ```sh
   export OPENAI_API_KEY=...
@@ -38,8 +39,11 @@ templates:
 - **Gemini Decision** by [Google](https://aistudio.google.com/docs/decisions-api),
   with the `gemini-decision-1` model, through the Gemini Decisions API,
   which is in beta. Set `GEMINI_BASE_URL` to send requests somewhere other
-  than `https://generativelanguage.googleapis.com/v1beta`. Image templates
-  don't run on it yet.
+  than `https://generativelanguage.googleapis.com/v1beta`. It is the
+  only provider for audio, video, and PDF templates, and it runs image
+  templates too. The API takes up to 100 MB of base64 per request, or 50 MB
+  when it holds a PDF, so the CLI takes files of up to about 70 MiB, or
+  about 35 MiB for a PDF.
 
   ```sh
   export GEMINI_API_KEY=...
@@ -55,9 +59,16 @@ export TYPESAFE_BASE_URL=https://decisions.example.com
 decide run sentiment notes.txt --model my-model
 ```
 
+An image template with no `--provider` runs on the first of Cloudflare,
+OpenAI, and Gemini whose credentials are set, and an audio, video, or PDF
+template runs on Gemini. A provider that can't take a template's files
+stops the run before anything is sent.
+
 Choose for one run with `--provider typesafe|cloudflare|openai|gemini` and `--model NAME`,
 or for every run with `DECIDE_PROVIDER` and `DECIDE_MODEL`. `--workers` sets how many
-requests run at once (default 4).
+requests run at once (default 4, or 2 for media). A request that sends a file may
+take up to 5 minutes, so a large file can finish uploading. Text requests
+keep the 10 second limit.
 
 Check your setup with `decide models`. It checks that the provider accepts the key or
 token, and lists the model names you can pass to `--model`. See

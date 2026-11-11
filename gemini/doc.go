@@ -15,8 +15,14 @@
 //
 // Requests are checked against the API's limits before they are sent: 1 to
 // 1,000 questions, keys of at most 64 letters, digits, "_" or "-", 2 to 255
-// options per choice, and 2 to 255 non-empty levels per score. Image input
-// is not supported yet.
+// options per choice, and 2 to 255 non-empty levels per score.
+//
+// SetMedia attaches images, audio, video, and PDFs, embedded with NewMedia
+// or referred to by URL with MediaURI. The transport then sends the state as
+// a text block followed by each media block. It also sends images that
+// cloudflare.SetImages attached. Inline media may be at most 100 MB of
+// base64, or 50 MB when the request holds a PDF; the transport checks this
+// before sending.
 //
 // Google answers an invalid API key with status 400. The transport reports
 // it as a *decide.APIError that also matches decide.ErrAuth. A safety block

@@ -22,8 +22,9 @@
 // SetImages adds embedded PNG, JPEG, or WebP images to a request. They are
 // sent as base64 data URLs in input_image parts of one user message, after
 // the state as an input_text part. Remote image URLs and video inputs are
-// unsupported. The API does not document image count or size limits, so
-// only each image's format is checked before sending.
+// unsupported. The Decisions API documents no image limits, so only each
+// image's format is checked before sending. OpenAI's image guide allows 512
+// MB per request.
 //
 // Config reads no environment variables. The API key is redacted from
 // formatting and response bodies. Malformed and non-JSON response bodies are

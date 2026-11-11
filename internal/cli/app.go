@@ -10,6 +10,7 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/backend"
+	"github.com/deepnoodle-ai/decide/internal/template"
 	"github.com/deepnoodle-ai/wonton/cli"
 	"github.com/deepnoodle-ai/wonton/tty"
 )
@@ -146,6 +147,20 @@ func connectWith(provider, model string, dryRunHint bool) (*decide.Client, error
 	}
 	cfg.Model = model
 	return backend.NewClient(cfg)
+}
+
+// mediaWorkers is the most media requests sent at once unless --workers
+// says otherwise, since each one holds its file in memory several times.
+const mediaWorkers = 2
+
+// workersFor returns --workers, or at most mediaWorkers for a template that
+// reads media when --workers was not given.
+func workersFor(c *cli.Context, in template.Input) int {
+	n := c.Int("workers")
+	if in.Media() && !c.IsSet("workers") {
+		n = min(n, mediaWorkers)
+	}
+	return n
 }
 
 // credentials reads a provider's credentials and base URL from the
