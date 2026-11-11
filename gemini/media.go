@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"slices"
 	"strings"
@@ -91,7 +92,8 @@ func (m Media) check() error {
 		return invalid("media needs data or a URI, not both")
 	}
 	if m.Data != "" {
-		if _, err := base64.StdEncoding.DecodeString(m.Data); err != nil {
+		// Stream the check, so a large file is not decoded into memory.
+		if _, err := io.Copy(io.Discard, base64.NewDecoder(base64.StdEncoding, strings.NewReader(m.Data))); err != nil {
 			return invalid(string(m.Kind) + " contains invalid base64 data")
 		}
 	}
@@ -128,8 +130,8 @@ func SetMedia(req *decide.Request, media ...Media) error {
 	if req == nil {
 		return invalid("request is nil")
 	}
-	copyMedia := append([]Media{}, media...)
-	if _, err := mediaBlocks(map[string]any{"media": copyMedia}); err != nil {
+	copyMedia, err := mediaBlocks(map[string]any{"media": media})
+	if err != nil {
 		return err
 	}
 	if req.Extra == nil {
@@ -143,7 +145,11 @@ func SetMedia(req *decide.Request, media ...Media) error {
 // cloudflare.SetImages writes it, and checks them against the API's limits.
 func mediaBlocks(extra map[string]any) ([]Media, error) {
 	var out []Media
-	if v, ok := extra["media"]; ok {
+	switch v := extra["media"].(type) {
+	case nil:
+	case []Media: // as SetMedia stores it: no JSON round trip for large data
+		out = append(out, v...)
+	default:
 		raw, err := json.Marshal(v)
 		if err != nil || json.Unmarshal(raw, &out) != nil {
 			return nil, invalid("media must be a list of gemini.Media")
@@ -168,11 +174,11 @@ func mediaBlocks(extra map[string]any) ([]Media, error) {
 			return nil, err
 		}
 		// Re-encode so line breaks that decoding skips never reach the API.
-		if m.Data != "" {
+		if strings.ContainsAny(m.Data, "\r\n") {
 			data, _ := base64.StdEncoding.DecodeString(m.Data)
 			out[i].Data = base64.StdEncoding.EncodeToString(data)
-			inline += len(out[i].Data)
 		}
+		inline += len(out[i].Data)
 		if m.Kind == KindDocument {
 			limit = maxInlinePDFBytes
 		}
