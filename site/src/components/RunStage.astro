@@ -5,6 +5,7 @@
 // JavaScript the first one shows. See "Landing page" in
 // docs/design/docs-site-look.md.
 import Terminal from './Terminal.astro';
+import { loadTape, transcript } from '../lib/tapes';
 
 const runs = [
 	{ file: 'issue.md', tape: 'triage-check', title: '~/decide/demo', label: 'decide flags a vague issue as not ready and exits with code 2' },
@@ -26,6 +27,12 @@ const runs = [
 		note: 'code is a one question project template in .decide/templates. The built in code-risk rates maintainability too.',
 	},
 ];
+
+// The issue.md run's time, read from the summary line of the transcript this
+// page loads (such as "✓ 1 answered  ! 1 flagged  300ms"), so the caption
+// stays in step when the tape is recorded again. One recording, not a benchmark.
+const first = await transcript('triage-check', loadTape('triage-check'));
+const took = first.match(/answered.*?(\d+(?:\.\d+)?m?s)\s*$/m)?.[1];
 ---
 
 <div class="stage" data-stage>
@@ -46,7 +53,7 @@ const runs = [
 		))
 	}
 	<p class="cap">
-		Real runs, recorded with VHS from <a href="https://github.com/deepnoodle-ai/decide/tree/main/site/tapes">site/tapes</a>. Nothing is mocked.
+		Real runs, recorded with VHS from <a href="https://github.com/deepnoodle-ai/decide/tree/main/site/tapes">site/tapes</a>. Each answer is one value and its probability.{took && ` The issue.md run took ${took}.`}
 	</p>
 </div>
 
@@ -111,7 +118,8 @@ const runs = [
 		color: var(--sl-color-gray-3);
 	}
 	.cap {
-		color: var(--sl-color-gray-4);
+		font-size: 13px;
+		color: var(--sl-color-gray-3);
 	}
 	.cap a {
 		color: var(--sl-color-gray-3);

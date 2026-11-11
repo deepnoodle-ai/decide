@@ -1,5 +1,6 @@
 ---
-// The four decision models decide runs on, each with its maker's mark. The
+// The four decision models decide runs on, in one row, each with its maker's
+// mark and model IDs. Keys and env vars live in the reference. The
 // marks are the makers' own colors: they name a company, so they sit outside
 // the answer palette. See "Providers" in the reference.
 const cloudflare =
@@ -12,39 +13,35 @@ const gemini =
 
 <div class="models">
 	<div class="model">
-		<img class="logo" src="/logos/typesafe.png" alt="TypeSafe" width="40" height="40" />
-		<h3>TypeSafe<span>Jev · the default</span></h3>
+		<img class="logo" src="/logos/typesafe.png" alt="TypeSafe" width="32" height="32" />
+		<h3>TypeSafe<span>Jev · default</span></h3>
 		<div class="ids"><code>jev-latest</code></div>
-		<p>The default. Set <code>TYPESAFE_API_KEY</code>.</p>
 	</div>
 	<div class="model">
 		<svg class="logo cf" viewBox="0 0 24 24" role="img" aria-label="Cloudflare"><path fill="currentColor" d={cloudflare}></path></svg>
-		<h3>Cloudflare<span>Clef · on Workers AI</span></h3>
+		<h3>Cloudflare<span>Clef · Workers AI</span></h3>
 		<div class="ids"><code>clef</code><code>clef-flash</code></div>
-		<p>Reads images too. Set <code>CLOUDFLARE_AUTH_TOKEN</code> and <code>CLOUDFLARE_ACCOUNT_ID</code>.</p>
 	</div>
 	<div class="model">
 		<svg class="logo" viewBox="0 0 24 24" role="img" aria-label="OpenAI"><path fill="currentColor" d={openai}></path></svg>
-		<h3>OpenAI<span>Luna · Decisions API, in beta</span></h3>
+		<h3>OpenAI<span>Luna · beta</span></h3>
 		<div class="ids"><code>gpt-6-luna</code></div>
-		<p>Text, through the Decisions API. Set <code>OPENAI_API_KEY</code>.</p>
 	</div>
 	<div class="model">
 		<svg class="logo gem" viewBox="0 0 24 24" role="img" aria-label="Google Gemini"><path fill="currentColor" transform="translate(1.68 1.68) scale(0.86)" d={gemini}></path></svg>
-		<h3>Google<span>Gemini Decision · Decisions API, in beta</span></h3>
+		<h3>Google<span>Gemini · beta · audio, video, PDF</span></h3>
 		<div class="ids"><code>gemini-decision-1</code></div>
-		<p>The one for audio, video and PDFs. Set <code>GEMINI_API_KEY</code>.</p>
 	</div>
 </div>
 <p class="more">
-	Then pick one with <code>--provider</code> or <code>DECIDE_PROVIDER</code>. See <a href="/reference/providers/">Providers</a>.
+	Bring your own key. decide sends what you ask about to that provider and nowhere else. Keys and switching are in <a href="/reference/providers/">Providers</a>.
 </p>
 
 <style>
 	.models {
 		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		margin-top: 56px;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		margin-top: 48px;
 		border: 1px solid var(--sl-color-hairline);
 		border-radius: 0;
 		overflow: hidden;
@@ -53,21 +50,18 @@ const gemini =
 	.model {
 		display: flex;
 		flex-direction: column;
-		gap: 14px;
+		gap: 12px;
 		min-width: 0;
-		padding: 28px 26px 30px;
+		padding: 22px 20px 24px;
 		border-left: 1px solid var(--sl-color-hairline);
 	}
-	.model:nth-child(odd) {
+	.model:first-child {
 		border-left: 0;
-	}
-	.model:nth-child(n + 3) {
-		border-top: 1px solid var(--sl-color-hairline);
 	}
 	.logo {
 		display: block;
-		width: 40px;
-		height: 40px;
+		width: 32px;
+		height: 32px;
 		color: var(--sl-color-white);
 	}
 	.cf {
@@ -78,7 +72,7 @@ const gemini =
 	}
 	h3 {
 		margin: 0;
-		font-size: 20px;
+		font-size: 17px;
 		font-weight: 500;
 		line-height: 1.3;
 		letter-spacing: -0.015em;
@@ -123,14 +117,18 @@ const gemini =
 	}
 	@media (max-width: 860px) {
 		.models {
-			grid-template-columns: minmax(0, 1fr);
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
-		.model {
+		.model:nth-child(3) {
 			border-left: 0;
+		}
+		.model:nth-child(n + 3) {
 			border-top: 1px solid var(--sl-color-hairline);
 		}
-		.model:first-child {
-			border-top: 0;
+	}
+	@media (max-width: 480px) {
+		.model {
+			padding: 18px 14px 20px;
 		}
 	}
 </style>

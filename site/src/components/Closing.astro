@@ -14,7 +14,7 @@ const command = 'brew install deepnoodle-ai/tap/decide';
 	<div class="in">
 		<Eyebrow k="install" v="brew" />
 		<h2>Your turn. <span class="dim">Ask it something.</span></h2>
-		<p>Install it, set a key, and point it at a file. Pick a template or write your own question. decide writes the answer.</p>
+		<p>Install it, set a key, and put it where your script makes a call.</p>
 		<div class="cmd">
 			<pre><span class="pr">$ </span>{command}</pre>
 			<CopyButton text={command} />
@@ -104,6 +104,12 @@ const command = 'brew install deepnoodle-ai/tap/decide';
 		.mark :global(svg) {
 			width: auto;
 			height: 120px;
+		}
+	}
+	/* The hero already shows a face; on a phone this one would break the left edge. */
+	@media (max-width: 600px) {
+		.mark {
+			display: none;
 		}
 	}
 </style>

@@ -36,10 +36,10 @@ may change the library API and the CLI.
 
 ### Changed
 
-- **A new landing page.** One command to install, five real runs in one
-  window, why a typed answer beats a reply, the four providers, and the
-  licence in plain words, then what to do with an answer and each
-  provider's setup on one line. The 404 and docs code blocks match it.
+- **A new landing page.** Real runs, why a decision model, which returns a
+  value and its probability instead of text, suits the quick calls a script
+  makes on every item,
+  where it runs in CI, hooks and queues, and how unsure ones go to a person.
 - `--help` names what each flag takes, such as `--limit N` and
   `--include PATTERN`, so flags that take a value stand out.
 

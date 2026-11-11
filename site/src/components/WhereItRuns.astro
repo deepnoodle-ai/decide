@@ -1,0 +1,123 @@
+---
+// "The small calls inside your automations.": four places a script makes
+// the same call on every item, each with a mono label, one line, and a link
+// to the recipe or tutorial that sets it up. Four columns on desktop, two
+// at tablet width, one below 600px.
+const cells = [
+	{
+		k: 'ci gate',
+		cmd: 'code-risk --fail-on flagged',
+		line: 'Every pull request. A flagged change exits 2, and the check waits for someone to look.',
+		href: '/recipes/#run-decide-in-github-actions',
+		link: 'Run it in GitHub Actions',
+	},
+	{
+		k: 'pre-command hook',
+		cmd: 'command-risk',
+		line: 'Every command an agent wants to run, checked before it runs.',
+		href: '/tutorials/check-agent-commands/',
+		link: 'Check agent commands',
+	},
+	{
+		k: 'queue triage',
+		cmd: 'ticket-routing',
+		line: 'Every new ticket, sorted into a queue for the people who work it.',
+		href: '/recipes/#route-new-issues-to-a-queue',
+		link: 'Route new issues',
+	},
+	{
+		k: 'batch scan',
+		cmd: 'security',
+		line: 'Every function in a repository, ranked so you read the riskiest first.',
+		href: '/tutorials/find-security-bugs/',
+		link: 'Find security bugs',
+	},
+];
+---
+
+<div class="where">
+	{
+		cells.map((c) => (
+			<div class="cell">
+				<p class="k">{c.k}</p>
+				<code>{c.cmd}</code>
+				<p class="line">{c.line}</p>
+				<a href={c.href}>{c.link} →</a>
+			</div>
+		))
+	}
+</div>
+
+<style>
+	.where {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		margin-top: 48px;
+		border: 1px solid var(--sl-color-hairline);
+		text-align: left;
+	}
+	.cell {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		min-width: 0;
+		padding: 24px 22px 26px;
+		border-left: 1px solid var(--sl-color-hairline);
+	}
+	.cell:first-child {
+		border-left: 0;
+	}
+	.k {
+		margin: 0;
+		font: 700 12.5px/1.4 var(--sl-font-mono);
+		color: var(--sl-color-white);
+	}
+	code {
+		align-self: start;
+		max-width: 100%;
+		padding: 2px 7px;
+		background: var(--sl-color-gray-7);
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 0;
+		font-size: 12px;
+		color: var(--sl-color-gray-2);
+		overflow-wrap: anywhere;
+	}
+	.line {
+		flex: 1;
+		margin: 0;
+		font-size: 14.5px;
+		line-height: 1.55;
+		color: var(--sl-color-gray-3);
+	}
+	a {
+		font: 400 13px/1.4 var(--sl-font-mono);
+		color: var(--sl-color-gray-2);
+	}
+	a:hover {
+		color: var(--sl-color-white);
+	}
+	@media (max-width: 960px) {
+		.where {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+		.cell:nth-child(3) {
+			border-left: 0;
+		}
+		.cell:nth-child(n + 3) {
+			border-top: 1px solid var(--sl-color-hairline);
+		}
+	}
+	@media (max-width: 600px) {
+		.where {
+			grid-template-columns: minmax(0, 1fr);
+			row-gap: 28px;
+			border: 0;
+		}
+		.cell,
+		.cell:nth-child(n + 3) {
+			padding: 0;
+			border: 0;
+		}
+	}
+</style>

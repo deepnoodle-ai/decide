@@ -1,0 +1,201 @@
+---
+// "LLMs write. decide answers.": a fair, row by row contrast between a
+// general LLM with structured output and a decision model, for one yes/no
+// asked on every item. A real <table> on desktop; below 720px each row
+// keeps the two cells side by side under the row's label, with the column
+// heads shown once. decide's column carries the answer color, cyan, as the
+// CLI does. The claims come from the mechanism, not from a benchmark.
+//
+// Prices in the footnote are public, with their sources beside them:
+//   Jev: $0.042 per million input tokens, output free
+//     https://docs.typesafe.ai/models
+//   gemini-decision-1: $0.10 per million input tokens, no output tokens
+//     https://aistudio.google.com/docs/pricing
+//   Lowest standard chat output price listed: $0.40 per million, gpt-5-nano
+//     https://developers.openai.com/api/docs/pricing
+//     (Batch and Flex list $0.20; the note says "standard".)
+// No output-cost claim is made for OpenAI's Decisions API or Cloudflare.
+// The unsure band (0.4 to 0.6) is unsureAbove/unsureBelow in internal/cli/render.go.
+import Doodle from './Doodle.astro';
+
+const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
+	{ k: 'Comes back', llm: 'Text or JSON, written a token at a time', decide: 'One value and its probability' },
+	{ k: 'You pay for and wait on', llm: 'Your prompt, plus every token it writes back', decide: 'Your prompt only, on Jev and gemini-decision-1. Nothing comes back to bill', note: true },
+	{ k: 'Shape', llm: 'JSON you parse and check, plus refusals and cut-off replies to handle', decide: 'One typed value, checked against the question' },
+	{ k: 'Branch on', llm: 'A confidence it writes as text, or token logprobs you turn into one', decide: 'A probability over the answers, returned with the value' },
+	{ k: "When it isn't sure", llm: "Only if you add an 'unsure' option to the schema", decide: 'For a yes or no, <b>unsure</b> when the probability of yes falls between 0.4 and 0.6, so you send it to a person' },
+];
+---
+
+<div class="compare">
+	<div class="faces" aria-hidden="true">
+		<Doodle size={40} face="ask" />
+		<Doodle size={40} face="lost" />
+		<Doodle size={40} face="glad" />
+	</div>
+	<table>
+		<thead>
+			<tr>
+				<td></td>
+				<th scope="col">General LLM, with structured output</th>
+				<th scope="col" class="us">decide</th>
+			</tr>
+		</thead>
+		<tbody>
+			{
+				rows.map((r) => (
+					<tr>
+						<th scope="row">{r.k}</th>
+						<td data-col="General LLM">{r.llm}</td>
+						<td data-col="decide" class="us">
+							<span set:html={r.decide} />
+							{r.note && (
+								<sup>
+									<a href="#price-note" aria-label="Prices and sources">
+										1
+									</a>
+								</sup>
+							)}
+						</td>
+					</tr>
+				))
+			}
+		</tbody>
+	</table>
+
+	<p class="credit">LLMs are great at writing and reasoning. Use them for that. Use decide for the quick call your script makes on every item.</p>
+	<p class="note" id="price-note">
+		<sup>1</sup> Jev bills $0.042 per million input tokens and output is free (<a href="https://docs.typesafe.ai/models">TypeSafe</a>). gemini-decision-1 bills
+		$0.10 per million input tokens and writes no output tokens (<a href="https://aistudio.google.com/docs/pricing">Google</a>). OpenAI's Decisions API and Cloudflare
+		bill on their own terms; see their pricing pages. A chat model also bills each token it writes back; the lowest standard output price OpenAI lists is $0.40 per
+		million, for gpt-5-nano (<a href="https://developers.openai.com/api/docs/pricing">OpenAI</a>).
+	</p>
+</div>
+
+<style>
+	.compare {
+		margin-top: 40px;
+		text-align: left;
+	}
+	/* Three faces over the table: the question, the wait, the answer. Decoration only. */
+	.faces {
+		display: flex;
+		gap: 16px;
+		margin-bottom: 20px;
+		color: var(--sl-color-gray-3);
+	}
+	table {
+		display: table;
+		width: 100%;
+		margin: 0;
+		border-collapse: collapse;
+		border: 1px solid var(--sl-color-hairline);
+		font-size: 15px;
+		line-height: 1.5;
+	}
+	th,
+	td {
+		padding: 16px 20px;
+		border: 0;
+		border-top: 1px solid var(--sl-color-hairline);
+		text-align: left;
+		vertical-align: top;
+		background: none;
+	}
+	thead th,
+	thead td {
+		border-top: 0;
+		font: 400 12.5px/1.4 var(--sl-font-mono);
+		color: var(--sl-color-gray-3);
+	}
+	tbody th {
+		width: 22%;
+		font: 400 13px/1.6 var(--sl-font-mono);
+		color: var(--sl-color-gray-3);
+	}
+	tbody td {
+		color: var(--sl-color-gray-3);
+	}
+	/* decide's column: the answer color on its edge, a faint fill, brighter text. */
+	.us {
+		width: 39%;
+		background: var(--sl-color-gray-7);
+		border-left: 2px solid var(--ans-value);
+		color: var(--sl-color-white);
+	}
+	thead .us {
+		font-weight: 700;
+		color: var(--ans-value);
+	}
+	.us :global(b) {
+		font: 700 0.92em/1 var(--sl-font-mono);
+		color: var(--ans-unsure);
+	}
+	sup {
+		margin-left: 3px;
+		font: 400 11px/1 var(--sl-font-mono);
+	}
+	sup a {
+		color: var(--sl-color-gray-3);
+	}
+	.note {
+		max-width: 80ch;
+		margin: 40px 0 0;
+		font-size: 13px;
+		line-height: 1.6;
+		color: var(--sl-color-gray-3);
+	}
+	.note a {
+		color: var(--sl-color-gray-3);
+	}
+	.credit {
+		margin: 28px 0 0;
+		font-size: 16px;
+		line-height: 1.55;
+		color: var(--sl-color-gray-2);
+	}
+	@media (max-width: 720px) {
+		table,
+		thead,
+		tbody {
+			display: block;
+		}
+		tr {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		}
+		tr + tr {
+			border-top: 1px solid var(--sl-color-hairline);
+		}
+		thead {
+			display: none;
+		}
+		tbody td::before {
+			content: attr(data-col);
+			display: block;
+			margin-bottom: 4px;
+			font: 400 11px/1.4 var(--sl-font-mono);
+			color: var(--sl-color-gray-3);
+		}
+		tbody td.us::before {
+			color: var(--ans-value);
+		}
+		th,
+		td,
+		td.us,
+		tbody th {
+			width: auto;
+			border-top: 0;
+			padding: 10px 12px;
+			font-size: 14px;
+		}
+		thead th {
+			font-size: 11.5px;
+		}
+		tbody th {
+			grid-column: 1 / -1;
+			padding: 18px 12px 0;
+			font-size: 12px;
+		}
+	}
+</style>

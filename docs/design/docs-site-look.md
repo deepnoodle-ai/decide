@@ -171,39 +171,68 @@ page body stays MDX, with `not-content` on our sections.
 **The page, top to bottom** (decided with Sarvesh from the mockup at
 claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
 
-1. **Hero, centred.** The release line, the headline "Your LLM talks too
-   much. This one answers.", the tagline, and `Install.astro`:
-   one command in a bordered box, with a word switcher above it (brew, go
-   install, go get, claude code). Then one line on the key: which providers,
-   read from the environment, and only the asked text is sent. Then "Read the
-   quickstart →", the page's way into the docs.
+1. **Hero, centred.** The release line, the headline "You think very hard.
+   decide answers.", a tagline that names the small calls a script makes
+   on every commit, ticket and command (the general LLM, not the reader,
+   is what it is faster than), "Why not just call an LLM? →" on its own
+   line in the hero's link style, and `Install.astro` (brew, go
+   install, go get, claude code). Then "Read the quickstart →", the page's
+   way into the docs.
 2. **`RunStage.astro`.** Five recordings in one window, picked by file tabs
    in its chrome: `triage-check` (issue.md), `review-gate` (change.diff),
    `type-choice` (ticket.txt), `start-line` (review.txt), `type-score`
-   (total.go). Each is a compact `<Terminal>`; only the chosen one shows, so
-   the one-at-a-time player plays it. The window is 778px, a recording's
-   width, and as tall as the tallest, so switching never moves the page. The
-   two runs that use project templates say so under the window and name the
-   built in template that works out of the box.
-3. **"A question your script has to act on."**
-   `AskStrip.astro`: you think very hard and ask (the ask face), an agent replies with paragraphs, decide
-   answers `! ready  no  98%`, the line the triage-check recording printed.
-4. **"Four decision models, one set of commands."** `Models.astro`: TypeSafe,
-   Cloudflare, OpenAI and Google, two by two, each with its mark, model ids and one line.
-5. **"No black box. Except the model."** `Source.astro`: the repository's folders
-   as a listing (no prompt, so it is not a fake run) with the clone command
-   in the frame's copy strip, beside Apache 2.0 in plain words.
-6. **`Closing.astro`.** "Your turn. Ask it something." One command, the
-   quickstart and the source, with the glad-card face whole at 200px on the
-   right, and at 120px above the heading under 860px.
+   (total.go). Only the chosen one shows. The window is 778px and as tall as
+   the tallest. The caption's time is read at build time from the summary line
+   of the triage-check transcript the page loads, named as the issue.md run
+   and called one recording; no hard-coded figure.
+3. **"LLMs write. decide answers."** `Compare.astro` (anchor `#compare`, linked
+   from the hero's "Why not just call an LLM?"): three 40px faces (ask, lost,
+   glad; aria-hidden) over a `<table>` of a general LLM with structured output against decide,
+   five rows; decide's column has the answer color on its edge. Below 720px
+   each row keeps its two cells side by side under its label, the head row
+   is hidden and each cell carries its column name in small mono. The LLM cells
+   stay fair: logprobs and an 'unsure' option are named. The price row's footnote cites public prices with
+   URLs in a code comment; no multipliers and no output-cost claim for
+   OpenAI or Cloudflare. Both price cells name the prompt; the difference is
+   output. The credit to LLMs for writing and reasoning sits
+   right after the table, the footnote after it.
+4. **"The small calls inside your automations."** `WhereItRuns.astro`: CI
+   gate, pre-command hook, queue triage, batch scan, each with a command,
+   one line and a link to a recipe or tutorial. Under 600px the cells lose
+   their borders and stack with gaps.
+5. **"Sure ones run. Close calls go to a person."** `UseIt.astro`:
+   `triage.go` branches three ways (allow, reject, `gate.Review`), with a
+   strip in the pass, unsure and flag colors (three columns, stacked under
+   600px; "a person decides" is the widest and set in sans). Right under the
+   strip, in 16px body text, the line that the calls that matter stay with
+   your team. Then the CI step card. One fine line says the probability is
+   the model's judgment and links the calibrate example to compare on
+   labeled items before switching. Every band from Compare down is left
+   aligned.
+6. **"Four decision models, one set of commands."** `Models.astro`: one row
+   of four (two by two under 860px), then the line on where your text goes,
+   linking to the providers reference.
+7. **"No black box. Except the model."** `Source.astro`: no box; the clone
+   command, then Apache 2.0 in one sentence with LICENSE and CONTRIBUTING.md
+   linked inline.
+8. **`Closing.astro`.** "Your turn. Ask it something." One command, the
+   quickstart and the source, with the glad-card face (hidden under 600px,
+   where the hero's face is enough).
+
+**Positioning:** decide is for the many small calls inside automations, not
+the decisions people make. People appear only as the ones who take the close
+calls and the ones that matter; never call them slow or replaceable. Against
+general LLMs, argue from the mechanism (one value and a probability, so less
+to generate, pay for, wait on and parse), never from an invented figure.
+Don't sneer at LLMs.
 
 Sections open with a centred two-tone headline; their content is left
 aligned. Under 600px a command scrolls inside its box rather than breaking
 mid word.
 
 **Copy rules:** say who the key comes from; never say "no account", since a
-key needs one; answer "why not JSON mode" where decide answers (the strip's
-third panel).
+key needs one; answer "why not JSON mode" where decide answers (the
+Compare table).
 
 **`landing.tape`** no longer plays on the page. It stays for the README's GIF
 (`Output landing.gif`).

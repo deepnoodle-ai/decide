@@ -1,20 +1,23 @@
 ---
-title: Answers you can branch on
-description: Ask questions about your files, diffs, and records. A decision model answers each one with its probability.
+title: Typed answers for automations
+description: A decision model answers one typed question per item with a value and its probability, so CI, hooks and queues get an answer instead of text to parse.
 template: splash
 pagefind: false
 editUrl: false
-release: OpenAI's Decisions API, built in templates from Go, and this docs site
+release: OpenAI's Decisions API and Go templates
 hero:
   title: You think very hard. <span class="dim">decide answers.</span>
   tagline: >-
-    <p>decide asks a decision model one typed question about each item in
-    your data, and returns the answer with its probability.</p>
+    <p>For the small calls a script makes on every commit, ticket and
+    command. decide asks a decision model one typed question per item and
+    gets back a value and its probability, not paragraphs from a general
+    LLM.</p><p class="why"><a href="#compare">Why not just call an LLM? →</a></p>
 answer: "! ready  no"
 ---
 
 import RunStage from '../../components/RunStage.astro';
-import AskStrip from '../../components/AskStrip.astro';
+import Compare from '../../components/Compare.astro';
+import WhereItRuns from '../../components/WhereItRuns.astro';
 import UseIt from '../../components/UseIt.astro';
 import Models from '../../components/Models.astro';
 import Source from '../../components/Source.astro';
@@ -25,20 +28,29 @@ import Eyebrow from '../../components/Eyebrow.astro';
 	<RunStage />
 </div>
 
-<section class="band wide not-content">
-	<Eyebrow k="ask" v="one question per item" />
-	<h2>A question your script has to act on.</h2>
-	<p class="sub">Same question, two ways to get an answer.</p>
-	<AskStrip />
+<section class="band not-content" id="compare">
+	<Eyebrow k="compare" v="one question, every item" />
+	<h2>LLMs write. <span class="dim">decide answers.</span></h2>
+	<p class="sub">A decision model answers a typed question instead of writing text. For a yes or a no your script needs on every item, there's less to generate, pay for, wait on and parse.</p>
+	<Compare />
+</section>
+
+<section class="band wide where not-content">
+	<Eyebrow k="where" v="ci · hooks · queues" />
+	<h2>The small calls inside your automations.</h2>
+	<p class="sub">Every commit, every ticket, every command. Your team makes the calls that matter; decide takes the many small ones a script has to make.</p>
+	<WhereItRuns />
 </section>
 
 <section class="band not-content">
 	<Eyebrow k="use" v="branch on the probability" />
-	<h2>A number is something you can argue with in code.</h2>
+	<h2>Sure ones run. <span class="dim">Close calls go to a person.</span></h2>
+	<p class="sub">A number is something you can argue with in code.</p>
 	<UseIt />
+	<p class="fine">The probability is the model's judgment, not proof. Set your thresholds on your own data. Before you switch, <a href="https://github.com/deepnoodle-ai/decide/tree/main/examples/calibrate">run it on items you've already labeled and compare</a>.</p>
 </section>
 
-<section class="band center not-content">
+<section class="band not-content">
 	<Eyebrow k="providers" v="4" />
 	<h2>Four decision models, <span class="dim">one set of commands.</span></h2>
 	<p class="sub">Pick one key. The commands don't change.</p>
@@ -48,7 +60,7 @@ import Eyebrow from '../../components/Eyebrow.astro';
 <section class="band not-content">
 	<Eyebrow k="source" v="apache-2.0" />
 	<h2>No black box. <span class="dim">Except the model.</span></h2>
-	<p class="sub">The client, the CLI, the templates and this site are open under Apache 2.0. Read them, change them, ship them in something you sell.</p>
+	<p class="sub">The client, the CLI, the templates and this site are open. Read them, change them, ship them in something you sell.</p>
 	<Source />
 </section>
 

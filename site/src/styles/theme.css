@@ -223,6 +223,15 @@ nav.sidebar .group-label .large {
 .band.center > .sub {
 	margin-inline: auto;
 }
+/* A band's honesty line, under its figure: small and quiet, never hidden. */
+.band > .fine {
+	margin: 28px 0 0;
+	font: 400 12.5px/1.6 var(--sl-font-mono);
+	color: var(--sl-color-gray-3);
+}
+.band > .fine a {
+	color: inherit;
+}
 
 /* The CLI's colors, inside a terminal frame. */
 .t-b {
@@ -290,4 +299,9 @@ nav.sidebar .group-label .large {
 }
 .expressive-code .frame.is-terminal:not(.has-title) pre {
 	border-radius: 0;
+}
+
+/* The "where" band sets its headline on one line at desktop, as wide as its grid. */
+.band.where > h2 {
+	max-width: none;
 }

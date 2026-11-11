@@ -1,7 +1,8 @@
 ---
 // The landing page's first screen, centred: the release line, the face
 // thinking (while on screen), the headline,
-// the tagline, one command to run, and where the key goes. The recordings
+// the tagline, and one command to run. The key and privacy line lives in
+// the Providers band. The recordings
 // come right after it, in <RunStage> in the page body. Starlight's hero
 // can't hold the install switcher, so this replaces it. Only the landing
 // page has a `hero`.
@@ -34,9 +35,6 @@ const repo = 'https://github.com/deepnoodle-ai/decide';
 	<h1 id={PAGE_TITLE_ID} data-page-title set:html={title} />
 	{tagline && <div class="tagline" set:html={tagline} />}
 	<Install />
-	<p class="key">
-		Bring your own key from TypeSafe, Cloudflare, OpenAI or Google. decide sends what you ask about to that provider and nowhere else.
-	</p>
 	<a class="start" href="/start/">Read the quickstart →</a>
 </section>
 
@@ -96,13 +94,18 @@ const repo = 'https://github.com/deepnoodle-ai/decide';
 		color: var(--sl-color-gray-2);
 		text-wrap: balance;
 	}
-	.key {
-		max-width: 60ch;
-		margin: 22px auto 0;
-		font-size: 16px;
-		line-height: 1.55;
-		color: var(--sl-color-gray-2);
-		text-wrap: balance;
+	.tagline :global(p.why) {
+		margin-top: 12px;
+		font-size: 15px;
+	}
+	.tagline :global(a) {
+		color: var(--sl-color-white);
+		text-decoration: underline;
+		text-decoration-color: var(--sl-color-gray-4);
+		text-underline-offset: 0.22em;
+	}
+	.tagline :global(a:hover) {
+		text-decoration-color: currentColor;
 	}
 	/* A splash page has no menu, so the hero carries the way into the docs. */
 	.start {
