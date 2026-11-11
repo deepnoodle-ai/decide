@@ -123,10 +123,10 @@ decide run code-risk src --no-cache
 
 #### `--provider`
 
-Chooses the model's provider for this run: `typesafe`, `cloudflare`, or
-`openai`. The default is `typesafe`, or `cloudflare` for a template that
-reads images. `DECIDE_PROVIDER` sets it for every run. See
-[Providers](/reference/providers/).
+Chooses the model's provider for this run: `typesafe`, `cloudflare`,
+`openai`, or `gemini`. The default is `typesafe`; a template that reads
+files other than text picks one that can take them. `DECIDE_PROVIDER` sets
+it for every run. See [Providers](/reference/providers/).
 
 ```sh
 decide run sentiment notes.txt --provider cloudflare
@@ -143,7 +143,9 @@ decide run sentiment notes.txt --model jev-1.13.0
 
 #### `--workers`
 
-Sets how many requests run at once. The default is 4.
+Sets how many requests run at once. The default is 4, or 2 for a template
+that reads images, audio, video, or PDFs, since each request holds its file
+in memory.
 
 ```sh
 decide run code-risk src --workers 8
@@ -314,7 +316,7 @@ does not check that.
 
 #### `--provider`
 
-Checks `typesafe`, `cloudflare`, or `openai`. It reads `DECIDE_PROVIDER`
+Checks `typesafe`, `cloudflare`, `openai`, or `gemini`. It reads `DECIDE_PROVIDER`
 too, and defaults to `typesafe`. `DECIDE_MODEL` has no effect here.
 
 ```sh
@@ -326,7 +328,7 @@ decide models --provider cloudflare
 Prints one JSON object instead of text, for scripts. `listed` is true when
 the provider listed its models, and false when `models` holds the names
 decide knows. `checked` says what decide asked the provider: `list models`
-for TypeSafe and OpenAI, `search models` for Cloudflare.
+for TypeSafe, OpenAI, and Gemini, `search models` for Cloudflare.
 
 ```json
 {"provider":"typesafe","listed":true,"checked":"list models","default":"jev-latest","models":[{"name":"jev-latest","description":"","release_date":""}]}
@@ -348,18 +350,26 @@ error. It shows no part of an answer other than TypeSafe's model names.
   sends one `GET /v1/models` with the key as a bearer token. It follows no
   redirects and does not retry. It expects a JSON
   list, ignores the models in it, and shows `gpt-6-luna`.
+- **Gemini** does not say which models its Decisions API takes either.
+  decide sends one `GET /v1beta/models?pageSize=1` with the key in the
+  `x-goog-api-key` header. It follows no redirects and does not retry. It
+  expects JSON with a `models` list, and shows `gemini-decision-1`.
 
 What the status means:
 
 - `401` means the credentials were rejected. TypeSafe answers `403` the same
-  way, because it sends `403` for a missing or wrong key.
-- `403` from Cloudflare or OpenAI means decide could not confirm the key,
+  way, because it sends `403` for a missing or wrong key. Gemini answers
+  `400` for a key it does not accept, so decide treats a `400` that names
+  the key as a rejection. Any other `400`, such as for an unsupported
+  region, says decide could not check.
+- `403` from Cloudflare, OpenAI, or Gemini means decide could not confirm the key,
   and exits with 1. A restricted OpenAI key may lack permission to list
   models and still work for decisions. Cloudflare answers `403` when the
   token lacks Workers AI access or the account ID is wrong. Check the key's
-  permissions, or try a small `decide run`.
+  permissions, or try a small `decide run`. Gemini answers `403` when the
+  key's project does not have the Gemini API enabled.
 - Any other failure says decide could not check, and does not blame the
-  key. For Cloudflare and OpenAI that includes a redirect, a `200` that is not the expected JSON, and
+  key. For Cloudflare, OpenAI, and Gemini that includes a redirect, a `200` that is not the expected JSON, and
   an answer that cannot be read.
 
 Error text never includes your key, token, account ID, or the user info of a
@@ -388,7 +398,9 @@ change them.
 | `CLOUDFLARE_BASE_URL` | another address for the Workers AI API |
 | `OPENAI_API_KEY` | the key for GPT-6 Luna |
 | `OPENAI_BASE_URL` | another address for OpenAI's API |
-| `DECIDE_PROVIDER` | the provider for every run: `typesafe`, `cloudflare`, or `openai` |
+| `GEMINI_API_KEY` | the key for Gemini Decision |
+| `GEMINI_BASE_URL` | another address for the Gemini API |
+| `DECIDE_PROVIDER` | the provider for every run: `typesafe`, `cloudflare`, `openai`, or `gemini` |
 | `DECIDE_MODEL` | the model for every run |
 | `DECIDE_HOME` | where templates, runs, and the cache live, in place of `~/.decide` |
 | `GITHUB_STEP_SUMMARY` | the file where decide writes its Markdown report in GitHub Actions. GitHub sets it. |

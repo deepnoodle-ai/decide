@@ -1,5 +1,5 @@
 // ABOUTME: The decide models command: checks provider credentials and lists model names.
-// ABOUTME: Only TypeSafe lists models; Cloudflare and OpenAI get a read only credential check.
+// ABOUTME: Only TypeSafe lists models; Cloudflare, OpenAI, and Gemini get a read only credential check.
 package cli
 
 import (
@@ -23,7 +23,7 @@ import (
 const modelsHelp = `Check that your provider accepts your credentials, and list the model names
 you can pass to --model.
 
-TypeSafe lists its models. Cloudflare and OpenAI do not, so decide checks the
+TypeSafe lists its models. Cloudflare, OpenAI, and Gemini do not, so decide checks the
 credentials with a read only request and shows the models it knows.
 Nothing is asked of a model, so nothing is spent on answers.
 
@@ -37,6 +37,7 @@ var baseURLVars = map[string]string{
 	"typesafe":   "TYPESAFE_BASE_URL",
 	"cloudflare": "CLOUDFLARE_BASE_URL",
 	"openai":     "OPENAI_BASE_URL",
+	"gemini":     "GEMINI_BASE_URL",
 }
 
 func (a *App) addModels(app *cli.App) {
@@ -44,8 +45,8 @@ func (a *App) addModels(app *cli.App) {
 		Description("Check your key and list models").
 		Long(modelsHelp).
 		Flags(
-			cli.String("provider").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai").
-				Help("Model provider: typesafe, cloudflare, or openai (default: typesafe)"),
+			cli.String("provider").Placeholder("NAME").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai", "gemini").
+				Help("Model provider: typesafe, cloudflare, openai, or gemini (default: typesafe)"),
 			cli.Bool("json").Help("Print the result as one JSON object"),
 		).
 		Run(a.models)
@@ -90,7 +91,7 @@ func (a *App) models(c *cli.Context) error {
 
 // listTypeSafe lists TypeSafe's models, which also shows the key is accepted.
 func (a *App) listTypeSafe(c *cli.Context, res *modelsResult) error {
-	client, err := a.NewClient(res.Provider, res.Default)
+	client, err := a.newClientWithoutDryRun(res.Provider, res.Default)
 	if err != nil {
 		return err
 	}
@@ -128,7 +129,7 @@ func (e redactedError) Unwrap() error { return e.error }
 // configuredSecrets lists every credential decide reads from the environment.
 func configuredSecrets() []string {
 	var secrets []string
-	for _, name := range []string{"TYPESAFE_API_KEY", "CLOUDFLARE_AUTH_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "OPENAI_API_KEY"} {
+	for _, name := range []string{"TYPESAFE_API_KEY", "CLOUDFLARE_AUTH_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "OPENAI_API_KEY", "GEMINI_API_KEY"} {
 		if v := os.Getenv(name); v != "" {
 			secrets = append(secrets, v)
 		}
@@ -186,6 +187,11 @@ func forbidden(provider string) error {
 				"Cloudflare answers 403 when the token lacks Workers AI access or the account ID is wrong.\n" +
 				"Check both, then check again with: " + modelsCommand(provider))
 	}
+	if provider == "gemini" {
+		return cli.Errorf("Could not confirm %s (status 403)", keyVars[provider]).
+			Hint("decide checked GET /v1beta/models, and Google refused it.\n" +
+				"Check that the key's project has the Gemini API enabled, then check again with: " + modelsCommand(provider))
+	}
 	return cli.Errorf("Could not confirm %s (status 403)", keyVars[provider]).
 		Hint("decide checked GET /v1/models, and OpenAI refused it.\n" +
 			"A restricted key can lack permission to list models and still work for decisions, " +
@@ -211,12 +217,12 @@ func redact(s string, secrets ...string) string {
 
 var userInfo = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/\s@"]*@`)
 
-// checkProvider checks Cloudflare or OpenAI credentials with one
+// checkProvider checks Cloudflare, OpenAI, or Gemini credentials with one
 // authenticated GET. It builds the client a real run would build first, so
 // a configuration a run rejects is rejected here with the same error. It
 // never follows a redirect and never prints the response body.
 func checkProvider(ctx context.Context, provider string) error {
-	cfg, err := credentials(provider)
+	cfg, err := credentials(provider, false)
 	if err != nil {
 		return err
 	}
@@ -226,12 +232,18 @@ func checkProvider(ctx context.Context, provider string) error {
 	secrets := []string{cfg.APIKey, cfg.AccountID}
 	base := strings.TrimRight(cfg.BaseURL, "/")
 	var url string
-	if provider == "cloudflare" {
+	switch provider {
+	case "cloudflare":
 		if base == "" {
 			base = "https://api.cloudflare.com/client/v4"
 		}
 		url = base + "/accounts/" + cfg.AccountID + "/ai/models/search?per_page=1"
-	} else {
+	case "gemini":
+		if base == "" {
+			base = "https://generativelanguage.googleapis.com/v1beta"
+		}
+		url = base + "/models?pageSize=1"
+	default:
 		if base == "" {
 			base = "https://api.openai.com/v1"
 		}
@@ -243,7 +255,11 @@ func checkProvider(ctx context.Context, provider string) error {
 	if err != nil {
 		return couldNotCheck(provider, "the request could not be built")
 	}
-	req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+	if provider == "gemini" {
+		req.Header.Set("x-goog-api-key", cfg.APIKey)
+	} else {
+		req.Header.Set("Authorization", "Bearer "+cfg.APIKey)
+	}
 	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}}
@@ -258,6 +274,10 @@ func checkProvider(ctx context.Context, provider string) error {
 	defer resp.Body.Close()
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized:
+		return rejected(provider, resp.StatusCode)
+	case resp.StatusCode == http.StatusBadRequest && provider == "gemini" && badGeminiKey(resp.Body):
+		// Google answers a bad key with 400, and other problems, such as an
+		// unsupported region, with 400 too. Only the key reasons blame the key.
 		return rejected(provider, resp.StatusCode)
 	case resp.StatusCode == http.StatusForbidden:
 		return forbidden(provider)
@@ -274,6 +294,26 @@ func checkProvider(ctx context.Context, provider string) error {
 	return nil
 }
 
+// badGeminiKey reports whether a Gemini 400 body gives a key reason.
+func badGeminiKey(r io.Reader) bool {
+	var body struct {
+		Error struct {
+			Details []struct {
+				Reason string `json:"reason"`
+			} `json:"details"`
+		} `json:"error"`
+	}
+	if json.NewDecoder(io.LimitReader(r, 1<<20)).Decode(&body) != nil {
+		return false
+	}
+	for _, d := range body.Error.Details {
+		if d.Reason == "API_KEY_INVALID" || d.Reason == "API_KEY_EXPIRED" {
+			return true
+		}
+	}
+	return false
+}
+
 // expectedAnswer reports whether body has the shape the provider's check
 // returns, so a login page or a failure with a 200 status is not an ok.
 func expectedAnswer(provider string, body []byte) bool {
@@ -281,12 +321,16 @@ func expectedAnswer(provider string, body []byte) bool {
 		Success *bool           `json:"success"`
 		Data    json.RawMessage `json:"data"`
 		Error   json.RawMessage `json:"error"`
+		Models  json.RawMessage `json:"models"`
 	}
 	if json.Unmarshal(body, &answer) != nil {
 		return false
 	}
 	if provider == "cloudflare" {
 		return answer.Success != nil && *answer.Success
+	}
+	if provider == "gemini" {
+		return len(answer.Error) == 0 && strings.HasPrefix(strings.TrimSpace(string(answer.Models)), "[")
 	}
 	return (len(answer.Error) == 0 || string(answer.Error) == "null") && strings.HasPrefix(strings.TrimSpace(string(answer.Data)), "[")
 }
@@ -324,6 +368,8 @@ func printModels(w io.Writer, res modelsResult) {
 		fmt.Fprintln(w, "Cloudflare does not list models. These are the ones decide knows.")
 	case "openai":
 		fmt.Fprintln(w, "OpenAI does not list Decisions models. These are the ones decide knows.")
+	case "gemini":
+		fmt.Fprintln(w, "Gemini does not list Decisions models. These are the ones decide knows.")
 	}
 	if res.Provider == "typesafe" && len(res.Models) > 0 {
 		fmt.Fprintf(w, "%s decide run sentiment notes.txt --model %s\n", dim("Choose one with:"), clean(res.Default))
@@ -332,7 +378,7 @@ func printModels(w io.Writer, res modelsResult) {
 	case "cloudflare":
 		fmt.Fprintln(w, "Checked by searching Workers AI models.")
 		fmt.Fprintln(w, "Not checked: running decisions or credit.")
-	case "openai":
+	case "openai", "gemini":
 		fmt.Fprintln(w, "Checked by listing models.")
 		fmt.Fprintln(w, "Not checked: running decisions or credit.")
 	default:

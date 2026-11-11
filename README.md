@@ -35,14 +35,14 @@ probability, so a script or a program can act on it directly. There is
 no prose to parse.
 
 Decide works with Jev on the TypeSafe API, Clef on Cloudflare Workers AI,
-GPT-6 Luna on OpenAI's Decisions API, and any other service that speaks
-the Jev API, with the same commands and the same Go code. Switch between
+GPT-6 Luna on OpenAI's Decisions API, Gemini Decision on Google's
+Decisions API, and any other service that speaks the Jev API, with the same commands and the same Go code. Switch between
 them without changing anything else:
 
-| | [Jev](https://docs.typesafe.ai/introduction) by TypeSafe | [Clef](https://developers.cloudflare.com/workers-ai/models/clef/) by Cloudflare | [GPT-6 Luna](https://developers.openai.com/api/docs/guides/decisions) by OpenAI |
-| --- | --- | --- | --- |
-| Models | `jev-latest` | `clef`, and `clef-flash` for lower latency | `gpt-6-luna` |
-| Runs on | the [TypeSafe API](https://typesafe.ai) | [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/get-started/rest-api/) | the [Decisions API](https://developers.openai.com/api/docs/guides/decisions), in beta |
+| | [Jev](https://docs.typesafe.ai/introduction) by TypeSafe | [Clef](https://developers.cloudflare.com/workers-ai/models/clef/) by Cloudflare | [GPT-6 Luna](https://developers.openai.com/api/docs/guides/decisions) by OpenAI | [Gemini Decision](https://aistudio.google.com/docs/decisions-api) by Google |
+| --- | --- | --- | --- | --- |
+| Models | `jev-latest` | `clef`, and `clef-flash` for lower latency | `gpt-6-luna` | `gemini-decision-1` |
+| Runs on | the [TypeSafe API](https://typesafe.ai) | [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/get-started/rest-api/) | the [Decisions API](https://developers.openai.com/api/docs/guides/decisions), in beta | the [Gemini Decisions API](https://aistudio.google.com/docs/decisions-api), in beta |
 
 Clef's weights are [open on Hugging Face](https://huggingface.co/Cloudflare/clef)
 under Apache 2.0.
@@ -75,6 +75,15 @@ export DECIDE_PROVIDER=openai   # or pass --provider openai
 echo "The new release fixed everything I cared about" | decide run sentiment
 ```
 
+**With Gemini Decision,** set your Gemini API key and choose the Gemini
+provider:
+
+```sh
+export GEMINI_API_KEY=...
+export DECIDE_PROVIDER=gemini   # or pass --provider gemini
+echo "The new release fixed everything I cared about" | decide run sentiment
+```
+
 **With another Jev-compatible service,** such as one you host yourself,
 set its address and a model name:
 
@@ -102,7 +111,7 @@ a tour.
 
 ## What you can ask
 
-Decide comes with eleven templates. A template is a named set of questions.
+Decide comes with twelve templates. A template is a named set of questions.
 
 | Template | Asks about each item |
 | --- | --- |
@@ -116,7 +125,8 @@ Decide comes with eleven templates. A template is a named set of questions.
 | `task-readiness` | Is this issue ready to hand to a coding agent, and how large is it? |
 | `pr-description` | Do this pull request's title and description meet your guidelines? |
 | `command-risk` | Could this shell command destroy work, expose secrets, deploy or publish, or cause severe harm? |
-| `receipt-quality` | Does this image show a readable receipt? Runs on Clef. |
+| `receipt-quality` | Does this image show a readable receipt? Runs on Clef, GPT-6 Luna, or Gemini Decision. |
+| `invoice-check` | Is this PDF a complete invoice, and is it paid? Runs on Gemini Decision. |
 
 ```sh
 decide run code-risk src --include '*.go'
@@ -170,7 +180,8 @@ client, err := backend.NewClient(backend.Config{
 ```
 
 Or for GPT-6 Luna, with `Provider: backend.OpenAI` and
-`APIKey: os.Getenv("OPENAI_API_KEY")`. Then ask a question the same way
+`APIKey: os.Getenv("OPENAI_API_KEY")`, and for Gemini Decision, with
+`Provider: backend.Gemini` and `APIKey: os.Getenv("GEMINI_API_KEY")`. Then ask a question the same way
 with any of them:
 
 ```go

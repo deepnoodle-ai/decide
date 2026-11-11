@@ -40,8 +40,8 @@ says where to get one.
 2. ## Get a key
 
    decide asks a decision model. Pick one provider and export its key. The
-   commands and templates are the same with all three, except image
-   templates, which need Clef.
+   commands and templates are the same with each, except templates that
+   read images, audio, video, or PDFs, which need a provider that takes them.
 
    <Tabs syncKey="provider">
    <TabItem label="Jev">
@@ -67,6 +67,14 @@ says where to get one.
    ```sh
    export OPENAI_API_KEY=...
    export DECIDE_PROVIDER=openai
+   ```
+   </TabItem>
+   <TabItem label="Gemini Decision">
+   Gemini Decision runs on Google's Gemini Decisions API, in beta. Create a
+   key in [Google AI Studio](https://aistudio.google.com/apikey).
+   ```sh
+   export GEMINI_API_KEY=...
+   export DECIDE_PROVIDER=gemini
    ```
    </TabItem>
    </Tabs>
@@ -121,7 +129,7 @@ says where to get one.
    <LinkCard title="Ask from Go" description="The same questions from your own program." href="/start/go/" />
    </CardGrid>
 
-   `decide templates` lists the eleven built-in templates, and
+   `decide templates` lists the twelve built-in templates, and
    `decide templates show code-risk` shows a template's questions and when
    it flags an answer.
 

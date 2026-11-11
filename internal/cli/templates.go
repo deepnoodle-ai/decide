@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/deepnoodle-ai/decide/internal/source"
 	"github.com/deepnoodle-ai/decide/internal/template"
 	"github.com/deepnoodle-ai/wonton/cli"
 )
@@ -35,7 +36,7 @@ Examples:
   decide templates new my-template --project`).
 		AddArg(&cli.Arg{Name: "name", Description: "A name for the new template, like my-triage", Required: true}).
 		Flags(
-			cli.String("from").Help("Start from a copy of this template"),
+			cli.String("from").Placeholder("TEMPLATE").Help("Start from a copy of this template"),
 			cli.Bool("project").Help("Save it in this folder's .decide/templates, to share with your team"),
 		).
 		Run(a.templatesNew)
@@ -152,8 +153,8 @@ func (a *App) templatesShow(c *cli.Context) error {
 // reads says what a template reads and what one item is.
 func reads(s *template.Template) string {
 	switch {
-	case s.Input == template.Image:
-		return "images, one item per PNG, JPEG, or WebP file"
+	case s.Input.Media():
+		return fmt.Sprintf("%s files, one item per file (%s)", source.MediaName(s.Input), source.MediaFormats(s.Input))
 	case s.Each != "":
 		return fmt.Sprintf("text, one item per %s (change it with --each)", s.Each)
 	}

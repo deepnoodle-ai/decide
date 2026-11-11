@@ -8,6 +8,20 @@ may change the library API and the CLI.
 
 ### Added
 
+- **Gemini Decision.** `--provider gemini` and `backend.Gemini` run
+  `gemini-decision-1` through Google's Gemini Decisions API, in beta. Set
+  `GEMINI_API_KEY`.
+- **Images on OpenAI.** Image templates such as `receipt-quality` run with
+  `--provider openai`, and `openai.SetImages` adds images to a request.
+- **Audio, video, and PDFs on Gemini.** Templates can read `audio`, `video`,
+  or `pdf` files, and `gemini.SetMedia` attaches them from Go. The new
+  `invoice-check` template checks PDF invoices.
+- **Media runs send two files at once** unless `--workers` says otherwise,
+  and a request that sends a file may take up to 5 minutes, so large
+  uploads finish.
+- **Image templates follow your credentials.** With no `--provider`, they
+  run on Cloudflare, OpenAI, or Gemini, whichever has a key set. OpenAI and
+  Gemini take images far larger than Clef's 4 MiB.
 - **`decide models`.** Checks that your provider accepts your credentials
   and lists the names you can pass to `--model`. A missing or rejected key
   names the variable to fix.
@@ -20,6 +34,15 @@ may change the library API and the CLI.
 - **Docs for agents.** `llms.txt`, Markdown reference pages, and a guide to
   running Decide from an agent. The landing page shows real runs for each
   answer type.
+
+### Changed
+
+- `--help` names what each flag takes, such as `--limit N` and
+  `--include PATTERN`, so flags that take a value stand out.
+
+### Fixed
+
+- **`decide runs resume` key hint.** A missing key no longer suggests `--dry-run`, which `runs resume` does not have.
 
 ## [0.4.0] - 2026-10-08
 

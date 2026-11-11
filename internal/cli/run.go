@@ -28,7 +28,8 @@ What counts as an item depends on your data:
   JSONL, JSON, CSV     each record
   .txt files, stdin    each line
   other files          the whole file
-  images               each image, for image templates
+  images, audio, video,
+  and PDFs             each file, for templates that read them
   a diff               each hunk: a block of changed lines
 
 Choose another unit with --each file, line, paragraph, section, or
@@ -67,24 +68,24 @@ func (a *App) addRun(app *cli.App) {
 		AddArg(&cli.Arg{Name: "template", Description: "The template to run; see them with: decide templates"}).
 		AddArg(&cli.Arg{Name: "data", Description: "Files and folders to read (default: stdin)", Variadic: true}).
 		Flags(
-			cli.Strings("include", "i").Help("Only read files that match this pattern, like '*.go' (repeatable)"),
-			cli.Strings("exclude", "x").Help("Skip files that match this pattern (repeatable)"),
-			cli.Strings("param", "p").Help("Set a template parameter, as name=value (repeatable)"),
-			cli.String("each").Enum(template.Units...).Help("What one item is: file, line, paragraph, section, function, or hunk (default: depends on the data)"),
-			cli.String("field").Help("Ask about one field of each JSON record, like body or ticket.body"),
-			cli.String("items").Help("Where the records are inside a JSON file, like data.tickets"),
-			cli.Int("limit", "n").Help("Stop after this many items"),
-			cli.Int("sample").Help("Pick this many items at random"),
+			cli.Strings("include", "i").Placeholder("PATTERN").Help("Only read files that match this pattern, like '*.go' (repeatable)"),
+			cli.Strings("exclude", "x").Placeholder("PATTERN").Help("Skip files that match this pattern (repeatable)"),
+			cli.Strings("param", "p").Placeholder("NAME=VALUE").Help("Set a template parameter, as name=value (repeatable)"),
+			cli.String("each").Placeholder("UNIT").Enum(template.Units...).Help("What one item is: file, line, paragraph, section, function, or hunk (default: depends on the data)"),
+			cli.String("field").Placeholder("FIELD").Help("Ask about one field of each JSON record, like body or ticket.body"),
+			cli.String("items").Placeholder("PATH").Help("Where the records are inside a JSON file, like data.tickets"),
+			cli.Int("limit", "n").Placeholder("N").Help("Stop after this many items"),
+			cli.Int("sample").Placeholder("N").Help("Pick this many items at random"),
 			cli.Bool("dry-run").Help("Show what would be asked, without calling the model"),
 			cli.Bool("no-cache").Help("Ask every question again, instead of reusing answers from earlier runs"),
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
-			cli.String("format", "f").Enum(formats...).Help(formatHelp),
-			cli.String("fail-on").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
-			cli.String("provider").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai").
-				Help("Model provider: typesafe, cloudflare, or openai (default: typesafe; cloudflare for images)"),
-			cli.String("model", "m").Env("DECIDE_MODEL").Help("Model name (default: the provider's default)"),
-			cli.Int("workers").Default(4).Help("How many requests to send at once"),
+			cli.String("format", "f").Placeholder("FORMAT").Enum(formats...).Help(formatHelp),
+			cli.String("fail-on").Placeholder("WHEN").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
+			cli.String("provider").Placeholder("NAME").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai", "gemini").
+				Help("Model provider: typesafe, cloudflare, openai, or gemini (default: typesafe; cloudflare for images)"),
+			cli.String("model", "m").Placeholder("MODEL").Env("DECIDE_MODEL").Help("Model name (default: the provider's default)"),
+			cli.Int("workers").Placeholder("N").Default(4).Help("How many requests to send at once (default 4, or 2 for media)"),
 			cli.Bool("yes", "y").Help(fmt.Sprintf("Don't ask before running more than %d items", confirmAbove)),
 		).
 		Run(a.run)
@@ -132,8 +133,8 @@ func (a *App) run(c *cli.Context) error {
 		return err
 	}
 	each := c.String("each")
-	if each != "" && s.Input == template.Image {
-		return cli.Errorf("%s reads one image at a time, so --each does not apply", s.Name)
+	if each != "" && s.Input.Media() {
+		return cli.Errorf("%s reads one %s file at a time, so --each does not apply", s.Name, source.MediaName(s.Input))
 	}
 	if each == "" {
 		each = s.Each
@@ -152,6 +153,10 @@ func (a *App) run(c *cli.Context) error {
 	changes := false
 	opts.Changes = func() { changes = true }
 	provider, model := providerOf(c, s)
+	opts.MaxMediaBytes = mediaLimit(provider, s.Input)
+	if err := checkMediaProvider(s, provider); err != nil {
+		return err
+	}
 	if c.Bool("dry-run") {
 		if format != "text" && format != "json" {
 			return cli.Errorf("--dry-run prints text or JSON, not --format %s", format)
@@ -159,10 +164,6 @@ func (a *App) run(c *cli.Context) error {
 		return a.dryRun(c, resolved, paths, opts, format, &changes, provider, model)
 	}
 
-	if s.Input == template.Image && provider != "cloudflare" {
-		return cli.Errorf("%s reads images, which need the cloudflare provider", s.Name).
-			Hint("Run it with --provider cloudflare")
-	}
 	client, err := a.NewClient(provider, model)
 	if err != nil {
 		return err
@@ -207,17 +208,74 @@ func (a *App) run(c *cli.Context) error {
 		fmt.Fprintln(c.Stderr(), dim(hint))
 	}
 	fmt.Fprintln(c.Stderr())
-	return a.execute(c, run, client, workers, format, failOn)
+	return a.execute(c, run, client, workersFor(c, s.Input), format, failOn)
+}
+
+// mediaProviders lists the providers that take each media input, the
+// default first.
+var mediaProviders = map[template.Input][]string{
+	template.Image: {"cloudflare", "openai", "gemini"},
+	template.Audio: {"gemini"},
+	template.Video: {"gemini"},
+	template.PDF:   {"gemini"},
+}
+
+// checkMediaProvider says when a template's media need another provider.
+func checkMediaProvider(s *template.Template, provider string) error {
+	ok := mediaProviders[s.Input]
+	if !s.Input.Media() || slices.Contains(ok, provider) {
+		return nil
+	}
+	names := ok[0]
+	if len(ok) > 1 {
+		names = strings.Join(ok[:len(ok)-1], ", ") + ", or " + ok[len(ok)-1]
+	}
+	flags := make([]string, len(ok))
+	for i, p := range ok {
+		flags[i] = "--provider " + p
+	}
+	hint := flags[0]
+	if len(flags) > 1 {
+		hint = strings.Join(flags[:len(flags)-1], ", ") + ", or " + flags[len(flags)-1]
+	}
+	return cli.Errorf("%s reads %s files, which need the %s provider", s.Name, source.MediaName(s.Input), names).
+		Hint("Run it with " + hint)
+}
+
+// mediaLimit is the largest media file a provider takes in one request.
+// Clef takes 4 MiB per image. Gemini takes 100 MB of base64, or 50 MB with
+// a PDF. OpenAI's image guide allows 512 MB per request, but a request is
+// built in memory, several at once, so decide stops at 50 MiB. Base64 is
+// 4/3 of the file's size, and 1 MiB is left for the text.
+func mediaLimit(provider string, in template.Input) int64 {
+	fit := func(base64Bytes int64) int64 { return base64Bytes/4*3 - 1<<20 }
+	switch {
+	case provider == "gemini" && in == template.PDF:
+		return fit(50_000_000)
+	case provider == "gemini":
+		return fit(100_000_000)
+	case provider == "openai":
+		return 50 << 20
+	}
+	return source.MaxImageBytes
 }
 
 // providerOf returns the provider and model chosen with flags, or their
-// defaults: TypeSafe, or Cloudflare for an image template.
+// defaults: TypeSafe for text. A media template uses the first provider
+// that takes its files and has credentials set, or else the first that
+// takes them.
 func providerOf(c *cli.Context, s *template.Template) (provider, model string) {
 	provider = c.String("provider")
 	if provider == "" {
 		provider = "typesafe"
-		if s.Input == template.Image {
-			provider = "cloudflare"
+		if ok := mediaProviders[s.Input]; len(ok) > 0 {
+			provider = ok[0]
+			for _, p := range ok {
+				if _, err := credentials(p, false); err == nil {
+					provider = p
+					break
+				}
+			}
 		}
 	}
 	model = c.String("model")
@@ -336,6 +394,7 @@ var keyVars = map[string]string{
 	"typesafe":   "TYPESAFE_API_KEY",
 	"cloudflare": "CLOUDFLARE_AUTH_TOKEN or CLOUDFLARE_ACCOUNT_ID",
 	"openai":     "OPENAI_API_KEY",
+	"gemini":     "GEMINI_API_KEY",
 }
 
 func credentialHint(provider string) string {
@@ -344,6 +403,8 @@ func credentialHint(provider string) string {
 		return "Check CLOUDFLARE_AUTH_TOKEN and CLOUDFLARE_ACCOUNT_ID."
 	case "openai":
 		return "Check that OPENAI_API_KEY holds a valid key."
+	case "gemini":
+		return "Check that GEMINI_API_KEY holds a valid key."
 	}
 	return "Check that TYPESAFE_API_KEY holds a valid key."
 }
@@ -563,8 +624,8 @@ func nothingFound(s *template.Template, paths []string, opts source.Options) err
 	switch {
 	case len(opts.Include) > 0:
 		return err.Hint("No files matched --include " + strings.Join(opts.Include, ", ") + ". Patterns like '*.go' match at any depth.")
-	case s.Input == template.Image:
-		return err.Hint("Image templates read PNG, JPEG, and WebP files.")
+	case s.Input.Media():
+		return err.Hint(fmt.Sprintf("This template reads %s files.", source.MediaFormats(s.Input)))
 	}
 	return err
 }
@@ -660,6 +721,9 @@ var unitNames = [][3]string{
 	{template.EachLine, "line", "lines"},
 	{source.UnitRecord, "record", "records"},
 	{source.UnitImage, "image", "images"},
+	{source.UnitAudio, "audio file", "audio files"},
+	{source.UnitVideo, "video", "videos"},
+	{source.UnitPDF, "PDF", "PDFs"},
 }
 
 // String says what the items are, such as "3 files and 120 records" or
@@ -710,6 +774,8 @@ func exampleData(s *template.Template) string {
 		return "data.jsonl"
 	case s.Input == template.Image:
 		return "photos"
+	case s.Input.Media():
+		return string(s.Input) + "-files"
 	case s.Each == template.EachFile:
 		return "src"
 	}

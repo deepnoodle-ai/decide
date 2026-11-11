@@ -25,8 +25,8 @@ func (a *App) addRuns(app *cli.App) {
 		Flags(
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
-			cli.String("format", "f").Enum(formats...).Help(formatHelp),
-			cli.Int("top").Help("Show only this many items: the flagged ones first, then those nearest a flag"),
+			cli.String("format", "f").Placeholder("FORMAT").Enum(formats...).Help(formatHelp),
+			cli.Int("top").Placeholder("N").Help("Show only this many items: the flagged ones first, then those nearest a flag"),
 		).
 		Run(a.runsView)
 	g.Command("resume").
@@ -35,9 +35,9 @@ func (a *App) addRuns(app *cli.App) {
 		Flags(
 			cli.Bool("details", "d").Help("Show the probability of every option"),
 			cli.Bool("json").Help("Print results as JSON lines; short for --format json"),
-			cli.String("format", "f").Enum(formats...).Help(formatHelp),
-			cli.Int("workers").Default(4).Help("How many requests to send at once"),
-			cli.String("fail-on").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
+			cli.String("format", "f").Placeholder("FORMAT").Enum(formats...).Help(formatHelp),
+			cli.Int("workers").Placeholder("N").Default(4).Help("How many requests to send at once (default 4, or 2 for media)"),
+			cli.String("fail-on").Placeholder("WHEN").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
 		).
 		Run(a.runsResume)
 }
@@ -247,11 +247,11 @@ func (a *App) runsResume(c *cli.Context) error {
 		}
 		return failExit(c, failOn, marked(r))
 	}
-	client, err := a.NewClient(r.Provider, r.Model)
+	client, err := a.newClientWithoutDryRun(r.Provider, r.Model)
 	if err != nil {
 		return err
 	}
 	fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Resuming run %s: %s left · %s %s",
 		r.ID, humanize.PluralWord(r.Pending(), "request", "requests"), r.Provider, r.Model)))
-	return a.execute(c, r, client, c.Int("workers"), format, failOn)
+	return a.execute(c, r, client, workersFor(c, r.Template.Input), format, failOn)
 }

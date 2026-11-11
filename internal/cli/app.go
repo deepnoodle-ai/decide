@@ -10,6 +10,7 @@ import (
 
 	"github.com/deepnoodle-ai/decide"
 	"github.com/deepnoodle-ai/decide/backend"
+	"github.com/deepnoodle-ai/decide/internal/template"
 	"github.com/deepnoodle-ai/wonton/cli"
 	"github.com/deepnoodle-ai/wonton/tty"
 )
@@ -26,6 +27,10 @@ type App struct {
 
 	// Version is printed by "decide --version".
 	Version string
+
+	// envClient is set when NewClient is the default that reads the
+	// environment, not a replacement.
+	envClient bool
 }
 
 const overview = `Decide asks typed questions about your data and saves every answer.
@@ -55,6 +60,7 @@ func (a *App) Run(ctx context.Context, args []string) int {
 	}
 	if a.NewClient == nil {
 		a.NewClient = connect
+		a.envClient = true
 	}
 	app := cli.New("decide").
 		Description("Ask typed questions about your data").
@@ -80,6 +86,11 @@ func (a *App) Run(ctx context.Context, args []string) int {
 		return 130
 	}
 	app.PrintError(safeError{err})
+	if cli.IsUsageError(err) {
+		// Wonton exits 2 for usage errors, but 2 means "flagged" here, so a
+		// mistyped flag in CI must not look like a flagged item.
+		return 1
+	}
 	return cli.GetExitCode(err)
 }
 
@@ -104,15 +115,33 @@ func (a *App) interactiveStdin() bool {
 }
 
 // Default models, shown in output when no model is chosen.
-var defaultModels = map[string]string{"typesafe": "jev-latest", "cloudflare": "clef", "openai": "gpt-6-luna"}
+var defaultModels = map[string]string{"typesafe": "jev-latest", "cloudflare": "clef", "openai": "gpt-6-luna", "gemini": "gemini-decision-1"}
 
 // Model names decide knows for providers that cannot list them, the default
 // first.
-var knownModels = map[string][]string{"cloudflare": {"clef", "clef-flash"}, "openai": {"gpt-6-luna"}}
+var knownModels = map[string][]string{"cloudflare": {"clef", "clef-flash"}, "openai": {"gpt-6-luna"}, "gemini": {"gemini-decision-1"}}
 
 // connect builds a client from environment credentials.
 func connect(provider, model string) (*decide.Client, error) {
-	cfg, err := credentials(provider)
+	return connectWith(provider, model, true)
+}
+
+// connectWithoutDryRun is connect for commands that have no --dry-run.
+func connectWithoutDryRun(provider, model string) (*decide.Client, error) {
+	return connectWith(provider, model, false)
+}
+
+// newClientWithoutDryRun is NewClient for commands that have no --dry-run,
+// so a missing key does not suggest a flag they reject.
+func (a *App) newClientWithoutDryRun(provider, model string) (*decide.Client, error) {
+	if a.envClient {
+		return connectWithoutDryRun(provider, model)
+	}
+	return a.NewClient(provider, model)
+}
+
+func connectWith(provider, model string, dryRunHint bool) (*decide.Client, error) {
+	cfg, err := credentials(provider, dryRunHint)
 	if err != nil {
 		return nil, err
 	}
@@ -120,9 +149,28 @@ func connect(provider, model string) (*decide.Client, error) {
 	return backend.NewClient(cfg)
 }
 
+// mediaWorkers is the most media requests sent at once unless --workers
+// says otherwise, since each one holds its file in memory several times.
+const mediaWorkers = 2
+
+// workersFor returns --workers, or at most mediaWorkers for a template that
+// reads media when --workers was not given.
+func workersFor(c *cli.Context, in template.Input) int {
+	n := c.Int("workers")
+	if in.Media() && !c.IsSet("workers") {
+		n = min(n, mediaWorkers)
+	}
+	return n
+}
+
 // credentials reads a provider's credentials and base URL from the
-// environment, and says which to set when they are missing.
-func credentials(provider string) (backend.Config, error) {
+// environment, and says which to set when they are missing. The hint
+// suggests --dry-run only when dryRunHint is set, for commands that have it.
+func credentials(provider string, dryRunHint bool) (backend.Config, error) {
+	dryRun := ""
+	if dryRunHint {
+		dryRun = "\nTo check your data first without a key, add --dry-run."
+	}
 	cfg := backend.Config{Provider: backend.Provider(provider)}
 	switch provider {
 	case "cloudflare":
@@ -138,14 +186,21 @@ func credentials(provider string) (backend.Config, error) {
 		cfg.BaseURL = os.Getenv("OPENAI_BASE_URL")
 		if cfg.APIKey == "" {
 			return backend.Config{}, cli.Error("OPENAI_API_KEY is not set").
-				Hint("Set your OpenAI API key:\n  export OPENAI_API_KEY=...\nTo check your data first without a key, add --dry-run.")
+				Hint("Set your OpenAI API key:\n  export OPENAI_API_KEY=..." + dryRun)
+		}
+	case "gemini":
+		cfg.APIKey = os.Getenv("GEMINI_API_KEY")
+		cfg.BaseURL = os.Getenv("GEMINI_BASE_URL")
+		if cfg.APIKey == "" {
+			return backend.Config{}, cli.Error("GEMINI_API_KEY is not set").
+				Hint("Set your Gemini API key:\n  export GEMINI_API_KEY=..." + dryRun)
 		}
 	default:
 		cfg.APIKey = os.Getenv("TYPESAFE_API_KEY")
 		cfg.BaseURL = os.Getenv("TYPESAFE_BASE_URL")
 		if cfg.APIKey == "" {
 			return backend.Config{}, cli.Error("TYPESAFE_API_KEY is not set").
-				Hint("Set your TypeSafe API key:\n  export TYPESAFE_API_KEY=...\nTo check your data first without a key, add --dry-run.")
+				Hint("Set your TypeSafe API key:\n  export TYPESAFE_API_KEY=..." + dryRun)
 		}
 	}
 	return cfg, nil

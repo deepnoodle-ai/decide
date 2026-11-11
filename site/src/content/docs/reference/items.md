@@ -12,6 +12,7 @@ decides what one item is:
 | a `.txt` file, or piped text | each line |
 | any other text file, such as Markdown or code | the whole file, sent with its path |
 | images, for an image template such as `receipt-quality` | each image |
+| audio, video, or PDFs, for a template that reads them, such as `invoice-check` | each file |
 | a diff, such as `git diff` output or a `.patch` file | each hunk: a block of changed lines. See [Diffs](/reference/diffs/). |
 
 ## Choose another unit
