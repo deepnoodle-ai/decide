@@ -275,8 +275,9 @@ func checkProvider(ctx context.Context, provider string) error {
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized:
 		return rejected(provider, resp.StatusCode)
-	case resp.StatusCode == http.StatusBadRequest && provider == "gemini":
-		// Google answers a bad key with 400; nothing else in this GET can be wrong.
+	case resp.StatusCode == http.StatusBadRequest && provider == "gemini" && badGeminiKey(resp.Body):
+		// Google answers a bad key with 400, and other problems, such as an
+		// unsupported region, with 400 too. Only the key reasons blame the key.
 		return rejected(provider, resp.StatusCode)
 	case resp.StatusCode == http.StatusForbidden:
 		return forbidden(provider)
@@ -291,6 +292,26 @@ func checkProvider(ctx context.Context, provider string) error {
 		return couldNotCheck(provider, "the answer was not what "+provider+" sends")
 	}
 	return nil
+}
+
+// badGeminiKey reports whether a Gemini 400 body gives a key reason.
+func badGeminiKey(r io.Reader) bool {
+	var body struct {
+		Error struct {
+			Details []struct {
+				Reason string `json:"reason"`
+			} `json:"details"`
+		} `json:"error"`
+	}
+	if json.NewDecoder(io.LimitReader(r, 1<<20)).Decode(&body) != nil {
+		return false
+	}
+	for _, d := range body.Error.Details {
+		if d.Reason == "API_KEY_INVALID" || d.Reason == "API_KEY_EXPIRED" {
+			return true
+		}
+	}
+	return false
 }
 
 // expectedAnswer reports whether body has the shape the provider's check

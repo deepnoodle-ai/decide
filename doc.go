@@ -1,5 +1,5 @@
 // Package decide is a Go client for decision models: TypeSafe's Jev,
-// Cloudflare's Clef, and OpenAI's GPT-6 Luna. [Client.SystemOne] takes its
+// Cloudflare's Clef, OpenAI's GPT-6 Luna, and Google's Gemini Decision. [Client.SystemOne] takes its
 // name from TypeSafe's term for this kind of model, System One.
 //
 // A decision model evaluates a piece of state (a ticket, a diff, a JSON

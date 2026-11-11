@@ -111,7 +111,7 @@ func TestErrorsBecomeAPIErrors(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, `{"error":{"code":"safety","message":"Blocked %s"}}`, key)
+		fmt.Fprintf(w, `{"error":{"code":"safety","message":"Blocked %s","details":[{"reason":"OTHER"}]}}`, key)
 	}, decide.WithMaxRetries(1))
 	req := decide.NewRequest("hello")
 	decide.Ask(req, "a", decide.Noul("A?"))

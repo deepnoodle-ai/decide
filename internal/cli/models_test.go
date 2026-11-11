@@ -800,10 +800,11 @@ func TestModelsGemini(t *testing.T) {
 	}{
 		{200, `{"models":[{"name":"models/gemini-decision-1"}]}`, 0, "gemini  key accepted"},
 		{200, `{"data":[]}`, 1, "the answer was not what gemini sends"},
-		{400, `{"error":{"code":400,"status":"INVALID_ARGUMENT"}}`, 1, "The gemini provider rejected GEMINI_API_KEY (status 400)"},
+		{400, `{"error":{"code":400,"status":"INVALID_ARGUMENT","details":[{"reason":"API_KEY_INVALID"}]}}`, 1, "The gemini provider rejected GEMINI_API_KEY (status 400)"},
+		{400, `{"error":{"code":400,"message":"User location is not supported for the API use.","status":"FAILED_PRECONDITION"}}`, 1, "Could not check the gemini credentials: status 400"},
 		{403, `{}`, 1, "Google refused it"},
 	} {
-		t.Run(strconv.Itoa(tc.status), func(t *testing.T) {
+		t.Run(strconv.Itoa(tc.status)+tc.want, func(t *testing.T) {
 			clearProviderEnv(t)
 			t.Setenv("DECIDE_HOME", t.TempDir())
 			var path, key, auth string

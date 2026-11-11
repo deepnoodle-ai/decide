@@ -12,9 +12,9 @@ import (
 )
 
 // apiError reads Google's {"error": {"code", "message", "status",
-// "details"}} body. Type is the first detail's reason, such as
-// API_KEY_INVALID, then a string error code, such as "safety", then the
-// status, such as INVALID_ARGUMENT.
+// "details"}} body. Type is a string error code, such as "safety", then the
+// first detail's reason, such as API_KEY_INVALID, then the status, such as
+// INVALID_ARGUMENT. Google's own errors give a number as the code.
 func apiError(status int, header http.Header, raw []byte) error {
 	e := &decide.APIError{StatusCode: status, Body: raw,
 		RequestID: header.Get(requestIDHeader), RetryAfter: retryAfter(header, time.Now())}
@@ -30,14 +30,13 @@ func apiError(status int, header http.Header, raw []byte) error {
 	}
 	_ = json.Unmarshal(raw, &body)
 	e.Message = body.Error.Message
-	for _, d := range body.Error.Details {
-		if d.Reason != "" {
-			e.Type = d.Reason
-			break
-		}
-	}
-	if code, ok := body.Error.Code.(string); ok && code != "" && e.Type == "" {
+	if code, ok := body.Error.Code.(string); ok {
 		e.Type = code
+	}
+	for _, d := range body.Error.Details {
+		if d.Reason != "" && e.Type == "" {
+			e.Type = d.Reason
+		}
 	}
 	if e.Type == "" {
 		e.Type = body.Error.Status

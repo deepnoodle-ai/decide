@@ -349,7 +349,9 @@ What the status means:
 
 - `401` means the credentials were rejected. TypeSafe answers `403` the same
   way, because it sends `403` for a missing or wrong key. Gemini answers
-  `400` for a key it does not accept, so decide treats its `400` the same.
+  `400` for a key it does not accept, so decide treats a `400` that names
+  the key as a rejection. Any other `400`, such as for an unsupported
+  region, says decide could not check.
 - `403` from Cloudflare, OpenAI, or Gemini means decide could not confirm the key,
   and exits with 1. A restricted OpenAI key may lack permission to list
   models and still work for decisions. Cloudflare answers `403` when the
