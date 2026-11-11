@@ -13,6 +13,12 @@ may change the library API and the CLI.
   `GEMINI_API_KEY`.
 - **Images on OpenAI.** Image templates such as `receipt-quality` run with
   `--provider openai`, and `openai.SetImages` adds images to a request.
+- **Audio, video, and PDFs on Gemini.** Templates can read `audio`, `video`,
+  or `pdf` files, and `gemini.SetMedia` attaches them from Go. The new
+  `invoice-check` template checks PDF invoices.
+- **Image templates follow your credentials.** With no `--provider`, they
+  run on Cloudflare, OpenAI, or Gemini, whichever has a key set. OpenAI and
+  Gemini take images far larger than Clef's 4 MiB.
 - **`decide models`.** Checks that your provider accepts your credentials
   and lists the names you can pass to `--model`. A missing or rejected key
   names the variable to fix.

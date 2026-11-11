@@ -22,6 +22,10 @@ sets the line yourself. See [flags and matches](#flags-and-matches).
 
 <Template name="command-risk" />
 
+## `invoice-check`
+
+<Template name="invoice-check" />
+
 ## `pr-description`
 
 <Template name="pr-description" />
@@ -96,7 +100,9 @@ A template looks like this:
 }
 ```
 
-A template reads text unless it says `"input": "image"`. Add `"each": "file"`
+A template reads text unless it says `"input"` is `"image"`, `"audio"`,
+`"video"`, or `"pdf"`. Those read one file at a time; see
+[Providers](/reference/providers/) for where each runs. Add `"each": "file"`
 (or `section`, `paragraph`, `function`, or `line`) to choose the unit its
 questions are written for; `--each` still overrides it.
 
