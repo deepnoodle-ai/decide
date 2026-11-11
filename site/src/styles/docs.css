@@ -1,0 +1,67 @@
+/*
+ * The docs pages in decide's own look: square corners, hairlines, mono
+ * labels. CSS only; no Starlight component is overridden. See
+ * docs/design/docs-site-look.md.
+ */
+
+/* Steps: square mono numbers on a hairline. */
+.sl-steps > li::before {
+	content: counter(steps-counter, decimal-leading-zero);
+	font-family: var(--sl-font-mono);
+	font-size: 11px;
+	font-weight: 400;
+	color: var(--sl-color-gray-2);
+	background-color: var(--sl-color-black);
+	border-radius: 0;
+	box-shadow: inset 0 0 0 1px var(--sl-color-gray-5);
+}
+
+/* Tabs: a 1px rule and mono labels; the selected one gets a white underline. */
+starlight-tabs [role='tablist'] {
+	border-bottom-width: 1px;
+}
+starlight-tabs .tab > [role='tab'] {
+	font-family: var(--sl-font-mono);
+	font-size: 13px;
+	box-shadow: 0 1px 0 var(--sl-tab-color-border);
+}
+starlight-tabs .tab [role='tab'][aria-selected='true'] {
+	font-weight: 400;
+	box-shadow: 0 2px 0 var(--sl-color-white);
+}
+
+/* Asides: a square hairline box with a mono title, no tinted fill. */
+.starlight-aside {
+	border: 1px solid var(--sl-color-gray-5);
+	border-inline-start: 2px solid var(--sl-color-gray-3);
+	border-radius: 0;
+	background: transparent;
+	color: var(--sl-color-gray-2);
+}
+.starlight-aside .starlight-aside__title {
+	font-family: var(--sl-font-mono);
+	font-size: 12px;
+	font-weight: 400;
+	letter-spacing: 0.06em;
+	text-transform: lowercase;
+	color: var(--sl-color-gray-3);
+}
+.starlight-aside--danger {
+	border-inline-start-color: var(--ans-flag);
+}
+
+/* Inline code and Starlight cards, square. */
+.sl-markdown-content code:not(:where(.not-content *, pre *)) {
+	border-radius: 0;
+}
+.sl-markdown-content :is(.card, .sl-link-card, details) {
+	border-radius: 0;
+}
+
+/* Shell frames print a $ before the first line, as the recordings do. It is
+   drawn, not text, so a copy gets the command alone. */
+.expressive-code .frame.is-terminal .ec-line:first-child .code::before {
+	content: '$ ';
+	color: #5c6068;
+	user-select: none;
+}

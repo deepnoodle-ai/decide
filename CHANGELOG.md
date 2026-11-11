@@ -38,8 +38,8 @@ may change the library API and the CLI.
 
 - **A new landing page.** One command to install, five real runs in one
   window, why a typed answer beats a reply, the four providers, and the
-  licence in plain words. The doodle, a character who thinks very hard,
-  appears in the header, the footer, and the 404 page, beside a Docs link.
+  licence in plain words, then what to do with an answer and each
+  provider's setup on one line. The 404 and docs code blocks match it.
 - `--help` names what each flag takes, such as `--limit N` and
   `--include PATTERN`, so flags that take a value stand out.
 

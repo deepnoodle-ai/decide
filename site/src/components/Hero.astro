@@ -1,5 +1,6 @@
 ---
-// The landing page's first screen, centred: the release line, the headline,
+// The landing page's first screen, centred: the release line, the face
+// thinking (while on screen), the headline,
 // the tagline, one command to run, and where the key goes. The recordings
 // come right after it, in <RunStage> in the page body. Starlight's hero
 // can't hold the install switcher, so this replaces it. Only the landing
@@ -8,6 +9,7 @@
 // Keep on each Starlight upgrade: the <h1>'s id and data-page-title, and
 // the shape of `data.hero`.
 import Install from './Install.astro';
+import Doodle from './Doodle.astro';
 import plugin from '../../../plugin/.claude-plugin/plugin.json';
 
 // Starlight's PAGE_TITLE_ID, which it does not export.
@@ -28,12 +30,12 @@ const repo = 'https://github.com/deepnoodle-ai/decide';
 			</a>
 		)
 	}
+	<div class="face"><Doodle size={96} face="ask" think="view" /></div>
 	<h1 id={PAGE_TITLE_ID} data-page-title set:html={title} />
 	{tagline && <div class="tagline" set:html={tagline} />}
 	<Install />
 	<p class="key">
-		<b>You bring the key,</b> from TypeSafe, Cloudflare, OpenAI, or Google. decide reads it from the environment and sends only the
-		text you ask about to the provider you picked.
+		Bring your own key from TypeSafe, Cloudflare, OpenAI or Google. decide sends what you ask about to that provider and nowhere else.
 	</p>
 	<a class="start" href="/start/">Read the quickstart →</a>
 </section>
@@ -57,7 +59,7 @@ const repo = 'https://github.com/deepnoodle-ai/decide';
 		flex: none;
 		padding: 3px 7px;
 		border: 1px solid var(--sl-color-hairline);
-		border-radius: 6px;
+		border-radius: 0;
 		font-weight: 400;
 		color: var(--sl-color-white);
 	}
@@ -67,10 +69,16 @@ const repo = 'https://github.com/deepnoodle-ai/decide';
 	.release:hover span {
 		color: var(--sl-color-white);
 	}
+	.face {
+		display: flex;
+		justify-content: center;
+		margin-bottom: 20px;
+		color: var(--sl-color-white);
+	}
 	h1 {
 		max-width: 15ch;
 		margin: 0 auto;
-		font-size: clamp(38px, 6vw, 72px);
+		font-size: var(--display-1);
 		font-weight: 500;
 		line-height: 1.02;
 		letter-spacing: -0.04em;
@@ -89,16 +97,12 @@ const repo = 'https://github.com/deepnoodle-ai/decide';
 		text-wrap: balance;
 	}
 	.key {
-		max-width: 52ch;
-		margin: 18px auto 0;
-		font-size: 13.5px;
-		line-height: 1.6;
-		color: var(--sl-color-gray-4);
+		max-width: 60ch;
+		margin: 22px auto 0;
+		font-size: 16px;
+		line-height: 1.55;
+		color: var(--sl-color-gray-2);
 		text-wrap: balance;
-	}
-	.key b {
-		font-weight: 600;
-		color: var(--sl-color-gray-3);
 	}
 	/* A splash page has no menu, so the hero carries the way into the docs. */
 	.start {

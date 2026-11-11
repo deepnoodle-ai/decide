@@ -40,6 +40,7 @@ export default defineConfig({
 				'@fontsource/jetbrains-mono/400.css',
 				'@fontsource/jetbrains-mono/700.css',
 				'./src/styles/theme.css',
+				'./src/styles/docs.css',
 			],
 			components: {
 				Hero: './src/components/Hero.astro',

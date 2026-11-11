@@ -15,29 +15,29 @@ const gemini =
 		<img class="logo" src="/logos/typesafe.png" alt="TypeSafe" width="40" height="40" />
 		<h3>TypeSafe<span>Jev · the default</span></h3>
 		<div class="ids"><code>jev-latest</code></div>
-		<p>Set <code>TYPESAFE_API_KEY</code> and run.</p>
+		<p>The default. Set <code>TYPESAFE_API_KEY</code>.</p>
 	</div>
 	<div class="model">
 		<svg class="logo cf" viewBox="0 0 24 24" role="img" aria-label="Cloudflare"><path fill="currentColor" d={cloudflare}></path></svg>
 		<h3>Cloudflare<span>Clef · on Workers AI</span></h3>
 		<div class="ids"><code>clef</code><code>clef-flash</code></div>
-		<p>Reads images as well as text.</p>
+		<p>Reads images too. Set <code>CLOUDFLARE_AUTH_TOKEN</code> and <code>CLOUDFLARE_ACCOUNT_ID</code>.</p>
 	</div>
 	<div class="model">
 		<svg class="logo" viewBox="0 0 24 24" role="img" aria-label="OpenAI"><path fill="currentColor" d={openai}></path></svg>
 		<h3>OpenAI<span>Luna · Decisions API, in beta</span></h3>
 		<div class="ids"><code>gpt-6-luna</code></div>
-		<p>Set <code>OPENAI_API_KEY</code> and pick <code>--provider openai</code>.</p>
+		<p>Text, through the Decisions API. Set <code>OPENAI_API_KEY</code>.</p>
 	</div>
 	<div class="model">
-		<svg class="logo gem" viewBox="0 0 24 24" role="img" aria-label="Google Gemini"><path fill="currentColor" d={gemini}></path></svg>
+		<svg class="logo gem" viewBox="0 0 24 24" role="img" aria-label="Google Gemini"><path fill="currentColor" transform="translate(1.68 1.68) scale(0.86)" d={gemini}></path></svg>
 		<h3>Google<span>Gemini Decision · Decisions API, in beta</span></h3>
 		<div class="ids"><code>gemini-decision-1</code></div>
 		<p>The one for audio, video and PDFs. Set <code>GEMINI_API_KEY</code>.</p>
 	</div>
 </div>
 <p class="more">
-	Or any service that speaks the Jev API, such as one you host yourself. Point decide at it with <code>TYPESAFE_BASE_URL</code>. See <a href="/reference/providers/">Providers</a>.
+	Then pick one with <code>--provider</code> or <code>DECIDE_PROVIDER</code>. See <a href="/reference/providers/">Providers</a>.
 </p>
 
 <style>
@@ -46,7 +46,7 @@ const gemini =
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		margin-top: 56px;
 		border: 1px solid var(--sl-color-hairline);
-		border-radius: 16px;
+		border-radius: 0;
 		overflow: hidden;
 		text-align: left;
 	}
@@ -99,7 +99,7 @@ const gemini =
 		padding: 3px 8px;
 		background: var(--sl-color-gray-7);
 		border: 1px solid var(--sl-color-hairline);
-		border-radius: 6px;
+		border-radius: 0;
 		font-size: 12.5px;
 		color: var(--sl-color-white);
 	}

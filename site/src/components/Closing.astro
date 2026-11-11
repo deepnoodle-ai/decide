@@ -1,19 +1,20 @@
 ---
 // The landing page's last band: one more command, the quickstart, and the
-// source. The doodle sits large and faint at the right, cropped by the band,
-// so it reads as texture, and thinks while the band is hovered. It is hidden
-// on narrow screens, where it would sit
-// under the text.
+// source. The glad face holds the answer from the triage-check recording,
+// whole, at the right; below 860px it sits smaller above the heading.
 import CopyButton from './CopyButton.astro';
 import Doodle from './Doodle.astro';
+import Eyebrow from './Eyebrow.astro';
 
 const command = 'brew install deepnoodle-ai/tap/decide';
 ---
 
-<section class="closing not-content" data-doodle-hover>
+<section class="closing not-content">
+	<div class="mark"><Doodle size={200} face="glad-card" tag="no" tone="flag" /></div>
 	<div class="in">
-		<h2>Get your first answer in five minutes.</h2>
-		<p>Install it, set your key, and point it at a file. No prompt to write.</p>
+		<Eyebrow k="install" v="brew" />
+		<h2>Stop thinking very hard.</h2>
+		<p>Install it, set a key, and point it at a file. Pick a template or write your own question. decide writes the answer.</p>
 		<div class="cmd">
 			<pre><span class="pr">$ </span>{command}</pre>
 			<CopyButton text={command} />
@@ -23,26 +24,32 @@ const command = 'brew install deepnoodle-ai/tap/decide';
 			<a class="btn ghost" href="https://github.com/deepnoodle-ai/decide">Read the source</a>
 		</div>
 	</div>
-	<div class="mark"><Doodle size={480} /></div>
 </section>
 
 <style>
 	.closing {
-		position: relative;
-		overflow: hidden;
-		margin-top: clamp(96px, 12vw, 144px);
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas: 'in mark';
+		align-items: center;
+		gap: 48px;
+		margin-top: var(--space-band);
 		padding-block: clamp(72px, 9vw, 104px);
 		border-top: 1px solid var(--sl-color-hairline);
 	}
 	.in {
-		position: relative;
-		z-index: 1;
+		grid-area: in;
+		min-width: 0;
 		max-width: 34rem;
+	}
+	.mark {
+		grid-area: mark;
+		color: var(--sl-color-white);
 	}
 	h2 {
 		max-width: 18ch;
 		margin: 0;
-		font-size: clamp(28px, 3.8vw, 44px);
+		font-size: var(--display-2);
 		font-weight: 500;
 		line-height: 1.1;
 		letter-spacing: -0.03em;
@@ -84,34 +91,15 @@ const command = 'brew install deepnoodle-ai/tap/decide';
 		gap: 10px;
 		margin-top: 22px;
 	}
-	.btn {
-		display: inline-block;
-		padding: 11px 18px;
-		border: 1px solid var(--sl-color-white);
-		background: var(--sl-color-white);
-		font: 500 13px/1 var(--sl-font-mono);
-		color: var(--sl-color-black);
-		text-decoration: none;
-	}
-	.btn:hover,
-	.btn.ghost {
-		background: transparent;
-		color: var(--sl-color-white);
-	}
-	.btn.ghost:hover {
-		background: var(--sl-color-white);
-		color: var(--sl-color-black);
-	}
-	.mark {
-		position: absolute;
-		right: -70px;
-		bottom: -180px;
-		color: var(--sl-color-gray-5);
-		pointer-events: none;
-	}
 	@media (max-width: 860px) {
-		.mark {
-			display: none;
+		.closing {
+			grid-template-columns: minmax(0, 1fr);
+			grid-template-areas: 'mark' 'in';
+			gap: 28px;
+		}
+		.mark :global(svg) {
+			width: auto;
+			height: 120px;
 		}
 	}
 </style>

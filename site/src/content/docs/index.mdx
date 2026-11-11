@@ -6,45 +6,50 @@ pagefind: false
 editUrl: false
 release: OpenAI's Decisions API, built in templates from Go, and this docs site
 hero:
-  title: Your LLM talks too much. <span class="dim">This one answers.</span>
+  title: You think very hard. <span class="dim">decide answers.</span>
   tagline: >-
-    <p>decide asks a model one typed question about each item in your
-    data, and gives you the answer with its probability.</p>
+    <p>decide asks a decision model one typed question about each item in
+    your data, and returns the answer with its probability.</p>
 answer: "! ready  no"
 ---
 
 import RunStage from '../../components/RunStage.astro';
 import AskStrip from '../../components/AskStrip.astro';
+import UseIt from '../../components/UseIt.astro';
 import Models from '../../components/Models.astro';
 import StealCode from '../../components/StealCode.astro';
 import Closing from '../../components/Closing.astro';
+import Eyebrow from '../../components/Eyebrow.astro';
 
 <div class="not-content">
 	<RunStage />
 </div>
 
-<section class="band not-content">
-	<h2>One question, and a script that has to act on the answer.</h2>
-	<p class="sub">Meet the doodle. It has been thinking very hard about one thing: is this issue ready to work on? Here is what it gets back.</p>
+<section class="band wide not-content">
+	<Eyebrow k="ask" v="one question per item" />
+	<h2>A question your script has to act on.</h2>
+	<p class="sub">Same question, two ways to get an answer.</p>
 	<AskStrip />
 </section>
 
 <section class="band not-content">
+	<Eyebrow k="use" v="branch on the probability" />
+	<h2>A number is something you can argue with in code.</h2>
+	<UseIt />
+</section>
+
+<section class="band center not-content">
+	<Eyebrow k="providers" v="4" />
 	<h2>Four decision models, <span class="dim">one set of commands.</span></h2>
+	<p class="sub">Pick one key. The commands don't change.</p>
 	<Models />
 </section>
 
 <section class="band not-content">
+	<Eyebrow k="license" v="apache-2.0" />
 	<h2>Steal the code. <span class="dim">Legally.</span></h2>
-	<p class="sub">decide is Apache 2.0. Fork it, change it, ship it inside something you sell.</p>
+	<p class="sub">Apache 2.0. The fine print fits on one card.</p>
 	<StealCode />
 </section>
 
 <Closing />
-
-<style>{`
-	.band { margin-top: 0; padding-top: clamp(96px, 12vw, 144px); text-align: center; }
-	.band > h2 { max-width: 22ch; margin: 0 auto; font-size: clamp(28px, 3.8vw, 44px); font-weight: 500; line-height: 1.1; letter-spacing: -0.03em; color: var(--sl-color-white); text-wrap: balance; }
-	.band > h2 .dim { color: var(--sl-color-gray-3); }
-	.band > .sub { max-width: 50ch; margin: 16px auto 0; font-size: 16px; color: var(--sl-color-gray-3); text-wrap: balance; }
-`}</style>

@@ -1,0 +1,35 @@
+---
+// A mono line above a band's heading, in decide's key/value style: a key,
+// then an optional value, as `providers  4`. It labels the band; it is
+// never a made-up answer. Pass the strings as props.
+interface Props {
+	/** The key, such as `providers` or `install`. */
+	k: string;
+	/** An optional value, such as `4`. */
+	v?: string;
+}
+const { k, v } = Astro.props;
+---
+
+<p class="eyebrow"><span class="k">{k}</span>{v && <span class="v">{v}</span>}</p>
+
+<style>
+	.eyebrow {
+		display: flex;
+		gap: 2ch;
+		margin: 0 0 18px;
+		font: var(--eyebrow);
+		letter-spacing: var(--eyebrow-track);
+		color: var(--sl-color-gray-3);
+	}
+	:global(.center) > .eyebrow {
+		justify-content: center;
+	}
+	.k::before {
+		content: '— ';
+		color: var(--sl-color-gray-4);
+	}
+	.v {
+		color: var(--sl-color-white);
+	}
+</style>

@@ -15,7 +15,7 @@ export default defineEcConfig({
 	useStarlightDarkModeSwitch: false,
 	useStarlightUiThemeColors: false,
 	styleOverrides: {
-		borderRadius: '12px',
+		borderRadius: '0',
 		borderColor: 'var(--term-border)',
 		codeFontFamily: 'var(--sl-font-mono)',
 		codeFontSize: '13.5px',

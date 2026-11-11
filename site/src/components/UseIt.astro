@@ -1,0 +1,120 @@
+---
+// What you do with an answer, as three narrow terminal cards: stop CI on a
+// flag, branch on the probability in Go, and filter --json with jq. Each
+// snippet is taken from the README or the tutorials, so it runs as shown.
+const cards = [
+	{
+		title: 'ci step',
+		lang: 'sh',
+		lines: ['<span class="pr">$ </span>decide run code-risk src \\', '    --fail-on flagged', '<span class="c"># exit 2 if anything is flagged</span>'],
+		caption: 'Anything flagged exits 2, and the job stops.',
+	},
+	{
+		title: 'triage.go',
+		lang: 'go',
+		lines: [
+			'e, err := decide.Eval(ctx, client, issue,',
+			'    decide.Noul(<span class="s">"Is this ready to work on?"</span>))',
+			'<span class="k">if</span> err != nil {',
+			'    <span class="k">return</span> err',
+			'}',
+			'<span class="k">if</span> e.Answer.Noul &gt;= 0.9 {',
+			'    assign(issue)',
+			'}',
+		],
+		caption: 'The probability of yes is a float64. You pick the line.',
+	},
+	{
+		title: 'hook.sh',
+		lang: 'sh',
+		lines: [
+			'<span class="pr">$ </span>printf \'%s\\n\' \'rm -rf ~/\' |',
+			'    decide run command-risk --json |',
+			"    jq -e '.answers.severe.noul &gt;= 0.8'",
+		],
+		caption: 'One JSON line per item. jq -e exits 0 when severe is likely.',
+	},
+];
+---
+
+<div class="useit">
+	{
+		cards.map((c) => (
+			<figure class="card">
+				<div class="frame">
+					<div class="bar">{c.title}</div>
+					<pre set:html={c.lines.join('\n')} />
+				</div>
+				<figcaption>{c.caption}</figcaption>
+			</figure>
+		))
+	}
+</div>
+
+<style>
+	.useit {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		column-gap: 20px;
+		row-gap: 0;
+		margin-top: 48px;
+		text-align: left;
+	}
+	.card {
+		display: grid;
+		grid-row: span 2;
+		grid-template-rows: subgrid;
+		gap: 14px;
+		min-width: 0;
+		margin: 0;
+	}
+	.frame {
+		flex: 1;
+		overflow: hidden;
+		background: var(--term-bg);
+		border: 1px solid var(--term-border);
+		box-shadow: var(--term-shadow);
+	}
+	.bar {
+		padding: 8px 14px;
+		border-bottom: 1px solid var(--term-line);
+		font: 400 11px/1.4 var(--sl-font-mono);
+		color: var(--term-muted);
+	}
+	pre {
+		margin: 0;
+		padding: 16px 14px 18px;
+		overflow-x: auto;
+		background: none;
+		border: 0;
+		font: 400 12.5px/1.65 var(--sl-font-mono);
+		color: var(--term-fg);
+		white-space: pre;
+		scrollbar-width: thin;
+		font-variant-ligatures: none;
+	}
+	pre :global(.pr),
+	pre :global(.c) {
+		color: #5c6068;
+	}
+	pre :global(.k) {
+		color: #b4b7bd;
+	}
+	pre :global(.s) {
+		color: #dadce0;
+	}
+	figcaption {
+		font-size: 14px;
+		line-height: 1.55;
+		color: var(--sl-color-gray-3);
+	}
+	@media (max-width: 960px) {
+		.useit {
+			grid-template-columns: minmax(0, 1fr);
+			row-gap: 0;
+		}
+		.card + .card {
+			margin-top: 28px;
+		}
+	}
+</style>

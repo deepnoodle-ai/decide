@@ -135,14 +135,14 @@ text renders in `brightWhite`.
   `--sl-line-height-headings: 1.15`, weight 600.
 - **Landing headline:** 50px at ≥1100px, 44px at 800–1099px, and 38px on
   phones. Line height 1.04, tracking −0.035em.
-- **Wordmark (SiteTitle):** the doodle at 32px in the title's color, then
+- **Wordmark (SiteTitle):** the character's face at 32px in the title's color, then
   `decide` in JetBrains Mono 700 at 19px, then the version in mono 12px
   gray-3. The version is read from `plugin.json`, so PR
   previews show the next version. The asking face looks up at three
   thought dots; hover the wordmark or the footer line and the dots light up
-  in turn. Reduced motion keeps him still.
-- **Favicon:** a mono `d` in `#ECEDEF` on `#121316`. Not cyan, following
-  principle 2.
+  in turn. Reduced motion keeps it still.
+- **Favicon:** the `mark` face, light on dark or dark on light to follow
+  the system theme. Not cyan, following principle 2.
 
 ## Landing page
 
@@ -185,16 +185,17 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    width, and as tall as the tallest, so switching never moves the page. The
    two runs that use project templates say so under the window and name the
    built in template that works out of the box.
-3. **"One question, and a script that has to act on the answer."**
-   `AskStrip.astro`: the doodle thinks very hard and asks, an agent replies with paragraphs, decide
+3. **"A question your script has to act on."**
+   `AskStrip.astro`: you think very hard and ask (the ask face), an agent replies with paragraphs, decide
    answers `! ready  no  98%`, the line the triage-check recording printed.
 4. **"Four decision models, one set of commands."** `Models.astro`: TypeSafe,
    Cloudflare, OpenAI and Google, two by two, each with its mark, model ids and one line.
 5. **"Steal the code. Legally."** `StealCode.astro`: the repository's folders
    as a listing (no prompt, so it is not a fake run) with the clone command
    in the frame's copy strip, beside Apache 2.0 in plain words.
-6. **`Closing.astro`.** One command, the quickstart and the source, with the doodle
-   at 480px in `gray-5`, cropped by the band and hidden under 860px.
+6. **`Closing.astro`.** "Stop thinking very hard." One command, the
+   quickstart and the source, with the glad-card face whole at 200px on the
+   right, and at 120px above the heading under 860px.
 
 Sections open with a centred two-tone headline; their content is left
 aligned. Under 600px a command scrolls inside its box rather than breaking
@@ -319,10 +320,8 @@ third panel).
 ## What we avoid
 
 - Gradients, glows, glass, gradient text, sparkles, mascots, 3D renders and
-  emoji. Two exceptions: the doodle, the one character, always thinking very
-  hard (the wordmark, the footer's signature, the landing page's strip,
-  the closing band, and the 404 page, where it is lost). It has no name
-  and is "it". And
+  emoji. Two exceptions: the character (see "The character and the
+  voice"), always thinking very hard. And
   the fade on the agent's reply in the strip, which shows text running on.
 - "AI-powered" copy.
 - Bento grids, logo walls, counters and testimonials.
@@ -332,6 +331,54 @@ third panel).
 - Deep Noodle's lime. Next to green it reads as "passed".
 - More than one moving recording at a time.
 - Hand-typed percentages in prose.
+
+## The character and the voice
+
+**You are the question. decide is the answer.** The site has one
+character, a hand-drawn lumpy face (`Doodle.astro`). It stands in for the
+reader, who is always thinking very hard. It is never decide.
+
+- **It has no name.** Never write "Drool" or "the doodle" in page text, alt
+  text, aria labels, titles, captions or meta tags, and don't invent a
+  replacement. Put the reader in its place ("You think very hard, then
+  ask"), describe what it does, or say "it" only beside the drawing.
+  Decorative faces are `aria-hidden`. "Doodle" and "the character" are fine
+  in code and in these docs.
+- **Pen rule.** Strokes keep one width at every size, from `--doodle-pen`
+  with `vector-effect: non-scaling-stroke`. Presets: `mark` 1.5px
+  (16–24px), `small` 2px (32–96px), `poster` 3px (160px and up). Brow and
+  mouth at 0.85 of the pen, the drip at 0.6.
+- **Poses.** Every face keeps the raised brow and the ask face's two eye
+  positions. `ask` thinks, with thought dots that rise and swell, and every
+  third 2.4s cycle the last dot turns into "?". `lost` has X eyes, and
+  `trail` lets the dots trail off into "?". `glad` has ^ ^ eyes, and
+  `glad-card` holds a tag with a real answer from a recording. `mark` is
+  the head, eyes, brow and one dot, for the footer and favicon. The story
+  runs ask (hero, strip panel 1), lost (strip panel 2, 404), glad (strip
+  panel 3, closing). At most one face per viewport.
+- **Color means an answer.** The UI is near-monochrome greys, code blocks
+  included. Cyan (`--ans`) and red (`--ans-flag`) appear only on answer
+  values, probabilities and answer bars.
+- **Tokens.** The type scale and band spacing live in `theme.css`:
+  `--display-1`, `--display-2`, `--eyebrow` and `--space-band`. No inline
+  `clamp()` in `.mdx`. Every band opens with a mono `Eyebrow`.
+
+Voice:
+
+1. Put the reader in the asker's seat. Never name the face.
+2. "Thinking very hard" appears once per place, five places in all: the
+   hero, the strip, the 404, the closing band and the footer.
+3. decide, always lowercase, is the subject of what happens: "decide
+   answers", never "this LLM".
+4. Plain, concrete words. Name the flag, the env var, the exit code. No
+   "AI-powered", "unlock", "supercharge" or emoji.
+5. Dry, not wacky: one quiet joke per block, after the fact.
+6. The probability is the model's judgment. It is not proof and not a
+   confidence the model wrote about itself. Never "confidence score" or
+   "accuracy".
+7. A line in decide's output format must be one decide could print. No
+   invented run results.
+8. Short sentences, second person, contractions, one claim per sentence.
 
 ## Later
 

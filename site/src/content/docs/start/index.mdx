@@ -5,13 +5,13 @@ tableOfContents: false
 answer: "sentiment  positive"
 ---
 
-import { Steps, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { Aside, Steps, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
 import Terminal from '../../../components/Terminal.astro';
 
-You'll end with typed answers, each with its probability, about a change in
-your own repository. You need a terminal and an API key for one decision
-model, a model that answers typed questions instead of writing text. Step 2
-says where to get one.
+In five steps you'll get typed answers, each with its probability, about a
+change in your own repository. You need a terminal and a key for one
+decision model: a model that answers a typed question instead of writing
+text. Step 2 says where to get one.
 
 <Steps>
 
@@ -111,9 +111,7 @@ says where to get one.
 
    `code-risk` asks whether each file could cause security or data
    problems, and how maintainable it is. A flagged answer is red and marked
-   with `!`, and the summary lists the flagged files. `git diff` shows
-   unstaged changes. Use `git diff HEAD` to include staged ones. If nothing
-   has changed, try `git diff HEAD~1`.
+   with `!`, and the summary lists the flagged files.
 
    To make a script or CI act on the answers, add `--fail-on flagged`.
    decide then exits with code 2 when anything is flagged:
@@ -121,6 +119,11 @@ says where to get one.
    ```sh
    git diff | decide run code-risk --fail-on flagged
    ```
+
+   <Aside type="tip">
+   `git diff` shows unstaged changes. Use `git diff HEAD` to include staged
+   ones. If nothing has changed, try `git diff HEAD~1`.
+   </Aside>
 
 5. ## Choose what's next
 
