@@ -134,7 +134,7 @@ func (a *App) run(c *cli.Context) error {
 	}
 	each := c.String("each")
 	if each != "" && s.Input.Media() {
-		return cli.Errorf("%s reads one %s file at a time, so --each does not apply", s.Name, s.Input)
+		return cli.Errorf("%s reads one %s file at a time, so --each does not apply", s.Name, source.MediaName(s.Input))
 	}
 	if each == "" {
 		each = s.Each
@@ -154,6 +154,9 @@ func (a *App) run(c *cli.Context) error {
 	opts.Changes = func() { changes = true }
 	provider, model := providerOf(c, s)
 	opts.MaxMediaBytes = mediaLimit(provider, s.Input)
+	if err := checkMediaProvider(s, provider); err != nil {
+		return err
+	}
 	if c.Bool("dry-run") {
 		if format != "text" && format != "json" {
 			return cli.Errorf("--dry-run prints text or JSON, not --format %s", format)
@@ -161,9 +164,6 @@ func (a *App) run(c *cli.Context) error {
 		return a.dryRun(c, resolved, paths, opts, format, &changes, provider, model)
 	}
 
-	if err := checkMediaProvider(s, provider); err != nil {
-		return err
-	}
 	client, err := a.NewClient(provider, model)
 	if err != nil {
 		return err
@@ -230,14 +230,15 @@ func checkMediaProvider(s *template.Template, provider string) error {
 	if len(ok) > 1 {
 		names = strings.Join(ok[:len(ok)-1], ", ") + ", or " + ok[len(ok)-1]
 	}
-	return cli.Errorf("%s reads %s files, which need the %s provider", s.Name, s.Input, names).
+	return cli.Errorf("%s reads %s files, which need the %s provider", s.Name, source.MediaName(s.Input), names).
 		Hint("Run it with --provider " + ok[0])
 }
 
 // mediaLimit is the largest media file a provider takes in one request.
 // Clef takes 4 MiB per image. Gemini takes 100 MB of base64, or 50 MB with
-// a PDF. OpenAI's image guide allows 512 MB per request. Base64 is 4/3 of
-// the file's size, and 1 MiB is left for the text.
+// a PDF. OpenAI's image guide allows 512 MB per request, but a request is
+// built in memory, several at once, so decide stops at 50 MiB. Base64 is
+// 4/3 of the file's size, and 1 MiB is left for the text.
 func mediaLimit(provider string, in template.Input) int64 {
 	fit := func(base64Bytes int64) int64 { return base64Bytes/4*3 - 1<<20 }
 	switch {
@@ -246,7 +247,7 @@ func mediaLimit(provider string, in template.Input) int64 {
 	case provider == "gemini":
 		return fit(100_000_000)
 	case provider == "openai":
-		return fit(512_000_000)
+		return 50 << 20
 	}
 	return source.MaxImageBytes
 }
@@ -616,7 +617,7 @@ func nothingFound(s *template.Template, paths []string, opts source.Options) err
 	case len(opts.Include) > 0:
 		return err.Hint("No files matched --include " + strings.Join(opts.Include, ", ") + ". Patterns like '*.go' match at any depth.")
 	case s.Input.Media():
-		return err.Hint(fmt.Sprintf("%s templates read %s files.", s.Input, source.MediaFormats(s.Input)))
+		return err.Hint(fmt.Sprintf("This template reads %s files.", source.MediaFormats(s.Input)))
 	}
 	return err
 }

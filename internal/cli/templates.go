@@ -154,7 +154,7 @@ func (a *App) templatesShow(c *cli.Context) error {
 func reads(s *template.Template) string {
 	switch {
 	case s.Input.Media():
-		return fmt.Sprintf("%s files, one item per %s file", s.Input, source.MediaFormats(s.Input))
+		return fmt.Sprintf("%s files, one item per file (%s)", source.MediaName(s.Input), source.MediaFormats(s.Input))
 	case s.Each != "":
 		return fmt.Sprintf("text, one item per %s (change it with --each)", s.Each)
 	}

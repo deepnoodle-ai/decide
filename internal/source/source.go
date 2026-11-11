@@ -423,7 +423,7 @@ func (w *walker) file(path, label string, explicit bool) error {
 			limit = MaxImageBytes
 		}
 		if info.Size() > limit {
-			return skip("%s (%s files must be at most %s here)", label, in, humanBytes(limit))
+			return skip("%s (%s files must be at most %s on this provider)", label, MediaName(in), humanBytes(limit))
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -749,7 +749,7 @@ func (w *walker) stdinItems() error {
 		return errors.New("no input on stdin")
 	}
 	if in := w.opts.Input; in.Media() {
-		return fmt.Errorf("%s templates read %s files, not stdin", in, in)
+		return fmt.Errorf("this template reads %s files, not stdin", MediaName(in))
 	}
 	br := bufio.NewReader(w.stdin)
 	peek, _ := br.Peek(64 << 10)
@@ -1104,6 +1104,14 @@ func MediaFormats(in template.Input) string {
 		return "PDF"
 	}
 	return ""
+}
+
+// MediaName names a media input for people, such as "PDF" or "audio".
+func MediaName(in template.Input) string {
+	if in == template.PDF {
+		return "PDF"
+	}
+	return string(in)
 }
 
 // MediaNoun names one item of a media input, such as "an image".

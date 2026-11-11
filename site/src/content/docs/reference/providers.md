@@ -27,8 +27,9 @@ templates:
   with the `gpt-6-luna` model, through the Decisions API, which is in beta.
   Set `OPENAI_BASE_URL` to send requests somewhere other than
   `https://api.openai.com/v1`. Image templates send each image as a base64
-  data URL. OpenAI's image guide allows 512 MB per request, so the CLI
-  takes images of up to about 365 MiB, with no limit on their pixels.
+  data URL. The CLI takes images of up to 50 MiB, with no limit on
+  their pixels. OpenAI's image guide allows 512 MB per request, but decide
+  builds each request in memory, several at once.
 
   ```sh
   export OPENAI_API_KEY=...

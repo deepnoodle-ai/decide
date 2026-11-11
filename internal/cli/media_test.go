@@ -85,7 +85,11 @@ func TestMediaNeedsAProviderThatTakesIt(t *testing.T) {
 	if out.code != 1 {
 		t.Fatalf("exit %d", out.code)
 	}
-	contains(t, out.stderr, "invoice-check reads pdf files, which need the gemini provider", "--provider gemini")
+	contains(t, out.stderr, "invoice-check reads PDF files, which need the gemini provider", "--provider gemini")
+	// A dry run stops the same way.
+	if out := runReal("run", "invoice-check", dir, "--provider", "typesafe", "--dry-run"); out.code != 1 {
+		t.Fatalf("dry run accepted a provider the run rejects: exit %d", out.code)
+	}
 }
 
 func TestImageProviderFollowsCredentials(t *testing.T) {
@@ -110,14 +114,13 @@ func TestImageProviderFollowsCredentials(t *testing.T) {
 
 func TestMediaLimitsFollowTheProvider(t *testing.T) {
 	const mib = 1 << 20
-	if mediaLimit("cloudflare", "image") != 4*mib {
-		t.Fatal("Clef keeps its 4 MiB limit")
+	if mediaLimit("cloudflare", "image") != 4*mib || mediaLimit("openai", "image") != 50*mib {
+		t.Fatal("Clef keeps its 4 MiB limit, and OpenAI stops at 50 MiB")
 	}
 	for _, tc := range []struct {
 		provider, input string
 		base64          int64
 	}{
-		{"openai", "image", 512_000_000},
 		{"gemini", "image", 100_000_000},
 		{"gemini", "video", 100_000_000},
 		{"gemini", "pdf", 50_000_000},

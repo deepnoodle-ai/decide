@@ -111,7 +111,7 @@ a tour.
 
 ## What you can ask
 
-Decide comes with eleven templates. A template is a named set of questions.
+Decide comes with twelve templates. A template is a named set of questions.
 
 | Template | Asks about each item |
 | --- | --- |
