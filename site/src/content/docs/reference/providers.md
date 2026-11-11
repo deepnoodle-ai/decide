@@ -27,7 +27,8 @@ templates:
   with the `gpt-6-luna` model, through the Decisions API, which is in beta.
   Set `OPENAI_BASE_URL` to send requests somewhere other than
   `https://api.openai.com/v1`. Image templates send each image as a base64
-  data URL.
+  data URL. The CLI keeps Clef's image limits for it too: 4 MiB and 16
+  megapixels per image.
 
   ```sh
   export OPENAI_API_KEY=...
