@@ -299,3 +299,34 @@ func TestNamedMediaThatFailsACheck(t *testing.T) {
 	}
 	contains(t, out.stderr, "fake.pdf is not a readable PDF", "save it again as a PDF")
 }
+
+// A folder of images over Cloudflare's pixel limit gets a hint about
+// pixels, not about bytes.
+func TestPixelSkipsHaveTheirOwnHint(t *testing.T) {
+	clearProviderEnv(t)
+	t.Setenv("DECIDE_HOME", t.TempDir())
+	t.Setenv("CLOUDFLARE_AUTH_TOKEN", "cf")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acct")
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "huge.png"), []byte(pngOf(t, 5000, 4000)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out := runReal("run", "receipt-quality", dir, "--dry-run")
+	if out.code != 1 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "Found nothing for receipt-quality", "OpenAI and Gemini take larger images.",
+		"resize it to 16 megapixels or fewer")
+	lacks(t, out.stderr, "MiB", "This template reads PNG")
+
+	// With a good image too, the hint is one dim line after the walk.
+	if err := os.WriteFile(filepath.Join(dir, "good.png"), []byte(pngOf(t, 2, 2)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out = runReal("run", "receipt-quality", dir, "--dry-run")
+	if out.code != 0 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "OpenAI and Gemini take larger images. Run it with --provider openai or --provider gemini")
+	lacks(t, out.stderr, "MiB")
+}

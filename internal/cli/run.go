@@ -645,8 +645,8 @@ func nothingFound(s *template.Template, paths []string, opts source.Options, pro
 	switch {
 	case len(opts.Include) > 0:
 		return err.Hint("No files matched --include " + strings.Join(opts.Include, ", ") + ". Patterns like '*.go' match at any depth.")
-	case s.Input.Media() && opts.Skipped != nil && opts.Skipped.TooLarge > 0:
-		if hint := largerHint(provider, s.Input); hint != "" {
+	case s.Input.Media() && opts.Skipped != nil && (opts.Skipped.TooLarge > 0 || opts.Skipped.Pixels > 0):
+		if hint := skippedHint(s, opts, provider); hint != "" {
 			return err.Hint(hint)
 		}
 		return err

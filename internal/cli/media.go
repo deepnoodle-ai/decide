@@ -150,14 +150,26 @@ func largerHint(provider string, in template.Input) string {
 }
 
 // tooLargeNote names the providers that take larger files, once, after a
-// walk that found items but skipped some files for their size.
+// walk that found items but skipped some files for their size in bytes or
+// in pixels.
 func tooLargeNote(c *cli.Context, s *template.Template, opts source.Options, provider string) {
-	if opts.Skipped == nil || opts.Skipped.TooLarge == 0 {
-		return
-	}
-	if hint := largerHint(provider, s.Input); hint != "" {
+	if hint := skippedHint(s, opts, provider); hint != "" {
 		fmt.Fprintln(c.Stderr(), dim(strings.ReplaceAll(hint, "\n", " ")))
 	}
+}
+
+// skippedHint is the hint for files a walk skipped for their size: in
+// bytes first, then in pixels. It is "" when none was skipped, or no
+// provider takes larger files.
+func skippedHint(s *template.Template, opts source.Options, provider string) string {
+	switch {
+	case opts.Skipped == nil:
+	case opts.Skipped.TooLarge > 0:
+		return largerHint(provider, s.Input)
+	case opts.Skipped.Pixels > 0:
+		return pixelsHint(provider, opts.MaxPixels)
+	}
+	return ""
 }
 
 // orJoin joins words as "a, b, or c", with the conjunction given.

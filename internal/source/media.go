@@ -26,6 +26,7 @@ type Skipped struct {
 	NotTextMedia int // of NotText, the images, PDFs, audio, and video
 	Unsupported  int // files of a format the media template does not read
 	TooLarge     int // media files over Options.MaxMediaBytes
+	Pixels       int // images over Options.MaxPixels
 	Invalid      int // media files whose contents fail a check: empty, corrupt, or another format
 	Unreadable   int // files that could not be opened or read
 }
@@ -151,7 +152,7 @@ func (w *walker) media(path, label string, info fs.FileInfo, explicit bool) erro
 				return invalid("not a readable image")
 			}
 			if most := w.opts.MaxPixels; most > 0 && int64(cfg.Width)*int64(cfg.Height) > most {
-				return skip(&w.skipped.TooLarge,
+				return skip(&w.skipped.Pixels,
 					fmt.Sprintf("%d×%d pixels; %s takes images up to %d megapixels", cfg.Width, cfg.Height, w.opts.Provider, most/1_000_000),
 					&PixelsError{Label: label, Width: cfg.Width, Height: cfg.Height, Limit: most, Provider: w.opts.Provider})
 			}
