@@ -82,6 +82,36 @@ func TestBytesInEmbeddedStructs(t *testing.T) {
 	}
 }
 
+// signedBlob and hexBytes hold bytes but write their own JSON or text, so
+// encoding/json never writes those bytes as base64.
+type signedBlob struct{ Sig []byte }
+
+func (s signedBlob) MarshalJSON() ([]byte, error) { return []byte(`"signed"`), nil }
+
+type hexBytes struct{ B []byte }
+
+func (h *hexBytes) MarshalText() ([]byte, error) { return []byte("abc"), nil }
+
+func TestBytesSkippedWhereJSONWritesNone(t *testing.T) {
+	for _, state := range []any{
+		receiptState{Store: "nil bytes"},
+		map[string]any{"bytes": []byte(nil)},
+		receiptState{Store: "tagged -", Hidden: []byte("x")},
+		receiptState{Store: "unexported", private: []byte("x")},
+		signedBlob{Sig: []byte("x")},
+		map[string]any{"sig": signedBlob{Sig: []byte("x")}},
+		&hexBytes{B: []byte("x")},
+		map[string]any{"hex": &hexBytes{B: []byte("x")}},
+	} {
+		if err := noulRequest(func(r *decide.Request) { r.State = state }).Validate(); err != nil {
+			t.Errorf("%T %v: %v", state, state, err)
+		}
+		if b, err := json.Marshal(state); err != nil || strings.Contains(string(b), `"eA=="`) {
+			t.Errorf("%T: encoding/json wrote %s, %v", state, b, err)
+		}
+	}
+}
+
 func TestBytesAtAnyDepth(t *testing.T) {
 	bad := map[string]any{
 		"state":                     []byte("x"),
