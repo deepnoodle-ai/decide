@@ -79,6 +79,14 @@ off, or remove them, as they land.
       preview behind the `TypeSafe-Danger-Zone-Images` header. First, a
       spike measures how the place of the image references in the state
       changes the answers (#106).
+- [ ] **Media with any template.** A text template also takes an image,
+      audio, video, or PDF file that you name, on a provider that reads
+      it. See the [PRD](prds/any-input.md) and
+      [#111](https://github.com/deepnoodle-ai/decide/issues/111).
+- [ ] **Measure text templates on screenshots.** A spike compares
+      `code-risk` on screenshots of diffs with the same diffs as text,
+      before the docs use it as an example
+      ([#112](https://github.com/deepnoodle-ai/decide/issues/112)).
 - [ ] **More ways to give the CLI media.** Media templates read only files
       and folders on disk. Not yet: a URL as an argument, a path or URL in
       a record's field, media on stdin, and GIF and HEIC images. See

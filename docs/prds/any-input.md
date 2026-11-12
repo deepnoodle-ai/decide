@@ -1,7 +1,8 @@
 # Judge an image, audio, video, or PDF file with any template
 
 Status: Draft
-PRD PR: none yet  Implementation PR: none yet  Updated: 2026-11-12
+Issue: #111  PRD PR: none yet  Implementation PR: none yet  Updated: 2026-11-12
+Tech spec: [docs/design/any-input.md](../design/any-input.md)
 
 ## Problem
 
@@ -114,15 +115,20 @@ that provider cannot read it."
   to the model whole, as one item. Every other file is text.
 - **What a template reads** (its `"input"`). The kind of file its
   questions are written for: text (the default), or images, audio,
-  video, or PDFs. It sets what decide picks up in a folder, and what
-  `decide templates show` says. It no longer limits the files you name.
-- **A file you name** is read for what it is: a text file as text,
-  split into items as the template says; a media file as one item. **A
-  folder** gives the template only what it reads.
+  video, or PDFs. A template that reads text is a **text template**; one
+  that reads images, audio, video, or PDFs is a **media template**. It
+  sets what decide picks up in a folder, and what
+  `decide templates show` says.
+- **A file you name** versus **a folder.** A folder gives a template only
+  what it reads. A file you name follows the rule below.
 
-The rule for a new user, in the docs: *Name an image, audio, video, or
-PDF file, and any template judges it, if your provider reads that kind
-of file.*
+The rule, in two parts, with these words in `templates show`, the
+README, and the site:
+
+> A text template also takes an image, audio, video, or PDF file that
+> you name. A media template takes only media files.
+
+Either way, the provider you chose must read that kind of file.
 
 ## Use cases
 
@@ -203,24 +209,30 @@ A repository has Go files and PNG files under `docs/`.
 
 ```
 $ decide run code-risk .
-Skipped 12 images in folders, since a folder gives code-risk text only. To send one, name it: decide run code-risk docs/flow.png --provider cloudflare
+Skipped 12 files that are not text: docs/a.png, docs/b.png, docs/c.png, and 9 more
 Running code-risk on 40 files · typesafe jev-latest
 ```
 
 Acceptance:
 - [ ] On TypeSafe and on OpenAI, the run judges the same 40 files and
       sends no image. A test checks both providers.
-- [ ] The skipped media files get one line, whatever their number. It
-      counts them by kind ("12 images and 2 PDFs") and names one file in
-      the example command. The example adds `--provider` with the first
-      provider that reads that file's kind only when the chosen provider
-      does not.
-- [ ] Other files that are not text, such as a zip, keep today's line:
-      `Skipped 2 files that are not text: a.zip, b.bin`.
-- [ ] A folder with only images ends with: `Found nothing for code-risk
-      to look at in docs`, and the hint `A folder gives code-risk text
-      only. To send the images, name them: decide run code-risk
-      docs/*.png`.
+- [ ] The "Skipped" line is today's line, unchanged. No tape changes
+      because of this track's folder rule.
+- [ ] A folder in which a text template finds nothing, and which held
+      media files, ends with a hint that names them:
+
+      ```
+      $ decide run sentiment shots --provider gemini
+      Skipped 3 files that are not text: shots/a.png, shots/b.png, shots/c.png
+      Error: Found nothing for sentiment to look at in shots
+
+      Hint: In a folder, sentiment reads only text. To send the images, name them:
+      decide run sentiment shots/*.png --provider gemini
+      ```
+
+      The glob uses the folder and extension of the first skipped media
+      file. `--provider` is the chosen one when it reads that kind, or
+      else the first provider that does.
 
 ### UC-6: A receipt as a PDF, with receipt-quality
 
@@ -238,13 +250,51 @@ Acceptance:
 - [ ] `decide run receipt-quality photos` still reads only the images in
       the folder.
 
+### UC-7: A media template on a folder, with a provider that cannot read it
+
+```
+$ decide run invoice-check invoices --provider openai
+Error: invoice-check reads PDF files, which need the gemini provider
+
+Hint: Run it with --provider gemini
+```
+
+Acceptance:
+- [ ] The run stops before the walk, on TypeSafe and on OpenAI, and in
+      `--dry-run`. This is today's message.
+- [ ] `decide run invoice-check scan.png --provider openai`, with no
+      folder, is valid: the image is sent (UC-6).
+
+### UC-8: Several named files fail
+
+```
+$ decide run sentiment call.mp3 intro.mp3 photo.gif shot.png --provider openai
+Error: 3 files you named can't be sent
+  call.mp3: an audio file, and OpenAI reads images, not audio
+  intro.mp3: an audio file, and OpenAI reads images, not audio
+  photo.gif: an image, and decide sends images only as PNG, JPEG, or WebP
+
+Hint: Audio runs on Gemini. Run it with --provider gemini
+Save photo.gif as PNG, JPEG, or WebP, and run decide on that file.
+```
+
+Acceptance:
+- [ ] Every named media file is checked before any request. One error
+      lists each failing file, at most 10, then `and N more`. `shot.png`
+      passes and is not listed.
+- [ ] Each line gives the reason of the single-file error (R-4, R-6, or
+      today's size and pixel errors from #108). The hint holds each
+      distinct hint once, in the order of the files.
+- [ ] With one failing file, the error is the one-line form of UC-2 and
+      UC-3.
+
 ## Requirements
 
-- R-1: The provider is chosen before decide looks at any file:
-  `--provider`, then `DECIDE_PROVIDER`, then the default. The default is
-  TypeSafe, or, for a template that reads images, audio, video, or PDFs,
-  the first provider that reads that kind and has a key set. Files never
-  change the provider.
+- R-1: The provider is chosen before decide looks at any file, by this
+  sentence, which `reference/providers.md` and the `--provider` help use
+  as written: "decide uses `--provider`, then `DECIDE_PROVIDER`, then
+  TypeSafe, or, for a media template, the first provider for its kind
+  with a key set." Files never change the provider.
 - R-2: A media file that the user names is one item for every template,
   sent with `decide.WithMedia`. Its state is
   `{"path": ..., "content_type": ...}`, as for a media template today. A
@@ -253,7 +303,9 @@ Acceptance:
   any request and before the run is saved: that decide sends its format
   (R-6), that the chosen provider reads its kind (R-4), and the
   provider's size and pixel limits for its kind (today's #108 errors and
-  hints). The first file that fails stops the run.
+  hints). The first failing check is the file's reason. decide checks
+  every named media file, then stops with one error if any failed: the
+  single-file error for one, or the list of UC-8 for more.
 - R-4: A provider that does not read a named file's kind stops the run
   with `<file> is <a kind>, and <Provider> reads <what it reads>`, where
   what it reads is `text only` for TypeSafe, and `images, not <kind>`
@@ -270,37 +322,44 @@ Acceptance:
   `photo.gif is an image, and decide sends images only as PNG, JPEG, or
   WebP`, with the hint `Save it as PNG, JPEG, or WebP, and run decide on
   that file.` Formats are chosen by extension, as today.
-- R-7: A folder gives a text template text only. Media files in it are
-  skipped and counted, with the one line of UC-5 after the walk. A media
-  template's folder walk picks up files of its own kind, as today. A file
-  in a folder that the provider cannot read, or that is over its limit,
-  is skipped with a "Skipped" note, never an error.
+- R-7: A folder gives a text template text only, on every provider.
+  Media files in it are skipped with today's "Skipped N files that are
+  not text" line. When the walk finds nothing and skipped media files,
+  the "Found nothing" error has the hint of UC-5. A media template's
+  folder walk picks up files of its own kind, as today. A file in a
+  folder that is over the provider's limit is skipped with a "Skipped"
+  note, never an error.
 - R-8: A media template still refuses a named file that is not media,
   `--each`, `--field`, `--items`, and stdin. The message for a named text
   file becomes `notes.txt is not an image, audio, video, or PDF file,
   and receipt-quality reads images`, with the hint `See the templates
   that read text with: decide templates`.
-- R-9: `checkMediaProvider`'s template-wide error goes. A media template
-  on a provider that does not read its kind fails per file (R-4), or, for
-  a folder, skips the files (R-7) and ends with `Found nothing for
-  invoice-check to look at in invoices` and the R-4 hint.
+- R-9: For a media template, when any argument is a folder and the
+  chosen provider does not read the template's own kind, the run stops
+  before the walk with today's error (UC-7). This holds in `--dry-run`.
+  With named files only, the per-file check of R-3 applies instead.
 - R-10: Stdin stays text. Binary stdin to a text template stops with
   today's message, and the hint `decide reads images, audio, video, and
   PDFs only from files you name. Save it to a file, and run: decide run
   sentiment FILE`.
 - R-11: The default `--workers` is 2 when the run holds any media item,
   and 4 otherwise, on `run` and on `runs resume`. `--workers` wins.
-- R-12: `decide templates show` for a text template adds the line `Name
-  an image, audio, video, or PDF file to judge it too, on a provider that
-  reads it.` The `run` help's item table says media is one item per file
-  you name, or per file in a folder for templates that read them.
+- R-12: `decide templates show` for a text template adds the first half
+  of the rule in Concepts: `A text template also takes an image, audio,
+  video, or PDF file that you name.` For a media template it adds the
+  second half: `A media template takes only media files.` The `run`
+  help's item table says media is one item per file you name, or per
+  file in a folder for templates that read them.
 - R-13: Docs in the same change: the README, the site's
   `reference/providers.md`, `reference/items.md`,
   `reference/templates.mdx`, `reference/cli.md`, the plugin's
   `using-decide` skill where it describes media, each built-in template's
   README that says it reads text, CHANGELOG `## [Unreleased]`, and
   `docs/roadmap.md`. A tape whose output changes is recorded again
-  (`TestTapes`).
+  (`TestTapes`). Until #112 measures it, the README and the site show the
+  rule with a neutral example, such as `sentiment` on a screenshot of a
+  review, not `code-risk` on a screenshot of a diff, and claim nothing
+  about accuracy. Tests may use any template.
 - R-14: The Go root API does not change. Tests use `decidetest` or a fake
   HTTP server per provider. No live calls.
 
@@ -352,11 +411,15 @@ Made in this PRD:
   `GEMINI_API_KEY` set would fail on TypeSafe. Rejected: TypeSafe as the
   default for every template, which breaks every media template run that
   works today.
-- **Skipped media in a folder get one summary line with a command to
-  send one** (UC-5). A repository with many images stays readable, and
-  the line teaches the rule at the moment the user meets it. Rejected:
-  one line per file, which buries the run; and today's shared "not text"
-  line, which does not say how to send the files.
+- **Skipped media in a folder keep today's line; the "name them" hint
+  shows only when the walk finds nothing** (UC-5, R-7). In a repository
+  with images, a hint on every `code-risk .` run is noise, and it
+  suggests sending diagrams to a code template. When the walk finds
+  nothing, the user clearly meant the media. Rejected: a summary line by
+  kind with an example command on every run, the first draft.
+- **Every failing named file is reported at once** (R-3, UC-8). All
+  checks run before any request, so the user can fix all files in one
+  pass. Rejected: stop at the first file, which costs one try per file.
 - **A media template accepts a named media file of another kind** (UC-6).
   "What a template reads" is no longer a gate, and a receipt or invoice
   often comes as a PDF or a photo. Rejected: keep each media template to
@@ -366,10 +429,13 @@ Made in this PRD:
   text, and accepting it brings back stdin and the splitting flags on
   templates whose questions are about a file. Rejected: read a named text
   file as text with any template, which is symmetric but has no use case.
-- **The template-wide provider check goes** (R-9). With R-2, a PNG to
-  `invoice-check` on OpenAI is a valid run, so the template alone cannot
-  say the run will fail. Rejected: keep it for folder runs, which gives
-  two rules for one question.
+- **The template-wide provider check runs only for folders** (R-9, by
+  the orchestrator). A folder gives a media template only its own kind,
+  so a provider that cannot read that kind can never find an item. The
+  early stop saves a long walk that ends in "Found nothing". A named file
+  of another kind stays valid, such as a PNG to `invoice-check` on
+  OpenAI. Rejected: drop the check, the first draft; and keep it for
+  every run, which blocks UC-6.
 - **A format decide does not send is checked before the provider**
   (R-3, R-6). No provider fixes a GIF, so that fix comes first. Rejected:
   provider first, which tells the user to switch provider and then fails
@@ -387,8 +453,8 @@ Made in this PRD:
 
 ## Success
 
-- The five use cases in the brief, and UC-6, pass as tests with fake
-  servers.
+- The five use cases in the brief, and UC-6 to UC-8, pass as tests with
+  fake servers.
 - No new flag. A user who names a screenshot gets either an answer or an
   error with the command that works.
 - Must not get worse: folder runs send the same items as today on every
@@ -399,8 +465,9 @@ Made in this PRD:
 
 - **Questions written for text, asked about an image.** code-risk says
   "this code"; the model sees a picture of code. No one has measured the
-  answers. The docs say the template's questions are asked as written.
-  Not blocking.
+  answers. #112 is a spike that compares screenshots of diffs with the
+  same diffs as text. Until then, the docs use a neutral example and
+  claim no accuracy (R-13). Not blocking.
 - **A named folder glob can send many files.** `docs/*.png` with 300
   images is 300 paid requests. The confirmation above 100 items still
   asks first. Not blocking.
