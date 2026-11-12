@@ -255,16 +255,19 @@ func TestHTTPTransportRejectsMedia(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, m := range []decide.Media{
-		{MIMEType: "image/png", Data: testPNG(t)},
-		{MIMEType: "application/pdf", Data: []byte("%PDF-1.7")},
-		{MIMEType: "audio/wav", Data: []byte("RIFF\x00\x00\x00\x00WAVE")},
-		{MIMEType: "video/mp4", URL: "https://x.test/a.mp4"},
+	for _, c := range []struct {
+		m     decide.Media
+		reads string
+	}{
+		{decide.Media{MIMEType: "image/png", Data: testPNG(t)}, "images"},
+		{decide.Media{MIMEType: "application/pdf", Data: []byte("%PDF-1.7")}, "PDFs"},
+		{decide.Media{MIMEType: "audio/wav", Data: []byte("RIFF\x00\x00\x00\x00WAVE")}, "audio"},
+		{decide.Media{MIMEType: "video/mp4", URL: "https://x.test/a.mp4"}, "videos"},
 	} {
-		_, err := client.SystemOne(t.Context(), noulRequest(decide.WithMedia(m)))
-		if !errors.Is(err, errors.ErrUnsupported) || errors.Is(err, decide.ErrInvalidRequest) ||
-			!strings.Contains(err.Error(), "typesafe does not take media yet (media[0], "+m.MIMEType+")") {
-			t.Errorf("%s: err = %v", m.MIMEType, err)
+		_, err := client.SystemOne(t.Context(), noulRequest(decide.WithMedia(c.m)))
+		want := "typesafe does not take media yet (media[0], " + c.m.MIMEType + "); choose a provider that reads " + c.reads + ", such as backend.Gemini"
+		if !errors.Is(err, errors.ErrUnsupported) || errors.Is(err, decide.ErrInvalidRequest) || !strings.HasSuffix(err.Error(), want) {
+			t.Errorf("%s: err = %v\nwant suffix %s", c.m.MIMEType, err, want)
 		}
 	}
 	if hits.Load() != 0 {
