@@ -211,15 +211,17 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    cards were tried first and read as gray boxes. It follows the use cases
    because both are about decide itself; the three bands after the Claude
    Code one are about the model.
-5. **"A second opinion inside Claude Code."** `ClaudeCode.astro` (anchor
-   `#claude-code`), in the order its subhead gives. First, three open
-   columns hung from hairlines for what the plugin does on its own:
-   prompt injection, severe commands, the judge tool. Then a framed stage:
-   `/decide:audit` and `/decide:hunt` side by side, names set as commands,
-   over `Haystack.astro` at full width. Last, a dark install bar: the two
-   `/plugin` lines with a copy button, the "Needs" note and the guide
-   button (a local copy of `.btn` in terminal colors, since the shared one
-   vanishes on a dark panel in light mode).
+5. **"Audit a whole codebase from Claude Code."** `ClaudeCode.astro`
+   (anchor `#claude-code`): the plugin's two skills, and only those. A
+   framed stage holds `/decide:audit` and `/decide:hunt` side by side,
+   names set as commands, over `Haystack.astro` at full width. Under it, a
+   dark install bar: the two `/plugin` lines with a copy button, the
+   "Needs" note, and the guide button (a local copy of `.btn` in terminal
+   colors, since the shared one vanishes on a dark panel in light mode).
+   The plugin's background checks (prompt injection, severe commands, the
+   judge tool) had three columns here and were cut to one sentence in the
+   note: the skills are the reason to install, and the guide covers the
+   rest.
    **The haystack** is a drawing, not a run, and its caption says so: 960
    cells (60 columns at desktop, fewer when narrow), one per function,
    shaded by a fixed hash so every build draws the same picture. Most are

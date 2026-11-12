@@ -1,35 +1,16 @@
 ---
-// "A second opinion inside Claude Code." (anchor #claude-code): the plugin,
-// which the page otherwise shows only as an install tab. Three parts, in
-// the order the subhead gives them. First, three things the plugin does on
-// its own, in three open columns. Then a framed stage for the two skills
-// you run: their names set as commands, side by side, over the haystack
-// drawing of an audit at the stage's full width. Last, the way in: the two
-// install lines on a dark panel, with what it needs and the guide beside
-// them. Facts are from /reference/claude-code/. No recording: the tapes
-// record the CLI, not Claude Code, and nothing here is drawn to look like
-// one.
+// "Audit a whole codebase from Claude Code." (anchor #claude-code): the
+// plugin's two skills, which the page otherwise shows only as an install
+// tab. A framed stage holds /decide:audit and /decide:hunt side by side,
+// names set as commands, over the haystack drawing at full width. Under it,
+// the way in: the two install lines on a dark panel, with what it needs,
+// one line on what else the plugin does, and the guide. The background
+// checks (prompt injection, severe commands, the judge tool) get that one
+// line only: the skills are the reason to install. Facts are from
+// /reference/claude-code/. No recording: the tapes record the CLI, not
+// Claude Code, and nothing here is drawn to look like one.
 import CopyButton from './CopyButton.astro';
 import Haystack from './Haystack.astro';
-
-// What the plugin does without being asked.
-const auto = [
-	{
-		k: 'on its own',
-		title: 'Catches prompt injection',
-		line: "After Claude reads a web page, search results, an MCP tool's result or curl output, decide checks whether it tries to take over the agent or hide text from you. Claude reads a warning beside the result.",
-	},
-	{
-		k: 'in bypass mode',
-		title: 'Stops severe commands',
-		line: "Before each shell command runs, decide checks whether it could do harm that's hard to undo, such as force-pushing a shared branch. You choose whether it runs.",
-	},
-	{
-		k: 'a tool for Claude',
-		title: 'Answers Claude’s own questions',
-		line: 'With the judge tool, Claude asks typed questions about up to 200 items at once, such as which of these issues are bugs.',
-	},
-];
 
 // The two skills you run. The drawing under them is the first one.
 const skills = [
@@ -48,18 +29,6 @@ const lines = ['/plugin marketplace add deepnoodle-ai/decide', '/plugin install 
 ---
 
 <div class="cc">
-	<ul class="auto">
-		{
-			auto.map((r) => (
-				<li>
-					<p class="k">{r.k}</p>
-					<h3>{r.title}</h3>
-					<p class="line">{r.line}</p>
-				</li>
-			))
-		}
-	</ul>
-
 	<div class="stage">
 		<ul class="skills">
 			{
@@ -86,7 +55,7 @@ const lines = ['/plugin marketplace add deepnoodle-ai/decide', '/plugin install 
 			</div>
 		</div>
 		<div class="next">
-			<p class="needs">Needs the decide CLI and a key for a decision model.</p>
+			<p class="needs">Needs the decide CLI and a key for a decision model. Once installed, the plugin also checks what Claude reads and runs.</p>
 			<a class="guide" href="/reference/claude-code/">Claude Code guide →</a>
 		</div>
 	</div>
@@ -137,20 +106,9 @@ const lines = ['/plugin marketplace add deepnoodle-ai/decide', '/plugin install 
 		text-wrap: pretty;
 	}
 
-	/* On its own: three open columns, each hung from a hairline. */
-	.auto {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: 40px;
-	}
-	.auto li {
-		padding-top: 18px;
-		border-top: 1px solid var(--sl-color-hairline);
-	}
-
 	/* The skills' stage: two names over one drawing, in a single frame. */
 	.stage {
-		margin-top: 56px;
+		margin-top: 0;
 		border: 1px solid var(--sl-color-hairline);
 	}
 	.skills {
@@ -256,9 +214,6 @@ const lines = ['/plugin marketplace add deepnoodle-ai/decide', '/plugin install 
 	}
 
 	@media (max-width: 1000px) {
-		.auto {
-			gap: 28px;
-		}
 		.skills li {
 			padding: 24px 24px 26px;
 		}
@@ -274,17 +229,6 @@ const lines = ['/plugin marketplace add deepnoodle-ai/decide', '/plugin install 
 		}
 	}
 	@media (max-width: 760px) {
-		.auto {
-			grid-template-columns: minmax(0, 1fr);
-			gap: 0;
-			border-bottom: 1px solid var(--sl-color-hairline);
-		}
-		.auto li {
-			padding: 20px 0 22px;
-		}
-		.stage {
-			margin-top: 40px;
-		}
 		.skills {
 			grid-template-columns: minmax(0, 1fr);
 		}
