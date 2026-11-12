@@ -284,7 +284,7 @@ func TestBinaryThatIsNotMedia(t *testing.T) {
 	var skipped Skipped
 	tree(t, map[string]string{"d/a.docx": "PK\x03\x04", "d/a.pdf": asciiPDF, "d/blob": noNUL})
 	walk(t, []string{"d"}, "", Options{Input: template.Text, Skipped: &skipped})
-	if skipped.NotText != 3 || skipped.NotTextMedia != 1 {
+	if skipped.NotText != 3 || len(skipped.Media) != 1 {
 		t.Fatalf("skipped = %+v", skipped)
 	}
 }

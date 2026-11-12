@@ -36,13 +36,12 @@ func (o Options) limits(kind template.Input) (MediaLimits, bool) {
 // Skipped counts the files a walk skipped, by reason. Files named
 // directly are errors instead, and are not counted.
 type Skipped struct {
-	NotText      int // binary files, for a text template
-	NotTextMedia int // of NotText, the images, PDFs, audio, and video
-	Unsupported  int // files of a format the media template does not read
-	TooLarge     int // media files over their kind's MediaLimits.MaxBytes
-	Pixels       int // images over MediaLimits.MaxPixels
-	Invalid      int // media files whose contents fail a check: empty, corrupt, or another format
-	Unreadable   int // files that could not be opened or read
+	NotText     int // binary files, for a text template
+	Unsupported int // files of a format the media template does not read
+	TooLarge    int // media files over their kind's MediaLimits.MaxBytes
+	Pixels      int // images over MediaLimits.MaxPixels
+	Invalid     int // media files whose contents fail a check: empty, corrupt, or another format
+	Unreadable  int // files that could not be opened or read
 
 	// Media lists the media files of a format decide sends that a text
 	// template's folder walk skipped, so a hint can show how to name them.
@@ -383,7 +382,6 @@ func (w *walker) notText(path, label string, head []byte, explicit bool) error {
 	if !explicit {
 		w.skipped.NotText++
 		if kind != "" {
-			w.skipped.NotTextMedia++
 			if _, sent := extKind(path); sent {
 				w.skipped.Media = append(w.skipped.Media, SkippedMedia{Label: label, Path: path, Kind: kind})
 			}
