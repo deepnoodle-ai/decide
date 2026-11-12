@@ -438,14 +438,15 @@ On every provider:
   the same 5-minute attempt timeout, now from the library. Only the lines
   that attach media and set the media timeout change.
 - R-12: Docs in the same change: README "Use it from Go", the site's
-  `start/go.mdx` and `tutorials/decide-from-go.mdx`, the root and
-  provider package comments, the roadmap "Media by URL" line, and
-  CHANGELOG. The Go guide shows the provider table, says which providers
-  need smaller images, says that a media request has a 5-minute attempt
-  timeout, and shows how to bound the whole call with a context deadline
-  and `WithMaxRetries` (or `WithCallMaxRetries` on `SystemOne`). An
-  `ExampleWithMedia` test and an `examples/media` program run against
-  `decidetest` with `AcceptMedia`.
+  `start/go.mdx`, the root, `backend`, and provider package comments, the
+  roadmap "Media by URL" line, and CHANGELOG. The `backend` package
+  comment is the Go guide for media: it shows the provider table, says
+  which providers need smaller images, says that a media request has a
+  5-minute attempt timeout, and shows how to bound the whole call with a
+  context deadline and `WithMaxRetries` (or `WithCallMaxRetries` on
+  `SystemOne`). The README and `start/go.mdx` show `WithMedia` and link
+  to it. An `ExampleWithMedia` test runs against `decidetest` with
+  `AcceptMedia`.
 
 ## Removed
 
@@ -590,6 +591,14 @@ Made in this PRD:
 - **`Template.Input()` returns a `decide.MediaKind`.** Template files and
   the CLI docs call this field `input`, and "media" in this PRD is a
   file. Rejected: `Template.Media()`, which used one word for two things.
+- **The media guide is the `backend` package comment, and there is no
+  `examples/media` program.** The site's pages are short after #85, and
+  `tutorials/decide-from-go.mdx` teaches the gate pattern, so the README
+  and `start/go.mdx` show `WithMedia` in a few lines and link to the
+  package comment. Each program in `examples/` shows one pattern and runs
+  against a live provider; media is not a pattern, and `ExampleWithMedia`
+  shows it without a key. Rejected: a media section in the gate
+  tutorial, and an `examples/media` program on `decidetest`.
 - **`funnel.Shared` takes request options; `compact` does not take
   media.** Shared builds one request for many items, which can share one
   file. `compact` shortens text segments; a file has no segments to

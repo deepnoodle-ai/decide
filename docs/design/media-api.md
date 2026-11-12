@@ -102,10 +102,12 @@ so the root package can import it without a cycle.
 ```go
 package media
 
-func Normalize(mimeType string) string            // lower case, no parameters, aliases resolved
-func Kind(normalized string) string              // "image", "audio", "video", "pdf", or ""
-func Sniff(data []byte) string                   // normalized type from fixed signatures, or ""
-func Dimensions(mimeType string, data []byte) (w, h int, err error) // PNG, JPEG, GIF, WebP headers
+func Normalize(mimeType string) string                       // lower case, no parameters, aliases resolved
+func Kind(normalized string) string                         // "image", "audio", "video", "pdf", or ""
+func Contradicts(t string, data []byte) (looksLike string, bad bool) // the bytes cannot be type t
+func Dimensions(t string, data []byte) (w, h int, err error) // PNG, JPEG, GIF, WebP headers
+func IsYouTube(u *url.URL) bool                            // youtube.com, *.youtube.com, youtu.be
+func AppendBase64(buf *bytes.Buffer, data []byte)          // one grow, no intermediate string
 
 type File struct {
 	Index int    // position in Request.Media, for messages
@@ -115,34 +117,42 @@ type File struct {
 }
 
 type Limits struct {
-	Provider      string              // "cloudflare", in messages
-	Formats       map[string][]string // kind → normalized MIME types taken as bytes
-	URLKinds      []string            // kinds taken by URL; nil: no URLs
-	RejectURL     func(u *url.URL) string // extra URL rule, such as YouTube; "" accepts
+	Provider      string                  // "cloudflare", in messages
+	Takes         string                  // "PNG, JPEG, and WebP images, as bytes"
+	Types         []string                // normalized MIME types it takes
+	URLKinds      []string                // kinds taken by URL; nil: no URLs
+	CheckURL      func(u *url.URL) string // extra URL rule, such as YouTube; "" accepts
 	MaxFiles      int
-	MaxFileBytes  map[string]int64    // per kind, decoded bytes; 0: no limit
-	MaxPixels     int                 // per image; 0: no limit
-	MaxTotalBytes int64               // decoded, all inline files
-	MaxBase64     func(files []File) int64 // inline base64 budget, such as Gemini's PDF rule
-	Takes         string              // "PNG, JPEG, and WebP images, as bytes or by URL"
+	MaxFileBytes  int64 // decoded bytes of each inline file
+	MaxPixels     int64 // pixels of each image whose header decide reads
+	MaxTotalBytes int64 // decoded bytes of all inline files
+	MaxBase64     int64 // base64 bytes of all inline files
+	MaxBase64PDF  int64 // MaxBase64 when any inline file is a PDF
+	Decimal       bool  // print sizes in MB, not MiB
 }
 
-func (l Limits) Check(files []File) error // wraps errors.ErrUnsupported
+func (l Limits) Check(files []File) error                 // wraps errors.ErrUnsupported
+func (l Limits) BodyTooLarge(size, limit int64) error     // wraps errors.ErrUnsupported
 ```
 
-The root package uses `Normalize`, `Kind`, and `Sniff` in
-`Request.Validate` (PRD R-1). Each provider package declares one
-`Limits` value and calls `Check` from its `CheckMedia`. `Dimensions`
-moves Cloudflare's WebP chunk parser here and uses
+The root package uses `Normalize`, `Kind`, `Contradicts`, and
+`Dimensions` in `Request.Validate` (PRD R-1). Each provider package
+declares one `Limits` value and calls `Check` from its `CheckMedia`.
+`Dimensions` moves Cloudflare's WebP chunk parser here and uses
 `image.DecodeConfig` for PNG, JPEG, and GIF. It reads headers only.
+
+`internal/mediatest` builds small media files for tests (PNG, JPEG, GIF,
+WebP headers, PDF, WAV, and MP4 starts, and a 4032x3024 phone photo), so
+no fixture is committed.
 
 Messages follow two forms, built in one place:
 
 - `<provider> does not take <kind or form> (media[i], <mime>); it takes <Takes>`
 - `<provider> takes <kind>s of at most <limit> (media[i] is <value>, <mime>)`
 
-`Check` stops at the first failing file, in order: form (URL), kind,
-format, per-file size, pixels, then count and totals.
+`Check` stops at the first failing file, in order: kind, form (URL),
+URL rule, format, per-file size, pixels; then count and totals. Kind
+comes before form, so a video URL on OpenAI fails as a video.
 
 The root package imports `internal/media`, which imports only the
 standard library, so the root package's dependencies stay the standard
@@ -155,8 +165,11 @@ Adds, after the existing checks:
 
 1. Each `Media`: `MIMEType` set and of a known kind after `Normalize`;
    exactly one of `Data` and `URL`; `Data` not empty; `URL` absolute,
-   `https`, with a host; `Sniff(Data)` empty or equal to the normalized
-   type (with `image/jpeg` and `image/jpg` as one).
+   `https`, with a host; the bytes not `Contradicts` the type. A
+   recognized signature must belong to the declared type, and PNG, JPEG,
+   GIF, and WebP bytes must start with their own signature and have a
+   header that `Dimensions` reads. Other formats without a recognized
+   signature are taken as declared.
 2. Reserved `Extra` keys: `images`, `media`, `videos`, `assets`.
 3. `checkBytes` becomes a walk with `reflect` over maps, slices, arrays,
    pointers, interfaces, and exported struct fields, with a depth bound of
@@ -228,17 +241,18 @@ built, and wraps `ErrUnsupported`. Limits: 4 files; PNG, JPEG, WebP;
 
 **OpenAI.** With media, `input` is one user message: an `input_text`
 part with the state, then one `input_image` part per file. Bytes become
-`data:<mime>;base64,<data>`; a URL is sent as given. The `Extra` merge
-stops decoding the body into a map: the transport writes the body's own
-members, then each `Extra` member in key order whose key the body does
-not use. Limits: PNG, JPEG, WebP; images by URL; 1,500 files; 512 MB
+`data:<mime>;base64,<data>`; a URL is sent as given. For a request with
+media, the transport writes the body's own members, then each `Extra`
+member in key order whose key the body does not use; it does not decode
+the body into a map. A request without media keeps today's merge, so
+its body stays byte-for-byte the same. Limits: PNG, JPEG, WebP; images by URL; 1,500 files; 512 MB
 body; no other kind.
 
 **Gemini.** With media, `input` is a list: a `text` block with the state
 and a newline, then one block per file: `{"type":"image"|"audio"|"video"|"document","mime_type":...,"data"|"uri":...}`.
-The `Extra` merge changes as for OpenAI. Limits: the MIME allow-lists in
-`gemini/media.go`, with `video/mov` added for the `video/quicktime`
-alias; every kind by bytes or URL; YouTube hosts rejected with a host
+The `Extra` merge changes as for OpenAI. Limits: the MIME allow-lists of
+the old `gemini/media.go`, which already hold `video/mov` for the
+`video/quicktime` alias; every kind by bytes or URL; YouTube hosts rejected with a host
 match (`youtube.com`, `*.youtube.com`, `youtu.be`), not a substring; 100
 MB of inline base64, or 50 MB when any inline file is a PDF.
 
@@ -338,7 +352,7 @@ retried. The CLI's media tests check wire shapes, which do not change.
 ## Test plan
 
 - `internal/media`: table tests for `Normalize` aliases and case;
-  `Sniff` on each signature and on short input; `Dimensions` on PNG,
+  `Contradicts` on each signature and on unknown bytes; `Dimensions` on PNG,
   JPEG, GIF, WebP VP8, VP8L, VP8X; `Check` messages for each limit; a fuzz
   test for `Dimensions` (moved from Cloudflare).
 - Root: `Validate` cases for each R-1 rule, each reserved key, and deep
@@ -358,8 +372,12 @@ retried. The CLI's media tests check wire shapes, which do not change.
   unsupported kind, format, form, and limit returns `ErrUnsupported`
   with the PRD's message and zero requests; a 4032x3024 JPEG over 4 MiB
   passes on OpenAI and Gemini and fails on Cloudflare; a request without
-  media is byte-for-byte the same as before (golden bodies recorded at
-  the PRD's base commit); the allocation test.
+  media is byte-for-byte the same as before (its code path does not
+  change, and the existing transport tests check its body); the
+  allocation test. OpenAI's 512 MB and Gemini's 100 MB limits are
+  checked through `internal/media`'s tests with small limits, not with
+  files of that size. The allocation tests skip under the race detector,
+  which changes allocation counts.
 - `backend`: one test per provider that `Config.BaseURL` pointed at an
   `httptest.Server` receives a media request.
 - `templates`: `Input()` for every built-in. `funnel`: `Shared` with
@@ -387,9 +405,10 @@ Each commit builds and passes the checks.
 7. `feat!: remove the provider media helpers` — delete the helpers,
    reserve the `Extra` keys, deep `[]byte` check.
 8. `feat(templates): Template.Input; feat(funnel): request options on Shared`.
-9. `docs: media in the Go guides` — README, `start/go.mdx`,
-   `tutorials/decide-from-go.mdx`, package comments, `examples/media`,
-   roadmap "Media by URL", CHANGELOG.
+9. `docs: media in the Go guides` — README, `start/go.mdx`, the root and
+   `backend` package comments (the provider table, limits, timeout, and
+   how to bound a call), the examples README, the roadmap, CHANGELOG, and
+   the `backend` BaseURL test.
 
 ## Rollout
 
