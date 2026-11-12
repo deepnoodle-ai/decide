@@ -177,7 +177,8 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    says decide is an open-source CLI and Go library, then `Install.astro`
    (brew, go install, go get, claude code), and under it one centred row
    of two buttons: "Quickstart →", the page's way into the docs, and
-   "Why not just call an LLM?" (ghost, to `#compare`). The buttons sit
+   "See what decide does" (ghost, to `#adds`, the band that sets decide
+   apart from calling a model yourself). The buttons sit
    below the command, never beside the install tabs.
 2. **`RunStage.astro`.** Five recordings in one window, picked by file tabs
    in its chrome: `triage-check` (issue.md), `review-gate` (change.diff),
@@ -196,7 +197,8 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    flags in its string color; no verdict colors. The whole card is the
    link. It comes first because it shows what the reader can do, and the
    chips are where the page first shows that decide reads more than text.
-4. **"What decide adds to the model."** `Adds.astro`: what a reader would
+4. **"What you'd otherwise build yourself."** `Adds.astro` (anchor `#adds`,
+   linked from the hero): what a reader would
    write themselves if they called a decision model's API directly. Six
    link cards in one hairline grid, three columns (two under 980px, one
    under 640px): templates, code split into functions, any data split into
@@ -207,8 +209,7 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    what you can do, then what is behind those commands. The three bands
    after it are about the model: why one, how to act on its probability,
    and which to pick.
-5. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`, linked
-   from the hero): three cards in one row (stacked under 860px), no table
+5. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`): three cards in one row (stacked under 860px), no table
    and no example reply: "Faster", "Cheaper", "Calibrated" (defined in the
    card: the probability matches how often the model is right; not "real"
    or "tuned"). Each is a 28px title, two or three plain sentences on why,
