@@ -263,8 +263,13 @@ func TestNoNetworkForUnsupportedAndInvalidRequests(t *testing.T) {
 		{"unknown type", func(r *decide.Request) {
 			r.Questions["urgent"] = &decide.RawQuestion{Type: "future", JSON: json.RawMessage(`{"type":"future","instructions":"Q?"}`)}
 		}, errors.ErrUnsupported},
-		{"video", func(r *decide.Request) { r.Extra = map[string]any{"videos": []any{}} }, errors.ErrUnsupported},
-		{"URL image", func(r *decide.Request) { r.Extra = map[string]any{"images": []string{"https://example.com/pic.png"}} }, decide.ErrInvalidRequest},
+		{"video", func(r *decide.Request) {
+			r.Media = []decide.Media{{MIMEType: "video/mp4", URL: "https://example.com/clip.mp4"}}
+		}, errors.ErrUnsupported},
+		{"URL image", func(r *decide.Request) {
+			r.Media = []decide.Media{{MIMEType: "image/png", URL: "https://example.com/pic.png"}}
+		}, errors.ErrUnsupported},
+		{"reserved images key", func(r *decide.Request) { r.Extra = map[string]any{"images": []string{"https://example.com/pic.png"}} }, decide.ErrInvalidRequest},
 		{"large request", func(r *decide.Request) { r.State = strings.Repeat("a", 13<<20) }, decide.ErrInvalidRequest},
 	}
 	for _, tc := range cases {

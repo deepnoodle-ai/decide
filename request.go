@@ -1,12 +1,15 @@
 package decide
 
 import (
+	"encoding"
 	"encoding/json"
 	"fmt"
 	"maps"
 	"math"
 	"net/http"
+	"reflect"
 	"slices"
+	"strings"
 )
 
 // Request is one call to POST /v1/systemone.
@@ -150,6 +153,11 @@ func (r *Request) Validate() error {
 			return invalidRequest(fmt.Sprintf("Extra key %q collides with a modeled field", k))
 		}
 	}
+	for _, k := range []string{"images", "media", "videos", "assets"} {
+		if _, ok := r.Extra[k]; ok {
+			return invalidRequest(fmt.Sprintf("Extra key %q is reserved; attach files with decide.WithMedia", k))
+		}
+	}
 	return validateMedia(r.Media)
 }
 
@@ -241,30 +249,112 @@ func marshalQuestion(q Question) (err error) {
 	return err
 }
 
-// checkBytes rejects a []byte value, which encoding/json would send as
-// base64. It looks at v and, for map[string]any and []any, at v's direct
-// elements; deeper nesting is the caller's problem.
+// checkBytes rejects a []byte at any depth of v, through maps, slices,
+// arrays, pointers, interfaces, and exported struct fields: encoding/json
+// would send it as base64 text. A value whose type encodes itself, such as
+// json.RawMessage, is not entered.
 func checkBytes(where string, v any) error {
-	bad := func() error {
-		return invalidRequest(where + " is []byte, which encodes as base64; pass a string or json.RawMessage")
-	}
-	switch v := v.(type) {
-	case []byte:
-		return bad()
-	case map[string]any:
-		for _, e := range v {
-			if _, ok := e.([]byte); ok {
-				return bad()
-			}
-		}
-	case []any:
-		for _, e := range v {
-			if _, ok := e.([]byte); ok {
-				return bad()
-			}
-		}
+	if path, ok := findBytes(reflect.ValueOf(v), where, 0, map[uintptr]bool{}, map[reflect.Type]bool{}); ok {
+		return invalidRequest(path + " is []byte, which would be sent as base64 text; attach files with decide.WithMedia, or pass text as a string")
 	}
 	return nil
+}
+
+const maxBytesDepth = 64
+
+var (
+	jsonMarshaler = reflect.TypeFor[json.Marshaler]()
+	textMarshaler = reflect.TypeFor[encoding.TextMarshaler]()
+)
+
+func encodesItself(t reflect.Type) bool {
+	return t.Implements(jsonMarshaler) || t.Implements(textMarshaler) ||
+		reflect.PointerTo(t).Implements(jsonMarshaler) || reflect.PointerTo(t).Implements(textMarshaler)
+}
+
+// mayHoldBytes reports whether a value of type t can hold a []byte that
+// encoding/json writes as base64. It lets findBytes skip, for example, a
+// large []int without looking at each element.
+func mayHoldBytes(t reflect.Type, seen map[reflect.Type]bool) bool {
+	if encodesItself(t) {
+		return false
+	}
+	if v, ok := seen[t]; ok {
+		return v
+	}
+	seen[t] = true // while t is in progress, a recursive type may hold bytes
+	var r bool
+	switch t.Kind() {
+	case reflect.Interface:
+		r = true
+	case reflect.Slice:
+		r = t.Elem().Kind() == reflect.Uint8 || mayHoldBytes(t.Elem(), seen)
+	case reflect.Array, reflect.Pointer, reflect.Map:
+		r = mayHoldBytes(t.Elem(), seen)
+	case reflect.Struct:
+		for i := range t.NumField() {
+			if f := t.Field(i); f.IsExported() && f.Tag.Get("json") != "-" && mayHoldBytes(f.Type, seen) {
+				r = true
+				break
+			}
+		}
+	}
+	seen[t] = r
+	return r
+}
+
+func findBytes(v reflect.Value, path string, depth int, visited map[uintptr]bool, seen map[reflect.Type]bool) (string, bool) {
+	if !v.IsValid() || depth > maxBytesDepth || !mayHoldBytes(v.Type(), seen) {
+		return "", false
+	}
+	switch v.Kind() {
+	case reflect.Interface:
+		if v.IsNil() {
+			return "", false
+		}
+		return findBytes(v.Elem(), path, depth+1, visited, seen)
+	case reflect.Pointer:
+		if v.IsNil() || visited[v.Pointer()] {
+			return "", false
+		}
+		visited[v.Pointer()] = true
+		return findBytes(v.Elem(), path, depth+1, visited, seen)
+	case reflect.Slice:
+		if v.Type().Elem().Kind() == reflect.Uint8 {
+			return path, !v.IsNil()
+		}
+		fallthrough
+	case reflect.Array:
+		for i := range v.Len() {
+			if p, ok := findBytes(v.Index(i), fmt.Sprintf("%s[%d]", path, i), depth+1, visited, seen); ok {
+				return p, true
+			}
+		}
+	case reflect.Map:
+		keys := v.MapKeys()
+		slices.SortFunc(keys, func(a, b reflect.Value) int { return strings.Compare(fmt.Sprint(a), fmt.Sprint(b)) })
+		for _, k := range keys {
+			if p, ok := findBytes(v.MapIndex(k), fmt.Sprintf("%s.%v", path, k), depth+1, visited, seen); ok {
+				return p, true
+			}
+		}
+	case reflect.Struct:
+		t := v.Type()
+		for i := range t.NumField() {
+			f := t.Field(i)
+			name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+			if !f.IsExported() || name == "-" {
+				continue
+			}
+			if name == "" {
+				name = f.Name
+			}
+			if p, ok := findBytes(v.Field(i), path+"."+name, depth+1, visited, seen); ok {
+				return p, true
+			}
+		}
+	}
+	return "", false
 }
 
 func invalidRequest(msg string) error {

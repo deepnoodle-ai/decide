@@ -43,9 +43,6 @@ func (t *Transport) CheckMedia(req *decide.Request) error {
 	if len(req.Media) == 0 {
 		return nil
 	}
-	if _, ok := req.Extra["images"]; ok {
-		return invalid(`set images with decide.WithMedia or Extra["images"], not both`)
-	}
 	return limits.Check(files(req))
 }
 

@@ -66,14 +66,6 @@ func validate(req *decide.Request) error {
 			}
 		}
 	}
-	if _, videos := req.Extra["videos"]; videos {
-		return fmt.Errorf("%w: cloudflare hosted video input", errors.ErrUnsupported)
-	}
-	if images, present := req.Extra["images"]; present {
-		if err := validateImages(images); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

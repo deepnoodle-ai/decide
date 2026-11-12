@@ -8,6 +8,9 @@ import (
 	"github.com/deepnoodle-ai/decide/internal/media"
 )
 
+// maxRequestBytes is Clef's limit on a request body.
+const maxRequestBytes = 13 << 20
+
 // limits are Clef's documented image limits.
 var limits = media.Limits{
 	Provider:      "cloudflare",
@@ -34,9 +37,6 @@ func files(req *decide.Request) []media.File {
 func (t *Transport) CheckMedia(req *decide.Request) error {
 	if len(req.Media) == 0 {
 		return nil
-	}
-	if _, ok := req.Extra["images"]; ok {
-		return invalid(`set images with decide.WithMedia or Extra["images"], not both`)
 	}
 	return limits.Check(files(req))
 }

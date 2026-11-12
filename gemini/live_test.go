@@ -108,20 +108,11 @@ func TestLiveMedia(t *testing.T) {
 	}
 	var buf bytes.Buffer
 	_ = png.Encode(&buf, red)
-	img, err := gemini.NewMedia(gemini.KindImage, "image/png", buf.Bytes())
-	if err != nil {
-		t.Fatal(err)
-	}
-	doc, err := gemini.NewMedia(gemini.KindDocument, "application/pdf", minimalPDF("INVOICE  Total due: $42.00"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	req := decide.NewRequest("An image and a PDF are attached.")
+	img := decide.Media{MIMEType: "image/png", Data: buf.Bytes()}
+	doc := decide.Media{MIMEType: "application/pdf", Data: minimalPDF("INVOICE  Total due: $42.00")}
+	req := decide.NewRequest("An image and a PDF are attached.", decide.WithMedia(img, doc))
 	isRed := decide.Ask(req, "red", decide.Noul("Is the attached image solid red?"))
 	invoice := decide.Ask(req, "invoice", decide.Noul("Is the attached PDF an invoice?"))
-	if err := gemini.SetMedia(req, img, doc); err != nil {
-		t.Fatal(err)
-	}
 	resp, err := client.SystemOne(ctx, req)
 	if err != nil {
 		t.Fatal(err)
@@ -171,15 +162,8 @@ func TestLiveAudioFormats(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			m, err := gemini.NewMedia(gemini.KindAudio, f.mime, data)
-			if err != nil {
-				t.Fatal(err)
-			}
-			req := decide.NewRequest("")
+			req := decide.NewRequest("", decide.WithMedia(decide.Media{MIMEType: f.mime, Data: data}))
 			speech := decide.Ask(req, "speech", decide.Noul("Does the attached audio contain human speech?"))
-			if err := gemini.SetMedia(req, m); err != nil {
-				t.Fatal(err)
-			}
 			ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 			defer cancel()
 			resp, err := client.SystemOne(ctx, req)
@@ -229,15 +213,8 @@ func TestLiveVideoFormats(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			m, err := gemini.NewMedia(gemini.KindVideo, f.mime, data)
-			if err != nil {
-				t.Fatal(err)
-			}
-			req := decide.NewRequest("")
+			req := decide.NewRequest("", decide.WithMedia(decide.Media{MIMEType: f.mime, Data: data}))
 			people := decide.Ask(req, "people", decide.Noul("Does the attached video show people?"))
-			if err := gemini.SetMedia(req, m); err != nil {
-				t.Fatal(err)
-			}
 			ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 			defer cancel()
 			resp, err := client.SystemOne(ctx, req)

@@ -19,12 +19,14 @@
 // most 200 questions, and at least 2 options per choice and 2 levels per
 // score.
 //
-// SetImages adds embedded PNG, JPEG, or WebP images to a request. They are
-// sent as base64 data URLs in input_image parts of one user message, after
-// the state as an input_text part. Remote image URLs and video inputs are
-// unsupported. The Decisions API documents no image limits, so only each
-// image's format is checked before sending. OpenAI's image guide allows 512
-// MB per request.
+// The transport is a decide.MediaTransport. It sends PNG, JPEG, and WebP
+// images attached with decide.WithMedia, as bytes or by HTTPS URL, in
+// input_image parts of one user message, after the state as an input_text
+// part. Bytes are sent as base64 data URLs. The Decisions API takes no
+// files, audio, or video, and its pages list no GIF, so the transport
+// rejects those with errors.ErrUnsupported before any network call. It
+// applies the limits of OpenAI's image guide: 1,500 images and 512 MB per
+// request.
 //
 // Config reads no environment variables. The API key is redacted from
 // formatting and response bodies. Malformed and non-JSON response bodies are
