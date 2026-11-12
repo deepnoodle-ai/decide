@@ -200,24 +200,36 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    link. It comes first because it shows what the reader can do, and the
    chips are where the page first shows that decide reads more than text.
 4. **"What you'd otherwise build yourself."** `Adds.astro` (anchor `#adds`,
-   linked from the hero): what a reader would
-   write themselves if they called a decision model's API directly. Six
-   link cards in one hairline grid, three columns (two under 980px, one
-   under 640px): templates, code split into functions, any data split into
-   items, the answer cache, output a script can act on, and the Go
-   library. Each is a 20px title, two sentences, and one line in mono at
-   its foot (a command, or a line decide prints), and links to its
-   reference page. It follows the use cases because both are about decide itself:
-   what you can do, then what is behind those commands. The three bands
-   after it are about the model: why one, how to act on its probability,
-   and which to pick.
+   linked from the hero): what a reader would write themselves if they
+   called a decision model's API directly. Six link rows in one hairline
+   box: the title at the left (read down the edge as a list, with a quiet
+   arrow that steps forward on hover), two sentences in the middle, and
+   one mono line on a dark strip at the right, colored as the where-cards'
+   commands are. A command has a `$` prompt; a line decide prints (the
+   cache summary) and a flags-only line have none. Under 1100px the strip
+   drops under the sentences, and under 700px a row stacks. Six equal
+   cards were tried first and read as gray boxes. It follows the use cases
+   because both are about decide itself; the three bands after the Claude
+   Code one are about the model.
 5. **"A second opinion inside Claude Code."** `ClaudeCode.astro` (anchor
-   `#claude-code`): the plugin, which was only an install tab before. Five
-   rows on the left, each a mono label, a 20px title and two sentences:
-   prompt injection caught and severe commands stopped on its own, the
-   judge tool, then `/decide:audit` and `/decide:hunt` with their names
-   set as commands. On the right (below, under 1000px) the two install
-   lines on a dark panel and a button to the guide. No recording and
+   `#claude-code`), in the order its subhead gives. First, three open
+   columns hung from hairlines for what the plugin does on its own:
+   prompt injection, severe commands, the judge tool. Then a framed stage:
+   `/decide:audit` and `/decide:hunt` side by side, names set as commands,
+   over `Haystack.astro` at full width. Last, a dark install bar: the two
+   `/plugin` lines with a copy button, the "Needs" note and the guide
+   button (a local copy of `.btn` in terminal colors, since the shared one
+   vanishes on a dark panel in light mode).
+   **The haystack** is a drawing, not a run, and its caption says so: 960
+   cells (60 columns at desktop, fewer when narrow), one per function,
+   shaded by a fixed hash so every build draws the same picture. Most are
+   gray, a few are in the flag color (scores are answers), and the 15
+   Claude reads are outlined. The legend's three entries are each keyed by
+   a strip of 15 cells drawn like the field, and its only numbers are the
+   skill's own (30%, 15). The cells take their shade in reading order
+   when the drawing scrolls into view, then the outlines land highest
+   first; with no JavaScript or with reduced motion it shows finished.
+   Keep the red cells few: it is a needle in a haystack. No recording and
    nothing drawn to look like Claude Code: the tapes record the CLI.
 6. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`): three cards in one row (stacked under 860px), no table
    and no example reply: "Faster", "Cheaper", "Calibrated" (defined in the

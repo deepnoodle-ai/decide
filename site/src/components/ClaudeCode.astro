@@ -1,14 +1,19 @@
 ---
 // "A second opinion inside Claude Code." (anchor #claude-code): the plugin,
-// which the page otherwise shows only as an install tab. Five rows on the
-// left: three things it does on its own, then the two skills you run. On
-// the right, the two install lines on a dark panel and the guide. Facts
-// are from /reference/claude-code/. No recording: the tapes record the
-// CLI, not Claude Code, and nothing here is drawn to look like one.
+// which the page otherwise shows only as an install tab. Three parts, in
+// the order the subhead gives them. First, three things the plugin does on
+// its own, in three open columns. Then a framed stage for the two skills
+// you run: their names set as commands, side by side, over the haystack
+// drawing of an audit at the stage's full width. Last, the way in: the two
+// install lines on a dark panel, with what it needs and the guide beside
+// them. Facts are from /reference/claude-code/. No recording: the tapes
+// record the CLI, not Claude Code, and nothing here is drawn to look like
+// one.
 import CopyButton from './CopyButton.astro';
 import Haystack from './Haystack.astro';
 
-const rows = [
+// What the plugin does without being asked.
+const auto = [
 	{
 		k: 'on its own',
 		title: 'Catches prompt injection',
@@ -24,15 +29,17 @@ const rows = [
 		title: 'Answers Claude’s own questions',
 		line: 'With the judge tool, Claude asks typed questions about up to 200 items at once, such as which of these issues are bugs.',
 	},
+];
+
+// The two skills you run. The drawing under them is the first one.
+const skills = [
 	{
 		k: '/decide:audit',
-		cmd: true,
 		title: 'Audits a repository for security bugs',
 		line: 'decide scores every function with the security template. Claude reads up to 15 of the highest with their callers, and reports which are real.',
 	},
 	{
 		k: '/decide:hunt',
-		cmd: true,
 		title: 'Finds where a fixed bug was repeated',
 		line: 'Give it a fix commit or pull request. Claude writes one question about the mistake, decide asks it of every function, and Claude reads the top matches.',
 	},
@@ -41,58 +48,66 @@ const lines = ['/plugin marketplace add deepnoodle-ai/decide', '/plugin install 
 ---
 
 <div class="cc">
-	<ul class="rows">
+	<ul class="auto">
 		{
-			rows.map((r) => (
+			auto.map((r) => (
 				<li>
-					<p class:list={['k', { cmd: r.cmd }]}>{r.k}</p>
-					<div>
-						<h3>{r.title}</h3>
-						<p class="line">{r.line}</p>
-					</div>
+					<p class="k">{r.k}</p>
+					<h3>{r.title}</h3>
+					<p class="line">{r.line}</p>
 				</li>
 			))
 		}
 	</ul>
-	<div class="side">
-		<div class="panel">
+
+	<div class="stage">
+		<ul class="skills">
+			{
+				skills.map((r) => (
+					<li>
+						<p class="k cmd">{r.k}</p>
+						<h3>{r.title}</h3>
+						<p class="line">{r.line}</p>
+					</li>
+				))
+			}
+		</ul>
+		<div class="drawing">
+			<Haystack />
+		</div>
+	</div>
+
+	<div class="install">
+		<div class="how">
 			<p class="label">In Claude Code</p>
 			<div class="cmd">
 				<pre>{lines.map((l) => <span class="l"><span class="pr">&gt; </span>{l}</span>)}</pre>
 				<CopyButton text={lines.join('\n')} label="Copy commands" />
 			</div>
-			<p class="needs">Needs the decide CLI and a key for a decision model.</p>
 		</div>
-		<a class="btn" href="/reference/claude-code/">Claude Code guide →</a>
-		<Haystack />
+		<div class="next">
+			<p class="needs">Needs the decide CLI and a key for a decision model.</p>
+			<a class="guide" href="/reference/claude-code/">Claude Code guide →</a>
+		</div>
 	</div>
 </div>
 
 <style>
 	.cc {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
-		gap: 48px;
-		align-items: start;
 		margin-top: 48px;
 		text-align: left;
 	}
-	.rows {
+	ul {
 		margin: 0;
 		padding: 0;
 		list-style: none;
-		border-top: 1px solid var(--sl-color-hairline);
 	}
-	.rows li {
-		display: grid;
-		grid-template-columns: 190px minmax(0, 1fr);
-		gap: 24px;
+	li {
 		margin: 0;
-		padding: 22px 0;
-		border-bottom: 1px solid var(--sl-color-hairline);
+		min-width: 0;
 	}
 	.k {
-		margin: 4px 0 0;
+		margin: 0;
 		font: 400 12.5px/1.4 var(--sl-font-mono);
 		letter-spacing: 0.04em;
 		color: var(--sl-color-gray-3);
@@ -100,39 +115,71 @@ const lines = ['/plugin marketplace add deepnoodle-ai/decide', '/plugin install 
 	/* A skill's name is something you type, so it is set like a command. */
 	.k.cmd {
 		letter-spacing: 0;
+		font-size: 14px;
 		font-weight: 700;
 		color: var(--sl-color-white);
 	}
 	h3 {
-		margin: 0;
-		font-size: 20px;
+		margin: 10px 0 0;
+		font-size: 21px;
 		font-weight: 500;
 		line-height: 1.25;
-		letter-spacing: -0.015em;
+		letter-spacing: -0.02em;
 		color: var(--sl-color-white);
+		text-wrap: balance;
 	}
 	.line {
-		max-width: 56ch;
-		margin: 8px 0 0;
+		max-width: 58ch;
+		margin: 10px 0 0;
 		font-size: 15px;
 		line-height: 1.6;
 		color: var(--sl-color-gray-2);
 		text-wrap: pretty;
 	}
-	.side {
-		position: sticky;
-		top: 96px;
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 16px;
+
+	/* On its own: three open columns, each hung from a hairline. */
+	.auto {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 40px;
 	}
-	/* Dark in both themes, like every terminal on the site. */
-	.panel {
-		width: 100%;
-		padding: 20px;
+	.auto li {
+		padding-top: 18px;
+		border-top: 1px solid var(--sl-color-hairline);
+	}
+
+	/* The skills' stage: two names over one drawing, in a single frame. */
+	.stage {
+		margin-top: 56px;
+		border: 1px solid var(--sl-color-hairline);
+	}
+	.skills {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		border-bottom: 1px solid var(--sl-color-hairline);
+	}
+	.skills li {
+		padding: 28px 32px 30px;
+	}
+	.skills li + li {
+		border-left: 1px solid var(--sl-color-hairline);
+	}
+	.drawing {
+		padding: 32px;
+	}
+
+	/* The way in. Dark in both themes, like every terminal on the site. */
+	.install {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		margin-top: 32px;
 		background: var(--term-bg);
 		border: 1px solid var(--term-border);
+		box-shadow: var(--term-shadow);
+	}
+	.how {
+		min-width: 0;
+		padding: 24px 32px 26px;
 	}
 	.label {
 		margin: 0 0 12px;
@@ -142,24 +189,26 @@ const lines = ['/plugin marketplace add deepnoodle-ai/decide', '/plugin install 
 	}
 	.cmd {
 		display: flex;
-		align-items: flex-start;
-		gap: 12px;
+		align-items: center;
+		gap: 20px;
 	}
 	.cmd pre {
-		flex: 1;
 		min-width: 0;
 		margin: 0;
 		padding: 0;
 		overflow-x: auto;
 		background: none;
 		border: 0;
-		font: 400 12.5px/1.8 var(--sl-font-mono);
+		font: 400 14px/1.8 var(--sl-font-mono);
 		color: var(--term-fg);
 		scrollbar-width: none;
 	}
 	.cmd :global(.copy) {
 		color: var(--term-muted);
-		border-color: var(--term-border);
+		border-color: rgba(255, 255, 255, 0.16);
+	}
+	.cmd :global(.copy:hover) {
+		color: var(--term-fg);
 	}
 	.l {
 		display: block;
@@ -168,29 +217,119 @@ const lines = ['/plugin marketplace add deepnoodle-ai/decide', '/plugin install 
 	.pr {
 		color: var(--term-muted);
 	}
-	.needs {
-		margin: 14px 0 0;
-		font-size: 13px;
-		line-height: 1.5;
-		color: var(--term-muted);
+	.next {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: flex-start;
+		gap: 16px;
+		width: 340px;
+		padding: 24px 32px 26px;
+		border-left: 1px solid var(--term-line);
 	}
+	.needs {
+		margin: 0;
+		font-size: 14px;
+		line-height: 1.55;
+		color: var(--term-muted);
+		text-wrap: balance;
+	}
+	/* The site's button, in the terminal's own colors so it holds on the dark panel in light theme too. */
+	.guide {
+		display: inline-block;
+		padding: 11px 18px;
+		border: 1px solid var(--term-fg);
+		background: var(--term-fg);
+		font: 500 13px/1 var(--sl-font-mono);
+		color: var(--term-bg);
+		text-decoration: none;
+		transition:
+			background-color 120ms var(--ease),
+			color 120ms var(--ease);
+	}
+	.guide:hover {
+		background: transparent;
+		color: var(--term-fg);
+	}
+	.guide:focus-visible {
+		outline-color: var(--term-fg);
+	}
+
 	@media (max-width: 1000px) {
-		.cc {
-			grid-template-columns: minmax(0, 1fr);
+		.auto {
 			gap: 28px;
 		}
-		.side {
-			position: static;
+		.skills li {
+			padding: 24px 24px 26px;
+		}
+		.drawing {
+			padding: 24px;
+		}
+		.how,
+		.next {
+			padding: 22px 24px 24px;
+		}
+		.next {
+			width: 280px;
 		}
 	}
-	@media (max-width: 600px) {
-		.rows li {
+	@media (max-width: 760px) {
+		.auto {
 			grid-template-columns: minmax(0, 1fr);
-			gap: 6px;
-			padding: 20px 0;
+			gap: 0;
+			border-bottom: 1px solid var(--sl-color-hairline);
 		}
-		.k {
-			margin: 0;
+		.auto li {
+			padding: 20px 0 22px;
+		}
+		.stage {
+			margin-top: 40px;
+		}
+		.skills {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.skills li + li {
+			border-left: 0;
+			border-top: 1px solid var(--sl-color-hairline);
+		}
+		.install {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.next {
+			width: auto;
+			border-left: 0;
+			border-top: 1px solid var(--term-line);
+		}
+	}
+	@media (max-width: 520px) {
+		.skills li,
+		.drawing,
+		.how,
+		.next {
+			padding: 20px 16px 22px;
+		}
+		/* The copy button moves up beside the label, so the commands get the full width. */
+		.how {
+			position: relative;
+		}
+		.cmd :global(.copy) {
+			position: absolute;
+			top: 12px;
+			right: 16px;
+		}
+		.cmd pre {
+			font-size: 12.5px;
+		}
+	}
+	/* On a phone the longer install line fits without scrolling. */
+	@media (max-width: 420px) {
+		.cmd pre {
+			font-size: 11px;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.guide {
+			transition: none;
 		}
 	}
 </style>
