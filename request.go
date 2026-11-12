@@ -42,7 +42,8 @@ func WithRequestModel(name string) RequestOption {
 	return func(r *Request) { r.Model = name }
 }
 
-// WithRequestExtra sets an unmodeled top-level request field.
+// WithRequestExtra sets an unmodeled top-level request field. Validate
+// rejects a []byte in value; attach files with WithMedia.
 func WithRequestExtra(key string, value any) RequestOption {
 	return func(r *Request) {
 		if r.Extra == nil {
@@ -156,6 +157,11 @@ func (r *Request) Validate() error {
 	for _, k := range []string{"images", "media", "videos", "assets"} {
 		if _, ok := r.Extra[k]; ok {
 			return invalidRequest(fmt.Sprintf("Extra key %q is reserved; attach files with decide.WithMedia", k))
+		}
+	}
+	for _, k := range slices.Sorted(maps.Keys(r.Extra)) {
+		if err := checkBytes(fmt.Sprintf("Extra %q", k), r.Extra[k]); err != nil {
+			return err
 		}
 	}
 	return validateMedia(r.Media)

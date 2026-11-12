@@ -41,7 +41,8 @@ may change the library API and the CLI.
 
 - **Media helpers removed.** `cloudflare.SetImages`, `openai.SetImages`, and
   `gemini.SetMedia` are gone; use `decide.WithMedia`. A `[]byte` anywhere in
-  state is rejected, and a media attempt that times out is not retried.
+  state or an `Extra` value is rejected, and a media attempt that times out
+  is not retried.
 - **A new landing page.** Why a decision model, which returns a value and
   its probability instead of text, suits the quick calls a script makes on
   every item, where it runs in CI, hooks and queues, what decide adds to

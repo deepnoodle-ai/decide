@@ -202,7 +202,9 @@ Adds, after the existing checks:
    and any value whose type, or a pointer to it, implements
    `json.Marshaler` or `encoding.TextMarshaler`. `json.RawMessage` is
    one of those. The error names the path, such as `state.receipt` or
-   `state.items[2]`.
+   `state.items[2]`. `Validate` runs it on the state, the instructions
+   and criteria, and each `Extra` value, after the reserved-key checks;
+   an `Extra` path starts with the quoted key, such as `Extra "photo"`.
 
 Signatures that `Contradicts` reads, and the normalized types that each
 one can be:
@@ -427,7 +429,7 @@ retried. The CLI's media tests check wire shapes, which do not change.
 - Root: `Validate` cases for each R-1 rule, including an MP3 that
   starts with a frame sync declared `audio/mpeg`, a WebM declared
   `audio/webm`, and an `ftypqt` MOV declared `video/quicktime`, which
-  pass; each reserved key; deep
+  pass; each reserved key; a `[]byte` in an `Extra` value; deep
   `[]byte` in maps, slices, pointers, structs, and embedded structs,
   exported or not; a slice and a map that hold themselves, which return
   promptly; and a nil `[]byte`, a

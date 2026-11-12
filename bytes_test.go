@@ -215,3 +215,24 @@ func TestReservedExtraKeys(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+func TestBytesInExtra(t *testing.T) {
+	bad := map[string]any{
+		`Extra "photo"`:        []byte("x"),
+		`Extra "meta".thumb`:   map[string]any{"thumb": []byte("x")},
+		`Extra "list"[1].Data`: []any{"a", struct{ Data []byte }{[]byte("x")}},
+	}
+	for want, v := range bad {
+		key, _, _ := strings.Cut(strings.TrimPrefix(want, `Extra "`), `"`)
+		err := noulRequest(decide.WithRequestExtra(key, v)).Validate()
+		if !errors.Is(err, decide.ErrInvalidRequest) ||
+			!strings.Contains(err.Error(), want+" is []byte, which would be sent as base64 text; attach files with decide.WithMedia") {
+			t.Errorf("%s: err = %v", want, err)
+		}
+	}
+	for _, v := range []any{json.RawMessage(`{"a":1}`), []byte(nil), "text"} {
+		if err := noulRequest(decide.WithRequestExtra("ok", v)).Validate(); err != nil {
+			t.Errorf("%T: %v", v, err)
+		}
+	}
+}
