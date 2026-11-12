@@ -86,8 +86,12 @@ type MediaTransport interface {
 ```
 
 `HTTPTransport` implements it, and `CheckMedia` rejects any file:
-`typesafe does not take media yet (media[0], image/png); choose a provider
-that reads images, such as backend.Gemini`. Its `SystemOne` calls
+`typesafe does not take media yet (media[0], <mime>); choose a provider
+that reads <kind>, such as backend.Gemini`, where `<kind>` is the plural
+of the first file's kind: `images`, `audio`, `videos`, or `PDFs`. For a
+PDF it reads as the PRD's UC-2 message:
+`typesafe does not take media yet (media[0], application/pdf); choose a
+provider that reads PDFs, such as backend.Gemini`. Its `SystemOne` calls
 `CheckMedia` first, so it rejects media when used without the client.
 
 `Request.MarshalJSON` is unchanged in code. Its doc gains one sentence:
