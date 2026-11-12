@@ -618,10 +618,17 @@ type questionSet struct {
 	sent    map[string][]byte
 }
 
-// attach adds a media file to req. The client checks it against the run's
-// provider before sending.
+// attach adds a media file to req after the checks that fail on every
+// provider. The client checks it against the run's provider before
+// sending; ask marks that rejection as local too.
 func (r *Run) attach(req *decide.Request, contentType string, data []byte) error {
-	req.Media = append(req.Media, decide.Media{MIMEType: contentType, Data: data})
+	m := decide.Media{MIMEType: contentType, Data: data}
+	probe := decide.NewRequest(struct{}{}, decide.WithMedia(m))
+	decide.Ask(probe, "file", decide.Noul("file"))
+	if err := probe.Validate(); err != nil {
+		return err
+	}
+	req.Media = append(req.Media, m)
 	return nil
 }
 
@@ -743,6 +750,9 @@ func (r *Run) ask(ctx context.Context, client *decide.Client, req *decide.Reques
 			return res, &FatalError{err}
 		}
 		res.Error = err.Error()
+		// The provider would not take the file: decide rejected it
+		// before sending.
+		res.Local = len(req.Media) > 0 && errors.Is(err, errors.ErrUnsupported)
 		var api *decide.APIError
 		if errors.As(err, &api) {
 			res.Error = fmt.Sprintf("HTTP %d", api.StatusCode)
