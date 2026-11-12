@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
-	"strings"
 )
 
 // File is one file of a request, as a provider checks it.
@@ -131,17 +130,4 @@ func megapixels(n int64) string {
 		return fmt.Sprintf("%d megapixels", n/1_000_000)
 	}
 	return fmt.Sprintf("%d pixels", n)
-}
-
-// TakesList joins names as "a, b, and c".
-func TakesList(names ...string) string {
-	switch len(names) {
-	case 0:
-		return ""
-	case 1:
-		return names[0]
-	case 2:
-		return names[0] + " and " + names[1]
-	}
-	return strings.Join(names[:len(names)-1], ", ") + ", and " + names[len(names)-1]
 }
