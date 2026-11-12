@@ -205,8 +205,12 @@ type FormatError struct {
   text template's folder walk skipped. `nothingFound` adds the UC-5 hint
   when it is set: one pattern per folder and extension, with the folder
   quoted for the shell when it needs it, at most three, and the first
-  provider that reads every kind named, the chosen one first. The
-  `Skipped ... not text` line does not change.
+  provider that reads every kind named, the chosen one first. The UC-5
+  hint replaces today's `NotTextMedia` case in `nothingFound` (`reads
+  text.` and the hint to media templates), which is removed, so only
+  one hint prints. A test checks the UC-5 output for a folder of images
+  and that the old hint is gone. The `Skipped ... not text` line does
+  not change.
 - **Stdin.** `stdinItems` does not change. The CLI's hint for a
   `MediaError` on stdin becomes the R-10 text.
 - **`templates show`.** `reads` adds the PRD's sentence for each kind of
@@ -273,7 +277,7 @@ keys only.
 | UC-2 | `TestNamedImageOnTypeSafe` (cli) | exact error and hint; zero requests on a fake TypeSafe server; no run directory; same error with `--dry-run` and no key; with `DECIDE_PROVIDER=openai` it runs. |
 | UC-3 | `TestNamedMediaKindProviderCannotRead` (cli) | `call.mp3` on OpenAI and `report.pdf` on Cloudflare: exact errors and hints; zero requests. |
 | UC-4 | `TestMixedRun` (cli) | `sentiment notes.txt shot.png --provider gemini`: 3 requests without media and 1 with; `--each file` gives 2 items; `--limit 2` and `--sample 2`; `--json` and `--dry-run --json` hold 4 items with unit `image` on one; a second run is all cache hits; changed PNG bytes ask again for that item only; an interrupted run resumes and reads the run's copy; `MediaItems` is 1 and workers default to 2. |
-| UC-5 | `TestFolderWithImagesStaysText` (cli) | `code-risk .` on TypeSafe and OpenAI: same items, no media, today's Skipped line. A folder with only images: the UC-5 hint, with `--provider` set as the PRD says. |
+| UC-5 | `TestFolderWithImagesStaysText` (cli) | `code-risk .` on TypeSafe and OpenAI: same items, no media, today's Skipped line. A folder with only images: the UC-5 hint, with `--provider` set as the PRD says, and not the old `reads text.` hint. |
 | UC-6 | `TestMediaTemplateOtherKind` (cli) | `receipt-quality receipt.pdf --provider gemini` sends a PDF; with only a Cloudflare key, the Cloudflare error; `receipt-quality photos` reads images only. |
 | UC-7 | `TestMediaTemplateFolderWrongProvider` (cli) | `invoice-check invoices` on TypeSafe and OpenAI stops before the walk, also with `--dry-run`; `invoice-check scan.png --provider openai` runs. |
 | UC-8 | `TestSeveralNamedFilesFail` (cli), `TestWalkNamedErrors` (source) | the list, the order, the cap of 10 with `and N more`, one hint per distinct hint; a passing file is not listed; `--limit 1` still checks every named file. |
