@@ -172,9 +172,11 @@ page body stays MDX, with `not-content` on our sections.
 claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
 
 1. **Hero, centred.** The release line, the headline "You think very hard.
-   decide answers.", a tagline that names two of the small calls a script
-   makes all day (is this diff risky, which queue gets this ticket) and
-   says decide is an open-source CLI and Go library, then `Install.astro`
+   decide answers.", a tagline of two plain sentences: what decide is (an open-source
+   CLI and Go library), then what you do and get (ask a question about
+   every diff, ticket or file; a decision model answers each with a
+   probability your script can act on). No colon lists and no stacked
+   clauses. then `Install.astro`
    (brew, go install, go get, claude code), and under it one centred row
    of two buttons: "Quickstart →", the page's way into the docs, and
    "See what decide does" (ghost, to `#adds`, the band that sets decide
