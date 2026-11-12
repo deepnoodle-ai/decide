@@ -49,6 +49,8 @@ may change the library API and the CLI.
 ### Fixed
 
 - **`decide runs resume` key hint.** A missing key no longer suggests `--dry-run`, which `runs resume` does not have.
+- **Media in the docs and plugin.** Providers lists which provider reads
+  which files, and the plugin's judge tool says it reads text only.
 
 ## [0.4.0] - 2026-10-08
 

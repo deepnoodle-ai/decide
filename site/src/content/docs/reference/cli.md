@@ -16,7 +16,8 @@ decide models [--provider NAME] [--json]
 ## `decide run`
 
 Asks a template's questions about each [item](/reference/items/) in your data. With no files
-named, it reads stdin.
+named, it reads stdin. A template that reads images, audio, video, or PDFs
+reads only the files and folders you name.
 
 ```sh
 decide run code-risk src --include '*.go' --limit 5

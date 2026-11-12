@@ -76,6 +76,11 @@ off, or remove them, as they land.
       preview behind the `TypeSafe-Danger-Zone-Images` header. First, a
       spike measures how the place of the image references in the state
       changes the answers (#106).
+- [ ] **More ways to give the CLI media.** Media templates read only files
+      and folders on disk. Not yet: a URL as an argument, a path or URL in
+      a record's field, media on stdin, and GIF and HEIC images.
+- [ ] **A media demo.** A fixture in `demo/` and a tape in `site/tapes`
+      for `receipt-quality` and `invoice-check`.
 - [x] **Images on OpenAI.** Send image templates to the Decisions API as
       base64 data URLs, as `cloudflare.SetImages` does for Clef.
 - [x] **`decide models`.** List models and check that the provider accepts the credentials.
