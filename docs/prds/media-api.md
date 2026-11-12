@@ -145,9 +145,10 @@ type Request struct {
 // WithMedia appends files to the request.
 func WithMedia(media ...Media) RequestOption
 
-// MediaTransport is a Transport that can send Request.Media. The client
-// sends a request with media only to a MediaTransport, and calls
-// CheckMedia once before the first attempt.
+// MediaTransport is a Transport that checks Request.Media itself and
+// sends the files it takes. The client sends a request with media only
+// to a MediaTransport, and calls CheckMedia once before the first
+// attempt. Implementing it does not mean a transport takes any file.
 type MediaTransport interface {
 	Transport
 	CheckMedia(req *Request) error
@@ -312,12 +313,14 @@ func TestReceiptCheck(t *testing.T) {
 ```
 
 Without `AcceptMedia`, the same test fails with the TypeSafe error from
-UC-2. That is the answer the default provider gives in production.
+UC-2. That is the answer the default provider gives in production. The
+error ends with a hint for the test author: `(in a test, pass
+decidetest.AcceptMedia() to decidetest.NewServer to accept media)`.
 
 Acceptance:
 - [ ] By default, a client from `decidetest` rejects every file with the
-      same error as the TypeSafe transport, and the server records no
-      request.
+      same error as the TypeSafe transport, followed by the hint that
+      names `AcceptMedia`, and the server records no request.
 - [ ] With `AcceptMedia`, `Recorded.Request.Media` holds each file in
       order, with its MIME type and bytes or URL. `Recorded.Request.State`
       and `Recorded.Request.Extra` are what the caller built.
@@ -374,14 +377,24 @@ On every provider:
 - MIME types are matched without case and without parameters, and these
   aliases are accepted: `image/jpg` → `image/jpeg`; `audio/x-wav`,
   `audio/wave`, `audio/vnd.wave` → `audio/wav`; `audio/x-m4a`,
-  `audio/mp4` → `audio/m4a`; `video/quicktime` → `video/mov`.
-- When the bytes have a format decide recognizes (PNG, JPEG, GIF, WebP,
-  PDF, WAV, MP3, OGG, FLAC, MP4, WebM), the declared type must be one
-  that format can be. A container is one format: MP4, MOV, M4A, and 3GP
-  share the MP4 header, and WebM audio and video share the WebM header.
-  So an MP3 declared `audio/mpeg`, a WebM declared `audio/webm`, and a
-  MOV declared `video/quicktime` pass. The tech spec lists each format
-  and its types.
+  `audio/mp4`, `audio/mp4a-latm` → `audio/m4a`; `audio/x-aac` →
+  `audio/aac`; `audio/x-flac` → `audio/flac`; `audio/x-aiff` →
+  `audio/aiff`; `application/ogg` → `audio/ogg`; `video/quicktime` →
+  `video/mov`; `video/x-m4v` → `video/mp4`; `video/x-msvideo` →
+  `video/avi`; `video/x-ms-wmv` → `video/wmv`. With them, every name that
+  Go's `mime.TypeByExtension` (on macOS and Linux) and
+  `http.DetectContentType` return for a format a provider takes is
+  accepted.
+- PNG, JPEG, GIF, and WebP bytes must start with their own signature.
+  Other bytes of a format decide recognizes (PDF, WAV, MP3, OGG, FLAC,
+  MP4, WebM, or an image format) contradict the declared type only when
+  they are of another kind, such as FLAC bytes declared as a PDF. A
+  container is one format: MP4, MOV, M4A, and 3GP share the MP4 header,
+  and WebM audio and video share the WebM header. So an MP3 declared
+  `audio/mpeg`, a WebM declared `audio/webm`, and a MOV declared
+  `video/quicktime` pass. Bytes of the declared kind under a type no
+  provider lists are left to the provider, which rejects the type with
+  `errors.ErrUnsupported`. The tech spec lists each format and its types.
 - Files are sent in the order they were attached.
 
 ## Requirements
@@ -438,15 +451,16 @@ On every provider:
   file bytes.
 - R-9: `Request.Validate` rejects a `[]byte` at any depth of the state,
   instructions, and criteria, through maps, slices, arrays, pointers, and
-  struct fields. It rejects only bytes that `encoding/json` would write as
-  base64: a nil `[]byte`, a field tagged `json:"-"`, an unexported field,
+  struct fields, including the fields `encoding/json` promotes from an
+  embedded struct, exported or not. It rejects only bytes that
+  `encoding/json` would write as base64: a nil `[]byte`, a field tagged `json:"-"`, an unexported field,
   and a value whose type has its own `MarshalJSON` or `MarshalText` (such
   as `json.RawMessage`) are allowed. The message names the path
   and the media API:
   `state.receipt is []byte, which would be sent as base64 text; attach files with decide.WithMedia, or pass text as a string`.
 - R-10: `decidetest` without `AcceptMedia` builds clients with the
   TypeSafe transport, so a request with media fails as it does on
-  TypeSafe. With `AcceptMedia`, the server's clients use a transport that
+  TypeSafe; the error also names `AcceptMedia`. With `AcceptMedia`, the server's clients use a transport that
   implements `MediaTransport`, accepts every file that passes
   `Request.Validate`, and sends the files to the fake server, which
   records them in `Recorded.Request.Media`.
@@ -591,6 +605,12 @@ Made in this PRD:
 - **Kind comes from the MIME type.** One field cannot disagree with
   another. Google's Go SDK does the same. Rejected: a separate `Kind`
   field.
+- **Recognized bytes check the kind, not the exact type.** Outside PNG,
+  JPEG, GIF, and WebP, bytes contradict the declared type only when they
+  are of another kind. A type name decide does not know is the
+  provider's call, with `errors.ErrUnsupported`. Rejected: an exact
+  match per format, which failed a good FLAC declared `audio/x-flac`
+  with `ErrInvalidRequest` and a message that contradicted itself.
 - **`Data` is `[]byte`, not base64.** Callers have bytes; each transport
   encodes once, in the form it needs. Rejected: a base64 string, which
   every caller would encode and every transport would decode to check.
@@ -628,7 +648,8 @@ Made in this PRD:
   shorten, and a caller can still attach media to the requests that use
   the compacted text.
 - **No `Provider.Takes(kind)` function.** UC-5 routes by kind with the
-  documented table. Rejected for now: a support table in `backend`, which
+  documented table. A caller who must ask a transport calls `CheckMedia`
+  with a request that carries the file; it does no I/O. Rejected for now: a support table in `backend`, which
   can come with the CLI track if it wants to drop its own.
 
 ## Success
@@ -650,8 +671,9 @@ Made in this PRD:
   that reads the file, and the Go guide shows the table. #106 adds images
   on Jev. Not blocking.
 - **Byte sniffing can reject a valid file** whose header decide misreads.
-  We sniff only formats with fixed signatures, and accept unknown formats
-  as declared. Not blocking.
+  We sniff only formats with fixed signatures, compare only the kind
+  outside the four image formats, and accept unknown formats as
+  declared. Not blocking.
 - **No retry after a media attempt times out** can fail a call that a
   second attempt would finish. The caller can retry, or raise the
   timeout with `WithAttemptTimeout`. Not blocking.
