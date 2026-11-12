@@ -1,6 +1,6 @@
 ---
 title: Recipes
-description: Workflows and scripts to copy, for CI systems, git hooks, issues, and spreadsheets.
+description: Workflows and scripts to copy, for CI systems, git hooks, issues, spreadsheets, and media files.
 ---
 
 Workflows and scripts to copy into CI, git hooks, and issue trackers. The
@@ -162,6 +162,25 @@ git diff --cached | decide run code-risk --each hunk --fail-on flagged
 Skip the check for one commit with `git commit --no-verify`. The hook
 judges each hunk rather than each function, because the file on disk can
 differ from what is staged.
+
+## Judge screenshots, recordings, and PDFs
+
+Each image, audio, video, or PDF file is one item. Name the files for any
+template, or give a folder to a template that reads them:
+
+```sh
+decide run code-risk screenshots/*.png --provider openai         # any template, on files you name
+decide run sentiment calls/*.mp3 --provider gemini               # one item per recording
+decide run receipt-quality receipts --format csv > receipts.csv  # each image in the folder
+decide run invoice-check invoices --fail-on flagged              # exit code 2 on a flagged invoice
+```
+
+A folder gives a text template, such as `code-risk`, text only, so name
+the files with a pattern. Audio, video, and PDFs run on Gemini Decision.
+See [Images, audio, video, and PDFs](/reference/items/#images-audio-video-and-pdfs)
+for the rules, and
+[Files each provider reads](/reference/providers/#files-each-provider-reads)
+for formats and size limits.
 
 ## Export results to a spreadsheet
 

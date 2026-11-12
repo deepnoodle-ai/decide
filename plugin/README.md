@@ -14,7 +14,8 @@ Claude also gets a **judge tool**, `mcp__decide__judge`, for its own typed
 questions over up to 200 items, and a **skill** that teaches it to run
 decide and write templates. The judge tool reads text only. For images,
 PDFs, audio, or video, the skill has Claude run a template on the files,
-such as `decide run invoice-check invoices`.
+such as `decide run invoice-check invoices` or
+`decide run code-risk diff.png --provider openai`.
 
 **`/decide:hunt <commit or PR>`** finds the other places a fixed bug lives.
 Claude writes one question about the mistake the fix corrected, checks
