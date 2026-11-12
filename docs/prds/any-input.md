@@ -274,9 +274,13 @@ Error: 3 files you named can't be sent
   intro.mp3: an audio file, and OpenAI reads images, not audio
   photo.gif: an image, and decide sends images only as PNG, JPEG, or WebP
 
-Hint: Audio runs on Gemini. Run it with --provider gemini
+Hint: Audio runs on Gemini.
+Run it with --provider gemini
 Save photo.gif as PNG, JPEG, or WebP, and run decide on that file.
 ```
+
+Each hint is the single-file hint. In the list, a hint that names one
+file says its name instead of "it".
 
 Acceptance:
 - [ ] Every named media file is checked before any request. One error
