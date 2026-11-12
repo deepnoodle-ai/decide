@@ -31,9 +31,12 @@
 //
 // A request with media gets a 5-minute attempt timeout, unless
 // decide.WithAttemptTimeout or decide.WithCallAttemptTimeout sets one, and
-// an attempt that reaches it is not retried. Other failures are retried as
-// usual, so bound the whole call with a context deadline, and lower the
-// retries with decide.WithMaxRetries or decide.WithCallMaxRetries:
+// an attempt that reaches it is not retried. Other failures, such as a 503
+// or a reset connection, are retried as usual. So with the default two
+// retries, the worst case for one call is three attempts of up to 5
+// minutes each, plus the backoff between them: more than 15 minutes.
+// Bound the whole call with a context deadline, and lower the retries
+// with decide.WithMaxRetries or decide.WithCallMaxRetries:
 //
 //	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 //	defer cancel()
