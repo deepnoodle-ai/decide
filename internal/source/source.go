@@ -791,7 +791,7 @@ func (w *walker) stdinItems() error {
 			return errors.New("stdin is larger than 1 MiB")
 		}
 		if isBinary(data) {
-			return errors.New("stdin is not text")
+			return &NotTextError{Label: "stdin"}
 		}
 		return w.text("stdin", string(data), true, w.opts.Each, true)
 	case template.EachLine:
