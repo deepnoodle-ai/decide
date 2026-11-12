@@ -247,8 +247,10 @@ func namedMediaHint(s *template.Template, provider string, skipped *source.Skipp
 	var globs, kinds []string
 	var kindSet []template.Input
 	for _, m := range skipped.Media {
-		label := filepath.ToSlash(m.Label)
-		glob := shellQuote(path.Dir(label)) + "/*" + path.Ext(label)
+		// The path on disk, not the label: a folder outside the working
+		// directory has a short label that would not resolve.
+		file := filepath.ToSlash(m.Path)
+		glob := shellQuote(path.Dir(file)) + "/*" + path.Ext(file)
 		if !slices.Contains(globs, glob) {
 			globs = append(globs, glob)
 		}

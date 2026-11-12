@@ -351,6 +351,22 @@ func TestFolderWithImagesStaysText(t *testing.T) {
 	contains(t, out.stderr, "To send the images and PDFs, name them:\ndecide run sentiment mixed/*.png mixed/*.jpg mixed/sub/*.pdf --provider gemini")
 	lacks(t, out.stderr, "name the rest")
 
+	// A folder outside the working directory: the pattern names the folder
+	// on disk, not its short label, so the command resolves from here.
+	outside := filepath.Join(t.TempDir(), "shots")
+	if err := os.MkdirAll(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(outside, "a.png"), []byte(pngOf(t, 1, 1)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out = h.run("", "run", "sentiment", outside, "--provider", "openai", "--dry-run")
+	glob := shellQuote(filepath.ToSlash(outside)) + "/*.png"
+	contains(t, out.stderr, "decide run sentiment "+glob+" --provider openai")
+	if matches, _ := filepath.Glob(filepath.Join(outside, "*.png")); len(matches) != 1 {
+		t.Fatalf("the pattern matches %v", matches)
+	}
+
 	// More than three patterns: the first three, and a note.
 	h.write("many/a.png", pngOf(t, 1, 1))
 	h.write("many/b.jpg", "\xff\xd8\xff\xe0")

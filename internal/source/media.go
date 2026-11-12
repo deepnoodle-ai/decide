@@ -53,6 +53,7 @@ type Skipped struct {
 // SkippedMedia is a media file a folder walk skipped for a text template.
 type SkippedMedia struct {
 	Label string
+	Path  string // the file on disk, as the walk opened it
 	Kind  template.Input
 }
 
@@ -383,7 +384,7 @@ func (w *walker) notText(path, label string, head []byte, explicit bool) error {
 		if kind != "" {
 			w.skipped.NotTextMedia++
 			if _, sent := extKind(path); sent {
-				w.skipped.Media = append(w.skipped.Media, SkippedMedia{Label: label, Kind: kind})
+				w.skipped.Media = append(w.skipped.Media, SkippedMedia{Label: label, Path: path, Kind: kind})
 			}
 		}
 		w.notTextNames = append(w.notTextNames, label)
