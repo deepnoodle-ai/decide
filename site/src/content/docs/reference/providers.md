@@ -74,8 +74,10 @@ Every provider reads text. Only some read a template's files:
 
 decide reads PNG, JPEG, and WebP images; MP3, WAV, M4A, AAC, FLAC, OGG,
 Opus, AIFF, and WebM audio; MP4, MOV, WebM, MPEG, AVI, WMV, FLV, and 3GP
-video; and PDFs. It knows a file's kind by its extension. Convert other
-formats, such as GIF and HEIC, first.
+video; and PDFs. It picks files by their extension and does not read
+other files, such as `.gif` and `.heic` images. Convert them first. For an
+image, decide also reads the file's first bytes and sends the type it
+finds there: a GIF named `.png` is sent as a GIF.
 
 An image template with no `--provider` or `DECIDE_PROVIDER` runs on the
 first of Cloudflare, OpenAI, and Gemini whose credentials are set, and an

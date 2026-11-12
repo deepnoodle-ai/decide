@@ -56,7 +56,8 @@ decide run invoice-check invoices --json      # each PDF
   `"video"`, or `"pdf"`. Audio, video, and PDFs run on Gemini only. Jev
   (`TYPESAFE_API_KEY`) reads text only.
 - Name files or folders on disk. Media templates do not read stdin, URLs, or
-  paths inside records, so download files first. GIF and HEIC are not read.
+  paths inside records, so download files first. Files named `.gif` or
+  `.heic` are not read; convert them first.
 - If `DECIDE_PROVIDER` names a provider that does not read the template's
   files, decide stops. Add `--provider gemini`, which reads all four kinds.
 - If no key is set, decide names only one key. For `receipt-quality` or
