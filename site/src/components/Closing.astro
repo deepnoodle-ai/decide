@@ -1,11 +1,12 @@
 ---
-// The landing page's last band: one more command, the quickstart, and the
-// source. The glad face holds the answer from the triage-check recording,
+// The landing page's last band: one more command, the quickstart, the
+// source, and the licence in one line. The glad face holds the answer from the triage-check recording,
 // whole, at the right; below 860px it sits smaller above the heading.
 import CopyButton from './CopyButton.astro';
 import Doodle from './Doodle.astro';
 
 const command = 'brew install deepnoodle-ai/tap/decide';
+const repo = 'https://github.com/deepnoodle-ai/decide';
 ---
 
 <section class="closing not-content">
@@ -19,8 +20,11 @@ const command = 'brew install deepnoodle-ai/tap/decide';
 		</div>
 		<div class="actions">
 			<a class="btn" href="/start/">Quickstart →</a>
-			<a class="btn ghost" href="https://github.com/deepnoodle-ai/decide">Read the source</a>
+			<a class="btn ghost" href={repo}>Read the source</a>
 		</div>
+		<p class="terms">
+			Open source under Apache 2.0: use it, change it, sell what you build with it. <a href={`${repo}/blob/main/LICENSE`}>LICENSE</a>{' · '}<a href={`${repo}/blob/main/CONTRIBUTING.md`}>CONTRIBUTING.md</a>
+		</p>
 	</div>
 </section>
 
@@ -86,6 +90,14 @@ const command = 'brew install deepnoodle-ai/tap/decide';
 	}
 	.pr {
 		color: var(--sl-color-gray-4);
+	}
+	.terms {
+		max-width: none;
+		margin-top: 28px;
+		font: 400 12.5px/1.6 var(--sl-font-mono);
+	}
+	.terms a {
+		color: inherit;
 	}
 	.actions {
 		display: flex;

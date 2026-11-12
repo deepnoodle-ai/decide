@@ -209,13 +209,14 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    says the probability is the model's judgment and links the calibrate
    example to compare on labeled items before switching. The headline is
    the page's one statement about people; don't repeat it in other bands.
-6. **"No black box. Except the model."** The client is open and the model
-   is the provider's, so this band holds both: `Models.astro`, one row of
-   four (two by two under 860px), the line on where your text goes, then
-   Apache 2.0 in one fine line with LICENSE and CONTRIBUTING.md linked.
+6. **"Four decision models, one set of commands."** `Models.astro`: one
+   row of four (two by two under 860px), then the line on where your text
+   goes, linking to the providers reference. Providers only: the licence
+   is a separate fact and lives in the closing.
 7. **`Closing.astro`.** "Your turn. Ask it something." One command, the
-   quickstart and the source, with the glad-card face (hidden under 600px,
-   where the hero's face is enough).
+   quickstart and the source, then one fine line: open source under Apache
+   2.0, with LICENSE and CONTRIBUTING.md linked. The glad-card face sits at
+   the right (hidden under 600px, where the hero's face is enough).
 
 **Positioning:** decide is for the many small calls inside automations, not
 the decisions people make. People appear only as the ones who take the close
@@ -224,8 +225,8 @@ general LLMs, argue from the mechanism (one value and a probability, so less
 to generate, pay for, wait on and parse), never from an invented figure.
 Don't sneer at LLMs.
 
-Bands are left aligned. Only some headlines are two-tone (the hero, the
-open band, the closing): vary the shape, and make a contrast with LLMs
+Bands are left aligned. Only some headlines are two-tone (the hero and
+the closing): vary the shape, and make a contrast with LLMs
 once, in the Compare band. Under 600px a command scrolls inside its box rather than breaking
 mid word.
 
