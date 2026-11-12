@@ -173,10 +173,12 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
 
 1. **Hero, centred.** The release line, the headline "You think very hard.
    decide answers.", a tagline that names two of the small calls a script
-   makes all day (is this diff risky, which queue gets this ticket), "Why
-   not just call an LLM? →" on its own line in the hero's link style, and
-   `Install.astro` (brew, go install, go get, claude code). Then "Read the
-   quickstart →", the page's way into the docs.
+   makes all day (is this diff risky, which queue gets this ticket) and
+   says decide is an open-source CLI and Go library, then `Install.astro`
+   (brew, go install, go get, claude code), and under it one centred row
+   of two buttons: "Quickstart →", the page's way into the docs, and
+   "Why not just call an LLM?" (ghost, to `#compare`). The buttons sit
+   below the command, never beside the install tabs.
 2. **`RunStage.astro`.** Five recordings in one window, picked by file tabs
    in its chrome: `triage-check` (issue.md), `review-gate` (change.diff),
    `type-choice` (ticket.txt), `start-line` (review.txt), `type-score`
