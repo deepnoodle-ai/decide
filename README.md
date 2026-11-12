@@ -43,6 +43,10 @@ them without changing anything else:
 | --- | --- | --- | --- | --- |
 | Models | `jev-latest` | `clef`, and `clef-flash` for lower latency | `gpt-6-luna` | `gemini-decision-1` |
 | Runs on | the [TypeSafe API](https://typesafe.ai) | [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/get-started/rest-api/) | the [Decisions API](https://developers.openai.com/api/docs/guides/decisions), in beta | the [Gemini Decisions API](https://aistudio.google.com/docs/decisions-api), in beta |
+| Reads | text | text and images | text and images | text, images, audio, video, and PDFs |
+
+[Providers](https://decide.deepnoodle.ai/reference/providers/#files-each-provider-reads)
+lists the file formats and size limits.
 
 Clef's weights are [open on Hugging Face](https://huggingface.co/Cloudflare/clef)
 under Apache 2.0.
@@ -142,7 +146,8 @@ gh pr view 42 --json number,title,body | decide run pr-description --fail-on fla
 echo 'git reset --hard HEAD~3' | decide run command-risk    # before an agent runs it
 ```
 
-Decide reads JSONL, JSON, CSV, text, Markdown, source code, diffs, and images,
+Decide reads JSONL, JSON, CSV, text, Markdown, source code, diffs, images,
+audio, video, and PDFs,
 flags answers that need attention, and resumes stopped runs. It keeps
 every answer, by the model name you ask for, so a second run asks only
 about what changed, and asks again when a live answer shows the model

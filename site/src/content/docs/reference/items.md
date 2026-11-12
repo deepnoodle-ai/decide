@@ -54,6 +54,12 @@ and skips:
 - files listed in `.gitignore` or `.decideignore`
 - binary files, and text files over 1 MiB
 
+A template that reads images, audio, video, or PDFs reads each file of its
+kind in the folders you name, and skips the rest. It skips a file over the
+[provider's limit](/reference/providers/#files-each-provider-reads), and
+says so. A file you name of the wrong kind or size stops the run. It
+doesn't read stdin, URLs, or paths in records: download the files first.
+
 Narrow a run by file name. A pattern without a slash matches at any depth:
 
 ```sh
