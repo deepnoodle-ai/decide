@@ -46,7 +46,9 @@ export TYPESAFE_API_KEY=...    # or another provider's key; see below
 Any provider works for the checks and the judge tool. To use Clef, set
 `CLOUDFLARE_AUTH_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; GPT-6 Luna,
 `OPENAI_API_KEY`; Gemini Decision, `GEMINI_API_KEY`. Then set
-`DECIDE_PROVIDER` to `cloudflare`, `openai`, or `gemini`. The
+`DECIDE_PROVIDER` to `cloudflare`, `openai`, or `gemini`. If that provider
+cannot read a template's images, PDFs, audio, or video, the template stops.
+The skill then has Claude add `--provider gemini`. The
 [providers guide](https://decide.deepnoodle.ai/reference/providers/) shows
 each one.
 
