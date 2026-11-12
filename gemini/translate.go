@@ -115,6 +115,12 @@ func encodeRequest(req *decide.Request) ([]byte, error) {
 		}
 		body.Questions[key] = q
 	}
+	if len(req.Media) > 0 {
+		if len(media) > 0 {
+			return nil, invalid(`set media with decide.WithMedia or Extra, not both`)
+		}
+		return encodeMedia(req, body, text(state))
+	}
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("%w: gemini request: %w", decide.ErrInvalidRequest, err)
