@@ -185,11 +185,15 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    of the triage-check transcript the page loads, named as the issue.md run
    and called one recording; no hard-coded figure.
 3. **"The small calls inside your automations."** `WhereItRuns.astro`:
-   four link cards, two by two (one column under 760px): gate the merge,
-   check an agent's commands, route the queue, rank a codebase. Each has
-   how often in mono ("every pull request"), a 24px title, one line, the
-   command on a dark strip, and the guide it links to. The whole card is
-   the link. It comes first because it shows what the reader can do.
+   six link cards in two columns (one under 760px): gate the merge, check
+   an agent's commands, route the queue, rank a codebase, read the photo,
+   check the PDF. Each has how often in mono ("every pull request"), a chip
+   for what it reads (diff, text, code, image, pdf), a 24px title, one
+   line, the command on a dark strip, and the guide it links to. In the
+   command the template name is in the code theme's keyword color and
+   flags in its string color; no verdict colors. The whole card is the
+   link. It comes first because it shows what the reader can do, and the
+   chips are where the page first shows that decide reads more than text.
 4. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`, linked
    from the hero): three cards in one row (stacked under 860px), no table
    and no example reply: "Faster", "Cheaper", "Calibrated" (defined in the card: of the answers
@@ -212,7 +216,9 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    the calibrate example. The headline is
    the page's one statement about people; don't repeat it in other bands.
 6. **"Four decision models, one set of commands."** `Models.astro`: one
-   row of four (two by two under 860px), then the line on where your text
+   row of four (two by two under 860px). Each card ends with the same five
+   chips (text, images, audio, video, PDF), lit when that provider reads
+   them, and the subhead says it in words. Then the line on where your text
    goes, linking to the providers reference. Providers only: the licence
    is a separate fact and lives in the closing.
 7. **`Closing.astro`.** "Your turn. Ask it something." One command, the

@@ -1,41 +1,71 @@
 ---
-// "The small calls inside your automations.": four places a script makes
-// the same call on every item. Each is one link card: how often (mono), what
-// you do (the title), one line, the command on a dark strip, and the guide
-// that sets it up. Two by two on desktop, so each has room to be read; one
-// column below 760px. The whole card is the link.
+// "The small calls inside your automations.": six places a script makes
+// the same call on every item. Each is one link card: how often (mono) and
+// what it reads (a chip), what you do (the title), one line, the command on
+// a dark strip, and the guide that sets it up. The chips show the inputs at
+// a glance: diffs, text, code, images and PDFs. Two columns on desktop, so
+// each has room to be read; one below 760px. The whole card is the link.
+//
+// Commands are colored by hand with the code theme's colors: the template
+// in the keyword color, flags and pipes quieter. No verdict colors.
+const t = (name: string) => `<span class="t">${name}</span>`;
+const f = (flag: string) => `<span class="f">${flag}</span>`;
+const d = (pre: string) => `<span class="d">${pre}</span>`;
+
 const cells = [
 	{
 		k: 'every pull request',
+		reads: 'diff',
 		title: 'Gate the merge',
 		line: 'A flagged change exits 2, and the check waits for someone to look.',
-		cmd: 'git diff main | decide run code-risk --fail-on flagged',
+		cmd: `${d('git diff main |')} decide run ${t('code-risk')} ${f('--fail-on flagged')}`,
 		href: '/recipes/#run-decide-in-github-actions',
 		link: 'Run it in GitHub Actions',
 	},
 	{
 		k: 'every command',
+		reads: 'text',
 		title: "Check an agent's commands",
 		line: 'Each shell command an agent wants to run is judged before it runs.',
-		cmd: 'echo "$CMD" | decide run command-risk --fail-on flagged',
+		cmd: `${d('echo "$CMD" |')} decide run ${t('command-risk')} ${f('--fail-on flagged')}`,
 		href: '/tutorials/check-agent-commands/',
 		link: 'Check agent commands',
 	},
 	{
 		k: 'every new ticket',
+		reads: 'text',
 		title: 'Route the queue',
 		line: 'Each ticket is sorted into a queue for the people who work it.',
-		cmd: 'decide run ticket-routing tickets.jsonl --field body',
+		cmd: `decide run ${t('ticket-routing')} tickets.jsonl ${f('--field body')}`,
 		href: '/recipes/#route-new-issues-to-a-queue',
 		link: 'Route new issues',
 	},
 	{
 		k: 'every function',
+		reads: 'code',
 		title: 'Rank a codebase',
 		line: 'Each function is scored for security mistakes, so you read the riskiest first.',
-		cmd: 'decide run security src',
+		cmd: `decide run ${t('security')} src`,
 		href: '/tutorials/find-security-bugs/',
 		link: 'Find security bugs',
+	},
+	{
+		k: 'every receipt',
+		reads: 'image',
+		title: 'Read the photo',
+		line: 'Each image is checked: is it a receipt, and can it be read.',
+		cmd: `decide run ${t('receipt-quality')} receipts/`,
+		href: '/reference/templates/#receipt-quality',
+		link: 'See receipt-quality',
+	},
+	{
+		k: 'every invoice',
+		reads: 'pdf',
+		title: 'Check the PDF',
+		line: 'Each PDF is checked: is it an invoice, is it complete, is it paid.',
+		cmd: `decide run ${t('invoice-check')} invoices/`,
+		href: '/reference/templates/#invoice-check',
+		link: 'See invoice-check',
 	},
 ];
 ---
@@ -44,12 +74,15 @@ const cells = [
 	{
 		cells.map((c) => (
 			<a class="cell" href={c.href}>
-				<p class="k">{c.k}</p>
+				<p class="k">
+					{c.k}
+					<span class="reads">{c.reads}</span>
+				</p>
 				<h3>{c.title}</h3>
 				<p class="line">{c.line}</p>
 				<code>
 					<span class="pr">$ </span>
-					{c.cmd}
+					<Fragment set:html={c.cmd} />
 				</code>
 				<span class="go">{c.link} →</span>
 			</a>
@@ -82,10 +115,23 @@ const cells = [
 		background: var(--sl-color-gray-7);
 	}
 	.k {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
 		margin: 0;
 		font: 400 12.5px/1.4 var(--sl-font-mono);
 		letter-spacing: 0.04em;
 		color: var(--sl-color-gray-3);
+	}
+	/* What the call reads, as a chip at the card's top right. */
+	.reads {
+		padding: 2px 8px;
+		border: 1px solid var(--sl-color-gray-4);
+		font-size: 11.5px;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--sl-color-white);
 	}
 	h3 {
 		margin: 10px 0 0;
@@ -118,8 +164,16 @@ const cells = [
 		white-space: nowrap;
 		scrollbar-width: none;
 	}
-	.pr {
+	.pr,
+	code :global(.d) {
 		color: var(--term-muted);
+	}
+	code :global(.t) {
+		font-weight: 700;
+		color: #c69cf4;
+	}
+	code :global(.f) {
+		color: #d7b98e;
 	}
 	.go {
 		margin-top: 16px;
