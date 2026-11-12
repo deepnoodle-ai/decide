@@ -108,9 +108,9 @@ must read that kind of file. If it does not, the run stops before anything
 is sent, and the error names the providers that do. decide never changes
 the provider because of your files. A folder skips a file over the
 provider's limit, and says so. A file you name that the provider cannot
-take stops the run, and the error lists every such file at once. decide
-doesn't read media from stdin, URLs, or paths in records: download the
-files first.
+take stops the run. One error lists up to 10 such files, then how many
+more. decide doesn't read media from stdin, URLs, or paths in records:
+download the files first.
 
 The template's questions are asked as written, about the file. No one has
 measured how well a question written for text works on a picture of text.
