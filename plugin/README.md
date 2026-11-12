@@ -12,7 +12,9 @@ when the answer is likely.
 
 Claude also gets a **judge tool**, `mcp__decide__judge`, for its own typed
 questions over up to 200 items, and a **skill** that teaches it to run
-decide and write templates.
+decide and write templates. The judge tool reads text only. For images,
+PDFs, audio, or video, the skill has Claude run a template on the files,
+such as `decide run invoice-check invoices`.
 
 **`/decide:hunt <commit or PR>`** finds the other places a fixed bug lives.
 Claude writes one question about the mistake the fix corrected, checks
@@ -38,8 +40,15 @@ a decision model:
 
 ```sh
 brew install deepnoodle-ai/tap/decide
-export TYPESAFE_API_KEY=...    # or the Cloudflare variables; see the decide README
+export TYPESAFE_API_KEY=...    # or another provider's key; see below
 ```
+
+Any provider works for the checks and the judge tool. To use Clef, set
+`CLOUDFLARE_AUTH_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; GPT-6 Luna,
+`OPENAI_API_KEY`; Gemini Decision, `GEMINI_API_KEY`. Then set
+`DECIDE_PROVIDER` to `cloudflare`, `openai`, or `gemini`. The
+[providers guide](https://decide.deepnoodle.ai/reference/providers/) shows
+each one.
 
 Then, in Claude Code:
 
@@ -92,7 +101,9 @@ haven't allowed, or its auto-mode classifier judges it. A command that
 matches one of your allow rules runs unchecked, as you chose.
 It flags only severe harm: discarding changes in your checkout, such as
 `git checkout -- .`, is not flagged. It judges the text of a command, so
-`make clean` or a script can hide what it does. When decide cannot
+`make clean` or a script can hide what it does. The content check reads
+only the text of a result, so an image or other file in it is not checked.
+When decide cannot
 answer (it is not installed, the key is missing, or the provider fails),
 the action goes on. The check says why in the transcript, the status line
 shows how many actions went unchecked, and the check tries again a minute
