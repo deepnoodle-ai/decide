@@ -27,9 +27,9 @@ func (a *App) addTemplates(app *cli.App) {
 		Description("Create your own template").
 		Long(`Create a template in ~/.decide/templates/NAME, ready to edit.
 
-A template is a template.json file with a name, a description, an input type
-(file, record, or image), and one or more questions. Start from scratch or
-copy an existing template with --from.
+A template is a template.json file with a name, a description, an input
+(text, image, audio, video, or pdf), and one or more questions. Start from
+scratch or copy an existing template with --from.
 
 Examples:
   decide templates new my-routing --from ticket-routing
@@ -153,6 +153,8 @@ func (a *App) templatesShow(c *cli.Context) error {
 // reads says what a template reads and what one item is.
 func reads(s *template.Template) string {
 	switch {
+	case s.Input == template.PDF:
+		return "PDF files, one item per file"
 	case s.Input.Media():
 		return fmt.Sprintf("%s files, one item per file (%s)", source.MediaName(s.Input), source.MediaFormats(s.Input))
 	case s.Each != "":

@@ -66,7 +66,7 @@ func TestRunPDFTemplateOnGemini(t *testing.T) {
 	if out.code != 0 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stderr, "Running invoice-check on 1 PDF · gemini gemini-decision-1", "fake.pdf (not a readable PDF)")
+	contains(t, out.stderr, "Running invoice-check on 1 PDF · gemini gemini-decision-1", "Skipped 1 file (not a readable PDF): ", "fake.pdf")
 	if len(*bodies) != 1 {
 		t.Fatalf("%d requests", len(*bodies))
 	}

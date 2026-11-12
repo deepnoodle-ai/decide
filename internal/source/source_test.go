@@ -80,7 +80,7 @@ func TestFileTemplateWalksDirectories(t *testing.T) {
 	if got := labels(items); !reflect.DeepEqual(got, want) {
 		t.Fatalf("labels = %v, want %v", got, want)
 	}
-	if len(warnings) != 1 || !strings.Contains(warnings[0], "blob.bin (binary file)") {
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "Skipped 1 file that is not text: pkg/util/blob.bin") {
 		t.Fatalf("warnings = %v", warnings)
 	}
 	var state map[string]string
@@ -106,8 +106,8 @@ func TestNamedFilesAreNotSkippedSilently(t *testing.T) {
 		path  string
 		want  string
 	}{
-		{template.Text, "blob.bin", "binary file"},
-		{template.Image, "photo.txt", "not an image"},
+		{template.Text, "blob.bin", "blob.bin is not text"},
+		{template.Image, "photo.txt", "photo.txt is not in a format this template reads: PNG, JPEG, or WebP"},
 		{template.Text, "missing.go", "does not exist"},
 	} {
 		err := Walk(context.Background(), []string{tc.path}, nil, Options{Input: tc.input}, func(Item) error { return nil })
@@ -177,17 +177,17 @@ func TestStdinFormats(t *testing.T) {
 }
 
 func TestImages(t *testing.T) {
-	png := "\x89PNG\r\n\x1a\n" + strings.Repeat("\x00", 16)
-	tree(t, map[string]string{"a.png": png, "b.txt": "text", "c.jpg": "not really"})
+	tree(t, map[string]string{"a.png": pngOf(1, 1), "b.txt": "text", "c.jpg": "not really"})
 	items, warnings := walk(t, []string{"."}, "", Options{Input: template.Image})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"a.png"}) {
 		t.Fatalf("labels = %v", got)
 	}
-	if items[0].Image == nil || items[0].Image.ContentType != "image/png" {
+	if items[0].Image == nil || items[0].Image.ContentType != "image/png" || items[0].Image.Path != "a.png" {
 		t.Fatalf("image = %+v", items[0].Image)
 	}
-	if len(warnings) != 1 || !strings.Contains(warnings[0], "c.jpg") {
-		t.Fatalf("warnings = %v", warnings)
+	want := []string{"Skipped 1 file (not a PNG, JPEG, or WebP image): c.jpg", "Skipped 1 file that is not PNG, JPEG, or WebP"}
+	if !reflect.DeepEqual(warnings, want) {
+		t.Fatalf("warnings = %q", warnings)
 	}
 }
 

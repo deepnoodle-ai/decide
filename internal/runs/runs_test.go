@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"os"
 	"path/filepath"
 	"slices"
@@ -263,5 +265,97 @@ func TestRunsFromOlderVersionsAreReported(t *testing.T) {
 	}
 	if _, err := Open(r.ID); err == nil || !strings.Contains(err.Error(), "older version of decide") {
 		t.Fatalf("Open(old run) = %v", err)
+	}
+}
+
+func TestFilesRejectedLocallyDoNotStopARun(t *testing.T) {
+	t.Setenv("DECIDE_HOME", t.TempDir())
+	dir := t.TempDir()
+	t.Chdir(dir)
+	// A WebP container with no image in it passes the walk's check, which
+	// reads only the header, and fails Cloudflare's, which reads the size.
+	for i := range RepeatLimit + 1 {
+		name := fmt.Sprintf("bad%d.webp", i)
+		if err := os.WriteFile(name, []byte("RIFF\x10\x00\x00\x00WEBPVP8 \xff\xff\xff\xff"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var good bytes.Buffer
+	if err := png.Encode(&good, image.NewGray(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("good.png", good.Bytes(), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := template.Load("receipt-quality")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Create(&Run{Template: s, Provider: "cloudflare", Model: "clef", Sources: []string{"."}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := source.Walk(context.Background(), []string{"."}, nil, source.Options{Input: template.Image}, r.Add); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Ready(); err != nil {
+		t.Fatal(err)
+	}
+	// The run keeps its own copy of each file, so it no longer needs them.
+	for i := range RepeatLimit + 1 {
+		os.Remove(fmt.Sprintf("bad%d.webp", i))
+	}
+	os.Remove("good.png")
+	server := decidetest.NewServer(t)
+	var seen []Result
+	err = r.Execute(context.Background(), server.Client(t), 1, func(res Result) error {
+		seen = append(seen, res)
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(seen) != RepeatLimit+2 || r.Complete != 1 || r.Failed != RepeatLimit+1 {
+		t.Fatalf("run = %s, %d complete, %d failed, results %+v", r.Status, r.Complete, r.Failed, seen)
+	}
+	for _, res := range seen[:RepeatLimit+1] {
+		if !res.Local || !strings.Contains(res.Error, "image data does not match") {
+			t.Fatalf("result = %+v", res)
+		}
+	}
+	if n := len(server.Requests()); n != 1 {
+		t.Fatalf("%d requests sent, want 1", n)
+	}
+}
+
+func TestMissingCopyIsALocalFailure(t *testing.T) {
+	t.Setenv("DECIDE_HOME", t.TempDir())
+	t.Chdir(t.TempDir())
+	if err := os.WriteFile("a.pdf", []byte("%PDF-1.4"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, _ := template.Load("invoice-check")
+	r, err := Create(&Run{Template: s, Provider: "gemini", Model: "gemini-decision-1", Sources: []string{"a.pdf"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := source.Walk(context.Background(), []string{"a.pdf"}, nil, source.Options{Input: template.PDF}, r.Add); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Ready(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(filepath.Join(r.Dir, "images")); err != nil {
+		t.Fatal(err)
+	}
+	var seen []Result
+	if err := r.Execute(context.Background(), decidetest.NewServer(t).Client(t), 1, func(res Result) error {
+		seen = append(seen, res)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(seen) != 1 || !seen[0].Local || seen[0].Error != "decide could not read the run's copy of this file" {
+		t.Fatalf("results = %+v", seen)
 	}
 }

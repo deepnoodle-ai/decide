@@ -363,7 +363,8 @@ func (s *Template) Validate() error {
 		}
 	case Image, Audio, Video, PDF:
 		if s.Each != "" {
-			return fmt.Errorf("an %s template reads one file at a time, so it has no each", s.Input)
+			return fmt.Errorf("%s template reads one file at a time, so it has no each", map[Input]string{
+				Image: "an image", Audio: "an audio", Video: "a video", PDF: "a PDF"}[s.Input])
 		}
 	default:
 		return fmt.Errorf(`input %q must be "text", "image", "audio", "video", or "pdf"`, s.Input)
@@ -508,6 +509,7 @@ func (s *Template) Decode() (map[string]decide.Question, error) {
 const starter = `{
   "name": %q,
   "description": "Describe what this template decides about each item.",
+  "input": "text",
   "questions": {
     "relevant": {
       "type": "noul",

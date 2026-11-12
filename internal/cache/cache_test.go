@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -20,6 +21,20 @@ func answer(n int) json.RawMessage {
 var questions = map[string][]byte{
 	"risk":  []byte(`{"type":"noul","instructions":"Is it risky?"}`),
 	"tests": []byte(`{"type":"noul","instructions":"Is it tested?"}`),
+}
+
+func TestItemOfReaderMatchesItemOf(t *testing.T) {
+	data := bytes.Repeat([]byte("image bytes "), 10000)
+	got, err := ItemOfReader([]byte(`{"path":"a.png"}`), "image/png", bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != ItemOf([]byte(`{"path":"a.png"}`), "image/png", data) {
+		t.Fatal("reading a file in pieces gives another identity")
+	}
+	if _, err := ItemOfReader(nil, "image/png", bytes.NewReader(data[:10]), int64(len(data))); err == nil {
+		t.Fatal("a short file has an identity")
+	}
 }
 
 func TestKeys(t *testing.T) {

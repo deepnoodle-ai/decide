@@ -67,15 +67,28 @@ func newCacheCount(cc *cache.Cache, src cache.Source, s *template.Template, read
 	return n, nil
 }
 
+// itemOf is the cache's identity of an item's state as sent, and of its
+// media file, which it reads from disk in pieces.
+func itemOf(state []byte, media *source.ImageData) (cache.Item, error) {
+	if media == nil {
+		return cache.ItemOf(state, "", nil), nil
+	}
+	f, err := os.Open(media.Path)
+	if err != nil {
+		return cache.Item{}, err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return cache.Item{}, err
+	}
+	return cache.ItemOfReader(state, media.ContentType, f, info.Size())
+}
+
 func (n *cacheCount) add(it source.Item) {
 	if n.disabled {
 		n.toAsk += len(n.sent)
 		return
-	}
-	var contentType string
-	var image []byte
-	if it.Image != nil {
-		contentType, image = it.Image.ContentType, it.Image.Data
 	}
 	states := []json.RawMessage{it.State}
 	if len(it.Parts) > 0 {
@@ -91,7 +104,12 @@ func (n *cacheCount) add(it source.Item) {
 			n.toAsk += len(n.sent)
 			return
 		}
-		items = append(items, cache.ItemOf(b, contentType, image))
+		ci, err := itemOf(b, it.Image)
+		if err != nil {
+			n.toAsk += len(n.sent)
+			return
+		}
+		items = append(items, ci)
 	}
 	// Count an answer only if the run would use it: present and valid
 	// for every part.

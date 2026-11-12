@@ -78,7 +78,11 @@ off, or remove them, as they land.
       changes the answers (#106).
 - [ ] **More ways to give the CLI media.** Media templates read only files
       and folders on disk. Not yet: a URL as an argument, a path or URL in
-      a record's field, media on stdin, and GIF and HEIC images.
+      a record's field, media on stdin, and GIF and HEIC images. See
+      [#104](https://github.com/deepnoodle-ai/decide/issues/104).
+- [ ] **Delete or prune saved runs.** A media run keeps a copy of each
+      file it reads, and nothing deletes runs. See
+      [#103](https://github.com/deepnoodle-ai/decide/issues/103).
 - [ ] **A media demo.** A fixture in `demo/` and a tape in `site/tapes`
       for `receipt-quality` and `invoice-check`.
 - [x] **Images on OpenAI.** Send image templates to the Decisions API as
