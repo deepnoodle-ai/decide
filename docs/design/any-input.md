@@ -124,13 +124,17 @@ reads anything. For each file whose extension is a media kind, or which
 a media template is given, the pass runs the checks that `media` runs
 today, plus the provider check, in the PRD's order:
 
-1. Format: an extension in `otherImages` -> `FormatError`. A file with
-   no media extension whose first bytes are media (`sniffMedia(head) !=
-   ""`) -> `FormatError` that asks for the extension. Any other file with
-   no media extension is text: a text template reads it in the walk, and
-   a media template gets `UnsupportedError`, the R-8 message.
-2. Provider: `opts.Media[kind]` is missing -> `ProviderError`.
-3. Size, then empty, then the header and pixels -> today's
+1. Kind: by extension (`extKind`), or, for a file with no media
+   extension, by its first bytes (`sniffMedia(head)`). Any other file
+   with no media extension is text: a text template reads it in the
+   walk, and a media template gets `UnsupportedError`, the R-8 message.
+2. Provider: `opts.Media[kind]` is missing -> `ProviderError`. When the
+   format check below would fail too, `ProviderError.Format` holds that
+   `FormatError`, so the hint can add the format fix (PRD R-3).
+3. Format: an extension in `otherImages` -> `FormatError`. A file with
+   no media extension whose first bytes are media -> `FormatError` that
+   asks for the extension.
+4. Size, then empty, then the header and pixels -> today's
    `TooLargeError`, `InvalidMediaError`, `PixelsError`.
 
 The pass and `media` share one function, `checkMedia(path, kind, info)
@@ -163,6 +167,8 @@ type ProviderError struct {
 	Label    string
 	Kind     template.Input
 	Provider string
+	// Format is set when decide does not send the file's format either.
+	Format *FormatError
 }
 
 // FormatError reports a named file of a media kind in a format decide
@@ -193,7 +199,11 @@ type FormatError struct {
   - `ProviderError`: `<noun>, and <Provider> reads text only` for
     TypeSafe, or `reads images, not <kind>` otherwise. Hint:
     `<Kind> run(s) on <providers>.` and `Run it with --provider ...`,
-    built from `mediaProviders[kind]` with `orJoin`.
+    built from `mediaProviders[kind]` with `orJoin`. With `Format`
+    set, one more line: `Save it as PNG, JPEG, or WebP as well.`, or
+    `Name it with its extension, such as <file>.png, as well.` In a
+    list, the provider lines and the format line are separate hints, so
+    the provider lines show once.
   - `FormatError`: `<noun>, and decide sends images only as PNG, JPEG, or
     WebP`, with today's `unsupportedHint`. With no extension, the hint
     is `Name it with its extension, such as <file>.png.`
@@ -274,13 +284,13 @@ keys only.
 | Case | Test | Checks |
 | --- | --- | --- |
 | UC-1 | `TestRunTextTemplateOnNamedImage` (cli) | `code-risk diff.png --provider openai`: one request with an `input_image` part and state `{"path","content_type"}`; `runs view` and `runs resume` show it; `--dry-run` lists 1 image and sends nothing. |
-| UC-2 | `TestNamedImageOnTypeSafe` (cli) | exact error and hint; zero requests on a fake TypeSafe server; no run directory; same error with `--dry-run` and no key; with `DECIDE_PROVIDER=openai` it runs. |
+| UC-2 | `TestNamedImageOnTypeSafe` (cli) | exact error and hint; zero requests on a fake TypeSafe server; no run directory; same error with `--dry-run` and no key; with `DECIDE_PROVIDER=openai` it runs; `photo.gif` and a GIF with no extension get the provider error with the format line "as well". |
 | UC-3 | `TestNamedMediaKindProviderCannotRead` (cli) | `call.mp3` on OpenAI and `report.pdf` on Cloudflare: exact errors and hints; zero requests. |
 | UC-4 | `TestMixedRun` (cli) | `sentiment notes.txt shot.png --provider gemini`: 3 requests without media and 1 with; `--each file` gives 2 items; `--limit 2` and `--sample 2`; `--json` and `--dry-run --json` hold 4 items with unit `image` on one; a second run is all cache hits; changed PNG bytes ask again for that item only; an interrupted run resumes and reads the run's copy; `MediaItems` is 1 and workers default to 2. |
 | UC-5 | `TestFolderWithImagesStaysText` (cli) | `code-risk .` on TypeSafe and OpenAI: same items, no media, today's Skipped line. A folder with only images: the UC-5 hint, with `--provider` set as the PRD says, and not the old `reads text.` hint. |
 | UC-6 | `TestMediaTemplateOtherKind` (cli) | `receipt-quality receipt.pdf --provider gemini` sends a PDF; with only a Cloudflare key, the Cloudflare error; `receipt-quality photos` reads images only. |
 | UC-7 | `TestMediaTemplateFolderWrongProvider` (cli) | `invoice-check invoices` on TypeSafe and OpenAI stops before the walk, also with `--dry-run`; `invoice-check scan.png --provider openai` runs. |
-| UC-8 | `TestSeveralNamedFilesFail` (cli), `TestWalkNamedErrors` (source) | the list, the order, the cap of 10 with `and N more`, one hint per distinct hint; a passing file is not listed; `--limit 1` still checks every named file. |
+| UC-8 | `TestSeveralNamedFilesFail` (cli), `TestWalkNamedErrors` (source) | the list, the order, the cap of 10 with `and N more`, one hint per distinct hint; a passing file is not listed; `--limit 1` still checks every named file; on TypeSafe, `photo.gif shot.png` shows the images hint once, then the format line for `photo.gif`. |
 | R-6, R-8, R-10 | `TestNamedFormatErrors`, `TestMediaTemplateRefusesText`, `TestBinaryStdinHint` (cli) | GIF and no-extension messages; the R-8 message, also for `receipt-quality LICENSE`; the R-10 hint. |
 | R-5 | `TestMediaTableMatchesTransports` (cli) | for each provider and kind, a 1-pixel PNG, a WAV header, a short MP4 header, and `%PDF-` sent through `backend.NewClient` to a fake server: `errors.ErrUnsupported` exactly when the table says the provider does not read the kind. |
 

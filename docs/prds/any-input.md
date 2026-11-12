@@ -163,6 +163,10 @@ Acceptance:
 - [ ] `--dry-run` gives the same error, with no key set.
 - [ ] With `DECIDE_PROVIDER=openai` and no flag, the run works as UC-1.
       decide never picks a provider because of the files.
+- [ ] `decide run code-risk photo.gif` gives the same error and hint,
+      for `photo.gif`, and a third hint line: `Save it as PNG, JPEG, or
+      WebP as well.` A new format alone does not help on TypeSafe, so the
+      provider comes first (R-3).
 
 ### UC-3: The chosen provider reads images, not audio
 
@@ -296,6 +300,9 @@ Acceptance:
       distinct hint once, in the order of the files.
 - [ ] With one failing file, the error is the one-line form of UC-2 and
       UC-3.
+- [ ] On TypeSafe, `photo.gif shot.png` lists both files as `an image,
+      and TypeSafe reads text only`. The hint holds the images hint of
+      UC-2 once, then `Save photo.gif as PNG, JPEG, or WebP as well.`
 
 ## Requirements
 
@@ -309,10 +316,14 @@ Acceptance:
   `{"path": ..., "content_type": ...}`, as for a media template today. A
   text file that the user names is read as today.
 - R-3: For each named media file, decide checks, in this order, before
-  any request and before the run is saved: that decide sends its format
-  (R-6), that the chosen provider reads its kind (R-4), and the
+  any request and before the run is saved: that the chosen provider
+  reads its kind (R-4), that decide sends its format (R-6), and the
   provider's size and pixel limits for its kind (today's #108 errors and
-  hints). The first failing check is the file's reason. decide checks
+  hints). The first failing check is the file's reason. When the
+  provider does not read the kind and decide does not send the format
+  either, the R-4 hint gets one more line from R-6, with "as well":
+  `Save it as PNG, JPEG, or WebP as well.`, or for a file with no
+  extension, `Name it with its extension, such as shot.png, as well.` decide checks
   every named media file, then stops with one error if any failed: the
   single-file error for one, or the list of UC-8 for more.
 - R-4: A provider that does not read a named file's kind stops the run
@@ -327,10 +338,11 @@ Acceptance:
   TypeSafe none; Cloudflare and OpenAI images; Gemini images, audio,
   video, and PDFs.
 - R-6: A named file of a kind decide recognizes but a format it does not
-  send, such as `photo.gif`, stops the run on every provider:
-  `photo.gif is an image, and decide sends images only as PNG, JPEG, or
-  WebP`, with the hint `Save it as PNG, JPEG, or WebP, and run decide on
-  that file.` Formats are chosen by extension, as today.
+  send, such as `photo.gif`, on a provider that reads its kind, stops
+  the run: `photo.gif is an image, and decide sends images only as PNG,
+  JPEG, or WebP`, with the hint `Save it as PNG, JPEG, or WebP, and run
+  decide on that file.` On a provider that does not read its kind, R-4
+  comes first (R-3). Formats are chosen by extension, as today.
 - R-7: A folder gives a text template text only, on every provider.
   Media files in it are skipped with today's "Skipped N files that are
   not text" line. When the walk finds nothing and skipped media files,
@@ -445,10 +457,12 @@ Made in this PRD:
   of another kind stays valid, such as a PNG to `invoice-check` on
   OpenAI. Rejected: drop the check, the first draft; and keep it for
   every run, which blocks UC-6.
-- **A format decide does not send is checked before the provider**
-  (R-3, R-6). No provider fixes a GIF, so that fix comes first. Rejected:
-  provider first, which tells the user to switch provider and then fails
-  again.
+- **The provider is checked before the format** (R-3, R-6). When the
+  provider does not read the kind at all, a new format does not help,
+  so the provider error comes first, and the hint adds the format fix
+  "as well". When the provider reads the kind, the format error is the
+  reason, as before. Rejected: format first on every provider, which
+  tells a TypeSafe user to save a PNG that TypeSafe then refuses too.
 - **Two workers by default when a run holds any media item** (R-11).
   The limit protects memory per media request, whatever the template.
   Rejected: keep it per template, which sends four large files at once
