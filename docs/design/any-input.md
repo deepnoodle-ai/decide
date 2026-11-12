@@ -201,8 +201,11 @@ type FormatError struct {
     TypeSafe, or `reads images, not <kind>` otherwise. Hint:
     `<Kind> run(s) on <providers>.` and `Run it with --provider ...`,
     built from `mediaProviders[kind]` with `orJoin`. With `Format`
-    set, one more line: `Save it as PNG, JPEG, or WebP as well.`, or
-    `Name it with its extension, such as <file>.png, as well.` In a
+    set, one more line from the `FormatError` rule below, with "as
+    well": `Name it with its extension, such as <file>.png, as well.`
+    only for a file with no extension whose bytes are a format decide
+    sends (`Format.ByContent`). Otherwise, such as for a GIF with no
+    extension, `Save it as PNG, JPEG, or WebP as well.` In a
     list, the provider lines and the format line are separate hints, so
     the provider lines show once.
   - `FormatError`: `<noun>, and decide sends images only as PNG, JPEG, or
