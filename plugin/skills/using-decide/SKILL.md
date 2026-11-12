@@ -1,6 +1,6 @@
 ---
 name: using-decide
-description: Ask typed questions about text, files, diffs, or records and get answers with probabilities, with decide and the Jev decision model. Use when a choice depends on a judgment over many items (triage, routing, relevance, readiness, risk), when a CI job or hook should stop on a judgment, or when the user wants a decide template written or run.
+description: Ask typed questions about text, files, diffs, records, images, PDFs, audio, or video and get answers with probabilities, with decide and a decision model such as Jev. Use when a choice depends on a judgment over many items (triage, routing, relevance, readiness, risk), when a CI job or hook should stop on a judgment, or when the user wants a decide template written or run.
 ---
 
 # decide
@@ -14,13 +14,14 @@ a probability. There are three kinds of question:
 
 ## Pick the tool
 
-- **The judge tool** (`mcp__decide__judge`), when the items are already in
-  this conversation: a list of issues, log lines, test failures, search
+- **The judge tool** (`mcp__decide__judge`), when the items are text already
+  in this conversation: a list of issues, log lines, test failures, search
   results, or candidates. One call takes up to 200 items and up to 8
-  questions. Put everything a question needs into each item's text.
+  questions. Put everything a question needs into each item's text. It
+  reads text only: a file path is judged as text, and the file is not read.
 - **The decide CLI**, when the items are files, folders, a diff, or a JSON
-  export; when the result must be saved or rerun; and in CI or a git hook.
-  Run it with Bash.
+  export; for images, PDFs, audio, or video; when the result must be saved
+  or rerun; and in CI or a git hook. Run it with Bash.
 
 ## Run a template
 
@@ -37,6 +38,32 @@ decide runs view --top 20 --json                   # the 20 nearest their flags,
 Add `--dry-run` to see what would be asked without calling the model. With
 `--json`, each line has `answers`, one per question, with `noul`, `choice`
 and `probabilities`, or `score`.
+
+## Images, PDFs, audio, and video
+
+Run a template on the files or folder with Bash. Each file is one item:
+
+```sh
+decide run receipt-quality receipts           # each PNG, JPEG, or WebP image
+decide run invoice-check invoices --json      # each PDF
+```
+
+- `receipt-quality` reads images. It runs on Cloudflare, OpenAI, or Gemini.
+  It needs `CLOUDFLARE_AUTH_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`,
+  `OPENAI_API_KEY`, or `GEMINI_API_KEY`.
+- `invoice-check` reads PDFs. It runs on Gemini only, with `GEMINI_API_KEY`.
+- Your own template reads files when its `"input"` is `"image"`, `"audio"`,
+  `"video"`, or `"pdf"`. Audio, video, and PDFs run on Gemini only. Jev
+  (`TYPESAFE_API_KEY`) reads text only.
+- Name files or folders on disk. Media templates do not read stdin, URLs, or
+  paths inside records, so download files first. Files named `.gif` or
+  `.heic` are not read; convert them first.
+- If `DECIDE_PROVIDER` names a provider that does not read the template's
+  files, decide stops. Add `--provider gemini`, which reads all four kinds.
+- If no key is set, decide names only one key. For `receipt-quality` or
+  another image template, tell the user that any one of the Cloudflare,
+  OpenAI, or Gemini keys works. Audio, video, and PDF templates need
+  `GEMINI_API_KEY`.
 
 ## Write a template
 

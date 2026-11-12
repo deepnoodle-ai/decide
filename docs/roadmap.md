@@ -79,6 +79,8 @@ off, or remove them, as they land.
 - [ ] **Delete or prune saved runs.** A media run keeps a copy of each
       file it reads, and nothing deletes runs. See
       [#103](https://github.com/deepnoodle-ai/decide/issues/103).
+- [ ] **A media demo.** A fixture in `demo/` and a tape in `site/tapes`
+      for `receipt-quality` and `invoice-check`.
 - [x] **Images on OpenAI.** Send image templates to the Decisions API as
       base64 data URLs, as `cloudflare.SetImages` does for Clef.
 - [x] **`decide models`.** List models and check that the provider accepts the credentials.

@@ -3,9 +3,11 @@ import type { Outcome } from './decide'
 
 export const NAME = 'judge'
 
-export const DESCRIPTION = `Ask an independent decision model (Jev, through the decide CLI) typed questions about one or more texts, and get back calibrated answers with probabilities instead of prose.
+export const DESCRIPTION = `Ask an independent decision model (through the decide CLI, Jev by default) typed questions about one or more texts, and get back calibrated answers with probabilities instead of prose.
 
 Use it when what you do next depends on a judgment you would otherwise make by feel, and above all when the same judgment applies to many items: triaging issues, logs, or test failures; checking whether text meets a guideline; choosing which candidate fits; deciding which results are relevant. One call judges up to 200 items, so prefer it over reading many items one by one. Each item is judged on its own, so put everything the question needs into the item's text.
+
+It judges text only. A file path in an item is judged as those characters; the file is not read. For images, PDFs, audio, or video, run \`decide run <template> <files or folder>\` with Bash instead, such as \`decide run receipt-quality receipts\`. See the using-decide skill for the templates and keys.
 
 Question types:
 - "noul": a yes-or-no question. The answer is the probability of yes.
@@ -19,7 +21,7 @@ export const SCHEMA = {
   properties: {
     items: {
       type: 'array',
-      description: 'The texts to judge, one per item. Each is judged on its own.',
+      description: 'The texts to judge, one per item. Each is judged on its own. A file path is judged as text; the file is not read.',
       items: { type: 'string' },
       minItems: 1,
       maxItems: 200,

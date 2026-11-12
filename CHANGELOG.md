@@ -58,6 +58,8 @@ may change the library API and the CLI.
   a missing key name the providers that work.
 - **Media runs hold less memory.** A dry run or `--sample` no longer reads
   every file into memory. An unreadable file in a folder is skipped.
+- **Media in the docs and plugin.** Providers lists which provider reads
+  which files, and the plugin's judge tool says it reads text only.
 
 ## [0.4.0] - 2026-10-08
 
