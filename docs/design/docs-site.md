@@ -468,8 +468,10 @@ phone before the merge.
 
 - The repository gets a Node project. `site/go.mod` and path filters keep
   it away from Go CI, but contributors who change the site need Node 22.
-- The live site lags `main` until the next release. A typo fix waits for
-  the next tag. That is the cost of R-2.
+- The live site follows `main`, so it can describe a flag that no
+  release has yet. Pages tell agents to check `decide --version` first.
+  That is the cost of R-2. Before #123, the site lagged `main` and a typo
+  fix waited for the next tag.
 - Recordings show what the model said on the day they were made. Between
   releases, a model update can make a recording differ from a new run.
 - Each release adds a manual step: `record.sh`, a few minutes and
@@ -501,7 +503,8 @@ phone before the merge.
    this one has no public address until the first tag. Before the third PR merges, a maintainer
    runs `record.sh`.
 4. The first `v*` tag after the merge deploys the site. Then we add the
-   site to the repository's homepage field and to the CHANGELOG.
+   site to the repository's homepage field and to the CHANGELOG. (This
+   was the rollout. Since #123, a push to `main` deploys the site.)
 
 ## Follow-up: agent docs and answer-type recordings
 
