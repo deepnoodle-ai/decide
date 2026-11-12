@@ -191,21 +191,15 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    command on a dark strip, and the guide it links to. The whole card is
    the link. It comes first because it shows what the reader can do.
 4. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`, linked
-   from the hero): one `<table>`, a general LLM with structured output
-   against decide. Its first row shows the two replies to the same question:
-   an example JSON reply, labeled as an example, and the answer lines from
-   the triage-check recording. Four short rows follow: what you pay for,
-   wait for, handle and branch on, with sans row labels and the one fact
-   in each decide cell in bold. decide's column has a faint fill and the
-   answer color across its head; a lost face and a glad face sit in the
-   column heads. The two reply screens are one height, and decide's answer
-   is set large. Below
-   720px the replies stack and each later row keeps its two cells side by
-   side under its label. The LLM cells stay fair: logprobs are named. The
-   Jev price is in the row itself, with a footnote that cites the public
-   prices; no multipliers and no output-cost claim for OpenAI or
-   Cloudflare. The credit to LLMs for writing and reasoning sits right
-   after the table.
+   from the hero): three cards in one row (stacked under 860px), no table
+   and no example reply: "Faster", "Cheaper", "A real probability". Each
+   is a 28px title, two or three plain sentences on why, and one figure in
+   mono in the answer color at its foot: the issue.md run's time (read
+   from the transcript), Jev's price, and the 98% from the recording. A
+   table was tried twice and was too much to take in; keep this to three
+   claims. A footnote cites the public prices; no multipliers and no
+   output-cost claim for OpenAI or Cloudflare. The subhead gives LLMs
+   their due for writing and reasoning.
 5. **"Close calls go to a person."** `UseIt.astro`:
    `triage.go` branches three ways (allow, reject, `gate.Review`), with a
    strip in the pass, unsure and flag colors (three columns, stacked under

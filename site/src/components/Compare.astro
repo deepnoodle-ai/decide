@@ -1,15 +1,13 @@
 ---
-// "Why not just call an LLM?": the same yes/no question asked both ways.
-// The first row shows the two replies: an example of what a general LLM
-// with structured output writes back, and the answer lines from the
-// triage-check recording above. Four short rows under them say what each
-// reply costs you. A real <table> on desktop; below 720px the replies stack
-// and each later row keeps its two cells side by side under the row's label.
-// decide's column carries the answer color, cyan, as the CLI does. The
-// claims come from the mechanism, not from a benchmark.
+// "Why not just call an LLM?": three reasons, one card each: faster,
+// cheaper, and a real probability. Each card is a word, one or
+// two sentences on why, and one figure in mono at its foot. No table and no
+// example reply: the recording above is the example. The claims come from
+// how a decision model works, not from a benchmark.
 //
-// The LLM reply is an example, and says so. Its cells stay fair: logprobs
-// are named, and the comparison is with structured output, not with chat.
+// The time is read from the triage-check transcript, as RunStage's caption
+// is, so it stays in step when the tape is recorded again. It is one
+// recording, and the card says which.
 //
 // Prices are public, with their sources in the footnote:
 //   Jev: $0.042 per million input tokens, output free
@@ -20,53 +18,45 @@
 //     https://developers.openai.com/api/docs/pricing
 //     (Batch and Flex list $0.20; the note says "standard".)
 // No output-cost claim is made for OpenAI's Decisions API or Cloudflare.
-import Doodle from './Doodle.astro';
+import { loadTape, transcript } from '../lib/tapes';
 
-const llmReply = `{
-  "ready": false,
-  "confidence": 0.9,
-  "reason": "The issue says checkout
-    feels slow, but gives no steps,
-    numbers or scope to work from."
-}`;
+const first = await transcript('triage-check', loadTape('triage-check'));
+const took = first.match(/answered.*?(\d+(?:\.\d+)?m?s)\s*$/m)?.[1];
 
-const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
-	{ k: 'You pay for', llm: 'Your prompt, plus every token of that reply', decide: 'Your prompt. On Jev that is <b>$0.042 per million tokens</b>, and the answer is free', note: true },
-	{ k: 'You wait for', llm: 'The reply to be written, a token at a time', decide: '<b>One answer.</b> Nothing is written' },
-	{ k: 'You handle', llm: 'JSON to parse and check, and the odd refusal or truncated reply', decide: '<b>A typed value</b>, already checked against the question' },
-	{ k: 'You branch on', llm: '0.9, a number the model typed. Or token logprobs you turn into one', decide: '<b>98%</b>, the probability the model gave that answer' },
+const reasons = [
+	{
+		title: 'Faster',
+		body: 'An LLM writes its reply a token at a time, and you wait for all of it. A decision model writes nothing. It returns one answer.',
+		fig: took ?? 'one answer',
+		of: took ? 'the issue.md run above' : 'nothing written',
+	},
+	{
+		title: 'Cheaper',
+		body: 'With an LLM you pay for your prompt and for every token it writes back. Here you pay for the prompt.',
+		fig: '$0.042',
+		of: 'per million tokens on Jev. The answer is free',
+		note: true,
+	},
+	{
+		title: 'A real probability',
+		body: 'Ask an LLM how sure it is and it types a number. A decision model returns the probability of its answer, so you can set a threshold on it.',
+		fig: '98%',
+		of: 'that the issue above is not ready',
+	},
 ];
 ---
 
 <div class="compare">
-	<table>
-		<thead>
-			<tr>
-				<td></td>
-				<th scope="col"><span class="who"><Doodle size={32} face="lost" />General LLM, with structured output</span></th>
-				<th scope="col" class="us"><span class="who"><Doodle size={32} face="glad" />decide</span></th>
-			</tr>
-		</thead>
-		<tbody>
-			<tr class="reply">
-				<th scope="row">Comes back</th>
-				<td data-col="General LLM">
-					<pre>{llmReply}</pre>
-					<span class="cap">An example reply. Yours will differ.</span>
-				</td>
-				<td data-col="decide" class="us">
-					<pre><span><span class="flag">!</span> ready  <span class="flag">no</span>      <span class="flag">98%</span>
-  size   small   60%</span></pre>
-					<span class="cap">From the issue.md run above.</span>
-				</td>
-			</tr>
-			{
-				rows.map((r) => (
-					<tr>
-						<th scope="row">{r.k}</th>
-						<td data-col="General LLM">{r.llm}</td>
-						<td data-col="decide" class="us">
-							<span set:html={r.decide} />
+	<div class="reasons">
+		{
+			reasons.map((r) => (
+				<div class="reason">
+					<h3>{r.title}</h3>
+					<p>{r.body}</p>
+					<p class="fig">
+						<b>{r.fig}</b>
+						<span>
+							{r.of}
 							{r.note && (
 								<sup>
 									<a href="#price-note" aria-label="Prices and sources">
@@ -74,14 +64,12 @@ const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 									</a>
 								</sup>
 							)}
-						</td>
-					</tr>
-				))
-			}
-		</tbody>
-	</table>
-
-	<p class="credit">LLMs are great at writing and reasoning. Use them for that, and use decide for the quick call your script makes on every item.</p>
+						</span>
+					</p>
+				</div>
+			))
+		}
+	</div>
 	<p class="note" id="price-note">
 		<sup>1</sup> Jev bills input only (<a href="https://docs.typesafe.ai/models">TypeSafe</a>). gemini-decision-1 bills $0.10 per million input tokens and writes
 		no output tokens (<a href="https://aistudio.google.com/docs/pricing">Google</a>). OpenAI's Decisions API and Cloudflare bill on their own terms. For scale, the
@@ -94,99 +82,57 @@ const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 		margin-top: 48px;
 		text-align: left;
 	}
-	table {
-		display: table;
-		width: 100%;
-		margin: 0;
-		border-collapse: separate;
-		border-spacing: 0;
+	.reasons {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 		border: 1px solid var(--sl-color-hairline);
-		font-size: 15.5px;
-		line-height: 1.5;
 	}
-	th,
-	td {
-		padding: 18px 24px;
-		border: 0;
-		border-top: 1px solid var(--sl-color-hairline);
-		text-align: left;
-		vertical-align: top;
-		background: none;
+	/* Three rows shared by the cards, so titles, text and figures line up across them. */
+	.reason {
+		display: grid;
+		grid-row: span 3;
+		grid-template-rows: subgrid;
+		row-gap: 0;
+		min-width: 0;
+		padding: 32px 30px 28px;
+		border-left: 1px solid var(--sl-color-hairline);
 	}
-	/* The column heads: a face and a name, as big as a card title. */
-	thead th,
-	thead td {
-		padding-block: 20px;
-		border-top: 0;
-		font: 500 17px/1.3 var(--sl-font);
-		letter-spacing: -0.01em;
-		color: var(--sl-color-gray-2);
-		vertical-align: middle;
+	.reason:first-child {
+		border-left: 0;
 	}
-	.who {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-	}
-	tbody th {
-		width: 17%;
-		font: 500 14.5px/1.5 var(--sl-font);
+	h3 {
+		margin: 0;
+		font-size: 28px;
+		font-weight: 500;
+		line-height: 1.15;
+		letter-spacing: -0.025em;
 		color: var(--sl-color-white);
+		text-wrap: balance;
 	}
-	tbody td {
+	p {
+		flex: 1;
+		margin: 14px 0 0;
+		font-size: 15.5px;
+		line-height: 1.6;
 		color: var(--sl-color-gray-2);
 		text-wrap: pretty;
 	}
-	/* decide's column: the answer color on its top and edge, a faint fill, brighter text. */
-	.us {
-		width: 41.5%;
-		background: var(--sl-color-gray-7);
-		border-left: 1px solid var(--sl-color-hairline);
-		color: var(--sl-color-white);
-	}
-	thead .us {
-		box-shadow: inset 0 3px 0 var(--ans-value);
-		font-weight: 600;
-		color: var(--sl-color-white);
-	}
-	.us :global(b) {
-		font-weight: 600;
-	}
-	/* The two replies, on dark screens of one height, like every terminal. */
-	.reply td {
-		padding-block: 24px;
-	}
-	pre {
+	/* One figure at the foot of each card, in the answer color, as the CLI prints a value. */
+	.fig {
+		flex: none;
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
-		min-height: 182px;
-		margin: 0;
-		padding: 16px 18px;
-		overflow-x: auto;
-		background: var(--term-bg);
-		border: 1px solid var(--term-border);
-		box-shadow: var(--term-shadow);
-		font: 400 13px/1.6 var(--sl-font-mono);
-		color: var(--term-muted);
-		white-space: pre;
-		scrollbar-width: thin;
-		font-variant-ligatures: none;
-	}
-	.us pre {
-		font-size: 21px;
-		font-weight: 700;
-		line-height: 1.5;
-		color: var(--term-fg);
-	}
-	.flag {
-		color: #f7666f;
-	}
-	.cap {
-		display: block;
-		margin-top: 10px;
-		font: 400 12px/1.4 var(--sl-font-mono);
+		gap: 4px;
+		margin-top: 28px;
+		padding-top: 18px;
+		border-top: 1px solid var(--sl-color-hairline);
+		font: 400 12.5px/1.5 var(--sl-font-mono);
 		color: var(--sl-color-gray-3);
+	}
+	.fig b {
+		font: 700 26px/1.1 var(--sl-font-mono);
+		letter-spacing: -0.02em;
+		color: var(--ans-value);
 	}
 	sup {
 		margin-left: 3px;
@@ -195,82 +141,31 @@ const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 	sup a {
 		color: var(--sl-color-gray-3);
 	}
-	.credit {
-		max-width: 62ch;
-		margin: 32px 0 0;
-		font-size: 19px;
-		font-weight: 500;
-		line-height: 1.4;
-		letter-spacing: -0.015em;
-		color: var(--sl-color-white);
-		text-wrap: balance;
-	}
 	.note {
-		max-width: 80ch;
+		flex: none;
+		max-width: 84ch;
 		margin: 20px 0 0;
 		font-size: 13px;
 		line-height: 1.6;
 		color: var(--sl-color-gray-3);
-		text-wrap: pretty;
 	}
 	.note a {
 		color: var(--sl-color-gray-3);
 	}
-	@media (max-width: 720px) {
-		table,
-		thead,
-		tbody {
-			display: block;
+	@media (max-width: 860px) {
+		.reasons {
+			grid-template-columns: minmax(0, 1fr);
 		}
-		tr {
-			display: grid;
-			grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		}
-		tr + tr {
+		.reason {
+			padding: 26px 22px 22px;
+			border-left: 0;
 			border-top: 1px solid var(--sl-color-hairline);
 		}
-		thead {
-			display: none;
-		}
-		tbody td::before {
-			content: attr(data-col);
-			display: block;
-			margin-bottom: 4px;
-			font: 400 11px/1.4 var(--sl-font-mono);
-			color: var(--sl-color-gray-3);
-		}
-		tbody td.us::before {
-			font-weight: 700;
-			color: var(--ans-value);
-		}
-		th,
-		td,
-		td.us,
-		tbody th {
-			width: auto;
+		.reason:first-child {
 			border-top: 0;
-			padding: 10px 14px 14px;
-			font-size: 14.5px;
 		}
-		tbody th {
-			grid-column: 1 / -1;
-			padding: 16px 14px 0;
-		}
-		.reply td {
-			grid-column: 1 / -1;
-			padding-block: 10px 14px;
-		}
-		.reply td.us {
-			border-left: 0;
-		}
-		pre {
-			min-height: 0;
-		}
-		.us pre {
-			font-size: 17px;
-		}
-		.credit {
-			font-size: 17px;
+		h3 {
+			font-size: 24px;
 		}
 	}
 </style>
