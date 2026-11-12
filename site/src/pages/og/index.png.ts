@@ -111,5 +111,5 @@ export const GET: APIRoute = async () => {
 	const image = surface.makeImageSnapshot();
 	const png = image.encodeToBytes();
 	if (!png) throw new Error('og/index.png: the image did not encode');
-	return new Response(png, { headers: { 'Content-Type': 'image/png' } });
+	return new Response(new Uint8Array(png), { headers: { 'Content-Type': 'image/png' } });
 };
