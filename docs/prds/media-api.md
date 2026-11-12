@@ -495,6 +495,10 @@ Made by the orchestrator, recorded here:
 - Media by URL only where the API takes it; no Files API helper; no PDF or
   GIF on OpenAI unless OpenAI documents it.
 - The CLI moves with the smallest diff.
+- **Shared media checks live in `internal/media`.** The root package and
+  the provider packages import it. It imports only the standard library,
+  so the root package's dependencies stay the standard library.
+  AGENTS.md says so in its Layout section.
 - **A limit of one provider is `ErrUnsupported`; a check that fails on
   every provider is `ErrInvalidRequest`.** A full-size phone photo is a
   valid request on Gemini. The caller must be able to tell "fix the

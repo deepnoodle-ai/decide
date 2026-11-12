@@ -1,6 +1,6 @@
 # One media API for every provider
 
-**Status:** In Review
+**Status:** Accepted
 **Date:** 2026-11-12
 **Workflow:** Spec, then build in parallel. The PRD settles the behavior;
 this spec settles where the code goes. The build starts on a branch
@@ -144,11 +144,10 @@ Messages follow two forms, built in one place:
 `Check` stops at the first failing file, in order: form (URL), kind,
 format, per-file size, pixels, then count and totals.
 
-The root package importing `internal/media` keeps its dependency set to
-the standard library. AGENTS.md's rule says the root package "uses only
-the standard library and never imports the packages below"; this package
-is neither a provider nor a third-party package. The pull request calls
-this out for the maintainer.
+The root package imports `internal/media`, which imports only the
+standard library, so the root package's dependencies stay the standard
+library. The maintainer approved this, and AGENTS.md's Layout section
+says so.
 
 ### Root `Request.Validate`
 
@@ -326,8 +325,8 @@ retried. The CLI's media tests check wire shapes, which do not change.
 
 - One more exported interface, `MediaTransport`, that custom transport
   authors must learn to send media. Without it they get a clear error.
-- The root package imports an internal package. A reader of AGENTS.md
-  may read this as a break of the standard-library rule.
+- The root package imports an internal package. AGENTS.md now names
+  that exception.
 - A media attempt that times out is not retried. A slow but working
   link that needs a second try now fails; the caller can raise the
   timeout.
@@ -400,8 +399,6 @@ with the same behavior apart from the two moves named above.
 
 ## Open questions
 
-- **Root importing `internal/media`.** If the maintainer reads AGENTS.md
-  as forbidding it, the root package keeps `Normalize`, `Kind`, and
-  `Sniff` unexported and `internal/media` copies them, with a test that
-  the two tables match. Leaning: keep the import. It does not block the
-  build: the move is one commit.
+None. The maintainer approved the root package importing
+`internal/media`, because that package imports only the standard
+library. AGENTS.md's Layout section records it.

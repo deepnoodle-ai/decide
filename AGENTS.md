@@ -5,8 +5,12 @@ Guidance for coding agents and people working in this repository. See
 
 ## Layout
 
-- `decide` (root): the client, questions, answers, `Eval`, and `Pick`. It
-  uses only the standard library and never imports the packages below.
+- `decide` (root): the client, questions, answers, media, `Eval`, and
+  `Pick`. It uses only the standard library and never imports the
+  packages below, except `internal/media`.
+- `internal/media`: MIME types, file sniffing, and provider limits for
+  media, shared by the root package and the provider packages. It imports
+  only the standard library.
 - `decidetest`: a fake server and answer fixtures for tests.
 - `backend` selects a provider. `cloudflare` is the Workers AI transport.
 - `templates`: the built-in templates' questions and flags, for Go
