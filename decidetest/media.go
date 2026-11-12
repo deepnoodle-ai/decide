@@ -52,6 +52,23 @@ func (t mediaTransport) SystemOne(ctx context.Context, req *decide.Request) (*de
 // String describes the transport with the API key redacted.
 func (t mediaTransport) String() string { return "decidetest media " + t.HTTPTransport.String() }
 
+// rejectTransport is the TypeSafe transport, which rejects media, with a
+// hint for a test author in its error.
+type rejectTransport struct{ *decide.HTTPTransport }
+
+var _ decide.MediaTransport = rejectTransport{}
+
+// CheckMedia returns the TypeSafe transport's error and names AcceptMedia.
+func (t rejectTransport) CheckMedia(req *decide.Request) error {
+	if err := t.HTTPTransport.CheckMedia(req); err != nil {
+		return fmt.Errorf("%w (in a test, pass decidetest.AcceptMedia() to decidetest.NewServer to accept media)", err)
+	}
+	return nil
+}
+
+// String describes the transport with the API key redacted.
+func (t rejectTransport) String() string { return t.HTTPTransport.String() }
+
 // takeMedia moves the files a mediaTransport sent into req.Media.
 func takeMedia(req *decide.Request) error {
 	raw, ok := req.Extra[mediaKey]

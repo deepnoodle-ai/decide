@@ -279,6 +279,24 @@ func TestDecidetestRejectsMediaByDefault(t *testing.T) {
 	if !errors.Is(err, errors.ErrUnsupported) || len(srv.Requests()) != 0 {
 		t.Fatalf("err = %v, %d requests", err, len(srv.Requests()))
 	}
+	want := "typesafe does not take media yet (media[0], image/png); choose a provider that reads images, such as backend.Gemini" +
+		" (in a test, pass decidetest.AcceptMedia() to decidetest.NewServer to accept media)"
+	if !strings.HasSuffix(err.Error(), want) {
+		t.Fatalf("err = %v\nwant suffix %s", err, want)
+	}
+	// Text requests and models still work on the default client.
+	if _, err := decide.Eval(t.Context(), srv.Client(t), "a receipt", decide.Noul("Readable?")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.Client(t).Models.List(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	// A connection option still works; media is still rejected.
+	_, err = decide.Eval(t.Context(), srv.Client(t, decide.WithUserAgent("app/1")), "a receipt", decide.Noul("Readable?"),
+		decide.WithMedia(decide.Media{MIMEType: "image/png", Data: testPNG(t)}))
+	if !errors.Is(err, errors.ErrUnsupported) {
+		t.Fatalf("with WithUserAgent: err = %v", err)
+	}
 }
 
 func TestEvalAndPickTakeMedia(t *testing.T) {

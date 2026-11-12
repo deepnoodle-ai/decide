@@ -150,19 +150,26 @@ func (s *Server) NewClient(opts ...decide.ClientOption) (*decide.Client, error) 
 // Handler() on httptest.NewTestServer inside a synctest bubble: pass that
 // server's URL and Client(). hc may be nil for the default HTTP client.
 func (s *Server) NewClientFor(baseURL string, hc *http.Client, opts ...decide.ClientOption) (*decide.Client, error) {
-	if s.acceptMedia {
-		t, err := decide.NewHTTPTransport(decide.HTTPTransportConfig{APIKey: s.apiKey, BaseURL: baseURL, HTTPClient: hc})
-		if err != nil {
-			return nil, err
-		}
-		all := []decide.ClientOption{
-			decide.WithoutEnvironment(),
-			decide.WithTransport(mediaTransport{t}),
-			decide.WithRetryBackoff(time.Millisecond, 5*time.Millisecond),
-		}
-		return decide.NewClient(append(all, opts...)...)
+	t, err := decide.NewHTTPTransport(decide.HTTPTransportConfig{APIKey: s.apiKey, BaseURL: baseURL, HTTPClient: hc})
+	if err != nil {
+		return nil, err
+	}
+	var mt decide.MediaTransport = mediaTransport{t}
+	if !s.acceptMedia {
+		mt = rejectTransport{t}
 	}
 	all := []decide.ClientOption{
+		decide.WithoutEnvironment(),
+		decide.WithTransport(mt),
+		decide.WithRetryBackoff(time.Millisecond, 5*time.Millisecond),
+	}
+	c, err := decide.NewClient(append(all, opts...)...)
+	if err == nil || s.acceptMedia {
+		return c, err
+	}
+	// opts hold a connection option, which WithTransport does not allow.
+	// Build the client on the plain TypeSafe transport, without the hint.
+	all = []decide.ClientOption{
 		decide.WithoutEnvironment(),
 		decide.WithBaseURL(baseURL),
 		decide.WithAPIKey(s.apiKey),

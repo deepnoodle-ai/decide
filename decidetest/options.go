@@ -29,7 +29,8 @@ func WithModels(models ...decide.Model) Option {
 // to test code written for Cloudflare, OpenAI, or Gemini.
 //
 // Without it, a client rejects media as the default TypeSafe provider
-// does, so a test fails where production on TypeSafe fails. With it, files
+// does, so a test fails where production on TypeSafe fails, and the error
+// names AcceptMedia unless opts hold a connection option. With it, files
 // that are wrong on every provider still fail with decide.ErrInvalidRequest,
 // but no provider's kinds, formats, or limits are checked: test those with
 // the provider's transport and an httptest.Server, through
