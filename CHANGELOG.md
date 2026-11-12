@@ -8,8 +8,8 @@ may change the library API and the CLI.
 
 ### Changed
 
-- **A shorter README.** It opens with one command and its answer, and
-  moves provider setup into a table.
+- **A shorter README.** It opens with what you can run and why a
+  decision model beats an LLM for it, and moves provider setup into a table.
 
 ## [0.5.0] - 2026-11-12
 
