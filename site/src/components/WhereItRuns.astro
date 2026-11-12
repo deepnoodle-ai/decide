@@ -1,34 +1,39 @@
 ---
 // "The small calls inside your automations.": four places a script makes
-// the same call on every item, each with a mono label, one line, and a link
-// to the recipe or tutorial that sets it up. Four columns on desktop, two
-// at tablet width, one below 600px.
+// the same call on every item. Each is one link card: how often (mono), what
+// you do (the title), one line, the command on a dark strip, and the guide
+// that sets it up. Two by two on desktop, so each has room to be read; one
+// column below 760px. The whole card is the link.
 const cells = [
 	{
-		k: 'ci gate',
-		cmd: 'code-risk --fail-on flagged',
-		line: 'Every pull request. A flagged change exits 2, and the check waits for someone to look.',
+		k: 'every pull request',
+		title: 'Gate the merge',
+		line: 'A flagged change exits 2, and the check waits for someone to look.',
+		cmd: 'git diff main | decide run code-risk --fail-on flagged',
 		href: '/recipes/#run-decide-in-github-actions',
 		link: 'Run it in GitHub Actions',
 	},
 	{
-		k: 'pre-command hook',
-		cmd: 'command-risk',
-		line: 'Every command an agent wants to run, checked before it runs.',
+		k: 'every command',
+		title: "Check an agent's commands",
+		line: 'Each shell command an agent wants to run is judged before it runs.',
+		cmd: 'echo "$CMD" | decide run command-risk --fail-on flagged',
 		href: '/tutorials/check-agent-commands/',
 		link: 'Check agent commands',
 	},
 	{
-		k: 'queue triage',
-		cmd: 'ticket-routing',
-		line: 'Every new ticket, sorted into a queue for the people who work it.',
+		k: 'every new ticket',
+		title: 'Route the queue',
+		line: 'Each ticket is sorted into a queue for the people who work it.',
+		cmd: 'decide run ticket-routing tickets.jsonl --field body',
 		href: '/recipes/#route-new-issues-to-a-queue',
 		link: 'Route new issues',
 	},
 	{
-		k: 'batch scan',
-		cmd: 'security',
-		line: 'Every function in a repository, ranked so you read the riskiest first.',
+		k: 'every function',
+		title: 'Rank a codebase',
+		line: 'Each function is scored for security mistakes, so you read the riskiest first.',
+		cmd: 'decide run security src',
 		href: '/tutorials/find-security-bugs/',
 		link: 'Find security bugs',
 	},
@@ -38,12 +43,16 @@ const cells = [
 <div class="where">
 	{
 		cells.map((c) => (
-			<div class="cell">
+			<a class="cell" href={c.href}>
 				<p class="k">{c.k}</p>
-				<code>{c.cmd}</code>
+				<h3>{c.title}</h3>
 				<p class="line">{c.line}</p>
-				<a href={c.href}>{c.link} →</a>
-			</div>
+				<code>
+					<span class="pr">$ </span>
+					{c.cmd}
+				</code>
+				<span class="go">{c.link} →</span>
+			</a>
 		))
 	}
 </div>
@@ -51,74 +60,90 @@ const cells = [
 <style>
 	.where {
 		display: grid;
-		grid-template-columns: repeat(4, minmax(0, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 16px;
 		margin-top: 48px;
-		border: 1px solid var(--sl-color-hairline);
 		text-align: left;
 	}
 	.cell {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
 		min-width: 0;
-		padding: 24px 22px 26px;
-		border-left: 1px solid var(--sl-color-hairline);
+		padding: 28px 28px 26px;
+		border: 1px solid var(--sl-color-hairline);
+		color: inherit;
+		text-decoration: none;
+		transition:
+			border-color 0.15s,
+			background-color 0.15s;
 	}
-	.cell:first-child {
-		border-left: 0;
+	.cell:hover {
+		border-color: var(--sl-color-gray-4);
+		background: var(--sl-color-gray-7);
 	}
 	.k {
 		margin: 0;
-		font: 700 12.5px/1.4 var(--sl-font-mono);
-		color: var(--sl-color-white);
+		font: 400 12.5px/1.4 var(--sl-font-mono);
+		letter-spacing: 0.04em;
+		color: var(--sl-color-gray-3);
 	}
-	code {
-		align-self: start;
-		max-width: 100%;
-		padding: 2px 7px;
-		background: var(--sl-color-gray-7);
-		border: 1px solid var(--sl-color-hairline);
-		border-radius: 0;
-		font-size: 12px;
-		color: var(--sl-color-gray-2);
-		overflow-wrap: anywhere;
+	h3 {
+		margin: 10px 0 0;
+		font-size: 24px;
+		font-weight: 500;
+		line-height: 1.2;
+		letter-spacing: -0.02em;
+		color: var(--sl-color-white);
 	}
 	.line {
 		flex: 1;
-		margin: 0;
-		font-size: 14.5px;
+		max-width: 44ch;
+		margin: 10px 0 0;
+		font-size: 15.5px;
 		line-height: 1.55;
-		color: var(--sl-color-gray-3);
+		color: var(--sl-color-gray-2);
 		text-wrap: pretty;
 	}
-	a {
-		font: 400 13px/1.4 var(--sl-font-mono);
-		color: var(--sl-color-gray-2);
+	/* The command, on a dark strip in both themes like every terminal. */
+	code {
+		display: block;
+		margin-top: 22px;
+		padding: 11px 14px;
+		overflow-x: auto;
+		background: var(--term-bg);
+		border: 1px solid var(--term-border);
+		border-radius: 0;
+		font: 400 12.5px/1.5 var(--sl-font-mono);
+		color: var(--term-fg);
+		white-space: nowrap;
+		scrollbar-width: none;
 	}
-	a:hover {
+	.pr {
+		color: var(--term-muted);
+	}
+	.go {
+		margin-top: 16px;
+		font: 500 14px/1.4 var(--sl-font);
 		color: var(--sl-color-white);
 	}
-	@media (max-width: 960px) {
-		.where {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
-		}
-		.cell:nth-child(3) {
-			border-left: 0;
-		}
-		.cell:nth-child(n + 3) {
-			border-top: 1px solid var(--sl-color-hairline);
-		}
+	.cell:hover .go {
+		text-decoration: underline;
+		text-underline-offset: 0.22em;
 	}
-	@media (max-width: 600px) {
+	@media (max-width: 760px) {
 		.where {
 			grid-template-columns: minmax(0, 1fr);
-			row-gap: 28px;
-			border: 0;
 		}
-		.cell,
-		.cell:nth-child(n + 3) {
-			padding: 0;
-			border: 0;
+		.cell {
+			padding: 22px 20px;
+		}
+		h3 {
+			font-size: 21px;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.cell {
+			transition: none;
 		}
 	}
 </style>

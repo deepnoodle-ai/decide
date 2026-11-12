@@ -1,76 +1,60 @@
 ---
 // What you do with an answer: the three way branch in Go (allow, reject, or
-// gate.Review for a person). CI and hooks are linked from the "where" band
-// above. The thresholds are placeholders: set yours on your own data. gate.Review is patterns/gate's Outcome for "a person looks".
-const cards = [
-	{
-		title: 'triage.go',
-		lang: 'go',
-		lines: [
-			'e, err := decide.Eval(ctx, client, issue,',
-			'    decide.Noul(<span class="s">"Is this ready to work on?"</span>))',
-			'<span class="k">if</span> err != nil {',
-			'    <span class="k">return</span> err',
-			'}',
-			'<span class="k">switch</span> p := e.Answer.Noul; {',
-			'<span class="k">case</span> p &gt;= 0.9:',
-			'    assign(issue)              <span class="c">// allow</span>',
-			'<span class="k">case</span> p &lt;= 0.1:',
-			'    sendBack(issue)            <span class="c">// reject</span>',
-			'<span class="k">default</span>:',
-			'    route(issue, gate.Review)  <span class="c">// a person decides</span>',
-			'}',
-		],
-		caption: 'assign, sendBack and route stand in for your own code. gate.Review is from patterns/gate.',
-		wide: true,
-	},
-];
+// gate.Review for a person), highlighted with the site's code theme, then
+// the three outcomes as a strip. Under it, the check to make before
+// switching: run it on items you've already labeled. CI and hooks are
+// linked from the "where" band above. The thresholds are placeholders.
+// gate.Review is patterns/gate's Outcome for "a person looks".
+import { Code } from 'astro:components';
+import theme from '../styles/code-theme.json';
+
+const go = `e, err := decide.Eval(ctx, client, issue,
+    decide.Noul("Is this ready to work on?"))
+if err != nil {
+    return err
+}
+switch p := e.Answer.Noul; {
+case p >= 0.9:
+    assign(issue)              // allow
+case p <= 0.1:
+    sendBack(issue)            // reject
+default:
+    route(issue, gate.Review)  // a person decides
+}`;
 ---
 
 <div class="useit">
-	{
-		cards.map((c) => (
-			<figure class:list={['card', { wide: c.wide }]}>
-				<div class="frame">
-					<div class="bar">{c.title}</div>
-					<pre set:html={c.lines.join('\n')} />
-				</div>
-				{c.wide && (
-					<ol class="bands" aria-label="Three outcomes">
-						<li class="pass"><code>&gt;= 0.9</code>allow</li>
-						<li class="unsure"><code>in between</code>a person decides</li>
-						<li class="flag"><code>&lt;= 0.1</code>reject</li>
-					</ol>
-				)}
-				<figcaption>{c.caption}</figcaption>
-			</figure>
-		))
-	}
+	<figure class="card">
+		<div class="frame">
+			<div class="bar">triage.go</div>
+			<Code code={go} lang="go" theme={theme as any} />
+		</div>
+		<ol class="bands" aria-label="Three outcomes">
+			<li class="pass"><code>&gt;= 0.9</code>allow</li>
+			<li class="unsure"><code>in between</code>a person decides</li>
+			<li class="flag"><code>&lt;= 0.1</code>reject</li>
+		</ol>
+	</figure>
+	<div class="check">
+		<div>
+			<h3>Before you switch, test it on your own items.</h3>
+			<p>Run it on items you've already labeled and compare. The probability is the model's judgment, not proof, so set your thresholds there too.</p>
+		</div>
+		<a class="btn ghost" href="https://github.com/deepnoodle-ai/decide/tree/main/examples/calibrate">See examples/calibrate →</a>
+	</div>
 </div>
 
 <style>
 	.useit {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		column-gap: 20px;
-		row-gap: 0;
 		margin-top: 48px;
 		text-align: left;
 	}
 	.card {
-		display: grid;
-		grid-row: span 2;
-		grid-template-rows: subgrid;
+		display: flex;
+		flex-direction: column;
 		gap: 14px;
 		min-width: 0;
 		margin: 0;
-	}
-	.wide {
-		display: flex;
-		flex-direction: column;
-		grid-column: 1 / -1;
-		grid-row: auto;
-		margin-bottom: 36px;
 	}
 	.frame {
 		flex: 1;
@@ -85,27 +69,21 @@ const cards = [
 		font: 400 11px/1.4 var(--sl-font-mono);
 		color: var(--term-muted);
 	}
-	pre {
+	.frame :global(pre) {
 		margin: 0;
-		padding: 16px 14px 18px;
+		padding: 18px 18px 20px;
 		overflow-x: auto;
-		background: none;
+		background: none !important;
 		border: 0;
-		font: 400 12.5px/1.65 var(--sl-font-mono);
-		color: var(--term-fg);
+		font: 400 13.5px/1.7 var(--sl-font-mono);
 		white-space: pre;
 		scrollbar-width: thin;
 		font-variant-ligatures: none;
 	}
-	pre :global(.pr),
-	pre :global(.c) {
-		color: #5c6068;
-	}
-	pre :global(.k) {
-		color: #b4b7bd;
-	}
-	pre :global(.s) {
-		color: #dadce0;
+	.frame :global(code) {
+		padding: 0;
+		background: none;
+		font: inherit;
 	}
 	/* The three outcomes, in the CLI's verdict colors. The middle one is the widest: it is where people come in. */
 	.bands {
@@ -144,25 +122,45 @@ const cards = [
 	.flag {
 		color: var(--ans-flag);
 	}
-	figcaption {
-		font-size: 14px;
+	/* The check to make first: as loud as body text, with its own button. */
+	.check {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 24px 40px;
+		margin-top: 28px;
+		padding: 24px 26px;
+		border: 1px solid var(--sl-color-hairline);
+		background: var(--sl-color-gray-7);
+	}
+	.check h3 {
+		margin: 0;
+		font-size: 19px;
+		font-weight: 500;
+		line-height: 1.3;
+		letter-spacing: -0.015em;
+		color: var(--sl-color-white);
+	}
+	.check p {
+		max-width: 62ch;
+		margin: 8px 0 0;
+		font-size: 15px;
 		line-height: 1.55;
-		color: var(--sl-color-gray-3);
+		color: var(--sl-color-gray-2);
+		text-wrap: pretty;
+	}
+	.check .btn {
+		flex: none;
+	}
+	@media (max-width: 760px) {
+		.check {
+			flex-direction: column;
+			align-items: flex-start;
+		}
 	}
 	@media (max-width: 960px) {
-		.useit {
-			grid-template-columns: minmax(0, 1fr);
-			row-gap: 0;
-		}
-		.wide {
-			grid-column: auto;
-			margin-bottom: 0;
-		}
 		.bands li {
 			padding: 10px 8px;
-		}
-		.card + .card {
-			margin-top: 28px;
 		}
 	}
 	@media (max-width: 600px) {

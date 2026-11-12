@@ -31,10 +31,10 @@ const llmReply = `{
 }`;
 
 const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
-	{ k: 'You pay for', llm: 'Your prompt, plus every token of that reply', decide: 'Your prompt. On Jev that is $0.042 per million tokens, and the answer is free', note: true },
-	{ k: 'You wait for', llm: 'The reply to be written, a token at a time', decide: 'One answer. Nothing is written' },
-	{ k: 'You handle', llm: 'JSON to parse and check, and the odd refusal or truncated reply', decide: 'A typed value, already checked against the question' },
-	{ k: 'You branch on', llm: '0.9, a number the model typed. Or token logprobs you turn into one', decide: '98%, the probability the model gave that answer' },
+	{ k: 'You pay for', llm: 'Your prompt, plus every token of that reply', decide: 'Your prompt. On Jev that is <b>$0.042 per million tokens</b>, and the answer is free', note: true },
+	{ k: 'You wait for', llm: 'The reply to be written, a token at a time', decide: '<b>One answer.</b> Nothing is written' },
+	{ k: 'You handle', llm: 'JSON to parse and check, and the odd refusal or truncated reply', decide: '<b>A typed value</b>, already checked against the question' },
+	{ k: 'You branch on', llm: '0.9, a number the model typed. Or token logprobs you turn into one', decide: '<b>98%</b>, the probability the model gave that answer' },
 ];
 ---
 
@@ -55,8 +55,8 @@ const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 					<span class="cap">An example reply. Yours will differ.</span>
 				</td>
 				<td data-col="decide" class="us">
-					<pre><span class="flag">!</span> ready  <span class="flag">no</span>      <span class="flag">98%</span>
-  size   small   60%</pre>
+					<pre><span><span class="flag">!</span> ready  <span class="flag">no</span>      <span class="flag">98%</span>
+  size   small   60%</span></pre>
 					<span class="cap">From the issue.md run above.</span>
 				</td>
 			</tr>
@@ -66,7 +66,7 @@ const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 						<th scope="row">{r.k}</th>
 						<td data-col="General LLM">{r.llm}</td>
 						<td data-col="decide" class="us">
-							{r.decide}
+							<span set:html={r.decide} />
 							{r.note && (
 								<sup>
 									<a href="#price-note" aria-label="Prices and sources">
@@ -91,84 +91,102 @@ const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 
 <style>
 	.compare {
-		margin-top: 40px;
+		margin-top: 48px;
 		text-align: left;
-	}
-	/* A face beside each column head: lost in the reply, glad with the answer. */
-	.who {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-	}
-	/* The two replies, on small dark screens like every terminal. */
-	pre {
-		margin: 0;
-		padding: 14px 16px;
-		overflow-x: auto;
-		background: var(--term-bg);
-		border: 1px solid var(--term-border);
-		font: 400 12.5px/1.6 var(--sl-font-mono);
-		color: var(--term-fg);
-		white-space: pre;
-		scrollbar-width: thin;
-		font-variant-ligatures: none;
-	}
-	.us pre {
-		font-size: 15px;
-		font-weight: 700;
-	}
-	.flag {
-		color: #f7666f;
-	}
-	.cap {
-		display: block;
-		margin-top: 8px;
-		font: 400 12px/1.4 var(--sl-font-mono);
-		color: var(--sl-color-gray-3);
 	}
 	table {
 		display: table;
 		width: 100%;
 		margin: 0;
-		border-collapse: collapse;
+		border-collapse: separate;
+		border-spacing: 0;
 		border: 1px solid var(--sl-color-hairline);
-		font-size: 15px;
+		font-size: 15.5px;
 		line-height: 1.5;
 	}
 	th,
 	td {
-		padding: 16px 20px;
+		padding: 18px 24px;
 		border: 0;
 		border-top: 1px solid var(--sl-color-hairline);
 		text-align: left;
 		vertical-align: top;
 		background: none;
 	}
+	/* The column heads: a face and a name, as big as a card title. */
 	thead th,
 	thead td {
+		padding-block: 20px;
 		border-top: 0;
-		font: 400 12.5px/1.4 var(--sl-font-mono);
-		color: var(--sl-color-gray-3);
+		font: 500 17px/1.3 var(--sl-font);
+		letter-spacing: -0.01em;
+		color: var(--sl-color-gray-2);
+		vertical-align: middle;
+	}
+	.who {
+		display: flex;
+		align-items: center;
+		gap: 12px;
 	}
 	tbody th {
-		width: 22%;
-		font: 400 13px/1.6 var(--sl-font-mono);
-		color: var(--sl-color-gray-3);
+		width: 17%;
+		font: 500 14.5px/1.5 var(--sl-font);
+		color: var(--sl-color-white);
 	}
 	tbody td {
-		color: var(--sl-color-gray-3);
+		color: var(--sl-color-gray-2);
 		text-wrap: pretty;
 	}
-	/* decide's column: the answer color on its edge, a faint fill, brighter text. */
+	/* decide's column: the answer color on its top and edge, a faint fill, brighter text. */
 	.us {
-		width: 39%;
+		width: 41.5%;
 		background: var(--sl-color-gray-7);
-		border-left: 2px solid var(--ans-value);
+		border-left: 1px solid var(--sl-color-hairline);
 		color: var(--sl-color-white);
 	}
 	thead .us {
+		box-shadow: inset 0 3px 0 var(--ans-value);
+		font-weight: 600;
+		color: var(--sl-color-white);
+	}
+	.us :global(b) {
+		font-weight: 600;
+	}
+	/* The two replies, on dark screens of one height, like every terminal. */
+	.reply td {
+		padding-block: 24px;
+	}
+	pre {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		min-height: 182px;
+		margin: 0;
+		padding: 16px 18px;
+		overflow-x: auto;
+		background: var(--term-bg);
+		border: 1px solid var(--term-border);
+		box-shadow: var(--term-shadow);
+		font: 400 13px/1.6 var(--sl-font-mono);
+		color: var(--term-muted);
+		white-space: pre;
+		scrollbar-width: thin;
+		font-variant-ligatures: none;
+	}
+	.us pre {
+		font-size: 21px;
 		font-weight: 700;
-		color: var(--ans-value);
+		line-height: 1.5;
+		color: var(--term-fg);
+	}
+	.flag {
+		color: #f7666f;
+	}
+	.cap {
+		display: block;
+		margin-top: 10px;
+		font: 400 12px/1.4 var(--sl-font-mono);
+		color: var(--sl-color-gray-3);
 	}
 	sup {
 		margin-left: 3px;
@@ -177,9 +195,19 @@ const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 	sup a {
 		color: var(--sl-color-gray-3);
 	}
+	.credit {
+		max-width: 62ch;
+		margin: 32px 0 0;
+		font-size: 19px;
+		font-weight: 500;
+		line-height: 1.4;
+		letter-spacing: -0.015em;
+		color: var(--sl-color-white);
+		text-wrap: balance;
+	}
 	.note {
 		max-width: 80ch;
-		margin: 40px 0 0;
+		margin: 20px 0 0;
 		font-size: 13px;
 		line-height: 1.6;
 		color: var(--sl-color-gray-3);
@@ -187,12 +215,6 @@ const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 	}
 	.note a {
 		color: var(--sl-color-gray-3);
-	}
-	.credit {
-		margin: 28px 0 0;
-		font-size: 16px;
-		line-height: 1.55;
-		color: var(--sl-color-gray-2);
 	}
 	@media (max-width: 720px) {
 		table,
@@ -218,6 +240,7 @@ const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 			color: var(--sl-color-gray-3);
 		}
 		tbody td.us::before {
+			font-weight: 700;
 			color: var(--ans-value);
 		}
 		th,
@@ -226,19 +249,28 @@ const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 		tbody th {
 			width: auto;
 			border-top: 0;
-			padding: 10px 12px;
-			font-size: 14px;
-		}
-		thead th {
-			font-size: 11.5px;
+			padding: 10px 14px 14px;
+			font-size: 14.5px;
 		}
 		tbody th {
 			grid-column: 1 / -1;
-			padding: 18px 12px 0;
-			font-size: 12px;
+			padding: 16px 14px 0;
 		}
 		.reply td {
 			grid-column: 1 / -1;
+			padding-block: 10px 14px;
+		}
+		.reply td.us {
+			border-left: 0;
+		}
+		pre {
+			min-height: 0;
+		}
+		.us pre {
+			font-size: 17px;
+		}
+		.credit {
+			font-size: 17px;
 		}
 	}
 </style>

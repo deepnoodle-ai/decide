@@ -184,18 +184,22 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    the tallest. The caption's time is read at build time from the summary line
    of the triage-check transcript the page loads, named as the issue.md run
    and called one recording; no hard-coded figure.
-3. **"The small calls inside your automations."** `WhereItRuns.astro`: CI
-   gate, pre-command hook, queue triage, batch scan, each with a command,
-   one line and a link to a recipe or tutorial. It comes first because it
-   shows what the reader can do. Under 600px the cells lose their borders
-   and stack with gaps.
+3. **"The small calls inside your automations."** `WhereItRuns.astro`:
+   four link cards, two by two (one column under 760px): gate the merge,
+   check an agent's commands, route the queue, rank a codebase. Each has
+   how often in mono ("every pull request"), a 24px title, one line, the
+   command on a dark strip, and the guide it links to. The whole card is
+   the link. It comes first because it shows what the reader can do.
 4. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`, linked
    from the hero): one `<table>`, a general LLM with structured output
    against decide. Its first row shows the two replies to the same question:
    an example JSON reply, labeled as an example, and the answer lines from
    the triage-check recording. Four short rows follow: what you pay for,
-   wait for, handle and branch on. decide's column has the answer color on
-   its edge; a lost face and a glad face sit in the column heads. Below
+   wait for, handle and branch on, with sans row labels and the one fact
+   in each decide cell in bold. decide's column has a faint fill and the
+   answer color across its head; a lost face and a glad face sit in the
+   column heads. The two reply screens are one height, and decide's answer
+   is set large. Below
    720px the replies stack and each later row keeps its two cells side by
    side under its label. The LLM cells stay fair: logprobs are named. The
    Jev price is in the row itself, with a footnote that cites the public
@@ -205,9 +209,12 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
 5. **"Close calls go to a person."** `UseIt.astro`:
    `triage.go` branches three ways (allow, reject, `gate.Review`), with a
    strip in the pass, unsure and flag colors (three columns, stacked under
-   600px; "a person decides" is the widest and set in sans). One fine line
-   says the probability is the model's judgment and links the calibrate
-   example to compare on labeled items before switching. The headline is
+   600px; "a person decides" is the widest and set in sans). The Go is
+   highlighted by Astro's `<Code>` with `code-theme.json`, and has no
+   caption: the names explain themselves. Under it a filled box with its
+   own button says to test on items you've already labeled before
+   switching, and that the probability is the model's judgment; it links
+   the calibrate example. The headline is
    the page's one statement about people; don't repeat it in other bands.
 6. **"Four decision models, one set of commands."** `Models.astro`: one
    row of four (two by two under 860px), then the line on where your text
