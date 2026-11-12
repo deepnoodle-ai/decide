@@ -325,19 +325,3 @@ func mediaKind(path string, head []byte) template.Input {
 	}
 	return sniffMedia(head)
 }
-
-// readHead reads the first 8000 bytes of a file, enough to tell text from
-// binary.
-func readHead(path string) ([]byte, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	head := make([]byte, 8000)
-	n, err := io.ReadFull(f, head)
-	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
-		return nil, err
-	}
-	return head[:n], nil
-}
