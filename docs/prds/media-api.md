@@ -429,7 +429,10 @@ On every provider:
   file bytes.
 - R-9: `Request.Validate` rejects a `[]byte` at any depth of the state,
   instructions, and criteria, through maps, slices, arrays, pointers, and
-  struct fields. `json.RawMessage` is allowed. The message names the path
+  struct fields. It rejects only bytes that `encoding/json` would write as
+  base64: a nil `[]byte`, a field tagged `json:"-"`, an unexported field,
+  and a value whose type has its own `MarshalJSON` or `MarshalText` (such
+  as `json.RawMessage`) are allowed. The message names the path
   and the media API:
   `state.receipt is []byte, which would be sent as base64 text; attach files with decide.WithMedia, or pass text as a string`.
 - R-10: `decidetest` without `AcceptMedia` builds clients with the

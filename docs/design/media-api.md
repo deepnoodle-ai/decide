@@ -175,8 +175,13 @@ Adds, after the existing checks:
 2. Reserved `Extra` keys: `images`, `media`, `videos`, `assets`.
 3. `checkBytes` becomes a walk with `reflect` over maps, slices, arrays,
    pointers, interfaces, and exported struct fields, with a depth bound of
-   64 and a visited set for pointers. `json.RawMessage` is skipped. The
-   error names the path, such as `state.receipt` or `state.items[2]`.
+   64 and a visited set for pointers. It rejects only bytes that
+   `encoding/json` would write as base64, so it skips a nil `[]byte`
+   (encoded as `null`), a field tagged `json:"-"`, an unexported field,
+   and any value whose type, or a pointer to it, implements
+   `json.Marshaler` or `encoding.TextMarshaler`. `json.RawMessage` is
+   one of those. The error names the path, such as `state.receipt` or
+   `state.items[2]`.
 
 Signatures that `Contradicts` reads, and the normalized types that each
 one can be:
@@ -385,8 +390,10 @@ retried. The CLI's media tests check wire shapes, which do not change.
 - Root: `Validate` cases for each R-1 rule, including an MP3 that
   starts with a frame sync declared `audio/mpeg`, a WebM declared
   `audio/webm`, and an `ftypqt` MOV declared `video/quicktime`, which
-  pass; each reserved key; and deep
-  `[]byte` in maps, slices, pointers, and structs; `WithMedia` appends;
+  pass; each reserved key; deep
+  `[]byte` in maps, slices, pointers, and structs; and a nil `[]byte`, a
+  `json:"-"` field, and a type with a `[]byte` field and its own
+  `MarshalJSON` or `MarshalText`, which pass; `WithMedia` appends;
   `MarshalJSON` of a request with media equals the request without it.
   Client tests with a fake transport: a non-`MediaTransport` gets no
   call; `CheckMedia` runs once and its error means zero attempts; the
