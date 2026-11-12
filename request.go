@@ -1,12 +1,15 @@
 package decide
 
 import (
+	"encoding"
 	"encoding/json"
 	"fmt"
 	"maps"
 	"math"
 	"net/http"
+	"reflect"
 	"slices"
+	"strings"
 )
 
 // Request is one call to POST /v1/systemone.
@@ -17,6 +20,7 @@ type Request struct {
 	State     any    // string, object, array, or json.RawMessage
 	Model     string // empty: client default
 	Questions map[string]Question
+	Media     []Media        // files sent with the state, in order; see WithMedia
 	Extra     map[string]any // unmodeled top-level fields
 }
 
@@ -49,7 +53,8 @@ func WithRequestExtra(key string, value any) RequestOption {
 }
 
 // MarshalJSON writes state, model (omitted when empty), questions sorted by
-// key, then Extra sorted by key.
+// key, then Extra sorted by key. Media is not part of the native JSON form:
+// a MediaTransport sends it, so MarshalJSON writes no files.
 func (r *Request) MarshalJSON() ([]byte, error) {
 	w := newObjectWriter()
 	w.field("state", r.State)
@@ -113,7 +118,10 @@ func (r *Request) UnmarshalJSON(data []byte) error {
 
 // Validate reports whether the request can be sent. Errors wrap
 // ErrInvalidRequest. It does not enforce per-model limits such as the
-// 255-option or 10-level caps; the server reports those as 422.
+// 255-option or 10-level caps; the server reports those as 422. It checks
+// each file in Media for what fails on every provider, such as a missing
+// MIME type or bytes of another format; a provider's own kinds and limits
+// are checked by its transport and wrap errors.ErrUnsupported.
 func (r *Request) Validate() error {
 	if r == nil {
 		return invalidRequest("request is nil")
@@ -145,7 +153,12 @@ func (r *Request) Validate() error {
 			return invalidRequest(fmt.Sprintf("Extra key %q collides with a modeled field", k))
 		}
 	}
-	return nil
+	for _, k := range []string{"images", "media", "videos", "assets"} {
+		if _, ok := r.Extra[k]; ok {
+			return invalidRequest(fmt.Sprintf("Extra key %q is reserved; attach files with decide.WithMedia", k))
+		}
+	}
+	return validateMedia(r.Media)
 }
 
 func validateQuestion(k string, q Question) error {
@@ -236,30 +249,143 @@ func marshalQuestion(q Question) (err error) {
 	return err
 }
 
-// checkBytes rejects a []byte value, which encoding/json would send as
-// base64. It looks at v and, for map[string]any and []any, at v's direct
-// elements; deeper nesting is the caller's problem.
+// checkBytes rejects a []byte at any depth of v, through maps, slices,
+// arrays, pointers, interfaces, and the struct fields encoding/json writes,
+// including the fields of an embedded struct: encoding/json would send it
+// as base64 text. A value whose type encodes itself, such as
+// json.RawMessage, is not entered.
 func checkBytes(where string, v any) error {
-	bad := func() error {
-		return invalidRequest(where + " is []byte, which encodes as base64; pass a string or json.RawMessage")
-	}
-	switch v := v.(type) {
-	case []byte:
-		return bad()
-	case map[string]any:
-		for _, e := range v {
-			if _, ok := e.([]byte); ok {
-				return bad()
-			}
-		}
-	case []any:
-		for _, e := range v {
-			if _, ok := e.([]byte); ok {
-				return bad()
-			}
-		}
+	if path, ok := findBytes(reflect.ValueOf(v), where, 0, map[uintptr]bool{}, map[reflect.Type]bool{}); ok {
+		return invalidRequest(path + " is []byte, which would be sent as base64 text; attach files with decide.WithMedia, or pass text as a string")
 	}
 	return nil
+}
+
+const maxBytesDepth = 64
+
+var (
+	jsonMarshaler = reflect.TypeFor[json.Marshaler]()
+	textMarshaler = reflect.TypeFor[encoding.TextMarshaler]()
+)
+
+func encodesItself(t reflect.Type) bool {
+	return t.Implements(jsonMarshaler) || t.Implements(textMarshaler) ||
+		reflect.PointerTo(t).Implements(jsonMarshaler) || reflect.PointerTo(t).Implements(textMarshaler)
+}
+
+// mayHoldBytes reports whether a value of type t can hold a []byte that
+// encoding/json writes as base64. It lets findBytes skip, for example, a
+// large []int without looking at each element.
+func mayHoldBytes(t reflect.Type, seen map[reflect.Type]bool) bool {
+	if encodesItself(t) {
+		return false
+	}
+	if v, ok := seen[t]; ok {
+		return v
+	}
+	seen[t] = true // while t is in progress, a recursive type may hold bytes
+	var r bool
+	switch t.Kind() {
+	case reflect.Interface:
+		r = true
+	case reflect.Slice:
+		r = t.Elem().Kind() == reflect.Uint8 || mayHoldBytes(t.Elem(), seen)
+	case reflect.Array, reflect.Pointer, reflect.Map:
+		r = mayHoldBytes(t.Elem(), seen)
+	case reflect.Struct:
+		for i := range t.NumField() {
+			if _, ok := jsonField(t.Field(i)); ok && mayHoldBytes(t.Field(i).Type, seen) {
+				r = true
+				break
+			}
+		}
+	}
+	seen[t] = r
+	return r
+}
+
+// jsonField reports whether encoding/json writes struct field f, and the
+// name it writes. The name is "" for an embedded struct without a name in
+// its tag, whose fields encoding/json promotes into the outer object, even
+// when the embedded type is unexported.
+func jsonField(f reflect.StructField) (name string, ok bool) {
+	tag := f.Tag.Get("json")
+	if tag == "-" {
+		return "", false
+	}
+	name, _, _ = strings.Cut(tag, ",")
+	if f.Anonymous {
+		t := f.Type
+		if t.Kind() == reflect.Pointer {
+			t = t.Elem()
+		}
+		if !f.IsExported() && t.Kind() != reflect.Struct {
+			return "", false
+		}
+		if name == "" && t.Kind() == reflect.Struct {
+			return "", true
+		}
+	} else if !f.IsExported() {
+		return "", false
+	}
+	if name == "" {
+		name = f.Name
+	}
+	return name, true
+}
+
+func findBytes(v reflect.Value, path string, depth int, visited map[uintptr]bool, seen map[reflect.Type]bool) (string, bool) {
+	if !v.IsValid() || depth > maxBytesDepth || !mayHoldBytes(v.Type(), seen) {
+		return "", false
+	}
+	switch v.Kind() {
+	case reflect.Interface:
+		if v.IsNil() {
+			return "", false
+		}
+		return findBytes(v.Elem(), path, depth+1, visited, seen)
+	case reflect.Pointer:
+		if v.IsNil() || visited[v.Pointer()] {
+			return "", false
+		}
+		visited[v.Pointer()] = true
+		return findBytes(v.Elem(), path, depth+1, visited, seen)
+	case reflect.Slice:
+		if v.Type().Elem().Kind() == reflect.Uint8 {
+			return path, !v.IsNil()
+		}
+		fallthrough
+	case reflect.Array:
+		for i := range v.Len() {
+			if p, ok := findBytes(v.Index(i), fmt.Sprintf("%s[%d]", path, i), depth+1, visited, seen); ok {
+				return p, true
+			}
+		}
+	case reflect.Map:
+		keys := v.MapKeys()
+		slices.SortFunc(keys, func(a, b reflect.Value) int { return strings.Compare(fmt.Sprint(a), fmt.Sprint(b)) })
+		for _, k := range keys {
+			if p, ok := findBytes(v.MapIndex(k), fmt.Sprintf("%s.%v", path, k), depth+1, visited, seen); ok {
+				return p, true
+			}
+		}
+	case reflect.Struct:
+		t := v.Type()
+		for i := range t.NumField() {
+			name, ok := jsonField(t.Field(i))
+			if !ok {
+				continue
+			}
+			at := path
+			if name != "" {
+				at += "." + name
+			}
+			if p, ok := findBytes(v.Field(i), at, depth+1, visited, seen); ok {
+				return p, true
+			}
+		}
+	}
+	return "", false
 }
 
 func invalidRequest(msg string) error {

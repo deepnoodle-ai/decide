@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,6 +14,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/deepnoodle-ai/decide/internal/media"
 )
 
 // Transport performs exactly one attempt of each API call. It must not
@@ -27,6 +30,27 @@ import (
 type Transport interface {
 	SystemOne(ctx context.Context, req *Request) (*Response, error)
 	ListModels(ctx context.Context) (*ModelList, error)
+}
+
+// MediaTransport is a Transport that checks Request.Media itself and sends
+// the files it takes. The client sends a request with media only to a
+// MediaTransport; any other transport gets no call, and SystemOne returns
+// an error wrapping errors.ErrUnsupported.
+//
+// Implementing MediaTransport does not mean a transport takes any file:
+// HTTPTransport implements it and rejects every file until TypeSafe takes
+// media. To learn whether a transport takes a file, call CheckMedia with
+// a request that carries it.
+//
+// The client calls CheckMedia once per call, after Request.Validate and
+// before the first attempt. An error from it ends the call with no attempt.
+// CheckMedia must not do I/O. A file the transport cannot send returns an
+// error wrapping errors.ErrUnsupported that names the transport, the file
+// (media[i]), and what it takes. SystemOne must send every file in
+// req.Media, in order, or fail.
+type MediaTransport interface {
+	Transport
+	CheckMedia(req *Request) error
 }
 
 type attemptKey struct{}
@@ -141,9 +165,29 @@ func keyState(k string) string {
 	return redacted
 }
 
+// CheckMedia rejects every file. Jev reads images only as a preview, and
+// decide does not send them yet, so a request with media fails before any
+// network call with an error wrapping errors.ErrUnsupported.
+func (t *HTTPTransport) CheckMedia(req *Request) error {
+	if len(req.Media) == 0 {
+		return nil
+	}
+	m := req.Media[0]
+	what := "files"
+	if k := m.Kind(); k != "" {
+		what = media.Plural(string(k))
+	}
+	return fmt.Errorf("%w: typesafe does not take media yet (media[0], %s); choose a provider that reads %s, such as backend.Gemini",
+		errors.ErrUnsupported, m.MIMEType, what)
+}
+
 // SystemOne sends one POST /v1/systemone attempt. The body is decoded with
-// DecodeResponse, so answers take the types of req's questions.
+// DecodeResponse, so answers take the types of req's questions. A request
+// with media fails as CheckMedia says.
 func (t *HTTPTransport) SystemOne(ctx context.Context, req *Request) (*Response, error) {
+	if err := t.CheckMedia(req); err != nil {
+		return nil, err
+	}
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidRequest, err)
@@ -245,4 +289,4 @@ func (t *HTTPTransport) redact(b []byte) []byte {
 	return bytes.ReplaceAll(b, []byte(t.apiKey), []byte(redacted))
 }
 
-var _ Transport = (*HTTPTransport)(nil)
+var _ MediaTransport = (*HTTPTransport)(nil)

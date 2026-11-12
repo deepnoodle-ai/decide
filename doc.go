@@ -42,6 +42,13 @@
 //	t, _ := tone.From(resp)    // *decide.ChoiceAnswer
 //	fmt.Println(resp.Model, b.Noul, t.Choice, t.Confidence)
 //
+// A question can be about a file: attach an image, PDF, audio clip, or video
+// with [WithMedia]. The call is the same on every provider. A provider that
+// cannot read the file returns an error wrapping errors.ErrUnsupported
+// before any network call; TypeSafe reads no files yet. The backend package
+// lists what each provider takes. A custom [Transport] sends files only if
+// it implements [MediaTransport].
+//
 // Every answer is checked against its question before it is returned: the
 // keys match, required fields are present, a choice is one of the offered
 // options, probabilities are finite and in range. On a failure SystemOne

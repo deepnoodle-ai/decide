@@ -4,8 +4,9 @@ Run commands from the repository root with Go 1.27 or later.
 Each program uses fixed input so you can read the whole pattern in `main.go`.
 
 Start with the root package's executable examples for
-[`Eval` and `Pick`](../eval_example_test.go) or
-[typed request handles, validation errors, and answer helpers](../example_test.go):
+[`Eval` and `Pick`](../eval_example_test.go),
+[typed request handles, validation errors, and answer helpers](../example_test.go), or
+[attaching a file with `WithMedia`](../media_example_test.go):
 
 ```sh
 go test -run '^Example' ./...

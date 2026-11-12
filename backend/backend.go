@@ -5,6 +5,49 @@
 // Config supplies connection settings explicitly. NewClient reads no
 // environment variables, so a TypeSafe environment cannot affect Cloudflare
 // or vice versa. Applications can load configuration from their own source.
+//
+// # Media
+//
+// Attach an image, PDF, audio clip, or video with decide.WithMedia. The
+// request code is the same for every provider. A provider that cannot take
+// a file returns an error wrapping errors.ErrUnsupported before any network
+// call; the message names the provider, the file, and the limit or what it
+// takes. A file that is wrong on every provider, such as PNG bytes declared
+// as image/jpeg or an http:// URL, returns decide.ErrInvalidRequest.
+//
+//	             TypeSafe  Cloudflare        OpenAI              Gemini
+//	image bytes  no        PNG, JPEG, WebP   PNG, JPEG, WebP     PNG, JPEG, WebP, HEIC, HEIF, GIF, BMP, TIFF
+//	image URL    no        no                yes                 yes
+//	PDF          no        no                no                  bytes or URL
+//	audio        no        no                no                  bytes or URL
+//	video        no        no                no                  bytes or URL, not YouTube
+//	limits                 4 images; 4 MiB   1,500 images;       100 MB of inline base64,
+//	                       and 16 MP each;   512 MB a request    50 MB when a PDF is inline
+//	                       8 MiB in all
+//
+// TypeSafe's Jev reads images only as a preview, and decide does not send
+// them yet. A photo from a phone camera is often more than 4 MiB: resize it
+// for Cloudflare.
+//
+// A request with media gets a 5-minute attempt timeout, unless
+// decide.WithAttemptTimeout or decide.WithCallAttemptTimeout sets one, and
+// an attempt that reaches it is not retried. Other failures, such as a 503
+// or a reset connection, are retried as usual. So with the default two
+// retries, the worst case for one call is three attempts of up to 5
+// minutes each, plus the backoff between them: more than 15 minutes.
+// Bound the whole call with a context deadline, and lower the retries
+// with decide.WithMaxRetries or decide.WithCallMaxRetries:
+//
+//	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
+//	defer cancel()
+//	e, err := decide.Eval(ctx, client, "A photo of a store receipt.",
+//		decide.Noul("Can you read the total?"),
+//		decide.WithMedia(decide.Media{MIMEType: "image/jpeg", Data: photo}))
+//
+// To test a provider's media rules, set Config.BaseURL to an
+// httptest.Server: a file the provider cannot take never reaches it, and a
+// file it takes arrives in the provider's wire form. To test code that
+// attaches files, use decidetest.AcceptMedia.
 package backend
 
 import (

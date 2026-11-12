@@ -72,13 +72,15 @@ cut, because a signed URL carries a token in its query.
 `transport.go` adds:
 
 ```go
-// MediaTransport is a Transport that can send Request.Media. The client
-// sends a request with media only to a MediaTransport. It calls CheckMedia
-// once per call, after Request.Validate and before the first attempt. An
-// error from CheckMedia ends the call with no attempt. CheckMedia must not
-// do I/O. A file the transport cannot send returns an error wrapping
-// errors.ErrUnsupported. SystemOne must send every file in req.Media, or
-// fail.
+// MediaTransport is a Transport that checks Request.Media itself and sends
+// the files it takes. The client sends a request with media only to a
+// MediaTransport. It calls CheckMedia once per call, after
+// Request.Validate and before the first attempt. An error from CheckMedia
+// ends the call with no attempt. CheckMedia must not do I/O. A file the
+// transport cannot send returns an error wrapping errors.ErrUnsupported.
+// SystemOne must send every file in req.Media, or fail. Implementing
+// MediaTransport does not mean a transport takes any file: HTTPTransport
+// rejects every file.
 type MediaTransport interface {
 	Transport
 	CheckMedia(req *Request) error
@@ -170,20 +172,26 @@ Adds, after the existing checks:
 
 1. Each `Media`: `MIMEType` set and of a known kind after `Normalize`;
    exactly one of `Data` and `URL`; `Data` not empty; `URL` absolute,
-   `https`, with a host; the bytes not `Contradicts` the type. When the
-   bytes start with a signature in the table below, the declared type,
-   after `Normalize`, must be one of that signature's types. A container
-   that holds several formats is one row, so its types do not contradict
-   each other. PNG, JPEG, GIF, and WebP bytes must also start with their
-   own signature and have a header that `Dimensions` reads. Bytes with no
-   signature in the table are taken as declared.
+   `https`, with a host; the bytes not `Contradicts` the type. A PNG,
+   JPEG, GIF, or WebP type needs bytes that start with its own signature
+   and a header that `Dimensions` reads. For any other type, bytes that
+   start with a signature in the table below contradict it only when the
+   declared type, after `Normalize`, is not one of that signature's types
+   and none of those types is of its kind. So FLAC bytes declared as a
+   PDF fail, and FLAC bytes declared as an audio type that no provider
+   lists pass here and fail at the provider with `ErrUnsupported`. A
+   container that holds several formats is one row, so its types do not
+   contradict each other. Bytes with no signature in the table are taken
+   as declared. The message names the type as the caller declared it.
 2. Reserved `Extra` keys: `images`, `media`, `videos`, `assets`. The
    first three are the removed helpers' keys. `assets` is the TypeSafe
    API's image member (PRD R-3); reserving it keeps files off TypeSafe
    until #106 sends them.
 3. `checkBytes` becomes a walk with `reflect` over maps, slices, arrays,
-   pointers, interfaces, and exported struct fields, with a depth bound of
-   64 and a visited set for pointers. It rejects only bytes that
+   pointers, interfaces, and the struct fields `encoding/json` writes,
+   with a depth bound of 64 and a visited set for pointers. Like
+   `encoding/json`, it enters an embedded struct or pointer to struct,
+   exported or not, and names its fields as fields of the outer struct. It rejects only bytes that
    `encoding/json` would write as base64, so it skips a nil `[]byte`
    (encoded as `null`), a field tagged `json:"-"`, an unexported field,
    and any value whose type, or a pointer to it, implements
@@ -203,7 +211,7 @@ one can be:
 | PDF | `%PDF-` | `application/pdf` |
 | WAV | `RIFF`, 4 bytes, `WAVE` | `audio/wav` |
 | MP3 | `ID3`, or a frame sync `FF FB`, `FF F3`, or `FF F2` | `audio/mpeg`, `audio/mp3` |
-| Ogg | `OggS` | `audio/ogg`, `audio/opus`, `video/ogg`, `application/ogg` |
+| Ogg | `OggS` | `audio/ogg`, `audio/opus`, `video/ogg` |
 | FLAC | `fLaC` | `audio/flac` |
 | MP4 (ISO base media: MP4, MOV, M4A, 3GP, HEIF, AVIF) | `ftyp` at bytes 4 to 8 | `video/mp4`, `video/mov`, `video/3gpp`, `video/3gpp2`, `audio/m4a`, `audio/aac`, `image/heic`, `image/heif`, `image/avif` |
 | WebM (Matroska, EBML) | `1A 45 DF A3` | `video/webm`, `audio/webm`, `video/x-matroska` |
@@ -214,6 +222,18 @@ MP3 declared `audio/mpeg` or `audio/mp3`, a WebM declared `audio/webm` or
 `video/webm`, and a MOV declared `video/quicktime` (normalized to
 `video/mov`) all pass. A MOV that starts with an older atom, such as
 `moov` or `mdat`, has no signature in the table and is taken as declared.
+
+`Normalize` resolves these aliases, which cover every name Go's
+`mime.TypeByExtension` returns on macOS (`/etc/apache2/mime.types`) and
+Linux (`media-types`, `shared-mime-info`, `mailcap`) for the extensions
+the CLI reads, and the names `http.DetectContentType` returns:
+`image/jpg`; `audio/x-wav`, `audio/wave`, `audio/vnd.wave`;
+`audio/x-m4a`, `audio/mp4`, `audio/mp4a-latm`; `audio/x-aac`;
+`audio/x-flac`; `audio/x-aiff`; `application/ogg`; `video/quicktime`;
+`video/x-m4v`; `video/x-msvideo`, `video/vnd.avi`; `video/x-ms-wmv`. A
+Gemini test
+declares each of those names, and this machine's table, for a file of
+each extension.
 
 All three wrap `ErrInvalidRequest`. They are cheap: no file bytes are
 read past the first 512.
@@ -311,8 +331,12 @@ nothing on the first attempt, which is the common case, so it is out.
 ### `decidetest`
 
 - `AcceptMedia() Option` sets `s.acceptMedia`.
-- `NewClientFor` without it is unchanged: the client uses
-  `decide.HTTPTransport`, which rejects media as TypeSafe does.
+- `NewClientFor` without it builds `decide.NewHTTPTransport` and wraps
+  it in `rejectTransport`, whose `CheckMedia` returns the TypeSafe error
+  followed by `(in a test, pass decidetest.AcceptMedia() to
+  decidetest.NewServer to accept media)`. When `opts` hold a connection
+  option, which `WithTransport` does not allow, it builds the client as
+  before, on the plain TypeSafe transport, without the hint.
 - With it, `NewClientFor` builds `decide.NewHTTPTransport` itself and
   passes `decide.WithTransport(mediaTransport{inner})`. `mediaTransport`
   implements `MediaTransport`: `CheckMedia` returns nil, and `SystemOne`
@@ -399,7 +423,8 @@ retried. The CLI's media tests check wire shapes, which do not change.
   starts with a frame sync declared `audio/mpeg`, a WebM declared
   `audio/webm`, and an `ftypqt` MOV declared `video/quicktime`, which
   pass; each reserved key; deep
-  `[]byte` in maps, slices, pointers, and structs; and a nil `[]byte`, a
+  `[]byte` in maps, slices, pointers, structs, and embedded structs,
+  exported or not; and a nil `[]byte`, a
   `json:"-"` field, and a type with a `[]byte` field and its own
   `MarshalJSON` or `MarshalText`, which pass; `WithMedia` appends;
   `MarshalJSON` of a request with media equals the request without it.

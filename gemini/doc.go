@@ -17,12 +17,13 @@
 // 1,000 questions, keys of at most 64 letters, digits, "_" or "-", 2 to 255
 // options per choice, and 2 to 255 non-empty levels per score.
 //
-// SetMedia attaches images, audio, video, and PDFs, embedded with NewMedia
-// or referred to by URL with MediaURI. The transport then sends the state as
-// a text block followed by each media block. It also sends images that
-// cloudflare.SetImages attached. Inline media may be at most 100 MB of
-// base64, or 50 MB when the request holds a PDF; the transport checks this
-// before sending.
+// The transport is a decide.MediaTransport. It sends images, audio, video,
+// and PDFs attached with decide.WithMedia, as bytes or by HTTPS URL, such as
+// a Files API URI: the state as a text block, then one block per file. It
+// rejects YouTube URLs and MIME types the API does not list with
+// errors.ErrUnsupported before any network call. Inline files may be at
+// most 100 MB of base64, or 50 MB when a PDF is inline; a PDF by URL does
+// not lower the limit.
 //
 // Google answers an invalid API key with status 400. The transport reports
 // it as a *decide.APIError that also matches decide.ErrAuth. A safety block

@@ -21,7 +21,7 @@ var questionKey = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 type decisionRequest struct {
 	Model     string                      `json:"model"`
-	Input     any                         `json:"input"` // a string, or text and media blocks
+	Input     string                      `json:"input"` // the state as text; encodeMedia writes blocks
 	Questions map[string]decisionQuestion `json:"questions"`
 }
 
@@ -50,25 +50,11 @@ func encodeRequest(req *decide.Request) ([]byte, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	media, err := mediaBlocks(req.Extra)
-	if err != nil {
-		return nil, err
-	}
 	if len(req.Questions) > maxQuestions {
 		return nil, invalid(fmt.Sprintf("at most %d questions are supported", maxQuestions))
 	}
 	state, _ := json.Marshal(req.State) // req.Validate already checked encoding
 	body := decisionRequest{Model: req.Model, Input: text(state), Questions: make(map[string]decisionQuestion, len(req.Questions))}
-	if len(media) > 0 {
-		blocks := []any{}
-		if s := text(state); s != "" {
-			blocks = append(blocks, map[string]string{"type": "text", "text": s + "\n"})
-		}
-		for _, m := range media {
-			blocks = append(blocks, m)
-		}
-		body.Input = blocks
-	}
 	for key, question := range req.Questions {
 		if !questionKey.MatchString(key) {
 			return nil, invalid(fmt.Sprintf("question key %q must be 1 to 64 letters, digits, _ or -", key))
@@ -115,6 +101,9 @@ func encodeRequest(req *decide.Request) ([]byte, error) {
 		}
 		body.Questions[key] = q
 	}
+	if len(req.Media) > 0 {
+		return encodeMedia(req, body, text(state))
+	}
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("%w: gemini request: %w", decide.ErrInvalidRequest, err)
@@ -125,7 +114,7 @@ func encodeRequest(req *decide.Request) ([]byte, error) {
 	var merged map[string]json.RawMessage
 	_ = json.Unmarshal(raw, &merged)
 	for k, v := range req.Extra {
-		if _, taken := merged[k]; taken || k == "media" || k == "images" {
+		if _, taken := merged[k]; taken {
 			continue
 		}
 		b, err := json.Marshal(v)

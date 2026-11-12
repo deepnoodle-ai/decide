@@ -22,9 +22,9 @@
 //
 // A template's parameters take their defaults. [Relevance] has a parameter
 // with no default; set it with [Template.With] before asking its question.
-// [ReceiptQuality] reads images: attach them as the provider expects, such
-// as with cloudflare.SetImages, openai.SetImages, or gemini.SetMedia.
-// [InvoiceCheck] reads PDFs: attach them with gemini.SetMedia.
+// [ReceiptQuality] reads images and [InvoiceCheck] reads PDFs: attach the
+// file with [decide.WithMedia], on a provider that reads it.
+// [Template.Input] says which kind of file a template reads.
 //
 // The package exports flags, not the matches a template such as Relevance
 // uses to pick items out; a program applies its own rule to those answers.
@@ -104,6 +104,16 @@ func (t *Template) Name() string { return t.t.Name }
 
 // Description says what the template decides about each item.
 func (t *Template) Description() string { return t.t.Description }
+
+// Input returns the kind of file the template reads, such as
+// decide.MediaImage, or "" when it reads text. Attach the file with
+// decide.WithMedia.
+func (t *Template) Input() decide.MediaKind {
+	if t.t.Input == template.Text || t.t.Input == "" {
+		return ""
+	}
+	return decide.MediaKind(t.t.Input)
+}
 
 // Keys returns the question keys in the order the template asks them.
 func (t *Template) Keys() []string {

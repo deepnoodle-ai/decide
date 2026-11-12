@@ -25,6 +25,7 @@ type clientConfig struct {
 	initial    time.Duration
 	max        time.Duration
 	timeout    time.Duration
+	timeoutSet bool
 	validate   bool
 	noEnv      bool
 }
@@ -102,7 +103,10 @@ func WithLogger(l *slog.Logger) ClientOption {
 }
 
 // WithLogBodies adds request and response bodies to Debug records. Default
-// false. Headers are never logged.
+// false. Headers are never logged. The request body is decide's native
+// request, not the body a provider's transport sends, and it holds no
+// media: a request with media logs a "media" attribute that lists each file
+// by Media.String.
 func WithLogBodies(on bool) ClientOption {
 	return func(c *clientConfig) error { c.logBodies = on; return nil }
 }
@@ -131,14 +135,15 @@ func WithRetryBackoff(initial, max time.Duration) ClientOption {
 }
 
 // WithAttemptTimeout sets the timeout for each attempt, which covers reading
-// the body. Default 10s; 0 disables it. It bounds each attempt only; the
+// the body. Default 10s, or 5 minutes for a request with media; 0 disables
+// it. When set, it applies to requests with media too. It bounds each attempt only; the
 // overall bound for a call, including retries and sleeps, comes from ctx.
 func WithAttemptTimeout(d time.Duration) ClientOption {
 	return func(c *clientConfig) error {
 		if d < 0 {
 			return errors.New("decide: WithAttemptTimeout must be >= 0")
 		}
-		c.timeout = d
+		c.timeout, c.timeoutSet = d, true
 		return nil
 	}
 }

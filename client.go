@@ -25,6 +25,7 @@ type Client struct {
 	initialBackoff time.Duration
 	maxBackoff     time.Duration
 	attemptTimeout time.Duration
+	timeoutSet     bool // WithAttemptTimeout was given
 	validate       bool
 }
 
@@ -65,6 +66,7 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 		initialBackoff: cfg.initial,
 		maxBackoff:     cfg.max,
 		attemptTimeout: cfg.timeout,
+		timeoutSet:     cfg.timeoutSet,
 		validate:       cfg.validate,
 	}
 	c.Models = &ModelsService{c: c}
@@ -180,6 +182,13 @@ func describeTransport(t Transport) string {
 // call. If req.Model is empty the client's default model is sent; req itself
 // is never modified. Transient failures are retried.
 //
+// A request with media goes only to a MediaTransport, which checks the files
+// once before the first attempt; a file the provider cannot take returns an
+// error wrapping errors.ErrUnsupported with no network call. Such a request
+// gets a 5-minute attempt timeout unless WithAttemptTimeout or
+// WithCallAttemptTimeout is given, and an attempt that reaches that timeout
+// is not retried. Bound the whole call with ctx.
+//
 // When validation is on (the default) and an answer does not match its
 // question, SystemOne returns a non-nil response AND an
 // *InvalidAnswersError, and resp.Invalid names the bad keys. Callers who
@@ -219,8 +228,23 @@ func (c *Client) SystemOne(ctx context.Context, req *Request, opts ...CallOption
 	}
 	r := *req
 	r.Model = cmp.Or(r.Model, c.model)
+	if len(r.Media) > 0 {
+		mt, ok := c.transport.(MediaTransport)
+		if !ok {
+			return nil, fmt.Errorf("%w: decide: transport %s does not send media (media[0], %s); it must implement decide.MediaTransport",
+				errors.ErrUnsupported, describeTransport(c.transport), r.Media[0].MIMEType)
+		}
+		if err := mt.CheckMedia(&r); err != nil {
+			return nil, err
+		}
+		if !c.timeoutSet && cc.attemptTimeout == nil {
+			p.attemptTimeout = mediaAttemptTimeout
+		}
+		p.noRetryOnTimeout = true
+	}
 	// Encoding once up front catches unmarshalable values before any network
-	// call. The bytes feed WithLogBodies; HTTPTransport encodes on its own.
+	// call. The bytes feed WithLogBodies; they hold no media, which each
+	// transport writes itself.
 	body, err := r.MarshalJSON()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidRequest, err)
@@ -264,6 +288,13 @@ func (c *Client) logSystemOne(ctx context.Context, r *Request, reqBody []byte, a
 		slog.Duration("duration", d),
 		slog.String("model", r.Model),
 		slog.Int("questions", len(r.Questions)),
+	}
+	if len(r.Media) > 0 {
+		files := make([]string, len(r.Media))
+		for i, m := range r.Media {
+			files[i] = m.String()
+		}
+		attrs = append(attrs, slog.Any("media", files))
 	}
 	attrs = append(attrs, outcomeAttrs(err, requestID)...)
 	if resp != nil {

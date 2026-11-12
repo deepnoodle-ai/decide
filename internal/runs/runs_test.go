@@ -268,12 +268,59 @@ func TestRunsFromOlderVersionsAreReported(t *testing.T) {
 	}
 }
 
+// A file the provider's transport rejects with errors.ErrUnsupported is
+// local too: nothing was sent.
+func TestFilesTheProviderRejectsAreLocal(t *testing.T) {
+	t.Setenv("DECIDE_HOME", t.TempDir())
+	t.Chdir(t.TempDir())
+	var good bytes.Buffer
+	if err := png.Encode(&good, image.NewGray(image.Rect(0, 0, 1, 1))); err != nil {
+		t.Fatal(err)
+	}
+	for i := range RepeatLimit + 1 {
+		if err := os.WriteFile(fmt.Sprintf("p%d.png", i), good.Bytes(), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, err := template.Load("receipt-quality")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Create(&Run{Template: s, Provider: "cloudflare", Model: "clef", Sources: []string{"."}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := source.Walk(context.Background(), []string{"."}, nil, source.Options{Input: template.Image}, r.Add); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Ready(); err != nil {
+		t.Fatal(err)
+	}
+	server := decidetest.NewServer(t) // rejects media, as TypeSafe does
+	var seen []Result
+	if err := r.Execute(context.Background(), server.Client(t), 1, func(res Result) error {
+		seen = append(seen, res)
+		return nil
+	}); err != nil {
+		t.Fatalf("err = %v", err)
+	}
+	if len(seen) != RepeatLimit+1 || len(server.Requests()) != 0 {
+		t.Fatalf("%d results, %d requests", len(seen), len(server.Requests()))
+	}
+	for _, res := range seen {
+		if !res.Local || !strings.Contains(res.Error, "typesafe does not take media yet") {
+			t.Fatalf("result = %+v", res)
+		}
+	}
+}
+
 func TestFilesRejectedLocallyDoNotStopARun(t *testing.T) {
 	t.Setenv("DECIDE_HOME", t.TempDir())
 	dir := t.TempDir()
 	t.Chdir(dir)
 	// A WebP container with no image in it passes the walk's check, which
-	// reads only the header, and fails Cloudflare's, which reads the size.
+	// reads only the header, and fails decide.Request.Validate, which reads
+	// the size.
 	for i := range RepeatLimit + 1 {
 		name := fmt.Sprintf("bad%d.webp", i)
 		if err := os.WriteFile(name, []byte("RIFF\x10\x00\x00\x00WEBPVP8 \xff\xff\xff\xff"), 0o600); err != nil {
@@ -306,7 +353,7 @@ func TestFilesRejectedLocallyDoNotStopARun(t *testing.T) {
 		os.Remove(fmt.Sprintf("bad%d.webp", i))
 	}
 	os.Remove("good.png")
-	server := decidetest.NewServer(t)
+	server := decidetest.NewServer(t, decidetest.AcceptMedia())
 	var seen []Result
 	err = r.Execute(context.Background(), server.Client(t), 1, func(res Result) error {
 		seen = append(seen, res)
@@ -319,7 +366,7 @@ func TestFilesRejectedLocallyDoNotStopARun(t *testing.T) {
 		t.Fatalf("run = %s, %d complete, %d failed, results %+v", r.Status, r.Complete, r.Failed, seen)
 	}
 	for _, res := range seen[:RepeatLimit+1] {
-		if !res.Local || !strings.Contains(res.Error, "image data does not match") {
+		if !res.Local || !strings.Contains(res.Error, "media[0] has an invalid WebP header") {
 			t.Fatalf("result = %+v", res)
 		}
 	}

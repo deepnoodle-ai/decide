@@ -18,7 +18,7 @@ const maxQuestions = 200
 
 type decisionRequest struct {
 	Model     string             `json:"model"`
-	Input     any                `json:"input"` // a string, or messages with images
+	Input     string             `json:"input"` // the state as text; encodeMedia writes messages
 	Questions []decisionQuestion `json:"questions"`
 }
 
@@ -54,23 +54,11 @@ func encodeRequest(req *decide.Request) ([]byte, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	if _, ok := req.Extra["videos"]; ok {
-		return nil, fmt.Errorf("%w: openai videos input", errors.ErrUnsupported)
-	}
 	if len(req.Questions) > maxQuestions {
 		return nil, invalid(fmt.Sprintf("at most %d questions are supported", maxQuestions))
 	}
 	state, _ := json.Marshal(req.State) // req.Validate already checked encoding
 	body := decisionRequest{Model: req.Model, Input: text(state)}
-	if images, ok := req.Extra["images"]; ok {
-		urls, err := imageURLs(images)
-		if err != nil {
-			return nil, err
-		}
-		if len(urls) > 0 { // no images: send the text input as usual
-			body.Input = imageInput(text(state), urls)
-		}
-	}
 	for _, key := range slices.Sorted(maps.Keys(req.Questions)) {
 		wire, err := questionWire(req.Questions[key])
 		if err != nil {
@@ -114,6 +102,9 @@ func encodeRequest(req *decide.Request) ([]byte, error) {
 		}
 		body.Questions = append(body.Questions, q)
 	}
+	if len(req.Media) > 0 {
+		return encodeMedia(req, body, text(state))
+	}
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("%w: openai request: %w", decide.ErrInvalidRequest, err)
@@ -124,7 +115,7 @@ func encodeRequest(req *decide.Request) ([]byte, error) {
 	var merged map[string]json.RawMessage
 	_ = json.Unmarshal(raw, &merged)
 	for k, v := range req.Extra {
-		if _, taken := merged[k]; taken || k == "images" {
+		if _, taken := merged[k]; taken {
 			continue
 		}
 		b, err := json.Marshal(v)
@@ -134,30 +125,6 @@ func encodeRequest(req *decide.Request) ([]byte, error) {
 		merged[k] = b
 	}
 	return json.Marshal(merged)
-}
-
-type inputMessage struct {
-	Role    string      `json:"role"`
-	Content []inputPart `json:"content"`
-}
-
-type inputPart struct {
-	Type     string `json:"type"`
-	Text     string `json:"text,omitempty"`
-	ImageURL string `json:"image_url,omitempty"`
-}
-
-// imageInput is one user message holding the state as text, unless it is
-// empty, then each image as an input_image part.
-func imageInput(state string, urls []string) []inputMessage {
-	parts := []inputPart{}
-	if state != "" {
-		parts = append(parts, inputPart{Type: "input_text", Text: state})
-	}
-	for _, u := range urls {
-		parts = append(parts, inputPart{Type: "input_image", ImageURL: u})
-	}
-	return []inputMessage{{Role: "user", Content: parts}}
 }
 
 func questionWire(q decide.Question) (wire wireQuestion, err error) {

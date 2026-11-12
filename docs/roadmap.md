@@ -70,8 +70,11 @@ off, or remove them, as they land.
 - [x] **Media on Gemini.** Send images, audio, video, and PDFs to the
       Gemini Decisions API. `audio`, `video`, and `pdf` template inputs,
       and `invoice-check`.
-- [ ] **Media by URL.** Send large files through Gemini's Files API or a
-      URL instead of inline base64.
+- [x] **One media API.** `decide.WithMedia` attaches files the same way on
+      every provider; see the [PRD](prds/media-api.md).
+- [x] **Media by URL in Go.** `decide.Media.URL` sends a Files API URI or an
+      HTTPS URL to Gemini, and an image URL to OpenAI. The CLI part is
+      #104.
 - [ ] **Images on TypeSafe Jev.** Send PNG and JPEG images to Jev, a
       preview behind the `TypeSafe-Danger-Zone-Images` header. First, a
       spike measures how the place of the image references in the state
@@ -86,7 +89,7 @@ off, or remove them, as they land.
 - [ ] **A media demo.** A fixture in `demo/` and a tape in `site/tapes`
       for `receipt-quality` and `invoice-check`.
 - [x] **Images on OpenAI.** Send image templates to the Decisions API as
-      base64 data URLs, as `cloudflare.SetImages` does for Clef.
+      base64 data URLs.
 - [x] **`decide models`.** List models and check that the provider accepts the credentials.
       Cloudflare, OpenAI, and Gemini can't list models, so they check credentials
       through a read endpoint and show the names decide knows.
