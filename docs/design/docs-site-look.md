@@ -176,7 +176,7 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    CLI and Go library), then what you do and get (ask a question about
    every diff, ticket or file; a decision model answers each with a
    probability your script can act on). No colon lists and no stacked
-   clauses. then `Install.astro`
+   clauses. Then `Install.astro`
    (brew, go install, go get, claude code), and under it one centred row
    of two buttons: "Quickstart →", the page's way into the docs, and
    "See what decide does" (ghost, to `#adds`, the band that sets decide
