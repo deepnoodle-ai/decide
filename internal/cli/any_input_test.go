@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/deepnoodle-ai/decide"
@@ -280,6 +281,11 @@ func TestFolderWithImagesStaysText(t *testing.T) {
 	}
 	contains(t, out.stderr, "Found nothing for code-risk to look at in docs",
 		"Hint: In a folder, code-risk reads only text. To send the images, name them:\ndecide run code-risk docs/*.png --provider openai")
+	// The UC-5 hint replaces the old one, so only one hint prints.
+	lacks(t, out.stderr, "code-risk reads text.", "need a template that reads them")
+	if n := strings.Count(out.stderr, "Hint:"); n != 1 {
+		t.Fatalf("%d hints: %s", n, out.stderr)
+	}
 	out = h.run("", "run", "code-risk", "docs", "--dry-run")
 	contains(t, out.stderr, "decide run code-risk docs/*.png --provider cloudflare")
 
