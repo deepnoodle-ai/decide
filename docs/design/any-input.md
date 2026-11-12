@@ -132,8 +132,9 @@ today, plus the provider check, in the PRD's order:
    format check below would fail too, `ProviderError.Format` holds that
    `FormatError`, so the hint can add the format fix (PRD R-3).
 3. Format: an extension in `otherImages` -> `FormatError`. A file with
-   no media extension whose first bytes are media -> `FormatError` that
-   asks for the extension.
+   no media extension whose first bytes are media -> `FormatError`. It
+   asks for the extension only when the bytes are a format decide sends
+   (for images, PNG, JPEG, or WebP by `http.DetectContentType`).
 4. Size, then empty, then the header and pixels -> today's
    `TooLargeError`, `InvalidMediaError`, `PixelsError`.
 
@@ -205,8 +206,11 @@ type FormatError struct {
     list, the provider lines and the format line are separate hints, so
     the provider lines show once.
   - `FormatError`: `<noun>, and decide sends images only as PNG, JPEG, or
-    WebP`, with today's `unsupportedHint`. With no extension, the hint
-    is `Name it with its extension, such as <file>.png.`
+    WebP`, with today's `unsupportedHint`. With no extension and bytes
+    of a format decide sends (`ByContent`), the hint is `Name it with
+    its extension, such as <file>.png.` With no extension and image
+    bytes of another format, such as a GIF, the pass returns a plain
+    `FormatError`, so the hint says to save it as PNG, JPEG, or WebP.
   - `UnsupportedError` for a media template: the R-8 text.
   - `TooLargeError` and `PixelsError` read the provider and kind from the
     error, since a run can hold several kinds.
@@ -291,7 +295,7 @@ keys only.
 | UC-6 | `TestMediaTemplateOtherKind` (cli) | `receipt-quality receipt.pdf --provider gemini` sends a PDF; with only a Cloudflare key, the Cloudflare error; `receipt-quality photos` reads images only. |
 | UC-7 | `TestMediaTemplateFolderWrongProvider` (cli) | `invoice-check invoices` on TypeSafe and OpenAI stops before the walk, also with `--dry-run`; `invoice-check scan.png --provider openai` runs. |
 | UC-8 | `TestSeveralNamedFilesFail` (cli), `TestWalkNamedErrors` (source) | the list, the order, the cap of 10 with `and N more`, one hint per distinct hint; a passing file is not listed; `--limit 1` still checks every named file; on TypeSafe, `photo.gif shot.png` shows the images hint once, then the format line for `photo.gif`. |
-| R-6, R-8, R-10 | `TestNamedFormatErrors`, `TestMediaTemplateRefusesText`, `TestBinaryStdinHint` (cli) | GIF and no-extension messages; the R-8 message, also for `receipt-quality LICENSE`; the R-10 hint. |
+| R-6, R-8, R-10 | `TestNamedFormatErrors`, `TestMediaTemplateRefusesText`, `TestBinaryStdinHint` (cli) | GIF and no-extension messages, and a GIF with no extension gets the save-as hint; the R-8 message, also for `receipt-quality LICENSE`; the R-10 hint. |
 | R-5 | `TestMediaTableMatchesTransports` (cli) | for each provider and kind, a 1-pixel PNG, a WAV header, a short MP4 header, and `%PDF-` sent through `backend.NewClient` to a fake server: `errors.ErrUnsupported` exactly when the table says the provider does not read the kind. |
 
 Existing tests in `media_test.go` and `media_inputs_test.go` that expect

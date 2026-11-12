@@ -323,8 +323,8 @@ Acceptance:
   provider does not read the kind and decide does not send the format
   either, the R-4 hint gets one more line from R-6, with "as well":
   `Save it as PNG, JPEG, or WebP as well.`, or for a file with no
-  extension, `Name it with its extension, such as shot.png, as well.` decide checks
-  every named media file, then stops with one error if any failed: the
+  extension whose bytes decide sends, `Name it with its extension, such
+  as shot.png, as well.` decide checks every named media file, then stops with one error if any failed: the
   single-file error for one, or the list of UC-8 for more.
 - R-4: A provider that does not read a named file's kind stops the run
   with `<file> is <a kind>, and <Provider> reads <what it reads>`, where
@@ -342,7 +342,13 @@ Acceptance:
   the run: `photo.gif is an image, and decide sends images only as PNG,
   JPEG, or WebP`, with the hint `Save it as PNG, JPEG, or WebP, and run
   decide on that file.` On a provider that does not read its kind, R-4
-  comes first (R-3). Formats are chosen by extension, as today.
+  comes first (R-3). Formats are chosen by extension, as today. A named
+  file with no extension is sorted by its first bytes. If they are a
+  format decide sends, such as PNG, the hint asks for the extension:
+  `Name it with its extension, such as shot.png, and run decide on that
+  file.` If they are a format decide does not send, such as a GIF, the
+  file gets this R-6 error and hint, since a new name would not change
+  its format.
 - R-7: A folder gives a text template text only, on every provider.
   Media files in it are skipped with today's "Skipped N files that are
   not text" line. When the walk finds nothing and skipped media files,
