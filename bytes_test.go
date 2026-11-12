@@ -26,6 +26,62 @@ type chain struct {
 	Bytes []byte `json:"bytes"`
 }
 
+// thumbMeta is unexported, but encoding/json promotes the fields of an
+// embedded struct, so Thumb is written as base64.
+type thumbMeta struct{ Thumb []byte }
+
+type embeddedItem struct {
+	thumbMeta
+	Name string
+}
+
+type embeddedPointer struct {
+	*thumbMeta
+	Name string
+}
+
+type ExportedMeta struct{ Thumb []byte }
+
+type taggedEmbed struct {
+	ExportedMeta `json:"meta"`
+}
+
+// blob is an unexported non-struct type; encoding/json skips it embedded.
+type blob []byte
+
+type embeddedBlob struct {
+	blob
+	Name string
+}
+
+func TestBytesInEmbeddedStructs(t *testing.T) {
+	if b, _ := json.Marshal(embeddedItem{thumbMeta{[]byte("abc")}, "x"}); !strings.Contains(string(b), `"Thumb":"YWJj"`) {
+		t.Fatalf("encoding/json wrote %s", b)
+	}
+	bad := []struct {
+		state any
+		want  string
+	}{
+		{embeddedItem{thumbMeta: thumbMeta{Thumb: []byte("abc")}, Name: "x"}, "state.Thumb"},
+		{&embeddedPointer{thumbMeta: &thumbMeta{Thumb: []byte("abc")}}, "state.Thumb"},
+		{taggedEmbed{ExportedMeta{Thumb: []byte("abc")}}, "state.meta.Thumb"},
+	}
+	for _, c := range bad {
+		err := noulRequest(func(r *decide.Request) { r.State = c.state }).Validate()
+		if !errors.Is(err, decide.ErrInvalidRequest) || !strings.Contains(err.Error(), c.want+" is []byte") {
+			t.Errorf("%T: err = %v, want %s", c.state, err, c.want)
+		}
+	}
+	for _, state := range []any{
+		embeddedPointer{Name: "nil pointer"},
+		embeddedBlob{blob: blob("x"), Name: "x"},
+	} {
+		if err := noulRequest(func(r *decide.Request) { r.State = state }).Validate(); err != nil {
+			t.Errorf("%T: %v", state, err)
+		}
+	}
+}
+
 func TestBytesAtAnyDepth(t *testing.T) {
 	bad := map[string]any{
 		"state":                     []byte("x"),

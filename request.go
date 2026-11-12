@@ -250,8 +250,9 @@ func marshalQuestion(q Question) (err error) {
 }
 
 // checkBytes rejects a []byte at any depth of v, through maps, slices,
-// arrays, pointers, interfaces, and exported struct fields: encoding/json
-// would send it as base64 text. A value whose type encodes itself, such as
+// arrays, pointers, interfaces, and the struct fields encoding/json writes,
+// including the fields of an embedded struct: encoding/json would send it
+// as base64 text. A value whose type encodes itself, such as
 // json.RawMessage, is not entered.
 func checkBytes(where string, v any) error {
 	if path, ok := findBytes(reflect.ValueOf(v), where, 0, map[uintptr]bool{}, map[reflect.Type]bool{}); ok {
@@ -293,7 +294,7 @@ func mayHoldBytes(t reflect.Type, seen map[reflect.Type]bool) bool {
 		r = mayHoldBytes(t.Elem(), seen)
 	case reflect.Struct:
 		for i := range t.NumField() {
-			if f := t.Field(i); f.IsExported() && f.Tag.Get("json") != "-" && mayHoldBytes(f.Type, seen) {
+			if _, ok := jsonField(t.Field(i)); ok && mayHoldBytes(t.Field(i).Type, seen) {
 				r = true
 				break
 			}
@@ -301,6 +302,36 @@ func mayHoldBytes(t reflect.Type, seen map[reflect.Type]bool) bool {
 	}
 	seen[t] = r
 	return r
+}
+
+// jsonField reports whether encoding/json writes struct field f, and the
+// name it writes. The name is "" for an embedded struct without a name in
+// its tag, whose fields encoding/json promotes into the outer object, even
+// when the embedded type is unexported.
+func jsonField(f reflect.StructField) (name string, ok bool) {
+	tag := f.Tag.Get("json")
+	if tag == "-" {
+		return "", false
+	}
+	name, _, _ = strings.Cut(tag, ",")
+	if f.Anonymous {
+		t := f.Type
+		if t.Kind() == reflect.Pointer {
+			t = t.Elem()
+		}
+		if !f.IsExported() && t.Kind() != reflect.Struct {
+			return "", false
+		}
+		if name == "" && t.Kind() == reflect.Struct {
+			return "", true
+		}
+	} else if !f.IsExported() {
+		return "", false
+	}
+	if name == "" {
+		name = f.Name
+	}
+	return name, true
 }
 
 func findBytes(v reflect.Value, path string, depth int, visited map[uintptr]bool, seen map[reflect.Type]bool) (string, bool) {
@@ -341,15 +372,15 @@ func findBytes(v reflect.Value, path string, depth int, visited map[uintptr]bool
 	case reflect.Struct:
 		t := v.Type()
 		for i := range t.NumField() {
-			f := t.Field(i)
-			name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
-			if !f.IsExported() || name == "-" {
+			name, ok := jsonField(t.Field(i))
+			if !ok {
 				continue
 			}
-			if name == "" {
-				name = f.Name
+			at := path
+			if name != "" {
+				at += "." + name
 			}
-			if p, ok := findBytes(v.Field(i), path+"."+name, depth+1, visited, seen); ok {
+			if p, ok := findBytes(v.Field(i), at, depth+1, visited, seen); ok {
 				return p, true
 			}
 		}
