@@ -1,0 +1,120 @@
+---
+// The hero's drawing, under "Judgment calls, at scale.": an abstract field
+// of cells that are asked about, wave after wave. Each cell starts blank,
+// flashes as it is decided, and settles on a shade; a few settle in the
+// flag color. Then the field clears and the next wave comes through. It
+// stands for nothing in particular (not a codebase, not a queue): no tabs,
+// no command, no legend and no caption. A version with a tab per kind of
+// input was tried and was too literal. It took the place of the terminal
+// recordings, which showed one item at a time and were hard to follow;
+// those now live only in the quickstart and tutorials. It is decoration that shows the
+// idea, so it is hidden from screen readers.
+//
+// Pure CSS: one keyframe per kind of cell and a delay per cell, from a
+// fixed hash, so the picture is the same on every build. With reduced
+// motion the field shows settled.
+const COLS = 80;
+const ROWS = 10;
+const CYCLE = 11; // seconds for one wave to pass, hold and clear
+
+// A small integer hash: the same shade and timing for a cell on every build.
+const hash = (n: number) => {
+	let x = (n + 1) * 2654435761;
+	x ^= x >>> 15;
+	x = Math.imul(x, 2246822519);
+	x ^= x >>> 13;
+	return (x >>> 0) / 4294967296;
+};
+const cells = Array.from({ length: COLS * ROWS }, (_, i) => {
+	const r = hash(i);
+	const hot = r > 0.978;
+	const col = i % COLS;
+	// The wave front crosses left to right in about 4.5s, ragged at its edge.
+	const at = (col / COLS) * 4.5 + hash(i + 31) * 0.9;
+	return {
+		hot,
+		o: (hot ? 0.6 + hash(i + 77) * 0.4 : 0.08 + r * r * 0.38).toFixed(2),
+		d: (at - CYCLE).toFixed(2),
+	};
+});
+---
+
+<div class="sweep" style={`--cols:${COLS};--cycle:${CYCLE}s`} aria-hidden="true">
+	{cells.map((c) => <i class:list={{ hot: c.hot }} style={`--o:${c.o};--d:${c.d}s`} />)}
+</div>
+
+<style>
+	.sweep {
+		display: grid;
+		grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+		gap: 3px;
+		max-width: 1180px;
+		margin: clamp(56px, 8vw, 88px) auto 0;
+		/* The field fades out at both ends, so it reads as part of something larger. */
+		-webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+		mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+	}
+	i {
+		aspect-ratio: 1;
+		background: var(--sl-color-white);
+		opacity: var(--o);
+	}
+	i.hot {
+		background: var(--ans-flag);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		i {
+			animation: decided var(--cycle) linear var(--d) infinite;
+		}
+		i.hot {
+			animation-name: flagged;
+		}
+	}
+	/* Blank, a flash as the answer lands, the settled shade, then cleared. */
+	@keyframes decided {
+		0%,
+		2% {
+			opacity: 0.05;
+		}
+		4% {
+			opacity: 0.7;
+		}
+		9%,
+		84% {
+			opacity: var(--o);
+		}
+		92%,
+		100% {
+			opacity: 0.05;
+		}
+	}
+	@keyframes flagged {
+		0%,
+		2% {
+			opacity: 0.05;
+			background: var(--sl-color-white);
+		}
+		4% {
+			opacity: 1;
+			background: var(--ans-flag);
+		}
+		9%,
+		84% {
+			opacity: var(--o);
+			background: var(--ans-flag);
+		}
+		92%,
+		100% {
+			opacity: 0.05;
+			background: var(--sl-color-white);
+		}
+	}
+	@media (max-width: 800px) {
+		.sweep {
+			grid-template-columns: repeat(40, minmax(0, 1fr));
+			gap: 2.5px;
+			-webkit-mask-image: linear-gradient(180deg, #000 60%, transparent);
+			mask-image: linear-gradient(180deg, #000 60%, transparent);
+		}
+	}
+</style>

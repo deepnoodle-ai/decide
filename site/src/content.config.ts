@@ -11,6 +11,9 @@ export const collections = {
 				// The page's answer line for its link preview, such as "! severe  yes".
 				// A verdict, never a percentage. A leading "!" draws it as flagged.
 				answer: z.string().optional(),
+				// The landing page's one line on what the latest release added. The
+				// version beside it comes from plugin.json, which each release bumps.
+				release: z.string().optional(),
 			}),
 		}),
 	}),

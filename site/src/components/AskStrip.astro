@@ -1,0 +1,208 @@
+---
+// Why not just prompt an agent, as a three panel strip: you ask, an agent
+// replies with paragraphs, decide answers with a value and a probability.
+// Each panel shares the strip's four rows, so the faces, titles, what was
+// said and the captions line up across. The answer line is the one decide
+// printed in the triage-check recording.
+import Doodle from './Doodle.astro';
+---
+
+<div class="strip">
+	<div class="panel">
+		<div class="face"><Doodle size={56} face="ask" thinking /><span class="who">You<span>think very hard, then ask</span></span></div>
+		<h3>You want a yes or a no.</h3>
+		<div class="bubble q">Is this issue ready to work on?</div>
+		<p>One question, asked the same way about every issue in the queue.</p>
+	</div>
+	<div class="panel">
+		<div class="face"><Doodle size={56} face="lost" /><span class="who">An agent<span>replies</span></span></div>
+		<h3>You get three paragraphs.</h3>
+		<div class="bubble fluff">
+			That's a great question! Whether an issue is ready to work on really depends on a few things. Generally speaking, a well formed
+			issue should include reproduction steps, the expected behaviour, and some sense of scope. Based on what you've shared, there may
+			be some ambiguity around the acceptance criteria…
+		</div>
+		<p>Helpful to read. Impossible to branch on. Now it is writing a parser.</p>
+	</div>
+	<div class="panel answer">
+		<div class="face"><Doodle size={56} face="glad-card" tag="no" tone="flag" /><span class="who">decide<span>answers</span></span></div>
+		<h3>You get a value and a number.</h3>
+		<div class="screen">
+			<div class="bar" aria-hidden="true">task-readiness</div>
+			<div class="body">
+				<span class="ans"><span class="flag">!</span>ready<span class="flag">no</span><span class="pct">98%</span></span>
+				<span class="meter flagm" style="--p: 0.98" role="img" aria-label="98% probability"><i></i></span>
+				<span class="exit"><code>--fail-on flagged</code>: exit 2, CI stops.</span>
+			</div>
+		</div>
+		<p>JSON mode gets you the shape. This gets you a number to set a threshold on. The probability is the model's judgment, not proof, and not a confidence it wrote about itself.</p>
+	</div>
+</div>
+
+<style>
+	.strip {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.25fr);
+		margin-top: 56px;
+		border: 1px solid var(--sl-color-hairline);
+		text-align: left;
+	}
+	.panel {
+		display: grid;
+		grid-row: span 4;
+		grid-template-rows: subgrid;
+		row-gap: 18px;
+		min-width: 0;
+		padding: 28px 26px 30px;
+		border-left: 1px solid var(--sl-color-hairline);
+	}
+	.panel:first-child {
+		border-left: 0;
+	}
+	/* decide's panel carries the weight: a faint fill and the biggest type. */
+	.panel.answer {
+		background: var(--sl-color-gray-7);
+	}
+	.face {
+		display: flex;
+		align-items: center;
+		gap: 14px;
+		min-height: 56px;
+		color: var(--sl-color-white);
+	}
+	.who {
+		font: 700 13px/1.3 var(--sl-font-mono);
+		color: var(--sl-color-gray-2);
+	}
+	.who span {
+		display: block;
+		font-weight: 400;
+		color: var(--sl-color-gray-4);
+	}
+	h3 {
+		margin: 0;
+		font-size: 20px;
+		font-weight: 500;
+		line-height: 1.3;
+		letter-spacing: -0.015em;
+		color: var(--sl-color-white);
+		text-wrap: balance;
+	}
+	p {
+		margin: 0;
+		font-size: 14.5px;
+		line-height: 1.6;
+		color: var(--sl-color-gray-3);
+	}
+	.bubble {
+		position: relative;
+		align-self: start;
+		margin-top: 6px;
+		padding: 14px 16px;
+		background: var(--sl-color-gray-7);
+		border: 1px solid var(--sl-color-hairline);
+	}
+	.bubble::before {
+		content: '';
+		position: absolute;
+		top: -6px;
+		left: 22px;
+		width: 10px;
+		height: 10px;
+		background: var(--sl-color-gray-7);
+		border-left: 1px solid var(--sl-color-hairline);
+		border-top: 1px solid var(--sl-color-hairline);
+		transform: rotate(45deg);
+	}
+	.q {
+		font: 400 15px/1.5 var(--sl-font-mono);
+		color: var(--sl-color-white);
+	}
+	/* The reply visibly runs on past the box. */
+	.fluff {
+		max-height: 132px;
+		overflow: hidden;
+		font-size: 13px;
+		line-height: 1.6;
+		color: var(--sl-color-gray-3);
+		-webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent);
+		mask-image: linear-gradient(to bottom, #000 45%, transparent);
+	}
+	.fluff::before {
+		display: none;
+	}
+	/* A small screen, dark in both themes like every terminal. */
+	.screen {
+		align-self: start;
+		margin-top: 6px;
+		overflow: hidden;
+		background: var(--term-bg);
+		border: 1px solid var(--term-border);
+		box-shadow: var(--term-shadow);
+		font-family: var(--sl-font-mono);
+	}
+	.bar {
+		padding: 8px 14px;
+		border-bottom: 1px solid var(--term-line);
+		font-size: 11px;
+		color: var(--term-muted);
+	}
+	.body {
+		display: flex;
+		flex-direction: column;
+		gap: 12px;
+		padding: 18px 16px 18px;
+	}
+	.ans {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0 0.6em;
+		font-size: 24px;
+		line-height: 1.2;
+		font-weight: 700;
+		color: var(--term-fg);
+	}
+	/* The terminal keeps the dark theme's answer colors in both themes, as the recordings do. */
+	.flag,
+	.flagm {
+		color: #f7666f;
+	}
+	.pct {
+		margin-left: auto;
+		font-weight: 400;
+		color: #f7666f;
+	}
+	.flagm {
+		--track: #5c6068;
+	}
+	.exit {
+		font-size: 12px;
+		color: var(--term-muted);
+	}
+	.exit code {
+		padding: 0;
+		background: none;
+		font-size: inherit;
+		color: var(--term-fg);
+	}
+	@media (max-width: 860px) {
+		.strip {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.panel {
+			grid-row: auto;
+			grid-template-rows: none;
+			border-left: 0;
+			border-top: 1px solid var(--sl-color-hairline);
+		}
+		.panel:first-child {
+			border-top: 0;
+		}
+	}
+	@media (max-width: 480px) {
+		.panel {
+			padding: 24px 18px 26px;
+		}
+	}
+</style>

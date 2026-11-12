@@ -1,0 +1,180 @@
+---
+// "Why not just call an LLM?": three reasons, one card each: faster,
+// cheaper, and calibrated. Each card is a word, one or
+// two sentences on why, and one figure in mono at its foot. No table and no
+// example reply. The claims come from
+// how a decision model works, not from a benchmark. "Calibrated" is
+// TypeSafe's claim for Jev (https://typesafe.ai); the band below tells the
+// reader to test it on their own labeled items.
+//
+// The time is read from the triage-check transcript, the recording in the
+// triage tutorial, so it stays in step when the tape is recorded again. It
+// is one recording, and the card says so and links to it. The landing page
+// itself shows no recordings.
+// The Calibrated figure is the definition, not a measurement.
+//
+// Prices are public, with their sources in the footnote:
+//   Jev: $0.042 per million input tokens, output free
+//     https://docs.typesafe.ai/models
+//   gemini-decision-1: $0.10 per million input tokens, no output tokens
+//     https://aistudio.google.com/docs/pricing
+//   Lowest standard chat output price listed: $0.40 per million, gpt-5-nano
+//     https://developers.openai.com/api/docs/pricing
+//     (Batch and Flex list $0.20; the note says "standard".)
+// No output-cost claim is made for OpenAI's Decisions API or Cloudflare.
+import { loadTape, transcript } from '../lib/tapes';
+
+const first = await transcript('triage-check', loadTape('triage-check'));
+const took = first.match(/answered.*?(\d+(?:\.\d+)?m?s)\s*$/m)?.[1];
+
+const reasons = [
+	{
+		title: 'Faster',
+		body: 'An LLM writes its reply a token at a time, and you wait for all of it. A decision model writes nothing. It returns one answer.',
+		fig: took ?? 'one answer',
+		of: took ? 'for one answer, in a recorded run' : 'nothing written',
+		href: took ? '/tutorials/triage-issues/' : undefined,
+	},
+	{
+		title: 'Cheaper',
+		body: 'With an LLM you pay for your prompt and for every token it writes back. Here you pay for the prompt.',
+		fig: '$0.042',
+		of: 'per million input tokens on Jev',
+		note: true,
+	},
+	{
+		title: 'Calibrated',
+		body: 'Ask an LLM how sure it is and it types a number, usually a confident one. A decision model is trained so its probability matches how often it is right.',
+		fig: '90%',
+		of: 'means right about nine times in ten',
+	},
+];
+---
+
+<div class="compare">
+	<div class="reasons">
+		{
+			reasons.map((r) => (
+				<div class="reason">
+					<h3>{r.title}</h3>
+					<p>{r.body}</p>
+					<p class="fig">
+						<b>{r.fig}</b>
+						<span>
+							{r.href ? <a href={r.href}>{r.of}</a> : r.of}
+							{r.note && (
+								<sup>
+									<a href="#price-note" aria-label="Prices and sources">
+										1
+									</a>
+								</sup>
+							)}
+						</span>
+					</p>
+				</div>
+			))
+		}
+	</div>
+	<p class="note" id="price-note">
+		<sup>1</sup> Jev bills input only (<a href="https://docs.typesafe.ai/models">TypeSafe</a>). gemini-decision-1 bills $0.10 per million input tokens and writes
+		no output tokens (<a href="https://aistudio.google.com/docs/pricing">Google</a>). OpenAI's Decisions API and Cloudflare bill on their own terms. For scale, the
+		lowest standard price OpenAI lists for a chat model's output is $0.40 per million tokens, for gpt-5-nano (<a href="https://developers.openai.com/api/docs/pricing">OpenAI</a>).
+	</p>
+</div>
+
+<style>
+	.compare {
+		margin-top: 48px;
+		text-align: left;
+	}
+	.reasons {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		border: 1px solid var(--sl-color-hairline);
+	}
+	/* Three rows shared by the cards, so titles, text and figures line up across them. */
+	.reason {
+		display: grid;
+		grid-row: span 3;
+		grid-template-rows: subgrid;
+		row-gap: 0;
+		min-width: 0;
+		padding: 32px 30px 28px;
+		border-left: 1px solid var(--sl-color-hairline);
+	}
+	.reason:first-child {
+		border-left: 0;
+	}
+	h3 {
+		margin: 0;
+		font-size: 28px;
+		font-weight: 500;
+		line-height: 1.15;
+		letter-spacing: -0.025em;
+		color: var(--sl-color-white);
+		text-wrap: balance;
+	}
+	p {
+		flex: 1;
+		margin: 14px 0 0;
+		font-size: 15.5px;
+		line-height: 1.6;
+		color: var(--sl-color-gray-2);
+		text-wrap: pretty;
+	}
+	/* One figure at the foot of each card, in the answer color, as the CLI prints a value. */
+	.fig {
+		flex: none;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		margin-top: 28px;
+		padding-top: 18px;
+		border-top: 1px solid var(--sl-color-hairline);
+		font: 400 12.5px/1.5 var(--sl-font-mono);
+		color: var(--sl-color-gray-3);
+	}
+	.fig b {
+		font: 700 26px/1.1 var(--sl-font-mono);
+		letter-spacing: -0.02em;
+		color: var(--ans-value);
+	}
+	.fig span > a {
+		color: inherit;
+		text-underline-offset: 0.22em;
+	}
+	sup {
+		margin-left: 3px;
+		font: 400 11px/1 var(--sl-font-mono);
+	}
+	sup a {
+		color: var(--sl-color-gray-3);
+	}
+	.note {
+		flex: none;
+		max-width: 84ch;
+		margin: 20px 0 0;
+		font-size: 13px;
+		line-height: 1.6;
+		color: var(--sl-color-gray-3);
+	}
+	.note a {
+		color: var(--sl-color-gray-3);
+	}
+	@media (max-width: 860px) {
+		.reasons {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.reason {
+			padding: 26px 22px 22px;
+			border-left: 0;
+			border-top: 1px solid var(--sl-color-hairline);
+		}
+		.reason:first-child {
+			border-top: 0;
+		}
+		h3 {
+			font-size: 24px;
+		}
+	}
+</style>

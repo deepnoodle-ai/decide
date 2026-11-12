@@ -1,0 +1,203 @@
+---
+// The audit, drawn: every function is one cell, scored by decide, and
+// Claude reads only the few that score highest. It is a drawing of how
+// /decide:audit works, not a run, and the caption says so. The numbers in
+// the legend (30%, 15) are the skill's own, from /reference/claude-code/.
+// The cells' scores come from a fixed hash, so the picture is the same on
+// every build. Scores are answers, so the high ones use the flag color.
+//
+// 960 cells divide evenly into 60, 48, 40 and 30 columns, so the field
+// stays a full rectangle at every width. Each legend entry is keyed by a
+// strip of fifteen cells drawn the way the field draws them: all scored,
+// a few high, and the fifteen Claude reads.
+const CELLS = 960;
+const READ = 15;
+
+// A small integer hash: the same "score" for a cell on every build.
+const hash = (n: number) => {
+	let x = (n + 1) * 2654435761;
+	x ^= x >>> 15;
+	x = Math.imul(x, 2246822519);
+	x ^= x >>> 13;
+	return (x >>> 0) / 4294967296;
+};
+const cells = Array.from({ length: CELLS }, (_, i) => {
+	const r = hash(i);
+	// Most functions score near zero; a few score high.
+	const score = r > 0.976 ? 0.3 + hash(i + 9999) * 0.68 : r * r * 0.22;
+	return { i, score, hot: score >= 0.3 };
+});
+// The cells Claude reads, highest first: the order their outlines appear in.
+const rank = new Map(
+	[...cells]
+		.sort((a, b) => b.score - a.score)
+		.slice(0, READ)
+		.map((c, n) => [c.i, n]),
+);
+const shade = (c: { score: number; hot: boolean }) =>
+	(c.hot ? 0.5 + c.score * 0.5 : 0.1 + c.score * 1.6).toFixed(2);
+// The sweep runs in reading order, top left to bottom right, a little uneven.
+const delay = (i: number) => Math.round((i / CELLS) * 1100 + hash(i + 31) * 140);
+
+// Legend keys: fifteen cells each, taken from the field's own shades.
+const KEY = 15;
+const cold = cells.filter((c) => !c.hot).slice(0, KEY);
+const mixed = cold.map((c, n) => (n === 3 || n === 9 || n === 12 ? { score: 0.55 + n * 0.03, hot: true } : c));
+const read = [...cells]
+	.sort((a, b) => b.score - a.score)
+	.slice(0, KEY);
+---
+
+<figure class="hay" data-hay>
+	<div class="grid" aria-hidden="true">
+		{
+			cells.map((c) => (
+				<i
+					class:list={{ hot: c.hot, read: rank.has(c.i) }}
+					style={`--o:${shade(c)};--d:${delay(c.i)}ms${rank.has(c.i) ? `;--r:${rank.get(c.i)}` : ''}`}
+				/>
+			))
+		}
+	</div>
+	<figcaption>
+		<ol>
+			<li>
+				<span class="key" aria-hidden="true">{cold.map((c) => <i style={`--o:${shade(c)}`} />)}</span>
+				<span><b>decide scores every function,</b> one request each.</span>
+			</li>
+			<li>
+				<span class="key" aria-hidden="true">{mixed.map((c) => <i class:list={{ hot: c.hot }} style={`--o:${shade(c)}`} />)}</span>
+				<span><b>A few score 30% or more.</b> Most don't.</span>
+			</li>
+			<li>
+				<span class="key" aria-hidden="true">{read.map((c) => <i class="hot read" style={`--o:${shade(c)}`} />)}</span>
+				<span><b>Claude reads up to 15 of the highest,</b> with their callers, and says which are real.</span>
+			</li>
+		</ol>
+		<p>A drawing of one audit, not a run.</p>
+	</figcaption>
+</figure>
+
+<script>
+	// Play the sweep once, when the drawing scrolls into view. Without this
+	// script the drawing is never armed, so it shows finished.
+	const armed = new Map<Element, Element>();
+	if ('IntersectionObserver' in window) {
+		const io = new IntersectionObserver(
+			(entries) => {
+				for (const e of entries) {
+					if (!e.isIntersecting) continue;
+					armed.get(e.target)?.setAttribute('data-on', '');
+					io.unobserve(e.target);
+				}
+			},
+			{ threshold: 0.5 },
+		);
+		// Watch the field itself, so the sweep starts when the cells are on screen.
+		document.querySelectorAll('[data-hay]').forEach((figure) => {
+			const field = figure.querySelector('.grid');
+			if (!field) return;
+			armed.set(field, figure);
+			figure.setAttribute('data-armed', '');
+			io.observe(field);
+		});
+	}
+</script>
+
+<style>
+	.hay {
+		--cols: 60;
+		--gap: 3px;
+		margin: 0;
+	}
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+		gap: var(--gap);
+	}
+	.grid i,
+	.key i {
+		aspect-ratio: 1;
+		background: var(--sl-color-white);
+		opacity: var(--o);
+	}
+	i.hot {
+		background: var(--ans-flag);
+	}
+	i.read {
+		outline: 1.5px solid var(--sl-color-white);
+		outline-offset: 1.5px;
+	}
+	/* The sweep: cells start unscored and take their shade in reading order.
+	   When it has passed, the outlines land one at a time, highest score first. */
+	@media (prefers-reduced-motion: no-preference) {
+		.grid i {
+			transition:
+				opacity 0.3s var(--ease) var(--d),
+				background-color 0.3s var(--ease) var(--d),
+				outline-color 0.35s var(--ease) calc(1.45s + var(--r, 0) * 70ms);
+		}
+		.hay[data-armed]:not([data-on]) .grid i {
+			background: var(--sl-color-white);
+			opacity: 0.06;
+			outline-color: transparent;
+			transition: none;
+		}
+	}
+	figcaption {
+		margin-top: 28px;
+	}
+	ol {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 20px 40px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	li {
+		margin: 0;
+		font-size: 14.5px;
+		line-height: 1.55;
+		color: var(--sl-color-gray-2);
+		text-wrap: pretty;
+	}
+	li b {
+		font-weight: 500;
+		color: var(--sl-color-white);
+	}
+	.key {
+		display: grid;
+		grid-template-columns: repeat(15, 10px);
+		gap: 4px;
+		margin: 2px 0 14px 2px;
+	}
+	.key i.read {
+		outline-width: 1px;
+		outline-offset: 1px;
+	}
+	figcaption p {
+		margin: 24px 0 0;
+		font: 400 12px/1.5 var(--sl-font-mono);
+		color: var(--sl-color-gray-3);
+	}
+	@media (max-width: 900px) {
+		.hay {
+			--cols: 48;
+		}
+	}
+	@media (max-width: 700px) {
+		.hay {
+			--cols: 40;
+		}
+		ol {
+			grid-template-columns: minmax(0, 1fr);
+		}
+	}
+	@media (max-width: 520px) {
+		.hay {
+			--cols: 30;
+			--gap: 2.5px;
+		}
+	}
+</style>

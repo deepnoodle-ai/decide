@@ -27,7 +27,7 @@ export const GET: APIRoute = async ({ site }) => {
 		'## Start and tutorials',
 		'',
 		`- [Quickstart](${new URL('/start/', site).href}): Install, set a key, and check text and a diff.`,
-		`- [From Go](${new URL('/start/go/', site).href}): Ask a question and rank passages.`,
+		`- [Ask from Go](${new URL('/start/go/', site).href}): Ask a question and rank passages.`,
 		`- [Check agent commands](${new URL('/tutorials/check-agent-commands/', site).href}): Gate a shell command.`,
 		`- [Triage issues](${new URL('/tutorials/triage-issues/', site).href}): Label issues that are not ready.`,
 		`- [Review pull requests](${new URL('/tutorials/review-pull-requests/', site).href}): Annotate and gate a diff.`,

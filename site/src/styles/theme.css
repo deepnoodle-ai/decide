@@ -36,6 +36,8 @@
 	--sl-text-h1: clamp(2rem, 1.4rem + 1.6vw, 2.5rem);
 	--sl-text-h2: 1.5rem;
 	--sl-text-h3: 1.25rem;
+	--sl-text-h4: 1.0625rem;
+	--sl-text-h5: 1rem;
 	--sl-line-height-headings: 1.15;
 
 	/* Answers: the CLI's verdict colors. */
@@ -56,6 +58,11 @@
 	--term-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 
 	--ease: cubic-bezier(0.2, 0, 0, 1);
+
+	/* Type scale and rhythm for the landing page and the 404. */
+	--display-1: clamp(40px, 6.4vw, 76px);
+	--display-2: clamp(28px, 3.8vw, 44px);
+	--space-band: clamp(96px, 12vw, 144px);
 }
 
 :root[data-theme='light'] {
@@ -80,7 +87,7 @@
 	--track: #8a8d94;
 
 	--term-border: rgba(11, 12, 14, 0.9);
-	--term-shadow: 0 1px 2px rgba(16, 18, 24, 0.06), 0 12px 32px -12px rgba(16, 18, 24, 0.32);
+	--term-shadow: none;
 }
 
 /* Tutorials turn off the table of contents, so recordings get 720px with room around them. */
@@ -123,6 +130,13 @@ kbd {
 	letter-spacing: -0.02em;
 }
 
+/* Code in a heading reads as the heading, not as a chip inside it. */
+.sl-markdown-content :is(h2, h3, h4) code {
+	padding: 0;
+	background: none;
+	font-size: 0.92em;
+}
+
 /* The current page in the sidebar: a fill and an inset bar, no accent color. */
 nav.sidebar a[aria-current='page'],
 nav.sidebar a[aria-current='page']:hover,
@@ -131,7 +145,7 @@ nav.sidebar a[aria-current='page']:focus {
 	color: var(--sl-color-white);
 	font-weight: 600;
 	box-shadow: inset 2px 0 0 var(--sl-color-white);
-	border-radius: 0 6px 6px 0;
+	border-radius: 0;
 }
 
 /* Sidebar group labels in small mono capitals. */
@@ -144,12 +158,78 @@ nav.sidebar .group-label .large {
 	color: var(--sl-color-gray-3);
 }
 
-/* Starlight's primary button, as a neutral pill. */
+/* Starlight's primary button, square like everything else. */
 .sl-link-button.primary {
 	background: var(--sl-color-white);
 	border-color: var(--sl-color-white);
 	color: var(--sl-color-black);
-	border-radius: 999px;
+	border-radius: 0;
+}
+
+/* Buttons: a solid square and a hairline ghost, in mono. */
+.btn {
+	display: inline-block;
+	padding: 11px 18px;
+	border: 1px solid var(--sl-color-white);
+	background: var(--sl-color-white);
+	font: 500 13px/1 var(--sl-font-mono);
+	color: var(--sl-color-black);
+	text-decoration: none;
+	transition: background-color 120ms var(--ease), color 120ms var(--ease);
+}
+.btn:hover,
+.btn.ghost {
+	background: transparent;
+	color: var(--sl-color-white);
+}
+.btn.ghost:hover {
+	background: var(--sl-color-white);
+	color: var(--sl-color-black);
+}
+
+/* Landing bands. Each opens with its headline and shares one rhythm. */
+.band {
+	margin-top: 0;
+	padding-top: var(--space-band);
+}
+.band.center {
+	text-align: center;
+}
+.band > h2 {
+	max-width: 22ch;
+	margin: 0;
+	font-size: var(--display-2);
+	font-weight: 500;
+	line-height: 1.1;
+	letter-spacing: -0.03em;
+	color: var(--sl-color-white);
+	text-wrap: balance;
+}
+.band.center > h2 {
+	margin-inline: auto;
+}
+.band > h2 .dim {
+	color: var(--sl-color-gray-3);
+}
+.band > .sub {
+	max-width: 68ch;
+	margin: 16px 0 0;
+	font-size: 16px;
+	color: var(--sl-color-gray-3);
+	text-wrap: balance;
+}
+.band.center > .sub {
+	margin-inline: auto;
+}
+/* A band's honesty line, under its figure: small and quiet, never hidden. */
+.band > .fine {
+	margin: 28px 0 0;
+	font: 400 12.5px/1.6 var(--sl-font-mono);
+	color: var(--sl-color-gray-3);
+	text-wrap: balance;
+}
+.band > .fine a {
+	color: inherit;
 }
 
 /* The CLI's colors, inside a terminal frame. */
@@ -212,11 +292,17 @@ nav.sidebar .group-label .large {
 	}
 }
 
-/* A shell block with no title needs no title bar. */
+/* A shell block with no title needs no title bar. The bar carried the
+   frame's top border, so the block draws its own. */
 .expressive-code .frame.is-terminal:not(.has-title) .header {
 	display: none;
 }
 .expressive-code .frame.is-terminal:not(.has-title) pre {
-	border-top-left-radius: 12px;
-	border-top-right-radius: 12px;
+	border-top: var(--ec-brdWd) solid var(--ec-brdCol);
+	border-radius: 0;
+}
+
+/* The "where" band sets its headline on one line at desktop, as wide as its grid. */
+.band.where > h2 {
+	max-width: none;
 }

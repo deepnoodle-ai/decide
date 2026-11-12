@@ -1,0 +1,201 @@
+---
+// "What you'd otherwise build yourself." (anchor #adds, linked from the
+// hero): what you would write if you called a decision model's API
+// directly. A ledger of six link rows in one hairline box, so the titles
+// read down the left edge as the list the headline promises. Each row is a
+// title, two sentences, and one line in mono on a dark strip at the right:
+// a command (with a prompt), flags, or a line decide prints (no prompt).
+// The cache line is the summary format from /reference/cache/. Under
+// 1100px the strip drops under the sentences; under 700px a row stacks.
+//
+// The mono lines are colored by hand with the code theme's colors, as in
+// WhereItRuns: the template in the keyword color, flags quieter. No
+// verdict colors.
+const t = (name: string) => `<span class="t">${name}</span>`;
+const f = (flag: string) => `<span class="f">${flag}</span>`;
+const d = (text: string) => `<span class="d">${text}</span>`;
+
+const adds = [
+	{
+		title: 'Questions, already written',
+		body: 'Twelve built-in templates, each a set of questions with tuned wording and flag thresholds. Write your own in a few lines of JSON.',
+		kind: 'cmd',
+		mono: 'decide templates',
+		href: '/reference/templates/',
+	},
+	{
+		title: 'Code, function by function',
+		body: 'decide splits Go, Python, JavaScript, TypeScript and Java into functions and sends each with its imports. On a diff, it asks only about the functions that changed.',
+		kind: 'cmd',
+		mono: `decide run ${t('code-risk')} src ${f('--each function')}`,
+		href: '/reference/items/#functions',
+	},
+	{
+		title: 'Any data, item by item',
+		body: 'Point it at JSONL, CSV, Markdown, a diff, or a folder of images or PDFs. Each record, section, hunk or file gets its own answer, and long ones are judged in parts.',
+		kind: 'cmd',
+		mono: `decide run ${t('relevance')} docs ${f('--each section')}`,
+		href: '/reference/items/',
+	},
+	{
+		title: 'No question asked twice',
+		body: 'Every answer is kept. Run again and decide asks only about what changed, so a second pass over a codebase costs almost nothing.',
+		kind: 'out',
+		mono: `81974 answers from cache ${d('·')} 450 asked`,
+		href: '/reference/cache/',
+	},
+	{
+		title: 'Output a script can act on',
+		body: 'A flagged answer can exit 2. Results print as JSON, CSV, a Markdown report or GitHub annotations, and a stopped run resumes where it left off.',
+		kind: 'flags',
+		mono: `${f('--fail-on flagged --format github')}`,
+		href: '/reference/output/',
+	},
+	{
+		title: 'The same from Go',
+		body: 'Typed questions from your own program, with validated answers, retries, a fake server for tests, and patterns such as gate, rank and funnel.',
+		kind: 'cmd',
+		mono: 'go get github.com/deepnoodle-ai/decide',
+		href: '/start/go/',
+	},
+];
+---
+
+<div class="adds">
+	{
+		adds.map((a) => (
+			<a class="add" href={a.href}>
+				<h3>
+					{a.title}
+					<span class="go" aria-hidden="true">→</span>
+				</h3>
+				<p>{a.body}</p>
+				<code class={a.kind}>
+					{a.kind === 'cmd' && <span class="pr">$ </span>}
+					<Fragment set:html={a.mono} />
+				</code>
+			</a>
+		))
+	}
+</div>
+
+<style>
+	.adds {
+		margin-top: 48px;
+		border: 1px solid var(--sl-color-hairline);
+		text-align: left;
+	}
+	.add {
+		display: grid;
+		grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr) minmax(0, 356px);
+		column-gap: 40px;
+		align-items: start;
+		padding: 24px 28px 26px;
+		color: inherit;
+		text-decoration: none;
+		transition: background-color 0.15s var(--ease);
+	}
+	.add + .add {
+		border-top: 1px solid var(--sl-color-hairline);
+	}
+	.add:hover {
+		background: var(--sl-color-gray-7);
+	}
+	h3 {
+		margin: 0;
+		font-size: 21px;
+		font-weight: 500;
+		line-height: 1.25;
+		letter-spacing: -0.02em;
+		color: var(--sl-color-white);
+		text-wrap: balance;
+	}
+	/* The arrow says the row is a link; it waits quietly and steps forward on hover. */
+	.go {
+		display: inline-block;
+		margin-left: 6px;
+		font-weight: 400;
+		color: var(--sl-color-gray-4);
+		transition:
+			transform 0.2s var(--ease),
+			color 0.2s var(--ease);
+	}
+	.add:hover .go {
+		transform: translateX(4px);
+		color: var(--sl-color-white);
+	}
+	p {
+		max-width: 52ch;
+		margin: 2px 0 0;
+		font-size: 15px;
+		line-height: 1.6;
+		color: var(--sl-color-gray-2);
+		text-wrap: pretty;
+	}
+	/* The mono line, on a dark strip in both themes like every terminal. */
+	code {
+		display: block;
+		margin-top: 1px;
+		padding: 10px 14px;
+		overflow-x: auto;
+		background: var(--term-bg);
+		border: 1px solid var(--term-border);
+		border-radius: 0;
+		font: 400 12.5px/1.5 var(--sl-font-mono);
+		color: var(--term-fg);
+		white-space: nowrap;
+		scrollbar-width: none;
+	}
+	.pr,
+	code :global(.d) {
+		color: var(--term-muted);
+	}
+	code :global(.t) {
+		font-weight: 700;
+		color: #c69cf4;
+	}
+	code :global(.f) {
+		color: #d7b98e;
+	}
+	/* What decide prints is quieter than what you type. */
+	code.out {
+		color: var(--term-muted);
+	}
+	@media (max-width: 1100px) {
+		.add {
+			grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+			column-gap: 32px;
+		}
+		p {
+			max-width: none;
+		}
+		code {
+			grid-column: 2;
+			margin-top: 16px;
+		}
+	}
+	@media (max-width: 700px) {
+		.add {
+			grid-template-columns: minmax(0, 1fr);
+			padding: 22px 20px;
+		}
+		p {
+			margin-top: 8px;
+		}
+		code {
+			grid-column: 1;
+		}
+	}
+	@media (max-width: 420px) {
+		code {
+			padding-inline: 12px;
+			font-size: 11.5px;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.add,
+		.go {
+			transition: none;
+		}
+	}
+</style>
