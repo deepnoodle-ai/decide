@@ -167,7 +167,7 @@ func (w *walker) media(path, label string, info fs.FileInfo, explicit bool) erro
 	}
 	state, _ := json.Marshal(map[string]any{"path": label, "content_type": ctype})
 	return w.emit(Item{Label: label, Unit: string(in), State: state,
-		Image: &ImageData{ContentType: ctype, Path: path, Size: info.Size()}})
+		Image: &ImageData{ContentType: ctype, Path: path}})
 }
 
 // unreadable skips a file in a folder that could not be read, with a

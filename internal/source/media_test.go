@@ -242,7 +242,7 @@ func TestSampledMediaHoldNoBytes(t *testing.T) {
 		t.Fatalf("labels = %v", labels(items))
 	}
 	for _, it := range items {
-		if it.Image == nil || it.Image.Path == "" || it.Image.Size != 1<<16+12 {
+		if it.Image == nil || it.Image.Path == "" {
 			t.Fatalf("image = %+v", it.Image)
 		}
 	}

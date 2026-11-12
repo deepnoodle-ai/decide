@@ -128,7 +128,6 @@ const (
 type ImageData struct {
 	ContentType string
 	Path        string // the file on disk
-	Size        int64  // its size when the walk read it
 }
 
 // errStop ends a walk early once the limit is reached.
