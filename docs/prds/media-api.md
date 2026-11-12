@@ -450,7 +450,9 @@ On every provider:
   roadmap "Media by URL" line, and CHANGELOG. The `backend` package
   comment is the Go guide for media: it shows the provider table, says
   which providers need smaller images, says that a media request has a
-  5-minute attempt timeout, and shows how to bound the whole call with a
+  5-minute attempt timeout, states the worst case with the default
+  retries (three attempts of up to 5 minutes each, plus backoff), and
+  shows how to bound the whole call with a
   context deadline and `WithMaxRetries` (or `WithCallMaxRetries` on
   `SystemOne`). The README and `start/go.mdx` show `WithMedia` and link
   to it. An `ExampleWithMedia` test runs against `decidetest` with
@@ -552,13 +554,17 @@ Made in this PRD:
 - **A media attempt that times out is not retried.** One attempt may take
   5 minutes. When a connection stops, three such attempts hold the call
   for more than 15 minutes and upload the file three times. A file that
-  did not arrive in 5 minutes rarely arrives on the next try. Fast
-  failures, such as 429, 503, and a reset connection, are still retried,
-  because each costs one more upload, not 5 more minutes. decide cannot
-  tell an upload from a wait for the answer without tracing the
-  connection, so the rule covers the whole attempt. Rejected: default
-  retries with the 5-minute timeout, which the reviewer accepted with
-  docs; it keeps the worst case at 15 minutes.
+  did not arrive in 5 minutes rarely arrives on the next try. Other
+  retryable failures, such as 429, 503, and a reset connection, are still
+  retried, because the failure is not the size of the file. This does
+  not bound the call at 5 minutes: a failure that is retried can come
+  late in an attempt, such as a reset after 4 minutes of upload. So with
+  the default retries, the worst case is three attempts of up to 5
+  minutes each, plus the backoff between them. decide cannot tell an
+  upload from a wait for the answer without tracing the connection, so
+  the rule covers the whole attempt. A caller who needs a firm bound sets
+  a context deadline. Rejected: default retries with the 5-minute
+  timeout, which also retries the attempt most likely to stall again.
 - **OpenAI takes images by URL.** The Decisions guide states it, so "media
   by URL" is not Gemini-only.
 - **OpenAI does not take GIF or PDF.** The Decisions pages say files are
