@@ -1,8 +1,7 @@
 ---
 // What you do with an answer: the three way branch in Go (allow, reject, or
-// gate.Review for a person), then one card: stop a CI check on a flag. The
-// hooks are linked from the "where" band above. The thresholds are placeholders: set yours on your
-// own data. gate.Review is patterns/gate's Outcome for "a person looks".
+// gate.Review for a person). CI and hooks are linked from the "where" band
+// above. The thresholds are placeholders: set yours on your own data. gate.Review is patterns/gate's Outcome for "a person looks".
 const cards = [
 	{
 		title: 'triage.go',
@@ -25,21 +24,13 @@ const cards = [
 		caption: 'assign, sendBack and route stand in for your own code. gate.Review is from patterns/gate.',
 		wide: true,
 	},
-	{
-		title: 'ci step',
-		lang: 'sh',
-		lines: ['<span class="pr">$ </span>decide run code-risk src \\', '    --fail-on flagged', '<span class="c"># exit 2 if anything is flagged</span>'],
-		caption: 'Anything flagged exits 2, so the check fails and someone looks.',
-		wide: false,
-		solo: true,
-	},
 ];
 ---
 
 <div class="useit">
 	{
 		cards.map((c) => (
-			<figure class:list={['card', { wide: c.wide || c.solo }]}>
+			<figure class:list={['card', { wide: c.wide }]}>
 				<div class="frame">
 					<div class="bar">{c.title}</div>
 					<pre set:html={c.lines.join('\n')} />
@@ -50,9 +41,6 @@ const cards = [
 						<li class="unsure"><code>in between</code>a person decides</li>
 						<li class="flag"><code>&lt;= 0.1</code>reject</li>
 					</ol>
-				)}
-				{c.wide && (
-					<p class="people">decide makes the routine calls your scripts repeat all day. The ones that matter, and the ones it's unsure about, stay with your team.</p>
 				)}
 				<figcaption>{c.caption}</figcaption>
 			</figure>
@@ -155,12 +143,6 @@ const cards = [
 	}
 	.flag {
 		color: var(--ans-flag);
-	}
-	.people {
-		margin: 0;
-		font-size: 16px;
-		line-height: 1.55;
-		color: var(--sl-color-gray-2);
 	}
 	figcaption {
 		font-size: 14px;

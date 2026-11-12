@@ -172,12 +172,11 @@ page body stays MDX, with `not-content` on our sections.
 claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
 
 1. **Hero, centred.** The release line, the headline "You think very hard.
-   decide answers.", a tagline that names the small calls a script makes
-   on every commit, ticket and command (the general LLM, not the reader,
-   is what it is faster than), "Why not just call an LLM? →" on its own
-   line in the hero's link style, and `Install.astro` (brew, go
-   install, go get, claude code). Then "Read the quickstart →", the page's
-   way into the docs.
+   decide answers.", a tagline that names two of the small calls a script
+   makes all day (is this diff risky, which queue gets this ticket), "Why
+   not just call an LLM? →" on its own line in the hero's link style, and
+   `Install.astro` (brew, go install, go get, claude code). Then "Read the
+   quickstart →", the page's way into the docs.
 2. **`RunStage.astro`.** Five recordings in one window, picked by file tabs
    in its chrome: `triage-check` (issue.md), `review-gate` (change.diff),
    `type-choice` (ticket.txt), `start-line` (review.txt), `type-score`
@@ -185,37 +184,36 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    the tallest. The caption's time is read at build time from the summary line
    of the triage-check transcript the page loads, named as the issue.md run
    and called one recording; no hard-coded figure.
-3. **"LLMs write. decide answers."** `Compare.astro` (anchor `#compare`, linked
-   from the hero's "Why not just call an LLM?"): three 40px faces (ask, lost,
-   glad; aria-hidden) over a `<table>` of a general LLM with structured output against decide,
-   five rows; decide's column has the answer color on its edge. Below 720px
-   each row keeps its two cells side by side under its label, the head row
-   is hidden and each cell carries its column name in small mono. The LLM cells
-   stay fair: logprobs and an 'unsure' option are named. The price row's footnote cites public prices with
-   URLs in a code comment; no multipliers and no output-cost claim for
-   OpenAI or Cloudflare. Both price cells name the prompt; the difference is
-   output. The credit to LLMs for writing and reasoning sits
-   right after the table, the footnote after it.
-4. **"The small calls inside your automations."** `WhereItRuns.astro`: CI
+3. **"The small calls inside your automations."** `WhereItRuns.astro`: CI
    gate, pre-command hook, queue triage, batch scan, each with a command,
-   one line and a link to a recipe or tutorial. Under 600px the cells lose
-   their borders and stack with gaps.
+   one line and a link to a recipe or tutorial. It comes first because it
+   shows what the reader can do. Under 600px the cells lose their borders
+   and stack with gaps.
+4. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`, linked
+   from the hero): one `<table>`, a general LLM with structured output
+   against decide. Its first row shows the two replies to the same question:
+   an example JSON reply, labeled as an example, and the answer lines from
+   the triage-check recording. Four short rows follow: what you pay for,
+   wait for, handle and branch on. decide's column has the answer color on
+   its edge; a lost face and a glad face sit in the column heads. Below
+   720px the replies stack and each later row keeps its two cells side by
+   side under its label. The LLM cells stay fair: logprobs are named. The
+   Jev price is in the row itself, with a footnote that cites the public
+   prices; no multipliers and no output-cost claim for OpenAI or
+   Cloudflare. The credit to LLMs for writing and reasoning sits right
+   after the table.
 5. **"Sure ones run. Close calls go to a person."** `UseIt.astro`:
    `triage.go` branches three ways (allow, reject, `gate.Review`), with a
    strip in the pass, unsure and flag colors (three columns, stacked under
-   600px; "a person decides" is the widest and set in sans). Right under the
-   strip, in 16px body text, the line that the calls that matter stay with
-   your team. Then the CI step card. One fine line says the probability is
-   the model's judgment and links the calibrate example to compare on
-   labeled items before switching. Every band from Compare down is left
-   aligned.
-6. **"Four decision models, one set of commands."** `Models.astro`: one row
-   of four (two by two under 860px), then the line on where your text goes,
-   linking to the providers reference.
-7. **"No black box. Except the model."** `Source.astro`: no box; the clone
-   command, then Apache 2.0 in one sentence with LICENSE and CONTRIBUTING.md
-   linked inline.
-8. **`Closing.astro`.** "Your turn. Ask it something." One command, the
+   600px; "a person decides" is the widest and set in sans). One fine line
+   says the probability is the model's judgment and links the calibrate
+   example to compare on labeled items before switching. The headline is
+   the page's one statement about people; don't repeat it in other bands.
+6. **"No black box. Except the model."** The client is open and the model
+   is the provider's, so this band holds both: `Models.astro`, one row of
+   four (two by two under 860px), the line on where your text goes, then
+   Apache 2.0 in one fine line with LICENSE and CONTRIBUTING.md linked.
+7. **`Closing.astro`.** "Your turn. Ask it something." One command, the
    quickstart and the source, with the glad-card face (hidden under 600px,
    where the hero's face is enough).
 
@@ -226,8 +224,9 @@ general LLMs, argue from the mechanism (one value and a probability, so less
 to generate, pay for, wait on and parse), never from an invented figure.
 Don't sneer at LLMs.
 
-Sections open with a centred two-tone headline; their content is left
-aligned. Under 600px a command scrolls inside its box rather than breaking
+Bands are left aligned. Only some headlines are two-tone (the hero, the
+open band, the closing): vary the shape, and make a contrast with LLMs
+once, in the Compare band. Under 600px a command scrolls inside its box rather than breaking
 mid word.
 
 **Copy rules:** say who the key comes from; never say "no account", since a
