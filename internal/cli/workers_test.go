@@ -33,10 +33,12 @@ func newPeakServer(t *testing.T) *peakServer {
 		p.peak = max(p.peak, p.now)
 		p.mu.Unlock()
 		time.Sleep(100 * time.Millisecond)
-		p.fake.Handler().ServeHTTP(w, r)
+		// Lower the count before the response is written, so a worker
+		// that gets it and sends its next request is not counted twice.
 		p.mu.Lock()
 		p.now--
 		p.mu.Unlock()
+		p.fake.Handler().ServeHTTP(w, r)
 	}))
 	t.Cleanup(srv.Close)
 	p.url = srv.URL
@@ -47,9 +49,23 @@ func newPeakServer(t *testing.T) *peakServer {
 // run.
 func (p *peakServer) run(t *testing.T, args ...string) (output, int) {
 	t.Helper()
-	p.mu.Lock()
-	p.peak = 0
-	p.mu.Unlock()
+	// A run that stops on an error can leave requests in the handler.
+	// Wait for them, so they do not count toward this run's peak.
+	for deadline := time.Now().Add(5 * time.Second); ; {
+		p.mu.Lock()
+		idle := p.now == 0
+		if idle {
+			p.peak = 0
+		}
+		p.mu.Unlock()
+		if idle {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("requests from the last run are still open")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	var stdout, stderr bytes.Buffer
 	app := &App{
 		Stdin: strings.NewReader(""), Stdout: &stdout, Stderr: &stderr,
