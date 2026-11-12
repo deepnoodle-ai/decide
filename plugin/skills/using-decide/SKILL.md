@@ -57,7 +57,10 @@ decide run invoice-check invoices --json      # each PDF
   (`TYPESAFE_API_KEY`) reads text only.
 - Name files or folders on disk. Media templates do not read stdin, URLs, or
   paths inside records, so download files first. GIF and HEIC are not read.
-- If the key is missing, decide says which one to set. Tell the user.
+- If no key is set, decide names only one key. For `receipt-quality` or
+  another image template, tell the user that any one of the Cloudflare,
+  OpenAI, or Gemini keys works. Audio, video, and PDF templates need
+  `GEMINI_API_KEY`.
 
 ## Write a template
 
