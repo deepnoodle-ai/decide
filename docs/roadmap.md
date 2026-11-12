@@ -72,6 +72,10 @@ off, or remove them, as they land.
       and `invoice-check`.
 - [ ] **Media by URL.** Send large files through Gemini's Files API or a
       URL instead of inline base64.
+- [ ] **Images on TypeSafe Jev.** Send PNG and JPEG images to Jev, a
+      preview behind the `TypeSafe-Danger-Zone-Images` header. First, a
+      spike measures how the place of the image references in the state
+      changes the answers (#106).
 - [x] **Images on OpenAI.** Send image templates to the Decisions API as
       base64 data URLs, as `cloudflare.SetImages` does for Clef.
 - [x] **`decide models`.** List models and check that the provider accepts the credentials.
