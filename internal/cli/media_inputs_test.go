@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/deepnoodle-ai/decide/internal/template"
 )
 
 // pngOf returns a PNG image of w by h pixels.
@@ -332,4 +334,15 @@ func TestPixelSkipsHaveTheirOwnHint(t *testing.T) {
 	}
 	contains(t, out.stderr, "OpenAI and Gemini take larger images. Run it with --provider openai or --provider gemini")
 	lacks(t, out.stderr, "MiB")
+}
+
+// A media template run with no files names files or a folder, and does not
+// suggest piping in text.
+func TestWhatToReadForMedia(t *testing.T) {
+	media := &template.Template{Name: "receipt-quality", Input: template.Image}
+	if got, want := whatToRead(media), "Name files or a folder: decide run receipt-quality photos"; got != want {
+		t.Fatalf("hint = %q, want %q", got, want)
+	}
+	text := &template.Template{Name: "sentiment", Input: template.Text}
+	contains(t, whatToRead(text), "Name files or folders: decide run sentiment", "Or pipe in text")
 }

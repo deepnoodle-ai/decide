@@ -124,9 +124,7 @@ func (a *App) run(c *cli.Context) error {
 		return err
 	}
 	if len(paths) == 0 && a.interactiveStdin() {
-		return cli.Errorf("What should %s look at?", s.Name).
-			Hint(fmt.Sprintf("Name files or folders: decide run %s %s\nOr pipe in text:      echo \"some text\" | decide run %s",
-				s.Name, exampleData(s), s.Name))
+		return cli.Errorf("What should %s look at?", s.Name).Hint(whatToRead(s))
 	}
 	failOn := c.String("fail-on")
 	if err := checkFailOn(s, failOn); err != nil {
@@ -810,6 +808,16 @@ func exampleData(s *template.Template) string {
 		return "src"
 	}
 	return "data.jsonl"
+}
+
+// whatToRead shows how to give a template its data. A media template reads
+// files, so its hint names files or a folder only.
+func whatToRead(s *template.Template) string {
+	if s.Input.Media() {
+		return fmt.Sprintf("Name files or a folder: decide run %s %s", s.Name, exampleData(s))
+	}
+	return fmt.Sprintf("Name files or folders: decide run %s %s\nOr pipe in text:      echo \"some text\" | decide run %s",
+		s.Name, exampleData(s), s.Name)
 }
 
 // displayPaths names the data a run read, shortening the home directory
