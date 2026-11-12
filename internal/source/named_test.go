@@ -71,10 +71,9 @@ func TestNamedMediaWithAnyTemplate(t *testing.T) {
 		if !errors.As(err, &pe) || pe.Kind != template.Image {
 			t.Fatalf("shot.png with Media %v: %v", media, err)
 		}
-		var skipped Skipped
-		items, _ := walk(t, []string{"photos"}, "", Options{Input: template.Image, Media: media, Skipped: &skipped})
-		if len(items) != 0 || skipped.NotRead != 1 {
-			t.Fatalf("a folder with Media %v: %d items, skipped %+v", media, len(items), skipped)
+		items, warnings := walk(t, []string{"photos"}, "", Options{Input: template.Image, Media: media, Provider: "TypeSafe"})
+		if len(items) != 0 || len(warnings) != 1 || !strings.Contains(warnings[0], "TypeSafe does not read images") {
+			t.Fatalf("a folder with Media %v: %d items, warnings %q", media, len(items), warnings)
 		}
 	}
 	// Formats decide does not send, by name and by content.

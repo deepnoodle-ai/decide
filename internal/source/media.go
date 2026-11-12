@@ -43,7 +43,6 @@ type Skipped struct {
 	Pixels       int // images over MediaLimits.MaxPixels
 	Invalid      int // media files whose contents fail a check: empty, corrupt, or another format
 	Unreadable   int // files that could not be opened or read
-	NotRead      int // media files of a kind the provider does not read
 
 	// Media lists the media files of a format decide sends that a text
 	// template's folder walk skipped, so a hint can show how to name them.
@@ -316,7 +315,9 @@ func (w *walker) media(path, label string, info fs.FileInfo, kind template.Input
 			}
 			w.skipped.Unsupported++
 		case errors.As(err, &provider):
-			w.skipped.NotRead++
+			// The CLI stops before the walk when the provider does not
+			// read a media template's kind, so only a caller of Walk
+			// that sets Media without that kind gets here.
 			w.skip(fmt.Sprintf("%s does not read %s", w.opts.Provider, MediaPlural(kind)), label)
 		case errors.As(err, &large):
 			on := "this provider"
