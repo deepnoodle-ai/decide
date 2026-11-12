@@ -40,7 +40,7 @@ server. The shipped site uses recordings of live provider runs.
    `severe`"), never a percentage.
 4. **First screen, first command.** At 1280×720 the first screen holds the
    release line, the headline, the tagline and the install command; the
-   recordings start just below it. At 390×844 it holds the headline, the
+   drawing starts just below it. At 390×844 it holds the headline, the
    command and where the key goes.
 5. **Only the terminal is dark in light mode.** Recordings and code blocks are
    dark. Everything else follows the theme.
@@ -54,7 +54,7 @@ track, echoing the CLI's `━` on `─`. It appears in these places:
 
 - **Section 2**, one panel for each type. Each panel leads with plain words
   ("Yes or no"), with `noul` in small mono after them.
-- The tutorial cards, the goal block, **OG images** (the page title above that
+- The tutorial cards, **OG images** (the page title above that
   page's answer line, such as `! severe yes`), and the **404** page
   (`! page  exists  no`). Neither of the last two shows a percentage.
 
@@ -171,24 +171,32 @@ page body stays MDX, with `not-content` on our sections.
 **The page, top to bottom** (decided with Sarvesh from the mockup at
 claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
 
-1. **Hero, centred.** The release line, the headline "You think very hard.
-   decide answers.", a tagline of two plain sentences: what it is for (find
-   vulnerabilities, flag risky changes, triage issues, route tickets, from
-   a shell, CI or Go code), then how (a decision model answers each
-   question with a probability your script can act on). It names
-   purposes, not example inputs. Then `Install.astro`
+1. **Hero, centred.** The release line, the headline "Judgment calls,
+   at scale." (the second half dim; "by the thousand" was tried and read
+   as bookish), which says what sets decide
+   apart: the same call made on every item, at scale. Then a tagline of
+   two plain sentences: the one item that matters among many (the
+   vulnerable function in a codebase, the urgent ticket in a queue, the
+   risky change in a pull request), then how (a decision model asked
+   about every one, from a shell, CI, Go code or Claude Code). No
+   invented counts, and nothing that tells the reader to think less. Then `Install.astro`
    (brew, go install, go get, claude code), and under it one centred row
    of two buttons: "Quickstart →", the page's way into the docs, and
    "See what decide does" (ghost, to `#adds`, the band that sets decide
    apart from calling a model yourself). The buttons sit
    below the command, never beside the install tabs.
-2. **`RunStage.astro`.** Five recordings in one window, picked by file tabs
-   in its chrome: `triage-check` (issue.md), `review-gate` (change.diff),
-   `type-choice` (ticket.txt), `start-line` (review.txt), `type-score`
-   (total.go). Only the chosen one shows. The window is 778px and as tall as
-   the tallest. The caption's time is read at build time from the summary line
-   of the triage-check transcript the page loads, named as the issue.md run
-   and called one recording; no hard-coded figure.
+2. **`Sweep.astro`.** An abstract strip of about 800 small cells under
+   the hero, with no tabs, command, legend or caption. A wave crosses left
+   to right: each cell starts blank, flashes as it is decided, and settles
+   on a gray shade; a few settle in the flag color. After a hold the field
+   clears and the next wave comes through, on an 11 second loop. It fades
+   out at both ends and stands for no particular input. Pure CSS, shades
+   and timing from a fixed hash, settled under reduced motion, hidden from
+   screen readers. The landing page shows no terminal recordings: five in
+   one window were here and were hard to follow, each judging one item
+   under a headline about scale. Recordings stay in the quickstart and
+   tutorials. A version with a tab for a codebase, a queue and a pull
+   request was tried and was too literal.
 3. **"The small calls inside your automations."** `WhereItRuns.astro`:
    six link cards in two columns (one under 760px): gate the merge, check
    an agent's commands, route the queue, rank a codebase, read the photo,
@@ -239,9 +247,9 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    and no example reply: "Faster", "Cheaper", "Calibrated" (defined in the
    card: the probability matches how often the model is right; not "real"
    or "tuned"). Each is a 28px title, two or three plain sentences on why,
-   and one figure in mono in the answer color at its foot: the time of the
-   first recording on the page (read from the transcript, and named that
-   way, never as "the issue above"), Jev's price, and "90% means right
+   and one figure in mono in the answer color at its foot: the time of one
+   recorded run (read from the triage tutorial's transcript, named as one
+   recording and linked to it), Jev's price, and "90% means right
    about nine times in ten". A table was tried twice and was too much to
    take in; keep this to three claims. A footnote cites the public prices;
    no multipliers and no output-cost claim for OpenAI or Cloudflare. The
@@ -360,26 +368,27 @@ claims.
 
 ## Tutorial pages
 
-1. **The title, and a one-line description**, capped at 68ch.
-2. **The goal block**, with two cells:
-   - **You'll end with:** names the artifact and where it lives, such as "`checked.sh` in your project: it runs a command only when `command-risk` flags nothing". Then the result to expect, as a dark answer line.
-   - **You need:** at most three items. One is "An API key: *get one*", which links to `/start/#get-a-key`. That section lists each provider's sign-up and pricing page. We do not claim a free tier.
-3. **Steps,** using Starlight's `<Steps>`. Each step has an imperative h2, one
-   or two sentences of why, the code, the recording if the command prints
-   something, the caption, and a "you should see" line.
-4. **A last step, "Check that it works".** The reader runs the result: a safe
-   command runs, and `git push --force origin main` is refused with exit 2.
-   UC-3 needs a working result, not a recording of one.
-5. **What next:** two `LinkCard`s, the next job and the template's reference
-   page.
+1. **The title, and two or three sentences** on what the reader builds.
+2. **One "You need" sentence,** with links to install decide and get a key.
+   No goal box.
+3. **Plain h2 sections,** one per step, with no numbers and no `<Steps>`.
+   The table of contents lists them. Each has one or two sentences, the
+   code, and the recording if the command prints something, with a caption
+   that leads with the result in bold.
+4. **A last section, "Check that it works",** where the reader runs the
+   result.
+5. **What next:** two `LinkCard`s.
+
+Keep each section short. Caveats and edge cases belong in the reference.
 
 **Other pages:**
 
 - `/start/go/`: `go get`, set a key, one program read from `examples/` (built
   by R-5), and `go run`. Four steps at most.
-- `/start/answers/`: the concepts page. It covers the three question types,
-  probability, flags and providers, with the same panels as section 2, and
-  search indexes it.
+- `/start/answers/`: the concepts page. It shows the three answer types,
+  each with one question and the answer line from a recorded run as plain
+  text, then templates, items, runs and flags in a few lines. No
+  recordings.
 - **Reference:** dense, with a table of contents and no recordings.
   - Each flag is an h3 in mono, with one sentence and one example.
   - The index opens with "New here? Start with the quickstart."

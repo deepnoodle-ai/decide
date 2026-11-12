@@ -3,8 +3,8 @@ title: Recipes
 description: Workflows and scripts to copy, for CI systems, git hooks, issues, and spreadsheets.
 ---
 
-Workflows and scripts to copy. Each one runs decide where your work already
-happens. The tutorials walk through the three most common from the start:
+Workflows and scripts to copy into CI, git hooks, and issue trackers. The
+three most common each have a tutorial:
 
 - [Review pull requests](/tutorials/review-pull-requests/) in GitHub
   Actions, and block a merge.
@@ -17,11 +17,10 @@ The [pull request workflow](/tutorials/review-pull-requests/#run-it-on-each-pull
 runs as it is. A few things to know before you rely on it:
 
 - **Pin a version** by replacing `latest/download` with a release's
-  tag, such as `download/v0.3.0`, so an upgrade happens when you choose.
+  tag, such as `download/v0.4.0`, so an upgrade happens when you choose.
 - **The cache** keeps decide's [answers](/reference/cache/) between
   pushes to a pull request, so a function judged on an earlier push isn't
-  asked about again. GitHub keeps each branch's caches apart, so a pull
-  request never restores a cache that a fork's pull request saved.
+  asked about again.
 - **Forks.** GitHub gives no secrets to pull requests from forks, so the
   `if:` skips the step for them. Don't switch to `pull_request_target`
   to get around this: it runs with your secrets and can be tricked into
@@ -66,14 +65,12 @@ permissions:
 ```
 
 The first line of the comment is a hidden marker, so each push updates
-the same comment, whatever else comments on the pull request. The report
-lists flagged items first and collapses the rest. When a push leaves
-nothing for decide to judge, the report says so.
+the same comment.
 
 ## Route new issues to a queue
 
 This workflow labels each new issue `billing` or `engineering` with the
-`ticket-routing` template, when the model is at least 70% sure. Create
+`ticket-routing` template, when that queue is at least 70% likely. Create
 those labels first.
 
 ```yaml
@@ -115,7 +112,7 @@ jobs:
           fi
 ```
 
-`--each file` makes the whole issue one item; piped text is otherwise
+`--each file` makes the whole issue one item, since piped text is otherwise
 judged line by line. The label can only be one of the template's choices,
 whatever the issue says. Pass the issue's text through `env`, as above,
 and never write `${{ github.event.issue.body }}` into the script itself,
@@ -150,7 +147,7 @@ decide:
 ```
 
 Set `TYPESAFE_API_KEY` as a masked CI/CD variable. Add `--fail-on flagged`
-to fail the pipeline instead.
+to fail the pipeline when a function is flagged.
 
 ## Check changes before you commit
 

@@ -292,11 +292,13 @@ nav.sidebar .group-label .large {
 	}
 }
 
-/* A shell block with no title needs no title bar. */
+/* A shell block with no title needs no title bar. The bar carried the
+   frame's top border, so the block draws its own. */
 .expressive-code .frame.is-terminal:not(.has-title) .header {
 	display: none;
 }
 .expressive-code .frame.is-terminal:not(.has-title) pre {
+	border-top: var(--ec-brdWd) solid var(--ec-brdCol);
 	border-radius: 0;
 }
 

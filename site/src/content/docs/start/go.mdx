@@ -1,10 +1,9 @@
 ---
 title: Ask from Go
 description: Ask questions from your own Go program, and rank passages by the answers.
-tableOfContents: false
 ---
 
-import { Steps, Code } from '@astrojs/starlight/components';
+import { Code } from '@astrojs/starlight/components';
 import source from '../../../../../examples/rank/main.go?raw';
 export const runLine = '//\n//\tTYPESAFE_API_KEY=... go run ./examples/rank\n';
 export const rank = /* the reader runs it with go run ., not from the decide repository */ (() => {
@@ -16,68 +15,61 @@ You'll end with a Go program that asks one yes-or-no question about each of
 three passages and sorts them by the probability of yes. You need Go 1.27 or
 later and a [key for one provider](/start/#get-a-key).
 
-<Steps>
+## Create a module
 
-1. ## Create a module
+```sh
+mkdir rank && cd rank
+go mod init example.com/rank
+go get github.com/deepnoodle-ai/decide
+```
 
-   ```sh
-   mkdir rank && cd rank
-   go mod init example.com/rank
-   go get github.com/deepnoodle-ai/decide
-   ```
+## Write the program
 
-2. ## Write the program
+Save this as `main.go`. It asks whether each passage answers the query,
+then reranks the passages with the `rank` pattern:
 
-   Save this as `main.go`. It asks whether each passage answers the query,
-   then reranks the passages with the `rank` pattern:
+<Code code={rank} lang="go" title="main.go" />
 
-   <Code code={rank} lang="go" title="main.go" />
+`decide.NewClient` reads `TYPESAFE_API_KEY`. For Clef, GPT-6 Luna, or
+Gemini Decision, create the client with `backend.NewClient` and pass the
+key yourself:
 
-   `decide.NewClient` reads `TYPESAFE_API_KEY`. For Clef, GPT-6 Luna or Gemini Decision,
-   create the client with `backend.NewClient` instead. It reads no
-   environment variables, so you pass the key yourself. `AccountID` is for
-   Cloudflare only:
+```go
+client, err := backend.NewClient(backend.Config{
+	Provider:  backend.Cloudflare, // or backend.OpenAI, backend.Gemini
+	APIKey:    os.Getenv("CLOUDFLARE_AUTH_TOKEN"),
+	AccountID: os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
+})
+```
 
-   ```go
-   client, err := backend.NewClient(backend.Config{
-   	Provider:  backend.Cloudflare, // or backend.OpenAI, backend.Gemini
-   	APIKey:    os.Getenv("CLOUDFLARE_AUTH_TOKEN"),
-   	AccountID: os.Getenv("CLOUDFLARE_ACCOUNT_ID"),
-   })
-   ```
+The [package documentation](https://pkg.go.dev/github.com/deepnoodle-ai/decide/backend)
+has every option.
 
-   The [package documentation](https://pkg.go.dev/github.com/deepnoodle-ai/decide/backend)
-   has every option. The rest of the program stays the same.
+## Run it
 
-3. ## Run it
+```sh
+go run .
+```
 
-   ```sh
-   go run .
-   ```
+The passage that answers the query comes first:
 
-   The passage that answers the query comes first, with the highest
-   probability of yes:
+```text
+0.93  The session recovery procedure: sign in again and resume from the saved draft.
+0.10  Refresh tokens rotate when a session is refreshed.
+0.05  A general account of account access.
+```
 
-   ```text
-   0.93  The session recovery procedure: sign in again and resume from the saved draft.
-   0.10  Refresh tokens rotate when a session is refreshed.
-   0.05  A general account of account access.
-   ```
+## Go further
 
-   Your probabilities may differ a little.
+- Ask several questions in one request with `decide.Ask`, and ask a
+  built-in template's questions with the
+  [`templates`](https://pkg.go.dev/github.com/deepnoodle-ai/decide/templates)
+  package.
+- Gate an agent's action, screen in stages, or calibrate a cutoff with
+  the packages under
+  [`patterns/`](https://github.com/deepnoodle-ai/decide/tree/main/patterns).
+  Each has a short program in
+  [`examples/`](https://github.com/deepnoodle-ai/decide/tree/main/examples).
+- Test without a key using fakes from
+  [`decidetest`](https://pkg.go.dev/github.com/deepnoodle-ai/decide/decidetest).
 
-4. ## Go further
-
-   - Ask several questions in one request with `decide.Ask`, and ask a
-     built-in template's questions with the
-     [`templates`](https://pkg.go.dev/github.com/deepnoodle-ai/decide/templates)
-     package.
-   - Gate an agent's action, screen in stages, or calibrate a cutoff with
-     the packages under
-     [`patterns/`](https://github.com/deepnoodle-ai/decide/tree/main/patterns).
-     Each has a short program in
-     [`examples/`](https://github.com/deepnoodle-ai/decide/tree/main/examples).
-   - Test without a key using fakes from
-     [`decidetest`](https://pkg.go.dev/github.com/deepnoodle-ai/decide/decidetest).
-
-</Steps>
