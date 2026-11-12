@@ -202,7 +202,7 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    prices; no multipliers and no output-cost claim for OpenAI or
    Cloudflare. The credit to LLMs for writing and reasoning sits right
    after the table.
-5. **"Sure ones run. Close calls go to a person."** `UseIt.astro`:
+5. **"Close calls go to a person."** `UseIt.astro`:
    `triage.go` branches three ways (allow, reject, `gate.Review`), with a
    strip in the pass, unsure and flag colors (three columns, stacked under
    600px; "a person decides" is the widest and set in sans). One fine line
