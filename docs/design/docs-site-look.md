@@ -192,9 +192,11 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
 3. **"The small calls inside your automations."** `WhereItRuns.astro`:
    six link cards in two columns (one under 760px): gate the merge, check
    an agent's commands, route the queue, rank a codebase, read the photo,
-   check the PDF. Each has how often in mono ("every pull request"), a chip
-   for what it reads (diff, text, code, image, pdf), a 24px title, one
-   line, the command on a dark strip, and the guide it links to. In the
+   check the PDF. Each has three things to read: how often in mono
+   ("every pull request") with a chip for what it reads (diff, text, code,
+   image, pdf), a 24px title with an arrow, and the command on a dark
+   strip. No sentence and no named guide link: with them a card was five
+   lines to scan. In the
    command the template name is in the code theme's keyword color and
    flags in its string color; no verdict colors. The whole card is the
    link. It comes first because it shows what the reader can do, and the

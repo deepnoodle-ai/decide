@@ -1,10 +1,11 @@
 ---
 // "The small calls inside your automations.": six places a script makes
-// the same call on every item. Each is one link card: how often (mono) and
-// what it reads (a chip), what you do (the title), one line, the command on
-// a dark strip, and the guide that sets it up. The chips show the inputs at
-// a glance: diffs, text, code, images and PDFs. Two columns on desktop, so
-// each has room to be read; one below 760px. The whole card is the link.
+// the same call on every item. Each is one link card with three things to
+// read: how often (mono) with a chip for what it reads, what you do (the
+// title, with an arrow), and the command on a dark strip. A sentence and a
+// named guide link were here too and made each card five lines to scan;
+// the title and command carry it. Two columns on desktop; one below
+// 760px. The whole card is the link.
 //
 // Commands are colored by hand with the code theme's colors: the template
 // in the keyword color, flags and pipes quieter. No verdict colors.
@@ -17,55 +18,43 @@ const cells = [
 		k: 'every pull request',
 		reads: 'diff',
 		title: 'Gate the merge',
-		line: 'A flagged change exits 2, and the check waits for someone to look.',
 		cmd: `${d('git diff main |')} decide run ${t('code-risk')} ${f('--fail-on flagged')}`,
 		href: '/recipes/#run-decide-in-github-actions',
-		link: 'Run it in GitHub Actions',
 	},
 	{
 		k: 'every command',
 		reads: 'text',
 		title: "Check an agent's commands",
-		line: 'Each shell command an agent wants to run is judged before it runs.',
 		cmd: `${d('echo "$CMD" |')} decide run ${t('command-risk')} ${f('--fail-on flagged')}`,
 		href: '/tutorials/check-agent-commands/',
-		link: 'Check agent commands',
 	},
 	{
 		k: 'every new ticket',
 		reads: 'text',
 		title: 'Route the queue',
-		line: 'Each ticket is sorted into a queue for the people who work it.',
 		cmd: `decide run ${t('ticket-routing')} tickets.jsonl ${f('--field body')}`,
 		href: '/recipes/#route-new-issues-to-a-queue',
-		link: 'Route new issues',
 	},
 	{
 		k: 'every function',
 		reads: 'code',
 		title: 'Rank a codebase',
-		line: 'Each function is scored for security mistakes, so you read the riskiest first.',
 		cmd: `decide run ${t('security')} src`,
 		href: '/tutorials/find-security-bugs/',
-		link: 'Find security bugs',
 	},
 	{
 		k: 'every receipt',
 		reads: 'image',
 		title: 'Read the photo',
-		line: 'Each image is checked: is it a receipt, and can it be read.',
 		cmd: `decide run ${t('receipt-quality')} receipts/`,
 		href: '/reference/templates/#receipt-quality',
-		link: 'See receipt-quality',
 	},
 	{
 		k: 'every invoice',
 		reads: 'pdf',
 		title: 'Check the PDF',
-		line: 'Each PDF is checked: is it an invoice, is it complete, is it paid.',
 		cmd: `decide run ${t('invoice-check')} invoices/`,
 		href: '/reference/templates/#invoice-check',
-		link: 'See invoice-check',
 	},
 ];
 ---
@@ -78,13 +67,14 @@ const cells = [
 					{c.k}
 					<span class="reads">{c.reads}</span>
 				</p>
-				<h3>{c.title}</h3>
-				<p class="line">{c.line}</p>
+				<h3>
+					{c.title}
+					<span class="arrow" aria-hidden="true">→</span>
+				</h3>
 				<code>
 					<span class="pr">$ </span>
 					<Fragment set:html={c.cmd} />
 				</code>
-				<span class="go">{c.link} →</span>
 			</a>
 		))
 	}
@@ -102,7 +92,7 @@ const cells = [
 		display: flex;
 		flex-direction: column;
 		min-width: 0;
-		padding: 28px 28px 26px;
+		padding: 24px 26px 26px;
 		border: 1px solid var(--sl-color-hairline);
 		color: inherit;
 		text-decoration: none;
@@ -141,19 +131,10 @@ const cells = [
 		letter-spacing: -0.02em;
 		color: var(--sl-color-white);
 	}
-	.line {
-		flex: 1;
-		max-width: 44ch;
-		margin: 10px 0 0;
-		font-size: 15.5px;
-		line-height: 1.55;
-		color: var(--sl-color-gray-2);
-		text-wrap: pretty;
-	}
 	/* The command, on a dark strip in both themes like every terminal. */
 	code {
 		display: block;
-		margin-top: 22px;
+		margin-top: 18px;
 		padding: 11px 14px;
 		overflow-x: auto;
 		background: var(--term-bg);
@@ -175,14 +156,18 @@ const cells = [
 	code :global(.f) {
 		color: #d7b98e;
 	}
-	.go {
-		margin-top: 16px;
-		font: 500 14px/1.4 var(--sl-font);
-		color: var(--sl-color-white);
+	/* The whole card is the link; the arrow after the title says so. */
+	.arrow {
+		display: inline-block;
+		margin-left: 6px;
+		color: var(--sl-color-gray-4);
+		transition:
+			transform 0.15s,
+			color 0.15s;
 	}
-	.cell:hover .go {
-		text-decoration: underline;
-		text-underline-offset: 0.22em;
+	.cell:hover .arrow {
+		transform: translateX(3px);
+		color: var(--sl-color-white);
 	}
 	@media (max-width: 760px) {
 		.where {
@@ -196,7 +181,8 @@ const cells = [
 		}
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.cell {
+		.cell,
+		.arrow {
 			transition: none;
 		}
 	}
