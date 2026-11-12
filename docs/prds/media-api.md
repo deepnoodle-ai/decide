@@ -450,14 +450,17 @@ On every provider:
   times). A benchmark in each package checks it. The client copies no
   file bytes.
 - R-9: `Request.Validate` rejects a `[]byte` at any depth of the state,
-  instructions, and criteria, through maps, slices, arrays, pointers, and
+  instructions, criteria, and `Extra` values, through maps, slices, arrays, pointers, and
   struct fields, including the fields `encoding/json` promotes from an
   embedded struct, exported or not. It rejects only bytes that
   `encoding/json` would write as base64: a nil `[]byte`, a field tagged `json:"-"`, an unexported field,
   and a value whose type has its own `MarshalJSON` or `MarshalText` (such
-  as `json.RawMessage`) are allowed. The message names the path
+  as `json.RawMessage`) are allowed. `Validate` does not hang on a pointer,
+  slice, or map that holds itself; for such a state it returns
+  `ErrInvalidRequest` with the cycle error from `encoding/json`. The message names the path
   and the media API:
   `state.receipt is []byte, which would be sent as base64 text; attach files with decide.WithMedia, or pass text as a string`.
+  An `Extra` value is named by its key, such as `Extra "photo"`.
 - R-10: `decidetest` without `AcceptMedia` builds clients with the
   TypeSafe transport, so a request with media fails as it does on
   TypeSafe; the error also names `AcceptMedia`. With `AcceptMedia`, the server's clients use a transport that
