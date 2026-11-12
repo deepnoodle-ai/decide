@@ -20,6 +20,9 @@ import (
 	"github.com/deepnoodle-ai/decide/internal/template"
 )
 
+// everyKind reads every kind of media file, with the default limits.
+var everyKind = map[template.Input]source.MediaLimits{template.Image: {}, template.Audio: {}, template.Video: {}, template.PDF: {}}
+
 func newRun(t *testing.T, texts ...string) *Run {
 	t.Helper()
 	t.Setenv("DECIDE_HOME", t.TempDir())
@@ -290,7 +293,7 @@ func TestFilesTheProviderRejectsAreLocal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := source.Walk(context.Background(), []string{"."}, nil, source.Options{Input: template.Image}, r.Add); err != nil {
+	if err := source.Walk(context.Background(), []string{"."}, nil, source.Options{Input: template.Image, Media: everyKind}, r.Add); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.Ready(); err != nil {
@@ -342,7 +345,7 @@ func TestFilesRejectedLocallyDoNotStopARun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := source.Walk(context.Background(), []string{"."}, nil, source.Options{Input: template.Image}, r.Add); err != nil {
+	if err := source.Walk(context.Background(), []string{"."}, nil, source.Options{Input: template.Image, Media: everyKind}, r.Add); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.Ready(); err != nil {
@@ -386,7 +389,7 @@ func TestMissingCopyIsALocalFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := source.Walk(context.Background(), []string{"a.pdf"}, nil, source.Options{Input: template.PDF}, r.Add); err != nil {
+	if err := source.Walk(context.Background(), []string{"a.pdf"}, nil, source.Options{Input: template.PDF, Media: everyKind}, r.Add); err != nil {
 		t.Fatal(err)
 	}
 	if err := r.Ready(); err != nil {

@@ -52,14 +52,19 @@ decide run invoice-check invoices --json      # each PDF
   It needs `CLOUDFLARE_AUTH_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`,
   `OPENAI_API_KEY`, or `GEMINI_API_KEY`.
 - `invoice-check` reads PDFs. It runs on Gemini only, with `GEMINI_API_KEY`.
-- Your own template reads files when its `"input"` is `"image"`, `"audio"`,
-  `"video"`, or `"pdf"`. Audio, video, and PDFs run on Gemini only. Jev
-  (`TYPESAFE_API_KEY`) reads text only.
+- A text template also takes an image, audio, video, or PDF file that you
+  name, such as `decide run sentiment review.png --provider gemini`. A
+  folder gives a text template text only. A media template takes only
+  media files.
+- Your own template reads files in folders when its `"input"` is
+  `"image"`, `"audio"`, `"video"`, or `"pdf"`. Audio, video, and PDFs run
+  on Gemini only. Jev (`TYPESAFE_API_KEY`) reads text only.
 - Name files or folders on disk. Media templates do not read stdin, URLs, or
   paths inside records, so download files first. Files named `.gif` or
   `.heic` are not read; convert them first.
-- If `DECIDE_PROVIDER` names a provider that does not read the template's
-  files, decide stops. Add `--provider gemini`, which reads all four kinds.
+- If the provider does not read a file, decide stops before anything is
+  sent and names the providers that do. Add `--provider gemini`, which
+  reads all four kinds. decide never changes the provider for you.
 - If no key is set, decide names only one key. For `receipt-quality` or
   another image template, tell the user that any one of the Cloudflare,
   OpenAI, or Gemini keys works. Audio, video, and PDF templates need

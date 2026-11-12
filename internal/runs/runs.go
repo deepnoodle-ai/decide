@@ -60,9 +60,12 @@ type Run struct {
 	Status   string             `json:"status"`
 	Total    int                `json:"total"` // requests: one per item, or one per part of a large item
 	Items    int                `json:"items,omitempty"`
-	Complete int                `json:"complete"`
-	Failed   int                `json:"failed"`
-	NoCache  bool               `json:"no_cache,omitempty"` // ask every question, though answers are still kept
+	// MediaItems counts the items that are media files: images, audio,
+	// video, and PDFs. A run of any template can hold them.
+	MediaItems int  `json:"media_items,omitempty"`
+	Complete   int  `json:"complete"`
+	Failed     int  `json:"failed"`
+	NoCache    bool `json:"no_cache,omitempty"` // ask every question, though answers are still kept
 
 	Dir string `json:"-"`
 
@@ -140,6 +143,9 @@ func Create(r *Run) (*Run, error) {
 // Add saves one item to the run, as one input per part when it has parts.
 func (r *Run) Add(it source.Item) error {
 	r.Items++
+	if it.Image != nil {
+		r.MediaItems++
+	}
 	if len(it.Parts) == 0 {
 		return r.add(input{Index: r.Total, Source: it.Label, Value: it.Value, State: it.State}, it)
 	}

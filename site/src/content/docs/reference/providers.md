@@ -63,7 +63,7 @@ Choose for one run with `--provider` and `--model`, or for every run with
 
 ## Files each provider reads
 
-Every provider reads text. Only some read a template's files:
+Every provider reads text. Only some read images, audio, video, and PDFs:
 
 | Provider | Images | Audio | Video | PDFs |
 | --- | --- | --- | --- | --- |
@@ -78,7 +78,14 @@ video; and PDFs. It picks files by their extension and does not read
 other files, such as `.gif` and `.heic` images. Convert them first;
 renaming a file does not change what it is.
 
-An image template with no `--provider` or `DECIDE_PROVIDER` runs on the
-first of Cloudflare, OpenAI, and Gemini whose credentials are set, and an
-audio, video, or PDF template runs on Gemini. A provider that can't read
-a template's files stops the run before anything is sent.
+decide uses `--provider`, then `DECIDE_PROVIDER`, then TypeSafe, or, for a
+media template, the first provider for its kind with a key set. So an
+image template with no provider set runs on the first of Cloudflare,
+OpenAI, and Gemini whose credentials are set, and an audio, video, or PDF
+template runs on Gemini. The files you name never change the provider.
+
+A text template also takes an image, audio, video, or PDF file that you
+name, and a media template takes only media files; see
+[Items](/reference/items/#images-audio-video-and-pdfs). A provider that
+can't read a file you name stops the run before anything is sent, and the
+error names the providers that do.

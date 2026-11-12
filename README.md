@@ -46,7 +46,10 @@ them without changing anything else:
 | Reads | text | text and images | text and images | text, images, audio, video, and PDFs |
 
 [Providers](https://decide.deepnoodle.ai/reference/providers/#files-each-provider-reads)
-lists the file formats and size limits.
+lists the file formats and size limits. A text template also takes an
+image, audio, video, or PDF file that you name, on a provider that reads
+it, such as `decide run sentiment review.png --provider gemini`. A folder
+gives a text template text only.
 
 Clef's weights are [open on Hugging Face](https://huggingface.co/Cloudflare/clef)
 under Apache 2.0.

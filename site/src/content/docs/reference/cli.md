@@ -17,7 +17,9 @@ decide models [--provider NAME] [--json]
 
 Asks a template's questions about each [item](/reference/items/) in your data. With no files
 named, it reads stdin. A template that reads images, audio, video, or PDFs
-reads only the files and folders you name.
+reads only the files and folders you name. A text template also takes an
+image, audio, video, or PDF file that you name, on a provider that reads
+it; see [Items](/reference/items/#images-audio-video-and-pdfs).
 
 ```sh
 decide run code-risk src --include '*.go' --limit 5
@@ -124,8 +126,9 @@ decide run code-risk src --no-cache
 #### `--provider`
 
 Chooses the model's provider for this run: `typesafe`, `cloudflare`,
-`openai`, or `gemini`. The default is `typesafe`. A template that reads
-images, audio, video, or PDFs picks a provider that can take them.
+`openai`, or `gemini`. decide uses `--provider`, then `DECIDE_PROVIDER`,
+then `typesafe`, or, for a media template, the first provider for its kind
+with a key set. The files you name never change the provider.
 `DECIDE_PROVIDER` sets it for every run. See [Providers](/reference/providers/).
 
 ```sh
@@ -144,8 +147,8 @@ decide run sentiment notes.txt --model jev-1.13.0
 
 #### `--workers`
 
-Sets how many requests run at once. The default is 4, or 2 for a template
-that reads images, audio, video, or PDFs.
+Sets how many requests run at once. The default is 4, or 2 when a run has
+images, audio, video, or PDFs.
 
 ```sh
 decide run code-risk src --workers 8

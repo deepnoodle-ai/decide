@@ -88,16 +88,16 @@ func TestTextTemplatesSkipBinaryFiles(t *testing.T) {
 	if !reflect.DeepEqual(warnings, want) {
 		t.Fatalf("warnings = %q", warnings)
 	}
-	for _, each := range []string{"", template.EachFile, template.EachLine} {
+	// A media file the user names is one media item, whatever the unit.
+	for _, each := range []string{"", template.EachFile, template.EachLine, template.EachFunction, template.EachHunk} {
 		for path, kind := range map[string]template.Input{"mixed/a.pdf": template.PDF, "mixed/a.png": template.Image, "mixed/big.mp4": template.Video} {
-			err := Walk(context.Background(), []string{path}, nil, Options{Input: template.Text, Each: each}, func(Item) error {
-				t.Fatalf("%s was read as text", path)
-				return nil
-			})
-			var me *MediaError
-			if !errors.As(err, &me) || me.Kind != kind || me.Label != path {
-				t.Errorf("%s with --each %q: %v", path, each, err)
+			items, _ := walk(t, []string{path}, "", Options{Input: template.Text, Each: each, Media: everyKind})
+			if len(items) != 1 || items[0].Unit != string(kind) || items[0].Image == nil || items[0].Label != path {
+				t.Errorf("%s with --each %q: %+v", path, each, items)
 			}
+		}
+		if each == template.EachFunction || each == template.EachHunk {
+			continue // a binary file is neither code nor a diff
 		}
 		err := Walk(context.Background(), []string{"mixed/nonul.bin"}, nil, Options{Input: template.Text, Each: each}, func(Item) error { return nil })
 		var nt *NotTextError
@@ -132,6 +132,12 @@ func TestStdinThatIsNotText(t *testing.T) {
 	}
 }
 
+// everyKind reads every kind of media file, with the default limits.
+var everyKind = map[template.Input]MediaLimits{template.Image: {}, template.Audio: {}, template.Video: {}, template.PDF: {}}
+
+// clef is Cloudflare's limits: images only, of 16 megapixels at most.
+var clef = map[template.Input]MediaLimits{template.Image: {MaxPixels: 16_000_000}}
+
 func TestMediaChecksInTheWalk(t *testing.T) {
 	tree(t, map[string]string{
 		"photos/c1.jpg":    corruptJPEG,
@@ -144,7 +150,7 @@ func TestMediaChecksInTheWalk(t *testing.T) {
 		"photos/notes.txt": "text",
 	})
 	var skipped Skipped
-	items, warnings := walk(t, []string{"photos"}, "", Options{Input: template.Image, MaxPixels: 16_000_000, Provider: "Cloudflare", Skipped: &skipped})
+	items, warnings := walk(t, []string{"photos"}, "", Options{Input: template.Image, Media: clef, Provider: "Cloudflare", Skipped: &skipped})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"photos/good.png"}) {
 		t.Fatalf("labels = %v", got)
 	}
@@ -158,7 +164,7 @@ func TestMediaChecksInTheWalk(t *testing.T) {
 	if !reflect.DeepEqual(warnings, want) {
 		t.Fatalf("warnings = %q", warnings)
 	}
-	if skipped != (Skipped{Unsupported: 2, Invalid: 4, Pixels: 1}) {
+	if !reflect.DeepEqual(skipped, Skipped{Unsupported: 2, Invalid: 4, Pixels: 1}) {
 		t.Fatalf("skipped = %+v", skipped)
 	}
 
@@ -168,20 +174,20 @@ func TestMediaChecksInTheWalk(t *testing.T) {
 		"photos/empty.png": "empty",
 		"photos/gif.png":   "not a PNG, JPEG, or WebP image",
 	} {
-		err := Walk(context.Background(), []string{name}, nil, Options{Input: template.Image}, func(Item) error { return nil })
+		err := Walk(context.Background(), []string{name}, nil, Options{Input: template.Image, Media: everyKind}, func(Item) error { return nil })
 		var ie *InvalidMediaError
 		if !errors.As(err, &ie) || ie.Label != name || ie.Reason != reason || ie.Input != template.Image {
 			t.Errorf("%s: %v", name, err)
 		}
 	}
 	err := Walk(context.Background(), []string{"photos/huge.png"}, nil,
-		Options{Input: template.Image, MaxPixels: 16_000_000, Provider: "Cloudflare"}, func(Item) error { return nil })
+		Options{Input: template.Image, Media: clef, Provider: "Cloudflare"}, func(Item) error { return nil })
 	var pe *PixelsError
 	if !errors.As(err, &pe) || pe.Width != 5000 || pe.Height != 4000 || pe.Limit != 16_000_000 || pe.Provider != "Cloudflare" {
 		t.Errorf("huge.png: %v", err)
 	}
 	tree(t, map[string]string{"fake.pdf": "not a PDF"})
-	err = Walk(context.Background(), []string{"fake.pdf"}, nil, Options{Input: template.PDF}, func(Item) error { return nil })
+	err = Walk(context.Background(), []string{"fake.pdf"}, nil, Options{Input: template.PDF, Media: everyKind}, func(Item) error { return nil })
 	var ie *InvalidMediaError
 	if !errors.As(err, &ie) || ie.Reason != "not a readable PDF" {
 		t.Errorf("fake.pdf: %v", err)
@@ -191,7 +197,7 @@ func TestMediaChecksInTheWalk(t *testing.T) {
 func TestMediaTooLarge(t *testing.T) {
 	big := pngOf(1, 1) + strings.Repeat("\x00", 1<<20)
 	tree(t, map[string]string{"dir/big.png": big, "dir/big2.png": big, "dir/big3.png": big, "dir/big4.png": big, "dir/big5.png": big})
-	opts := Options{Input: template.Image, MaxMediaBytes: 1 << 20, Provider: "Cloudflare"}
+	opts := Options{Input: template.Image, Media: map[template.Input]MediaLimits{template.Image: {MaxBytes: 1 << 20}}, Provider: "Cloudflare"}
 	var skipped Skipped
 	opts.Skipped = &skipped
 	items, warnings := walk(t, []string{"dir"}, "", opts)
@@ -217,7 +223,7 @@ func TestUnreadableFilesAreSkipped(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		items, warnings := walk(t, []string{"dir"}, "", Options{Input: in})
+		items, warnings := walk(t, []string{"dir"}, "", Options{Input: in, Media: everyKind})
 		if len(items) != 1 {
 			t.Fatalf("%s: labels = %v", in, labels(items))
 		}
@@ -237,7 +243,7 @@ func TestSampledMediaHoldNoBytes(t *testing.T) {
 		files["v/"+name+".mp4"] = "\x00\x00\x00\x18ftypmp42" + strings.Repeat("\x00", 1<<16)
 	}
 	tree(t, files)
-	items, _ := walk(t, []string{"v"}, "", Options{Input: template.Video, MaxMediaBytes: 1 << 20, Sample: 2})
+	items, _ := walk(t, []string{"v"}, "", Options{Input: template.Video, Media: map[template.Input]MediaLimits{template.Video: {MaxBytes: 1 << 20}}, Sample: 2})
 	if len(items) != 2 {
 		t.Fatalf("labels = %v", labels(items))
 	}
@@ -278,7 +284,7 @@ func TestBinaryThatIsNotMedia(t *testing.T) {
 	var skipped Skipped
 	tree(t, map[string]string{"d/a.docx": "PK\x03\x04", "d/a.pdf": asciiPDF, "d/blob": noNUL})
 	walk(t, []string{"d"}, "", Options{Input: template.Text, Skipped: &skipped})
-	if skipped.NotText != 3 || skipped.NotTextMedia != 1 {
+	if skipped.NotText != 3 || len(skipped.Media) != 1 {
 		t.Fatalf("skipped = %+v", skipped)
 	}
 }

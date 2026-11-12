@@ -253,5 +253,6 @@ func (a *App) runsResume(c *cli.Context) error {
 	}
 	fmt.Fprintf(c.Stderr(), "%s\n\n", dim(fmt.Sprintf("Resuming run %s: %s left · %s %s",
 		r.ID, humanize.PluralWord(r.Pending(), "request", "requests"), r.Provider, r.Model)))
-	return a.execute(c, r, client, workersFor(c, r.Template.Input), format, failOn)
+	// A run saved before runs counted media items has a media template.
+	return a.execute(c, r, client, workersFor(c, r.MediaItems > 0 || r.Template.Input.Media()), format, failOn)
 }

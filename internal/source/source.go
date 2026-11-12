@@ -55,7 +55,7 @@ import (
 // Size limits. Larger files are skipped with a warning.
 const (
 	MaxFileBytes  = 1 << 20  // text files read whole
-	MaxImageBytes = 4 << 20  // the Cloudflare image limit, and the default MaxMediaBytes
+	MaxImageBytes = 4 << 20  // the Cloudflare image limit, and the default MediaLimits.MaxBytes
 	MaxJSONBytes  = 64 << 20 // JSON documents split into records
 )
 
@@ -66,22 +66,23 @@ var MaxItemBytes = 64 << 10
 
 // Options selects and shapes items.
 type Options struct {
+	// Input is what the template reads. It chooses which files a folder
+	// gives the template: text, or media files of that kind.
 	Input template.Input
-	// MaxMediaBytes is the largest media file read; larger ones are
-	// skipped. Zero means MaxImageBytes. It depends on the provider.
-	MaxMediaBytes int64
-	Each          string   // the unit: "file", "line", "paragraph", "section", "function", or "" for the default
-	Include       []string // globs relative to each directory argument
-	Exclude       []string
-	Items         string // path to the array of records in a JSON document
-	Field         string // path to the value to evaluate within each record
-	Limit         int    // stop after this many items
-	Sample        int    // pick this many items at random
-	Warn          func(msg string)
+	// Media holds the provider's limits for each kind of media file it
+	// reads. A file of a kind not in it is not sent: a named file is a
+	// ProviderError, and a file in a folder is skipped. Nil or empty
+	// means no media: set the kinds the provider reads.
+	Media   map[template.Input]MediaLimits
+	Each    string   // the unit: "file", "line", "paragraph", "section", "function", or "" for the default
+	Include []string // globs relative to each directory argument
+	Exclude []string
+	Items   string // path to the array of records in a JSON document
+	Field   string // path to the value to evaluate within each record
+	Limit   int    // stop after this many items
+	Sample  int    // pick this many items at random
+	Warn    func(msg string)
 
-	// MaxPixels is the most pixels in an image; larger ones are skipped.
-	// Zero means no limit.
-	MaxPixels int64
 	// Provider names the provider that sets these limits, for messages,
 	// such as "Cloudflare".
 	Provider string
@@ -165,6 +166,9 @@ func Walk(ctx context.Context, paths []string, stdin io.Reader, opts Options, fn
 			}
 			return nil
 		}
+	}
+	if err := w.checkNamed(paths); err != nil {
+		return err
 	}
 	for _, p := range paths {
 		if err := w.path(p); err != nil {
@@ -439,8 +443,20 @@ func (w *walker) file(path, label string, explicit bool) error {
 	if err != nil {
 		return err
 	}
-	if w.opts.Input.Media() {
-		return w.media(path, label, info, explicit)
+	if explicit {
+		// A file the user named is read for what it is.
+		kind, sent := extKind(path)
+		switch {
+		case sent:
+			return w.media(path, label, info, kind, true)
+		case kind != "":
+			return w.formatError(label, kind, "")
+		case w.opts.Input.Media():
+			return &UnsupportedError{Label: label, Input: w.opts.Input}
+		}
+	} else if w.opts.Input.Media() {
+		// A folder gives a media template files of its own kind.
+		return w.media(path, label, info, w.opts.Input, false)
 	}
 	if mediaKind(path, nil) != "" {
 		// A media file, by its name, is never read as text, whatever its size.
@@ -1119,6 +1135,20 @@ func MediaFormats(in template.Input) string {
 func MediaName(in template.Input) string {
 	if in == template.PDF {
 		return "PDF"
+	}
+	return string(in)
+}
+
+// MediaPlural names files of a media input in the plural, such as
+// "images" or "audio".
+func MediaPlural(in template.Input) string {
+	switch in {
+	case template.Image:
+		return "images"
+	case template.Video:
+		return "videos"
+	case template.PDF:
+		return "PDFs"
 	}
 	return string(in)
 }

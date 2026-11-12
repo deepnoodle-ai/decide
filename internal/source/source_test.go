@@ -107,7 +107,7 @@ func TestNamedFilesAreNotSkippedSilently(t *testing.T) {
 		want  string
 	}{
 		{template.Text, "blob.bin", "blob.bin is not text"},
-		{template.Image, "photo.txt", "photo.txt is not in a format this template reads: PNG, JPEG, or WebP"},
+		{template.Image, "photo.txt", "photo.txt is not an image, audio, video, or PDF file, and this template reads images"},
 		{template.Text, "missing.go", "does not exist"},
 	} {
 		err := Walk(context.Background(), []string{tc.path}, nil, Options{Input: tc.input}, func(Item) error { return nil })
@@ -178,7 +178,7 @@ func TestStdinFormats(t *testing.T) {
 
 func TestImages(t *testing.T) {
 	tree(t, map[string]string{"a.png": pngOf(1, 1), "b.txt": "text", "c.jpg": "not really"})
-	items, warnings := walk(t, []string{"."}, "", Options{Input: template.Image})
+	items, warnings := walk(t, []string{"."}, "", Options{Input: template.Image, Media: everyKind})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"a.png"}) {
 		t.Fatalf("labels = %v", got)
 	}
