@@ -22,11 +22,14 @@ TypeSafe and Cloudflare forward unknown media the same way.
 Large files have three more problems:
 
 - The default 10-second attempt timeout cuts off a slow upload, and the
-  client retries it. One audit run uploaded 12 MiB for a 4 MiB file.
+  client retries it, so the file is uploaded up to three times.
 - `WithLogBodies` writes every file, in base64, to the log on every
   attempt.
-- One attempt with a 30 MiB file allocates 382 MiB on Gemini and 631 MiB
-  on OpenAI, because the request is encoded, decoded, and encoded again.
+- On OpenAI and Gemini, one attempt holds several copies of each file,
+  because the request is encoded, decoded, and encoded again, and the
+  client encodes the whole request with its files once more before the
+  first attempt. R-8 sets a bound and a benchmark in each provider
+  package measures it.
 
 If we do nothing, each Go caller writes the provider switch that the CLI
 already carries, and a wrong provider gives quiet, wrong answers.
