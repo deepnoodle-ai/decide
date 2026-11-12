@@ -37,6 +37,7 @@ func walkError(s *template.Template, provider string, err error) error {
 	var large *source.TooLargeError
 	var invalid *source.InvalidMediaError
 	var pixels *source.PixelsError
+	var unsupported *source.UnsupportedError
 	switch {
 	case errors.As(err, &media):
 		return cli.Errorf("%s is %s, and %s reads text", media.Label, source.MediaNoun(media.Kind), s.Name).
@@ -55,10 +56,22 @@ func walkError(s *template.Template, provider string, err error) error {
 		e := cli.Errorf("%s is %d×%d pixels, and %s takes images up to %d megapixels",
 			pixels.Label, pixels.Width, pixels.Height, providerNames[provider], pixels.Limit/1_000_000)
 		return e.Hint(pixelsHint(provider, pixels.Limit))
+	case errors.As(err, &unsupported):
+		return cli.Errorf("%s is not in a format %s reads: %s", unsupported.Label, s.Name, source.MediaFormats(unsupported.Input)).
+			Hint(unsupportedHint(unsupported.Input))
 	case errors.As(err, &invalid):
 		return cli.Errorf("%s is %s", invalid.Label, invalid.Reason).Hint(invalidHint(s, invalid.Input))
 	}
 	return err
+}
+
+// unsupportedHint says what to do with a named file in a format the media
+// template does not read.
+func unsupportedHint(in template.Input) string {
+	if in == template.PDF {
+		return "Save it as a PDF, and run decide on that file."
+	}
+	return "Save it as " + source.MediaFormats(in) + ", and run decide on that file."
 }
 
 // invalidHint says what to do with a media file that fails a check, and

@@ -303,6 +303,13 @@ func TestNamedMediaThatFailsACheck(t *testing.T) {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
 	contains(t, out.stderr, "fake.pdf is not a readable PDF", "save it again as a PDF")
+
+	out = runReal("run", "receipt-quality", write("hero.gif", "GIF89a"), "--dry-run")
+	if out.code != 1 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "hero.gif is not in a format receipt-quality reads: PNG, JPEG, or WebP",
+		"Save it as PNG, JPEG, or WebP, and run decide on that file.")
 }
 
 // A folder of images over Cloudflare's pixel limit gets a hint about

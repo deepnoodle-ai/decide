@@ -79,6 +79,17 @@ func (e *PixelsError) Error() string {
 		e.Label, e.Width, e.Height, e.Provider, e.Limit/1_000_000)
 }
 
+// UnsupportedError reports a named file whose extension is not one of the
+// formats a media template reads, such as a GIF for an image template.
+type UnsupportedError struct {
+	Label string
+	Input template.Input
+}
+
+func (e *UnsupportedError) Error() string {
+	return fmt.Sprintf("%s is not in a format this template reads: %s", e.Label, MediaFormats(e.Input))
+}
+
 // NotTextError reports a named file or stdin that is not text, for a text
 // template, when its format is not one a media template reads.
 type NotTextError struct{ Label string }
@@ -105,7 +116,7 @@ func (w *walker) media(path, label string, info fs.FileInfo, explicit bool) erro
 	ctype, ok := mediaTypes[in][strings.ToLower(filepath.Ext(path))]
 	if !ok {
 		if explicit {
-			return fmt.Errorf("%s is not in a format this template reads: %s", label, MediaFormats(in))
+			return &UnsupportedError{Label: label, Input: in}
 		}
 		w.skipped.Unsupported++
 		return nil
