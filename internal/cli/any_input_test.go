@@ -387,8 +387,15 @@ func TestNamedFormatErrors(t *testing.T) {
 	h.write("shot", pngOf(t, 1, 1))
 	h.write("notes.txt", "a receipt, typed out\n")
 	out := h.run("", "run", "sentiment", "shot", "--provider", "openai")
-	contains(t, out.stderr, "shot is an image, and decide sends images only as PNG, JPEG, or WebP",
+	contains(t, out.stderr, "Error: shot is an image, and its name has no extension decide reads, such as .png",
 		"Name it with its extension, such as shot.png, and run decide on that file.")
+	lacks(t, out.stderr, "decide sends images only as")
+	// In a list, the hint names the file.
+	h.write("call", "ID3\x03\x00\x00\x00\x00\x00\x00")
+	out = h.run("", "run", "sentiment", "shot", "call", "--provider", "gemini")
+	contains(t, out.stderr, "  shot: an image, and its name has no extension decide reads, such as .png",
+		"  call: an audio file, and its name has no extension decide reads, such as .mp3",
+		"Name shot with its extension, such as shot.png", "Name call with its extension, such as call.mp3")
 	out = h.run("", "run", "receipt-quality", "notes.txt", "--provider", "openai")
 	contains(t, out.stderr, "notes.txt is not an image, audio, video, or PDF file, and receipt-quality reads images",
 		"See the templates that read text with: decide templates")

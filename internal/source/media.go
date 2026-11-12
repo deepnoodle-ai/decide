@@ -87,6 +87,10 @@ type FormatError struct {
 }
 
 func (e *FormatError) Error() string {
+	if e.ByContent {
+		return fmt.Sprintf("%s is %s, and its name has no extension decide reads, such as %s",
+			e.Label, MediaNoun(e.Kind), MediaExt(e.Kind))
+	}
 	return fmt.Sprintf("%s is %s, and decide sends %s only as %s",
 		e.Label, MediaNoun(e.Kind), MediaPlural(e.Kind), MediaFormats(e.Kind))
 }
@@ -458,6 +462,20 @@ func sniffMedia(data []byte) template.Input {
 		return template.Video
 	}
 	return ""
+}
+
+// MediaExt is the usual extension of a media kind, such as ".png", for
+// messages.
+func MediaExt(kind template.Input) string {
+	switch kind {
+	case template.Audio:
+		return ".mp3"
+	case template.Video:
+		return ".mp4"
+	case template.PDF:
+		return ".pdf"
+	}
+	return ".png"
 }
 
 // otherImages are image formats no provider takes through decide, which a

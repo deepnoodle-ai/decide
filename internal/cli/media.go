@@ -116,12 +116,14 @@ func explain(s *template.Template, provider string, err error, list bool) (label
 		if list {
 			it = label
 		}
+		if format.ByContent {
+			// The file is of a format decide sends; its name does not say so.
+			ext := source.MediaExt(format.Kind)
+			return label, fmt.Sprintf("%s, and its name has no extension decide reads, such as %s", source.MediaNoun(format.Kind), ext),
+				fmt.Sprintf("Name %s with its extension, such as %s%s, and run decide on that file.", it, label, ext), true
+		}
 		reason = fmt.Sprintf("%s, and decide sends %s only as %s", source.MediaNoun(format.Kind),
 			source.MediaPlural(format.Kind), source.MediaFormats(format.Kind))
-		if format.ByContent {
-			return label, reason, fmt.Sprintf("Name %s with its extension, such as %s%s, and run decide on that file.",
-				it, label, firstExt[format.Kind]), true
-		}
 		return label, reason, saveAsHint(it, format.Kind), true
 	case errors.As(err, &large):
 		return clean(large.Label), fmt.Sprintf("%s, and %s takes %s files up to %s", source.HumanBytes(large.Size),
@@ -142,9 +144,6 @@ func explain(s *template.Template, provider string, err error, list bool) (label
 	}
 	return "", "", "", false
 }
-
-// firstExt is an extension decide reads for each kind, for hints.
-var firstExt = map[template.Input]string{template.Image: ".png", template.Audio: ".mp3", template.Video: ".mp4", template.PDF: ".pdf"}
 
 // readsText says what a provider reads, for a file of a kind it does not
 // read, such as "text only" or "images, not audio".
