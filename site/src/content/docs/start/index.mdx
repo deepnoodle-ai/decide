@@ -73,8 +73,8 @@ export DECIDE_PROVIDER=gemini
 </TabItem>
 </Tabs>
 
-`decide models` checks that the key works. decide sends the text it asks
-about, such as your diff, to the provider you chose.
+`decide models` checks that the key works. decide sends what it asks
+about, such as your diff or a file you name, to the provider you chose.
 
 ## Ask about one line
 
@@ -109,6 +109,22 @@ then exits with code 2 when anything is flagged:
 ```sh
 git diff | decide run code-risk --fail-on flagged
 ```
+
+## Ask about a screenshot, recording, or PDF
+
+Name an image, audio, video, or PDF file, and any template asks its
+questions about it. Each file is one item. Jev reads text only, so choose
+a provider that reads the file:
+
+```sh
+decide run code-risk diff.png --provider openai
+decide run sentiment call.mp3 --provider gemini
+```
+
+Clef, GPT-6 Luna, and Gemini Decision read images. Only Gemini Decision
+reads audio, video, and PDFs. If your provider can't read a file, decide
+stops before it sends anything and names the providers that can. See
+[Images, audio, video, and PDFs](/reference/items/#images-audio-video-and-pdfs).
 
 ## What next
 

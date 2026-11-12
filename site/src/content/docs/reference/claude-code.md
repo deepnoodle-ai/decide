@@ -68,7 +68,8 @@ You don't need to do anything for these:
   `mcp__decide__judge`, lets Claude ask typed questions about up to 200
   items, such as which of these issues are bugs. It reads text only. For
   images, PDFs, audio, or video, Claude runs a template on the files
-  instead, such as `decide run invoice-check invoices`.
+  instead, such as `decide run invoice-check invoices` or
+  `decide run code-risk diff.png --provider openai`.
 
 The footer shows a count, such as `decide 12 checked, 1 flagged`, and
 `/decide` shows the last 15 of the session's checks in a table. A ⚠ in the status line

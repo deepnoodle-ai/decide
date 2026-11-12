@@ -7,7 +7,7 @@ export const DESCRIPTION = `Ask an independent decision model (through the decid
 
 Use it when what you do next depends on a judgment you would otherwise make by feel, and above all when the same judgment applies to many items: triaging issues, logs, or test failures; checking whether text meets a guideline; choosing which candidate fits; deciding which results are relevant. One call judges up to 200 items, so prefer it over reading many items one by one. Each item is judged on its own, so put everything the question needs into the item's text.
 
-It judges text only. A file path in an item is judged as those characters; the file is not read. For images, PDFs, audio, or video, run \`decide run <template> <files or folder>\` with Bash instead, such as \`decide run receipt-quality receipts\`. See the using-decide skill for the templates and keys.
+It judges text only. A file path in an item is judged as those characters; the file is not read. For images, PDFs, audio, or video, run \`decide run <template> <files or folder>\` with Bash instead, such as \`decide run receipt-quality receipts\`. Any template also takes an image, PDF, audio, or video file you name, on a provider that reads it, such as \`decide run code-risk diff.png --provider openai\`. See the using-decide skill for the templates and keys.
 
 Question types:
 - "noul": a yes-or-no question. The answer is the probability of yes.

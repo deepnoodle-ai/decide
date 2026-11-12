@@ -210,7 +210,9 @@ decide runs resume           # finish the latest run
 ```
 
 Runs are saved in `~/.decide/runs`. Set `DECIDE_HOME` to keep templates
-and runs somewhere else.
+and runs somewhere else. A run keeps a copy of each image, audio, video,
+or PDF file it judges, so `decide runs resume` works after you move the
+original.
 
 ### `decide runs list`
 

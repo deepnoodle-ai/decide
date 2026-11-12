@@ -32,6 +32,16 @@ The preview counts items and answers already in the cache. A function with
 even one uncached answer needs a request, so the number of answers to ask
 is not the number of requests. Narrow the paths before a large run.
 
+For an image, audio, video, or PDF file, name the file with any template
+and a provider that reads it. Each file is one item, and `--dry-run --json`
+shows its `unit` as `image`, `audio`, `video`, or `pdf`. If the provider
+can't read the file, the run stops before any request, with exit code 1,
+and the hint names the providers that can:
+
+```sh
+decide run code-risk diff.png --provider openai --dry-run --json
+```
+
 Source code and other input leave the computer for the selected provider.
 Use only data the operator has authorized you to send. See
 [Providers](/reference/providers/) for setup. Never print or commit a key.

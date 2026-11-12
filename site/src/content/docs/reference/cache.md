@@ -37,4 +37,4 @@ answers stay until `--no-cache`.
 
 The cache is the folder `~/.decide/cache`, or `cache` inside `DECIDE_HOME`
 if you set it. It holds hashes and answers, never your text, file names, or
-images. Delete the folder to clear it.
+files. Delete the folder to clear it.

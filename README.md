@@ -147,6 +147,7 @@ git diff main | decide run prompt-injection            # hidden instructions for
 gh issue list --json number,title,body | decide run task-readiness
 gh pr view 42 --json number,title,body | decide run pr-description --fail-on flagged
 echo 'git reset --hard HEAD~3' | decide run command-risk    # before an agent runs it
+decide run code-risk diff.png --provider openai          # a screenshot, with any template
 ```
 
 Decide reads JSONL, JSON, CSV, text, Markdown, source code, diffs, images,
