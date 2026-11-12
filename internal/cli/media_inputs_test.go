@@ -38,8 +38,8 @@ var noNUL = func() string {
 	return string(b)
 }()
 
-// Use case 1: a PDF given to a text template.
-func TestTextTemplateRejectsAPDF(t *testing.T) {
+// A PDF given to a text template on TypeSafe, which reads text only.
+func TestTextTemplatePDFOnTypeSafe(t *testing.T) {
 	h := setup(t)
 	h.write("report.pdf", asciiPDF)
 	h.write("nonul.bin", noNUL)
@@ -47,14 +47,14 @@ func TestTextTemplateRejectsAPDF(t *testing.T) {
 	if out.code != 1 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stderr, "report.pdf is a PDF, and sentiment reads text",
-		"Images, PDFs, audio, and video need a template that reads them", "decide templates show invoice-check")
+	contains(t, out.stderr, "report.pdf is a PDF, and TypeSafe reads text only",
+		"PDFs run on Gemini.\nRun it with --provider gemini")
 	out = h.run("", "run", "sentiment", "nonul.bin", "--each", "file")
 	if out.code != 1 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
 	contains(t, out.stderr, "nonul.bin is not text, and sentiment reads text",
-		"decide reads text, such as .txt, .md, .csv, .jsonl, and source files.")
+		"decide reads text, such as .txt, .md, .csv, .jsonl, and source files, and the images")
 	lacks(t, out.stderr, "Images, PDFs")
 	if n := len(h.server.Requests()); n != 0 {
 		t.Fatalf("%d requests sent", n)
@@ -82,14 +82,14 @@ func TestDryRunListsOnlyText(t *testing.T) {
 	}
 	contains(t, out.stderr, "Skipped 4 files that are not text: mixed/a.docx, mixed/a.pdf, mixed/a.png, and 1 more")
 
-	// A folder with no text says which templates read the rest.
+	// A folder with no text says how to send the media files: name them.
 	h.write("scans/a.pdf", asciiPDF)
 	out = h.run("", "run", "code-risk", "scans", "--dry-run")
 	if out.code != 1 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
 	contains(t, out.stderr, "Found nothing for code-risk to look at in scans",
-		"code-risk reads text. Images, PDFs, audio, and video need a template that reads them.")
+		"In a folder, code-risk reads only text. To send the PDFs, name them:\ndecide run code-risk scans/*.pdf --provider gemini")
 }
 
 // Use case 3: an image piped to a text template.
@@ -99,7 +99,8 @@ func TestTextTemplateRejectsAnImageOnStdin(t *testing.T) {
 	if out.code != 1 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stderr, "stdin is an image, and sentiment reads text", "decide templates show receipt-quality")
+	contains(t, out.stderr, "stdin is an image, and sentiment reads text",
+		"decide reads images, audio, video, and PDFs only from files you name.\nSave it to a file, and run: decide run sentiment FILE")
 	out = h.run(noNUL, "run", "sentiment")
 	contains(t, out.stderr, "stdin is not text, and sentiment reads text")
 	if n := len(h.server.Requests()); n != 0 {
@@ -216,10 +217,13 @@ func TestMediaHelpText(t *testing.T) {
 	out := h.run("", "templates", "new", "--help")
 	contains(t, out.stdout, "(text, image, audio, video, or pdf)")
 	out = h.run("", "run", "--help")
-	contains(t, out.stdout, "for images, PDFs, audio, and video")
+	contains(t, out.stdout, "for a media template, the first provider for its kind with a key set",
+		"A text template also takes an image, audio, video, or PDF file that you\nname")
 	lacks(t, out.stdout, "cloudflare for images")
 	out = h.run("", "templates", "show", "invoice-check")
-	contains(t, out.stdout, "Reads: PDF files, one item per file\n")
+	contains(t, out.stdout, "Reads: PDF files, one item per file\n", "A media template takes only media files.")
+	out = h.run("", "templates", "show", "sentiment")
+	contains(t, out.stdout, "A text template also takes an image, audio, video, or PDF file that you name.")
 	out = h.run("")
 	contains(t, out.stdout, "need a Cloudflare, OpenAI, or Gemini key instead")
 }
@@ -308,7 +312,7 @@ func TestNamedMediaThatFailsACheck(t *testing.T) {
 	if out.code != 1 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stderr, "hero.gif is not in a format receipt-quality reads: PNG, JPEG, or WebP",
+	contains(t, out.stderr, "hero.gif is an image, and decide sends images only as PNG, JPEG, or WebP",
 		"Save it as PNG, JPEG, or WebP, and run decide on that file.")
 }
 

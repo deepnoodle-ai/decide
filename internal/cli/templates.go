@@ -78,7 +78,12 @@ func (a *App) templatesShow(c *cli.Context) error {
 	w := c.Stdout()
 	fmt.Fprintf(w, "%s  %s\n", bold(s.Name), dim("("+where(s)+")"))
 	fmt.Fprintf(w, "%s\n\n", clean(s.Description))
-	fmt.Fprintf(w, "%s %s\n\n", bold("Reads:"), reads(s))
+	fmt.Fprintf(w, "%s %s\n", bold("Reads:"), reads(s))
+	rule := textTemplateRule
+	if s.Input.Media() {
+		rule = mediaTemplateRule
+	}
+	fmt.Fprintf(w, "%s\n\n", dim(rule))
 
 	fmt.Fprintf(w, "%s\n", bold("Questions"))
 	m := marksOf(s)

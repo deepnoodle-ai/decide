@@ -29,7 +29,8 @@ What counts as an item depends on your data:
   .txt files, stdin    each line
   other files          the whole file
   images, audio, video,
-  and PDFs             each file, for templates that read them
+  and PDFs             each file you name, and each one in a folder for
+                       templates that read them
   a diff               each hunk: a block of changed lines
 
 Choose another unit with --each file, line, paragraph, section, or
@@ -43,6 +44,9 @@ are combined.
 
 Folders are read recursively and skip files listed in .gitignore. With no
 files named, decide reads from stdin.
+
+A text template also takes an image, audio, video, or PDF file that you
+name, on a provider that reads it. A folder gives it text only.
 
 Examples:
   decide run code-risk src --include '*.go' --limit 5
@@ -83,9 +87,9 @@ func (a *App) addRun(app *cli.App) {
 			cli.String("format", "f").Placeholder("FORMAT").Enum(formats...).Help(formatHelp),
 			cli.String("fail-on").Placeholder("WHEN").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
 			cli.String("provider").Placeholder("NAME").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai", "gemini").
-				Help("Model provider: typesafe, cloudflare, openai, or gemini (default: typesafe for text; for images, PDFs, audio, and video, one that reads them and has a key set)"),
+				Help("Model provider: typesafe, cloudflare, openai, or gemini (default: typesafe, or for a media template, the first provider for its kind with a key set)"),
 			cli.String("model", "m").Placeholder("MODEL").Env("DECIDE_MODEL").Help("Model name (default: the provider's default)"),
-			cli.Int("workers").Placeholder("N").Default(4).Help("How many requests to send at once (default 4, or 2 for media)"),
+			cli.Int("workers").Placeholder("N").Default(4).Help("How many requests to send at once (default 4, or 2 when a run has media files)"),
 			cli.Bool("yes", "y").Help(fmt.Sprintf("Don't ask before running more than %d items", confirmAbove)),
 		).
 		Run(a.run)
@@ -159,15 +163,16 @@ func (a *App) run(c *cli.Context) error {
 	changes := false
 	opts.Changes = func() { changes = true }
 	provider, model := providerOf(c, s)
-	opts.MaxMediaBytes = mediaLimit(provider, s.Input)
+	opts.Media = mediaOptions(provider)
 	opts.Provider = providerNames[provider]
-	if provider == "cloudflare" && s.Input == template.Image {
-		opts.MaxPixels = clefMaxPixels
-	}
 	var skipped source.Skipped
 	opts.Skipped = &skipped
-	if err := checkMediaProvider(s, provider); err != nil {
-		return err
+	if hasFolder(paths) {
+		// A folder gives a media template only its own kind, so a provider
+		// that does not read that kind would find nothing.
+		if err := checkMediaProvider(s, provider); err != nil {
+			return err
+		}
 	}
 	if c.Bool("dry-run") {
 		if format != "text" && format != "json" {
@@ -226,7 +231,17 @@ func (a *App) run(c *cli.Context) error {
 		fmt.Fprintln(c.Stderr(), dim(hint))
 	}
 	fmt.Fprintln(c.Stderr())
-	return a.execute(c, run, client, workersFor(c, s.Input), format, failOn)
+	return a.execute(c, run, client, workersFor(c, run.MediaItems > 0), format, failOn)
+}
+
+// hasFolder reports whether any path names a folder.
+func hasFolder(paths []string) bool {
+	for _, p := range paths {
+		if info, err := os.Stat(p); err == nil && info.IsDir() {
+			return true
+		}
+	}
+	return false
 }
 
 // mediaProviders lists the providers that take each media input, the
@@ -279,9 +294,9 @@ func mediaLimit(provider string, in template.Input) int64 {
 }
 
 // providerOf returns the provider and model chosen with flags, or their
-// defaults: TypeSafe for text. A media template uses the first provider
-// that takes its files and has credentials set, or else the first that
-// takes them.
+// defaults: TypeSafe, or for a media template the first provider that
+// takes its kind and has credentials set, or else the first that takes
+// it. The files never change the provider.
 func providerOf(c *cli.Context, s *template.Template) (provider, model string) {
 	provider = c.String("provider")
 	if provider == "" {
@@ -650,8 +665,8 @@ func nothingFound(s *template.Template, paths []string, opts source.Options, pro
 		return err
 	case s.Input.Media():
 		return err.Hint(fmt.Sprintf("This template reads %s files.", source.MediaFormats(s.Input)))
-	case opts.Skipped != nil && opts.Skipped.NotTextMedia > 0:
-		return err.Hint(s.Name + " reads text. " + mediaHint(""))
+	case namedMediaHint(s, provider, opts.Skipped) != "":
+		return err.Hint(namedMediaHint(s, provider, opts.Skipped))
 	case opts.Skipped != nil && opts.Skipped.NotText > 0:
 		return err.Hint(s.Name + " reads " + textKinds + ".")
 	}

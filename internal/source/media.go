@@ -14,10 +14,27 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/deepnoodle-ai/decide/internal/template"
 )
+
+// MediaLimits are a provider's limits for one kind of media file.
+type MediaLimits struct {
+	MaxBytes  int64 // the largest file; zero means MaxImageBytes
+	MaxPixels int64 // the most pixels in an image; zero means no limit
+}
+
+// limits returns the provider's limits for kind, and whether it reads
+// that kind at all.
+func (o Options) limits(kind template.Input) (MediaLimits, bool) {
+	if o.Media == nil {
+		return MediaLimits{}, true
+	}
+	l, ok := o.Media[kind]
+	return l, ok
+}
 
 // Skipped counts the files a walk skipped, by reason. Files named
 // directly are errors instead, and are not counted.
@@ -25,16 +42,22 @@ type Skipped struct {
 	NotText      int // binary files, for a text template
 	NotTextMedia int // of NotText, the images, PDFs, audio, and video
 	Unsupported  int // files of a format the media template does not read
-	TooLarge     int // media files over Options.MaxMediaBytes
-	Pixels       int // images over Options.MaxPixels
+	TooLarge     int // media files over their kind's MediaLimits.MaxBytes
+	Pixels       int // images over MediaLimits.MaxPixels
 	Invalid      int // media files whose contents fail a check: empty, corrupt, or another format
 	Unreadable   int // files that could not be opened or read
+	NotRead      int // media files of a kind the provider does not read
+
+	// FirstMedia is the first media file a text template's folder walk
+	// skipped, and FirstMediaKind its kind, so a hint can show how to
+	// name such files.
+	FirstMedia     string
+	FirstMediaKind template.Input
 }
 
-// MediaError reports a media file, or media on stdin, given to a template
-// that reads text.
+// MediaError reports media on stdin, which decide reads as text only.
 type MediaError struct {
-	Label string         // the file's label, or "stdin"
+	Label string         // "stdin"
 	Kind  template.Input // image, audio, video, or pdf
 }
 
@@ -42,8 +65,46 @@ func (e *MediaError) Error() string {
 	return fmt.Sprintf("%s is %s, and this template reads text", e.Label, MediaNoun(e.Kind))
 }
 
-// TooLargeError reports a named media file larger than
-// Options.MaxMediaBytes.
+// ProviderError reports a named media file of a kind the provider does
+// not read.
+type ProviderError struct {
+	Label    string
+	Kind     template.Input
+	Provider string // such as "OpenAI"
+}
+
+func (e *ProviderError) Error() string {
+	return fmt.Sprintf("%s is %s, and %s does not read it", e.Label, MediaNoun(e.Kind), e.Provider)
+}
+
+// FormatError reports a named file of a media kind that decide does not
+// send: a format it does not read, such as a GIF, or a media file whose
+// name does not end in an extension decide reads.
+type FormatError struct {
+	Label     string
+	Kind      template.Input
+	ByContent bool // the name does not say it is media; its first bytes do
+}
+
+func (e *FormatError) Error() string {
+	return fmt.Sprintf("%s is %s, and decide sends %s only as %s",
+		e.Label, MediaNoun(e.Kind), MediaPlural(e.Kind), MediaFormats(e.Kind))
+}
+
+// NamedErrors holds the files the user named that cannot be sent, in the
+// order named. Walk returns it when more than one file fails.
+type NamedErrors struct{ Errs []error }
+
+func (e *NamedErrors) Error() string {
+	msgs := make([]string, len(e.Errs))
+	for i, err := range e.Errs {
+		msgs[i] = err.Error()
+	}
+	return fmt.Sprintf("%d files can't be sent: %s", len(e.Errs), strings.Join(msgs, "; "))
+}
+
+// TooLargeError reports a named media file larger than its kind's
+// MediaLimits.MaxBytes.
 type TooLargeError struct {
 	Label string
 	Input template.Input
@@ -66,7 +127,7 @@ type InvalidMediaError struct {
 func (e *InvalidMediaError) Error() string { return e.Label + " is " + e.Reason }
 
 // PixelsError reports a named image with more pixels than
-// Options.MaxPixels.
+// MediaLimits.MaxPixels.
 type PixelsError struct {
 	Label         string
 	Width, Height int
@@ -79,105 +140,195 @@ func (e *PixelsError) Error() string {
 		e.Label, e.Width, e.Height, e.Provider, e.Limit/1_000_000)
 }
 
-// UnsupportedError reports a named file whose extension is not one of the
-// formats a media template reads, such as a GIF for an image template.
+// UnsupportedError reports a named file that is not media, given to a
+// media template.
 type UnsupportedError struct {
 	Label string
 	Input template.Input
 }
 
 func (e *UnsupportedError) Error() string {
-	return fmt.Sprintf("%s is not in a format this template reads: %s", e.Label, MediaFormats(e.Input))
+	return fmt.Sprintf("%s is not an image, audio, video, or PDF file, and this template reads %s", e.Label, MediaPlural(e.Input))
 }
 
 // NotTextError reports a named file or stdin that is not text, for a text
-// template, when its format is not one a media template reads.
+// template, when it is not media either.
 type NotTextError struct{ Label string }
 
 func (e *NotTextError) Error() string { return e.Label + " is not text" }
 
-// media reads one media file's header and makes an item that carries its
-// path, not its contents, so a walk over large files holds little memory.
-func (w *walker) media(path, label string, info fs.FileInfo, explicit bool) error {
-	in := w.opts.Input
-	// skip returns err for a named file. In a folder, it counts the file
-	// under its reason, for one warning per reason after the walk.
-	skip := func(counter *int, reason string, err error) error {
-		if explicit {
-			return err
+// checkNamed checks every file the user named that decide would send as
+// media, before the walk reads anything, so that one error can name every
+// file that cannot be sent. Folders, stdin, and paths that do not exist
+// are left to the walk.
+func (w *walker) checkNamed(paths []string) error {
+	var errs []error
+	for _, p := range paths {
+		if p == "-" {
+			continue
 		}
-		*counter++
-		w.skip(reason, label)
+		info, err := os.Stat(p)
+		if err != nil || !info.Mode().IsRegular() {
+			continue
+		}
+		if err := w.checkNamedFile(p, w.names[p], info); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	switch len(errs) {
+	case 0:
 		return nil
+	case 1:
+		return errs[0]
 	}
-	invalid := func(reason string) error {
-		return skip(&w.skipped.Invalid, reason, &InvalidMediaError{Label: label, Input: in, Reason: reason})
+	return &NamedErrors{Errs: errs}
+}
+
+// checkNamedFile checks one named file: its format, that the provider
+// reads its kind, and the provider's limits. A text file passes for a
+// text template, and is left to the walk.
+func (w *walker) checkNamedFile(path, label string, info fs.FileInfo) error {
+	kind, sent := extKind(path)
+	switch {
+	case sent:
+		_, err := w.checkMedia(path, label, info, kind)
+		var pe *fs.PathError
+		if errors.As(err, &pe) {
+			return nil // the walk reports a file it cannot read
+		}
+		return err
+	case kind != "":
+		return &FormatError{Label: label, Kind: kind}
 	}
-	ctype, ok := mediaTypes[in][strings.ToLower(filepath.Ext(path))]
+	f, err := os.Open(path)
+	if err != nil {
+		return nil // the walk reports it
+	}
+	head := make([]byte, 512)
+	n, _ := io.ReadFull(f, head)
+	f.Close()
+	if isBinary(head[:n]) {
+		if k := sniffMedia(head[:n]); k != "" {
+			return &FormatError{Label: label, Kind: k, ByContent: true}
+		}
+	}
+	if w.opts.Input.Media() {
+		return &UnsupportedError{Label: label, Input: w.opts.Input}
+	}
+	return nil
+}
+
+// errNotFormat reports a file in a folder whose extension is not one of
+// the media template's formats.
+var errNotFormat = errors.New("not in the template's formats")
+
+// checkMedia runs the checks on one media file of a kind, in order: that
+// the provider reads the kind, the provider's size limit, that the file
+// is not empty, that its header is of its format, and the provider's
+// pixel limit. It returns the file's MIME type.
+func (w *walker) checkMedia(path, label string, info fs.FileInfo, kind template.Input) (string, error) {
+	ctype, ok := mediaTypes[kind][strings.ToLower(filepath.Ext(path))]
 	if !ok {
-		if explicit {
-			return &UnsupportedError{Label: label, Input: in}
-		}
-		w.skipped.Unsupported++
-		return nil
+		return "", errNotFormat
 	}
-	limit := w.opts.MaxMediaBytes
+	l, ok := w.opts.limits(kind)
+	if !ok {
+		return "", &ProviderError{Label: label, Kind: kind, Provider: w.opts.Provider}
+	}
+	limit := l.MaxBytes
 	if limit <= 0 {
 		limit = MaxImageBytes
 	}
 	if info.Size() > limit {
-		if explicit {
-			return &TooLargeError{Label: label, Input: in, Size: info.Size(), Limit: limit}
-		}
-		on := "this provider"
-		if w.opts.Provider != "" {
-			on = w.opts.Provider
-		}
-		return skip(&w.skipped.TooLarge, fmt.Sprintf("over %s, the most %s takes for one %s file", HumanBytes(limit), on, MediaName(in)), nil)
+		return "", &TooLargeError{Label: label, Input: kind, Size: info.Size(), Limit: limit}
 	}
 	if info.Size() == 0 {
-		return invalid("empty")
+		return "", &InvalidMediaError{Label: label, Input: kind, Reason: "empty"}
 	}
 	f, err := os.Open(path)
 	if err != nil {
-		return w.unreadable(label, err, explicit)
+		return "", err
 	}
 	defer f.Close()
 	head := make([]byte, 512)
 	n, err := io.ReadFull(f, head)
 	if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return w.unreadable(label, err, explicit)
+		return "", err
 	}
 	head = head[:n]
-	switch in {
+	switch kind {
 	case template.Image:
 		// Images are sniffed, since the providers check the header too.
 		ctype = http.DetectContentType(head)
 		switch ctype {
 		case "image/png", "image/jpeg":
 			if _, err := f.Seek(0, io.SeekStart); err != nil {
-				return w.unreadable(label, err, explicit)
+				return "", err
 			}
 			cfg, _, err := image.DecodeConfig(bufio.NewReader(f))
 			if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
-				return invalid("not a readable image")
+				return "", &InvalidMediaError{Label: label, Input: kind, Reason: "not a readable image"}
 			}
-			if most := w.opts.MaxPixels; most > 0 && int64(cfg.Width)*int64(cfg.Height) > most {
-				return skip(&w.skipped.Pixels,
-					fmt.Sprintf("over %d megapixels, the most %s takes for one image", most/1_000_000, w.opts.Provider),
-					&PixelsError{Label: label, Width: cfg.Width, Height: cfg.Height, Limit: most, Provider: w.opts.Provider})
+			if most := l.MaxPixels; most > 0 && int64(cfg.Width)*int64(cfg.Height) > most {
+				return "", &PixelsError{Label: label, Width: cfg.Width, Height: cfg.Height, Limit: most, Provider: w.opts.Provider}
 			}
 		case "image/webp":
 		default:
-			return invalid("not a " + MediaFormats(in) + " image")
+			return "", &InvalidMediaError{Label: label, Input: kind, Reason: "not a " + MediaFormats(kind) + " image"}
 		}
 	case template.PDF:
 		if !bytes.HasPrefix(head, []byte("%PDF-")) {
-			return invalid("not a readable PDF")
+			return "", &InvalidMediaError{Label: label, Input: kind, Reason: "not a readable PDF"}
 		}
 	}
+	return ctype, nil
+}
+
+// media makes an item of one media file that carries its path, not its
+// contents, so a walk over large files holds little memory. A file the
+// user named that fails a check is an error. In a folder, the file is
+// counted and skipped, with one warning per reason after the walk.
+func (w *walker) media(path, label string, info fs.FileInfo, kind template.Input, explicit bool) error {
+	ctype, err := w.checkMedia(path, label, info, kind)
+	if err != nil {
+		if explicit && !errors.Is(err, errNotFormat) {
+			return err
+		}
+		var (
+			provider *ProviderError
+			large    *TooLargeError
+			pixels   *PixelsError
+			invalid  *InvalidMediaError
+		)
+		switch {
+		case errors.Is(err, errNotFormat):
+			if explicit {
+				return &UnsupportedError{Label: label, Input: kind}
+			}
+			w.skipped.Unsupported++
+		case errors.As(err, &provider):
+			w.skipped.NotRead++
+			w.skip(fmt.Sprintf("%s does not read %s", w.opts.Provider, MediaPlural(kind)), label)
+		case errors.As(err, &large):
+			on := "this provider"
+			if w.opts.Provider != "" {
+				on = w.opts.Provider
+			}
+			w.skipped.TooLarge++
+			w.skip(fmt.Sprintf("over %s, the most %s takes for one %s file", HumanBytes(large.Limit), on, MediaName(kind)), label)
+		case errors.As(err, &pixels):
+			w.skipped.Pixels++
+			w.skip(fmt.Sprintf("over %d megapixels, the most %s takes for one image", pixels.Limit/1_000_000, w.opts.Provider), label)
+		case errors.As(err, &invalid):
+			w.skipped.Invalid++
+			w.skip(invalid.Reason, label)
+		default:
+			return w.unreadable(label, err, false)
+		}
+		return nil
+	}
 	state, _ := json.Marshal(map[string]any{"path": label, "content_type": ctype})
-	return w.emit(Item{Label: label, Unit: string(in), State: state,
+	return w.emit(Item{Label: label, Unit: string(kind), State: state,
 		Image: &ImageData{ContentType: ctype, Path: path}})
 }
 
@@ -213,21 +364,25 @@ func (w *walker) skip(reason, label string) {
 	w.skips = append(w.skips, skipGroup{reason: reason, names: []string{label}})
 }
 
-// notText handles a file that is not text, for a text template. A file in a
-// folder is counted and skipped. A named file is an error that says which
-// kind of media it is, when it is one.
+// notText handles a file that is not text, for a text template. A file in
+// a folder is counted and skipped. A named file is an error; when its
+// first bytes are media, its name does not say so, since a named file
+// whose extension is media is read as media.
 func (w *walker) notText(path, label string, head []byte, explicit bool) error {
 	kind := mediaKind(path, head)
 	if !explicit {
 		w.skipped.NotText++
 		if kind != "" {
 			w.skipped.NotTextMedia++
+			if _, sent := extKind(path); sent && w.skipped.FirstMedia == "" {
+				w.skipped.FirstMedia, w.skipped.FirstMediaKind = label, kind
+			}
 		}
 		w.notTextNames = append(w.notTextNames, label)
 		return nil
 	}
 	if kind != "" {
-		return &MediaError{Label: label, Kind: kind}
+		return &FormatError{Label: label, Kind: kind, ByContent: true}
 	}
 	return &NotTextError{Label: label}
 }
@@ -309,19 +464,27 @@ func sniffMedia(data []byte) template.Input {
 // file's extension still names as images.
 var otherImages = []string{".gif", ".heic", ".heif", ".avif", ".bmp", ".tif", ".tiff", ".ico"}
 
-// mediaKind says which kind of media a file is, by its extension and then
-// by its first bytes, or "" for none.
-func mediaKind(path string, head []byte) template.Input {
+// extKind says which kind of media a file's extension names, and whether
+// decide sends files with that extension. A GIF is an image that decide
+// does not send.
+func extKind(path string) (kind template.Input, sent bool) {
 	ext := strings.ToLower(filepath.Ext(path))
 	for _, in := range []template.Input{template.Image, template.Audio, template.Video, template.PDF} {
 		if _, ok := mediaTypes[in][ext]; ok {
-			return in
+			return in, true
 		}
 	}
-	for _, e := range otherImages {
-		if ext == e {
-			return template.Image
-		}
+	if slices.Contains(otherImages, ext) {
+		return template.Image, false
+	}
+	return "", false
+}
+
+// mediaKind says which kind of media a file is, by its extension and then
+// by its first bytes, or "" for none.
+func mediaKind(path string, head []byte) template.Input {
+	if kind, _ := extKind(path); kind != "" {
+		return kind
 	}
 	return sniffMedia(head)
 }
