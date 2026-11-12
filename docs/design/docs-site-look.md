@@ -232,8 +232,8 @@ once, in the Compare band. Under 600px a command scrolls inside its box rather t
 mid word.
 
 **Copy rules:** say who the key comes from; never say "no account", since a
-key needs one; answer "why not JSON mode" where decide answers (the
-Compare table).
+key needs one; answer "why not just call an LLM" in the Compare band, in three
+claims.
 
 **`landing.tape`** no longer plays on the page. It stays for the README's GIF
 (`Output landing.gif`).
