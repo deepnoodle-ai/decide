@@ -182,6 +182,18 @@ func TestProviderBeforeFormat(t *testing.T) {
 		"Save it as PNG, JPEG, or WebP, and run decide on that file.")
 	lacks(t, out.stderr, "OpenAI reads")
 
+	// A GIF with no extension: a new name would not change its format,
+	// so the hint says to save it, not to rename it.
+	h.write("pic", "GIF89a\x01\x00\x01\x00\x80\x00\x00")
+	out = h.run("", "run", "code-risk", "pic", "--provider", "openai")
+	contains(t, out.stderr, "Error: pic is an image, and decide sends images only as PNG, JPEG, or WebP",
+		"Save it as PNG, JPEG, or WebP, and run decide on that file.")
+	lacks(t, out.stderr, "extension")
+	out = h.run("", "run", "code-risk", "pic")
+	contains(t, out.stderr, "Error: pic is an image, and TypeSafe reads text only\n",
+		"Hint: "+images+"\nSave it as PNG, JPEG, or WebP as well.\n")
+	lacks(t, out.stderr, "extension")
+
 	// UC-8: in a list, the provider hint shows once, then the format line.
 	out = h.run("", "run", "sentiment", "photo.gif", "shot.png")
 	contains(t, out.stderr, `Error: 2 files you named can't be sent

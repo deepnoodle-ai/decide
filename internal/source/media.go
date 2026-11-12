@@ -217,7 +217,7 @@ func (w *walker) checkNamedFile(path, label string, info fs.FileInfo) error {
 	f.Close()
 	if isBinary(head[:n]) {
 		if k := sniffMedia(head[:n]); k != "" {
-			return w.formatError(label, k, true)
+			return w.formatError(label, k, sentByContent(k, head[:n]))
 		}
 	}
 	if w.opts.Input.Media() {
@@ -392,9 +392,24 @@ func (w *walker) notText(path, label string, head []byte, explicit bool) error {
 		return nil
 	}
 	if kind != "" {
-		return w.formatError(label, kind, true)
+		return w.formatError(label, kind, sentByContent(kind, head))
 	}
 	return &NotTextError{Label: label}
+}
+
+// sentByContent reports whether head, the first bytes of a file with no
+// media extension, is in a format decide sends, so that naming the file
+// with an extension is the fix. An image must be PNG, JPEG, or WebP; a
+// GIF or a TIFF needs saving in another format instead.
+func sentByContent(kind template.Input, head []byte) bool {
+	if kind != template.Image {
+		return true
+	}
+	switch http.DetectContentType(head) {
+	case "image/png", "image/jpeg", "image/webp":
+		return true
+	}
+	return false
 }
 
 // formatError reports a named file of a media kind that decide does not
