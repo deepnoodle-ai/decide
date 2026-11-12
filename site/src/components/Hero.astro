@@ -2,8 +2,8 @@
 // The landing page's first screen, centred: the release line, the face
 // thinking (while on screen), the headline,
 // the tagline, and one command to run. The key and privacy line lives in
-// the Providers band. The recordings
-// come right after it, in <RunStage> in the page body. Starlight's hero
+// the Providers band. The drawing in
+// <Sweep> comes right after it, in the page body. Starlight's hero
 // can't hold the install switcher, so this replaces it. Only the landing
 // page has a `hero`.
 //
@@ -86,7 +86,9 @@ const repo = 'https://github.com/deepnoodle-ai/decide';
 		color: var(--sl-color-white);
 		text-wrap: balance;
 	}
+	/* The dim half always starts its own line, however the first half wraps. */
 	h1 :global(.dim) {
+		display: block;
 		color: var(--sl-color-gray-3);
 	}
 	.tagline :global(p) {

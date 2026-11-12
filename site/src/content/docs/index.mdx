@@ -6,15 +6,15 @@ pagefind: false
 editUrl: false
 release: OpenAI's Decisions API and Go templates
 hero:
-  title: You think very hard. <span class="dim">decide answers.</span>
+  title: Judgment calls, <span class="dim">at scale.</span>
   tagline: >-
-    <p>Find vulnerabilities, flag risky changes, triage issues and route
-    tickets from your shell, CI, Go code or Claude Code. A decision model answers each
-    question with a probability your script can act on.</p>
+    <p>Find the vulnerable function in a codebase, the urgent ticket in a
+    queue, the risky change in a pull request. decide asks a decision
+    model about every one, from your shell, CI, Go code or Claude Code.</p>
 answer: "! ready  no"
 ---
 
-import RunStage from '../../components/RunStage.astro';
+import Sweep from '../../components/Sweep.astro';
 import Compare from '../../components/Compare.astro';
 import Adds from '../../components/Adds.astro';
 import ClaudeCode from '../../components/ClaudeCode.astro';
@@ -24,12 +24,12 @@ import Models from '../../components/Models.astro';
 import Closing from '../../components/Closing.astro';
 
 <div class="not-content">
-	<RunStage />
+	<Sweep />
 </div>
 
 <section class="band wide where not-content">
 	<h2>The small calls inside your automations.</h2>
-	<p class="sub">Six of them, on diffs, text, code, images and PDFs. Each links to how to set it up.</p>
+	<p class="sub">Every pipeline has judgment calls that are too many for a person and too fuzzy for a rule. Here are a few that decide makes out of the box.</p>
 	<WhereItRuns />
 </section>
 

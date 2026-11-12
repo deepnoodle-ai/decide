@@ -2,14 +2,15 @@
 // "Why not just call an LLM?": three reasons, one card each: faster,
 // cheaper, and calibrated. Each card is a word, one or
 // two sentences on why, and one figure in mono at its foot. No table and no
-// example reply: the recording above is the example. The claims come from
+// example reply. The claims come from
 // how a decision model works, not from a benchmark. "Calibrated" is
 // TypeSafe's claim for Jev (https://typesafe.ai); the band below tells the
 // reader to test it on their own labeled items.
 //
-// The time is read from the triage-check transcript, as RunStage's caption
-// is, so it stays in step when the tape is recorded again. It is one
-// recording, the first one at the top of the page, and the card says so.
+// The time is read from the triage-check transcript, the recording in the
+// triage tutorial, so it stays in step when the tape is recorded again. It
+// is one recording, and the card says so and links to it. The landing page
+// itself shows no recordings.
 // The Calibrated figure is the definition, not a measurement.
 //
 // Prices are public, with their sources in the footnote:
@@ -31,7 +32,8 @@ const reasons = [
 		title: 'Faster',
 		body: 'An LLM writes its reply a token at a time, and you wait for all of it. A decision model writes nothing. It returns one answer.',
 		fig: took ?? 'one answer',
-		of: took ? 'in the first recording on this page' : 'nothing written',
+		of: took ? 'for one answer, in a recorded run' : 'nothing written',
+		href: took ? '/tutorials/triage-issues/' : undefined,
 	},
 	{
 		title: 'Cheaper',
@@ -59,7 +61,7 @@ const reasons = [
 					<p class="fig">
 						<b>{r.fig}</b>
 						<span>
-							{r.of}
+							{r.href ? <a href={r.href}>{r.of}</a> : r.of}
 							{r.note && (
 								<sup>
 									<a href="#price-note" aria-label="Prices and sources">
@@ -136,6 +138,10 @@ const reasons = [
 		font: 700 26px/1.1 var(--sl-font-mono);
 		letter-spacing: -0.02em;
 		color: var(--ans-value);
+	}
+	.fig span > a {
+		color: inherit;
+		text-underline-offset: 0.22em;
 	}
 	sup {
 		margin-left: 3px;
