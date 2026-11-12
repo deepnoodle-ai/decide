@@ -71,8 +71,8 @@ type Options struct {
 	Input template.Input
 	// Media holds the provider's limits for each kind of media file it
 	// reads. A file of a kind not in it is not sent: a named file is a
-	// ProviderError, and a file in a folder is skipped. Nil means every
-	// kind, with zero limits.
+	// ProviderError, and a file in a folder is skipped. Nil or empty
+	// means no media: set the kinds the provider reads.
 	Media   map[template.Input]MediaLimits
 	Each    string   // the unit: "file", "line", "paragraph", "section", "function", or "" for the default
 	Include []string // globs relative to each directory argument

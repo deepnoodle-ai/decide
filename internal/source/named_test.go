@@ -12,14 +12,15 @@ import (
 
 func TestNamedMediaWithAnyTemplate(t *testing.T) {
 	tree(t, map[string]string{
-		"notes.txt":   "great\nbad\nok\n",
-		"shot.png":    pngOf(2, 2),
-		"call.mp3":    "ID3\x03\x00\x00\x00\x00\x00\x00",
-		"receipt.pdf": asciiPDF,
-		"photo.gif":   "GIF89a\x01\x00\x01\x00\x80\x00\x00",
-		"shot":        pngOf(1, 1),
-		"docs/a.png":  pngOf(1, 1),
-		"docs/b.md":   "# b\n",
+		"notes.txt":    "great\nbad\nok\n",
+		"shot.png":     pngOf(2, 2),
+		"call.mp3":     "ID3\x03\x00\x00\x00\x00\x00\x00",
+		"receipt.pdf":  asciiPDF,
+		"photo.gif":    "GIF89a\x01\x00\x01\x00\x80\x00\x00",
+		"shot":         pngOf(1, 1),
+		"docs/a.png":   pngOf(1, 1),
+		"docs/b.md":    "# b\n",
+		"photos/a.png": pngOf(1, 1),
 	})
 	gemini := map[template.Input]MediaLimits{template.Image: {}, template.Audio: {}, template.Video: {}, template.PDF: {}}
 	openai := map[template.Input]MediaLimits{template.Image: {}}
@@ -62,10 +63,18 @@ func TestNamedMediaWithAnyTemplate(t *testing.T) {
 	if !errors.As(err, &pe) || pe.Label != "call.mp3" || pe.Kind != template.Audio || pe.Provider != "OpenAI" {
 		t.Fatalf("call.mp3: %v", err)
 	}
-	// An empty map reads no media, as on TypeSafe.
-	err = walkErr([]string{"shot.png"}, Options{Input: template.Text, Media: map[template.Input]MediaLimits{}, Provider: "TypeSafe"})
-	if !errors.As(err, &pe) || pe.Kind != template.Image {
-		t.Fatalf("shot.png on TypeSafe: %v", err)
+	// An empty map reads no media, as on TypeSafe, and so does a nil one,
+	// so a caller that forgets Media sends nothing.
+	for _, media := range []map[template.Input]MediaLimits{{}, nil} {
+		err = walkErr([]string{"shot.png"}, Options{Input: template.Text, Media: media, Provider: "TypeSafe"})
+		if !errors.As(err, &pe) || pe.Kind != template.Image {
+			t.Fatalf("shot.png with Media %v: %v", media, err)
+		}
+		var skipped Skipped
+		items, _ := walk(t, []string{"photos"}, "", Options{Input: template.Image, Media: media, Skipped: &skipped})
+		if len(items) != 0 || skipped.NotRead != 1 {
+			t.Fatalf("a folder with Media %v: %d items, skipped %+v", media, len(items), skipped)
+		}
 	}
 	// Formats decide does not send, by name and by content.
 	var fe *FormatError

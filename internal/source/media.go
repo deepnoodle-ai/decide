@@ -27,11 +27,8 @@ type MediaLimits struct {
 }
 
 // limits returns the provider's limits for kind, and whether it reads
-// that kind at all.
+// that kind at all. A nil Media reads none, as an empty one does.
 func (o Options) limits(kind template.Input) (MediaLimits, bool) {
-	if o.Media == nil {
-		return MediaLimits{}, true
-	}
 	l, ok := o.Media[kind]
 	return l, ok
 }

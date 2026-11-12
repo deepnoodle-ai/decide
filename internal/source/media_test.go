@@ -91,7 +91,7 @@ func TestTextTemplatesSkipBinaryFiles(t *testing.T) {
 	// A media file the user names is one media item, whatever the unit.
 	for _, each := range []string{"", template.EachFile, template.EachLine, template.EachFunction, template.EachHunk} {
 		for path, kind := range map[string]template.Input{"mixed/a.pdf": template.PDF, "mixed/a.png": template.Image, "mixed/big.mp4": template.Video} {
-			items, _ := walk(t, []string{path}, "", Options{Input: template.Text, Each: each})
+			items, _ := walk(t, []string{path}, "", Options{Input: template.Text, Each: each, Media: everyKind})
 			if len(items) != 1 || items[0].Unit != string(kind) || items[0].Image == nil || items[0].Label != path {
 				t.Errorf("%s with --each %q: %+v", path, each, items)
 			}
@@ -132,6 +132,9 @@ func TestStdinThatIsNotText(t *testing.T) {
 	}
 }
 
+// everyKind reads every kind of media file, with the default limits.
+var everyKind = map[template.Input]MediaLimits{template.Image: {}, template.Audio: {}, template.Video: {}, template.PDF: {}}
+
 // clef is Cloudflare's limits: images only, of 16 megapixels at most.
 var clef = map[template.Input]MediaLimits{template.Image: {MaxPixels: 16_000_000}}
 
@@ -171,7 +174,7 @@ func TestMediaChecksInTheWalk(t *testing.T) {
 		"photos/empty.png": "empty",
 		"photos/gif.png":   "not a PNG, JPEG, or WebP image",
 	} {
-		err := Walk(context.Background(), []string{name}, nil, Options{Input: template.Image}, func(Item) error { return nil })
+		err := Walk(context.Background(), []string{name}, nil, Options{Input: template.Image, Media: everyKind}, func(Item) error { return nil })
 		var ie *InvalidMediaError
 		if !errors.As(err, &ie) || ie.Label != name || ie.Reason != reason || ie.Input != template.Image {
 			t.Errorf("%s: %v", name, err)
@@ -184,7 +187,7 @@ func TestMediaChecksInTheWalk(t *testing.T) {
 		t.Errorf("huge.png: %v", err)
 	}
 	tree(t, map[string]string{"fake.pdf": "not a PDF"})
-	err = Walk(context.Background(), []string{"fake.pdf"}, nil, Options{Input: template.PDF}, func(Item) error { return nil })
+	err = Walk(context.Background(), []string{"fake.pdf"}, nil, Options{Input: template.PDF, Media: everyKind}, func(Item) error { return nil })
 	var ie *InvalidMediaError
 	if !errors.As(err, &ie) || ie.Reason != "not a readable PDF" {
 		t.Errorf("fake.pdf: %v", err)
@@ -220,7 +223,7 @@ func TestUnreadableFilesAreSkipped(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		items, warnings := walk(t, []string{"dir"}, "", Options{Input: in})
+		items, warnings := walk(t, []string{"dir"}, "", Options{Input: in, Media: everyKind})
 		if len(items) != 1 {
 			t.Fatalf("%s: labels = %v", in, labels(items))
 		}

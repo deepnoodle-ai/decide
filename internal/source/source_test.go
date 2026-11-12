@@ -178,7 +178,7 @@ func TestStdinFormats(t *testing.T) {
 
 func TestImages(t *testing.T) {
 	tree(t, map[string]string{"a.png": pngOf(1, 1), "b.txt": "text", "c.jpg": "not really"})
-	items, warnings := walk(t, []string{"."}, "", Options{Input: template.Image})
+	items, warnings := walk(t, []string{"."}, "", Options{Input: template.Image, Media: everyKind})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"a.png"}) {
 		t.Fatalf("labels = %v", got)
 	}

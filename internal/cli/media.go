@@ -30,8 +30,8 @@ const (
 )
 
 // mediaOptions returns the limits for each kind of media file provider
-// reads. It is never nil: a provider that reads no media gets an empty
-// map, which the walk reads as "send no media".
+// reads. A provider that reads no media gets an empty map, which the walk
+// reads as "send no media".
 func mediaOptions(provider string) map[template.Input]source.MediaLimits {
 	out := map[template.Input]source.MediaLimits{}
 	for _, kind := range mediaKinds {
