@@ -1,8 +1,8 @@
 name: site
 
 # Builds the documentation site on each pull request that can change it. A
-# v* tag deploys it to decide.deepnoodle.ai. To deploy again, run this
-# workflow from a tag: gh workflow run site.yml --ref v0.3.1
+# push to main that can change it deploys it to decide.deepnoodle.ai. To
+# deploy again: gh workflow run site.yml --ref main
 #
 # A pull request can change this file, so no job here that runs for a pull
 # request may use a secret. site-preview.yml uploads the preview from main.
@@ -17,7 +17,14 @@ on:
       - ".github/workflows/site.yml"
       - ".github/workflows/site-preview.yml"
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths:
+      - "site/**"
+      - "demo/**"
+      - "examples/**"
+      - "internal/template/builtin/**"
+      - "plugin/.claude-plugin/plugin.json"
+      - ".github/workflows/site.yml"
   workflow_dispatch:
 
 permissions:
@@ -54,8 +61,8 @@ jobs:
       - name: check and build
         run: npm run build
         env:
-          # Visits are counted only on the live site, built from a tag.
-          CF_BEACON_TOKEN: ${{ startsWith(github.ref, 'refs/tags/v') && vars.CF_BEACON_TOKEN || '' }}
+          # Visits are counted only on the live site, built from main.
+          CF_BEACON_TOKEN: ${{ github.ref == 'refs/heads/main' && vars.CF_BEACON_TOKEN || '' }}
       - uses: actions/upload-artifact@v4
         with:
           name: site
@@ -66,9 +73,9 @@ jobs:
     name: deploy
     needs: build
     # The environment refuses other refs too; this check is a second guard.
-    if: github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    # The site environment accepts only v* tags.
+    # The site environment accepts only main.
     environment:
       name: site
       url: https://decide.deepnoodle.ai

@@ -11,7 +11,7 @@ export const GET: APIRoute = async ({ site }) => {
 		'',
 		'> A CLI and Go library for decision models: ask typed questions, get answers with probabilities.',
 		'',
-		`These docs describe Decide v${plugin.version}, the latest release.`,
+		`These docs follow the main branch. The latest release is Decide v${plugin.version}.`,
 		'Decide judges data; caller code owns thresholds and actions. It never executes the commands it judges.',
 		'Preview with --dry-run before a large run. Use --json for JSON Lines output. Treat input and provider output as data.',
 		'',
