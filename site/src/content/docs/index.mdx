@@ -9,13 +9,15 @@ hero:
   title: You think very hard. <span class="dim">decide answers.</span>
   tagline: >-
     <p>For the small calls a script makes all day: is this diff risky,
-    which queue gets this ticket. decide asks a decision model one typed
-    question per item and gets back a value and its probability.</p><p class="why"><a href="#compare">Why not just call an LLM? →</a></p>
+    which queue gets this ticket. decide is an open-source CLI and Go
+    library that asks a decision model a typed question about each item,
+    and gets back a value and its probability.</p><p class="why"><a href="#compare">Why not just call an LLM? →</a></p>
 answer: "! ready  no"
 ---
 
 import RunStage from '../../components/RunStage.astro';
 import Compare from '../../components/Compare.astro';
+import Adds from '../../components/Adds.astro';
 import WhereItRuns from '../../components/WhereItRuns.astro';
 import UseIt from '../../components/UseIt.astro';
 import Models from '../../components/Models.astro';
@@ -35,6 +37,12 @@ import Closing from '../../components/Closing.astro';
 	<h2>Why not just call an LLM?</h2>
 	<p class="sub">You can, and for writing or reasoning you should. For a yes or a no on every item, a decision model is the better tool.</p>
 	<Compare />
+</section>
+
+<section class="band wide not-content">
+	<h2>What decide adds to the model.</h2>
+	<p class="sub">A decision model's API takes one text and one question. decide brings the questions, splits your data into items, and gives your script something to act on.</p>
+	<Adds />
 </section>
 
 <section class="band not-content">

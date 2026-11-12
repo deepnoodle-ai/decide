@@ -1,0 +1,135 @@
+---
+// "What decide adds to the model.": what you would write yourself if you
+// called a decision model's API directly. Six link cards in one hairline
+// grid, three columns (two under 980px, one under 640px). Each is a title,
+// two sentences, and one line in mono at its foot: a command, or a line
+// decide prints. The cache line is the summary format from
+// /reference/cache/. No verdict colors.
+const adds = [
+	{
+		title: 'Questions, already written',
+		body: 'Twelve built-in templates, each a set of questions with tuned wording and flag thresholds. Write your own in a few lines of JSON.',
+		mono: 'decide templates',
+		href: '/reference/templates/',
+	},
+	{
+		title: 'Code, function by function',
+		body: 'decide splits Go, Python, JavaScript, TypeScript and Java into functions and sends each with its imports. On a diff, it asks only about the functions that changed.',
+		mono: 'decide run code-risk src --each function',
+		href: '/reference/items/#functions',
+	},
+	{
+		title: 'Any data, item by item',
+		body: 'Point it at JSONL, CSV, Markdown, a diff, or a folder of images or PDFs. Each record, section, hunk or file gets its own answer, and long ones are judged in parts.',
+		mono: 'decide run relevance docs --each section',
+		href: '/reference/items/',
+	},
+	{
+		title: 'No question asked twice',
+		body: 'Every answer is kept. Run again and decide asks only about what changed, so a second pass over a codebase costs almost nothing.',
+		mono: '81974 answers from cache · 450 asked',
+		href: '/reference/cache/',
+	},
+	{
+		title: 'Output a script can act on',
+		body: 'A flagged answer can exit 2. Results print as JSON, CSV, a Markdown report or GitHub annotations, and a stopped run resumes where it left off.',
+		mono: '--fail-on flagged --format github',
+		href: '/reference/output/',
+	},
+	{
+		title: 'The same from Go',
+		body: 'Typed questions from your own program, with validated answers, retries, a fake server for tests, and patterns such as gate, rank and funnel.',
+		mono: 'go get github.com/deepnoodle-ai/decide',
+		href: '/start/go/',
+	},
+];
+---
+
+<div class="adds">
+	{
+		adds.map((a) => (
+			<a class="add" href={a.href}>
+				<h3>{a.title}</h3>
+				<p>{a.body}</p>
+				<code>{a.mono}</code>
+			</a>
+		))
+	}
+</div>
+
+<style>
+	/* Cells share 1px lines: each draws its right and bottom, the grid its top and left. */
+	.adds {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		margin-top: 48px;
+		border-top: 1px solid var(--sl-color-hairline);
+		border-left: 1px solid var(--sl-color-hairline);
+		text-align: left;
+	}
+	.add {
+		display: grid;
+		grid-row: span 3;
+		grid-template-rows: subgrid;
+		row-gap: 0;
+		min-width: 0;
+		padding: 28px 26px 24px;
+		border-right: 1px solid var(--sl-color-hairline);
+		border-bottom: 1px solid var(--sl-color-hairline);
+		color: inherit;
+		text-decoration: none;
+		transition: background-color 0.15s;
+	}
+	.add:hover {
+		background: var(--sl-color-gray-7);
+	}
+	h3 {
+		margin: 0;
+		font-size: 20px;
+		font-weight: 500;
+		line-height: 1.25;
+		letter-spacing: -0.015em;
+		color: var(--sl-color-white);
+	}
+	p {
+		margin: 10px 0 0;
+		font-size: 15px;
+		line-height: 1.6;
+		color: var(--sl-color-gray-2);
+		text-wrap: pretty;
+	}
+	code {
+		display: block;
+		align-self: end;
+		margin-top: 22px;
+		padding: 0;
+		overflow-x: auto;
+		background: none;
+		border: 0;
+		font: 400 12.5px/1.5 var(--sl-font-mono);
+		color: var(--sl-color-gray-3);
+		white-space: nowrap;
+		scrollbar-width: none;
+	}
+	.add:hover code {
+		color: var(--sl-color-white);
+	}
+	@media (max-width: 980px) {
+		.adds {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+	@media (max-width: 640px) {
+		.adds {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.add {
+			padding: 22px 20px 20px;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.add {
+			transition: none;
+		}
+	}
+</style>

@@ -196,16 +196,26 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    chips are where the page first shows that decide reads more than text.
 4. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`, linked
    from the hero): three cards in one row (stacked under 860px), no table
-   and no example reply: "Faster", "Cheaper", "Calibrated" (defined in the card: of the answers
-   given 90%, about nine in ten are right; not "real" or "tuned"). Each
-   is a 28px title, two or three plain sentences on why, and one figure in
-   mono in the answer color at its foot: the issue.md run's time (read
-   from the transcript), Jev's price, and the 98% from the recording. A
-   table was tried twice and was too much to take in; keep this to three
-   claims. A footnote cites the public prices; no multipliers and no
-   output-cost claim for OpenAI or Cloudflare. The subhead gives LLMs
-   their due for writing and reasoning.
-5. **"Close calls go to a person."** `UseIt.astro`:
+   and no example reply: "Faster", "Cheaper", "Calibrated" (defined in the
+   card: the probability matches how often the model is right; not "real"
+   or "tuned"). Each is a 28px title, two or three plain sentences on why,
+   and one figure in mono in the answer color at its foot: the time of the
+   first recording on the page (read from the transcript, and named that
+   way, never as "the issue above"), Jev's price, and "90% means right
+   about nine times in ten". A table was tried twice and was too much to
+   take in; keep this to three claims. A footnote cites the public prices;
+   no multipliers and no output-cost claim for OpenAI or Cloudflare. The
+   subhead gives LLMs their due for writing and reasoning.
+5. **"What decide adds to the model."** `Adds.astro`: what a reader would
+   write themselves if they called a decision model's API directly. Six
+   link cards in one hairline grid, three columns (two under 980px, one
+   under 640px): templates, code split into functions, any data split into
+   items, the answer cache, output a script can act on, and the Go
+   library. Each is a 20px title, two sentences, and one line in mono at
+   its foot (a command, or a line decide prints), and links to its
+   reference page. It follows the LLM question because it answers the
+   next one: why not call the model yourself.
+6. **"Close calls go to a person."** `UseIt.astro`:
    `triage.go` branches three ways (allow, reject, `gate.Review`), with a
    strip in the pass, unsure and flag colors (three columns, stacked under
    600px; "a person decides" is the widest and set in sans). The Go is
@@ -215,13 +225,13 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    switching, and that the probability is the model's judgment; it links
    the calibrate example. The headline is
    the page's one statement about people; don't repeat it in other bands.
-6. **"Four decision models, one set of commands."** `Models.astro`: one
+7. **"Four decision models, one set of commands."** `Models.astro`: one
    row of four (two by two under 860px). Each card ends with the same five
    chips (text, images, audio, video, PDF), lit when that provider reads
    them, and the subhead says it in words. Then the line on where your text
    goes, linking to the providers reference. Providers only: the licence
    is a separate fact and lives in the closing.
-7. **`Closing.astro`.** "Your turn. Ask it something." One command, the
+8. **`Closing.astro`.** "Your turn. Ask it something." One command, the
    quickstart and the source, then one fine line: open source under Apache
    2.0, with LICENSE and CONTRIBUTING.md linked. The glad-card face sits at
    the right (hidden under 600px, where the hero's face is enough).

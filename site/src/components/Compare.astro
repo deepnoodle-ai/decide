@@ -9,7 +9,8 @@
 //
 // The time is read from the triage-check transcript, as RunStage's caption
 // is, so it stays in step when the tape is recorded again. It is one
-// recording, and the card says which.
+// recording, the first one at the top of the page, and the card says so.
+// The Calibrated figure is the definition, not a measurement.
 //
 // Prices are public, with their sources in the footnote:
 //   Jev: $0.042 per million input tokens, output free
@@ -30,7 +31,7 @@ const reasons = [
 		title: 'Faster',
 		body: 'An LLM writes its reply a token at a time, and you wait for all of it. A decision model writes nothing. It returns one answer.',
 		fig: took ?? 'one answer',
-		of: took ? 'the issue.md run above' : 'nothing written',
+		of: took ? 'in the first recording on this page' : 'nothing written',
 	},
 	{
 		title: 'Cheaper',
@@ -41,9 +42,9 @@ const reasons = [
 	},
 	{
 		title: 'Calibrated',
-		body: 'Ask an LLM how sure it is and it types a number, usually a confident one. A decision model is trained so that of the answers it gives 90%, about nine in ten are right.',
-		fig: '98%',
-		of: 'that the issue above is not ready',
+		body: 'Ask an LLM how sure it is and it types a number, usually a confident one. A decision model is trained so its probability matches how often it is right.',
+		fig: '90%',
+		of: 'means right about nine times in ten',
 	},
 ];
 ---
