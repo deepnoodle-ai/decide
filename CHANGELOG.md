@@ -8,13 +8,16 @@ may change the library API and the CLI.
 
 ### Added
 
+- **One way to attach files from Go.** `decide.WithMedia` attaches an image,
+  PDF, audio clip, or video the same way on every provider. A provider that
+  can't read it returns `errors.ErrUnsupported` before sending anything.
 - **Gemini Decision.** `--provider gemini` and `backend.Gemini` run
   `gemini-decision-1` through Google's Gemini Decisions API, in beta. Set
   `GEMINI_API_KEY`.
 - **Images on OpenAI.** Image templates such as `receipt-quality` run with
-  `--provider openai`, and `openai.SetImages` adds images to a request.
+  `--provider openai`.
 - **Audio, video, and PDFs on Gemini.** Templates can read `audio`, `video`,
-  or `pdf` files, and `gemini.SetMedia` attaches them from Go. The new
+  or `pdf` files. The new
   `invoice-check` template checks PDF invoices.
 - **Media runs send two files at once** unless `--workers` says otherwise,
   and a request that sends a file may take up to 5 minutes, so large
@@ -36,6 +39,9 @@ may change the library API and the CLI.
 
 ### Changed
 
+- **Media helpers removed.** `cloudflare.SetImages`, `openai.SetImages`, and
+  `gemini.SetMedia` are gone; use `decide.WithMedia`. A `[]byte` anywhere in
+  state is rejected, and a media attempt that times out is not retried.
 - **A new landing page.** Why a decision model, which returns a value and
   its probability instead of text, suits the quick calls a script makes on
   every item, where it runs in CI, hooks and queues, what decide adds to

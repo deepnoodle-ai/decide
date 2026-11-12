@@ -65,6 +65,11 @@ The passage that answers the query comes first:
   built-in template's questions with the
   [`templates`](https://pkg.go.dev/github.com/deepnoodle-ai/decide/templates)
   package.
+- Ask about an image, PDF, audio clip, or video: attach it with
+  `decide.WithMedia`. Jev reads no files yet, so use Clef, GPT-6 Luna, or
+  Gemini Decision. The
+  [`backend`](https://pkg.go.dev/github.com/deepnoodle-ai/decide/backend)
+  documentation lists which provider reads which file, and its limits.
 - Gate an agent's action, screen in stages, or calibrate a cutoff with
   the packages under
   [`patterns/`](https://github.com/deepnoodle-ai/decide/tree/main/patterns).

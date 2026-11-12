@@ -197,6 +197,26 @@ if err != nil {
 fmt.Println(e.Answer.Noul) // the probability of yes, such as 0.97
 ```
 
+To ask about a file, attach it with `decide.WithMedia`. The call is the
+same on every provider that reads the file:
+
+```go
+photo, err := os.ReadFile("receipt.jpg")
+if err != nil {
+	return err
+}
+e, err := decide.Eval(ctx, client, "A photo of a store receipt.",
+	decide.Noul("Can you read the total?"),
+	decide.WithMedia(decide.Media{MIMEType: "image/jpeg", Data: photo}))
+```
+
+Clef, GPT-6 Luna, and Gemini Decision read images. Only Gemini Decision
+reads PDFs, audio, and video, and Jev reads no files yet. A provider that
+can't read a file returns an error that matches `errors.ErrUnsupported`
+before it sends anything. Clef takes images of at most 4 MiB, so resize
+phone photos for it. The [`backend`](backend) package documentation lists
+each provider's limits.
+
 To ask a built-in template's questions, use the
 [`templates`](templates) package. You get its tuned wording and flags, and
 they change when you upgrade decide:
