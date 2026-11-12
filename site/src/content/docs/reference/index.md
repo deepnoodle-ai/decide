@@ -61,10 +61,8 @@ value, not a verdict. `decide templates show TEMPLATE` says when each
 question is flagged or matched. A yes-or-no answer between 40% and 60% is
 yellow in every template: the model is unsure.
 
-In a terminal, decide shortens a long description or preview with `…` so
-each line fits the window. Piped output keeps every line whole. Add
-`--details` to see the full probability of every option and the model's
-confidence, or choose another [output format](/reference/output/).
+Add `--details` to see the probability of every option, or choose another
+[output format](/reference/output/).
 
 ## Pages
 
@@ -74,10 +72,10 @@ confidence, or choose another [output format](/reference/output/).
 | [Items](/reference/items/) | what one item is in each kind of data, and choosing what to read |
 | [Diffs](/reference/diffs/) | judging what changed, by hunk, function, file, or line |
 | [Templates](/reference/templates/) | the built-in templates, and writing your own |
-| [Providers](/reference/providers/) | Jev, Clef, GPT-6 Luna, and your own service |
+| [Providers](/reference/providers/) | Jev, Clef, GPT-6 Luna, Gemini Decision, and your own service |
 | [Output formats](/reference/output/) | JSON, CSV, Markdown, and GitHub annotations |
 | [The answer cache](/reference/cache/) | when decide asks again, and when it doesn't |
-| [Use Decide from an agent](/reference/agents/) | running a template from an agent, reading typed JSON, and keeping the policy in your code |
+| [Use decide from an agent](/reference/agents/) | running a template from an agent, reading typed JSON, and keeping the policy in your code |
 | [Claude Code](/reference/claude-code/) | the plugin, the audit, and the hunt |
 
 For the Go library, see the

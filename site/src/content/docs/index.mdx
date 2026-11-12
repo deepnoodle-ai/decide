@@ -1,52 +1,66 @@
 ---
-title: Answers you can branch on
-description: Ask questions about your files, diffs, and records. A decision model answers each one with its probability.
+title: Typed answers for automations
+description: A decision model answers one typed question per item with a value and its probability, so CI, hooks and queues get an answer instead of text to parse.
 template: splash
 pagefind: false
 editUrl: false
+release: OpenAI's Decisions API and Go templates
 hero:
-  title: Answers you can branch on.
+  title: Judgment calls, <span class="dim">at scale.</span>
   tagline: >-
-    <p>Ask questions about your files, diffs, and records. A decision
-    model answers each one with yes or no, a choice, or a score, and its
-    probability.</p>
-    <p class="why"><b>Why not just prompt an LLM?</b> There's no prompt to
-    write and no JSON to parse or retry. Put a threshold on the probability,
-    and your script or CI acts on it.</p>
-  actions:
-    - text: Get a first result in five minutes
-      link: /start/
-      variant: primary
-    - text: Questions and answers
-      link: /start/answers/
-      variant: minimal
-answer: "! destructive  yes"
+    <p>Find the vulnerable function in a codebase, the urgent ticket in a
+    queue, the risky change in a pull request. decide asks a decision
+    model about every one, from your shell, CI, Go code or Claude Code.</p>
+answer: "! ready  no"
 ---
 
-import Ways from '../../components/Ways.astro';
-import AnswerTypes from '../../components/AnswerTypes.astro';
-import Tutorials from '../../components/Tutorials.astro';
+import Sweep from '../../components/Sweep.astro';
+import Compare from '../../components/Compare.astro';
+import Adds from '../../components/Adds.astro';
+import ClaudeCode from '../../components/ClaudeCode.astro';
+import WhereItRuns from '../../components/WhereItRuns.astro';
+import UseIt from '../../components/UseIt.astro';
+import Models from '../../components/Models.astro';
+import Closing from '../../components/Closing.astro';
 
-<Ways />
+<div class="not-content">
+	<Sweep />
+</div>
 
-<section class="band not-content">
-	<h2>Every answer has a type and a probability.</h2>
-	<p class="lede">You choose the question and what counts as a problem. decide flags the answers that cross your line.</p>
-	<AnswerTypes />
+<section class="band wide where not-content">
+	<h2>The small calls inside your automations.</h2>
+	<p class="sub">Every pipeline has judgment calls that are too many for a person and too fuzzy for a rule. Here are a few that decide makes out of the box.</p>
+	<WhereItRuns />
+</section>
+
+<section class="band wide not-content" id="adds">
+	<h2>What you'd otherwise build yourself.</h2>
+	<p class="sub">A decision model's API takes one text and one question. decide brings the questions, splits your data into items, and gives your script something to act on.</p>
+	<Adds />
+</section>
+
+<section class="band wide not-content" id="claude-code">
+	<h2>Audit a whole codebase from Claude Code.</h2>
+	<p class="sub">Two skills in the decide plugin. decide scores every function, and Claude reads only the few that score highest.</p>
+	<ClaudeCode />
+</section>
+
+<section class="band not-content" id="compare">
+	<h2>Why not just call an LLM?</h2>
+	<p class="sub">You can, and for writing or reasoning you should. For a yes or a no on every item, a decision model is the better tool.</p>
+	<Compare />
 </section>
 
 <section class="band not-content">
-	<h2>Learn it by doing one job.</h2>
-	<p class="lede">Each tutorial does one job, from the first command to something that works.</p>
-	<Tutorials />
+	<h2>Close calls go to a person.</h2>
+	<p class="sub">Every answer comes with a probability. Act on the ones the model is sure of, and send the rest to a person.</p>
+	<UseIt />
 </section>
 
-<style>{`
-	.band { margin-top: 0; padding-top: 72px; }
-	.band h2 { margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.15; color: var(--sl-color-white); }
-	.band .lede { margin: 10px 0 0; max-width: 60ch; font-size: 17px; color: var(--sl-color-gray-2); }
-	@media (max-width: 799px) {
-		.band { padding-top: 48px; }
-		.band h2 { font-size: 25px; }
-	}
-`}</style>
+<section class="band not-content">
+	<h2>Four decision models, one set of commands.</h2>
+	<p class="sub">All four read text and code. Three read images, and Gemini reads audio, video and PDFs too. Jev is the default; switch with one flag.</p>
+	<Models />
+</section>
+
+<Closing />

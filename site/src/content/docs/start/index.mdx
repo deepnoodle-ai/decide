@@ -1,136 +1,121 @@
 ---
 title: Quickstart
-description: Install decide, set a key, and get typed answers with probabilities about one line of text, then about your own changes.
-tableOfContents: false
+description: Install decide, set a key, and ask about one line of text, then about your own changes.
 answer: "sentiment  positive"
 ---
 
-import { Steps, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
+import { Aside, Tabs, TabItem, LinkCard, CardGrid } from '@astrojs/starlight/components';
 import Terminal from '../../../components/Terminal.astro';
 
-You'll end with typed answers, each with its probability, about a change in
-your own repository. You need a terminal and an API key for one decision
-model, a model that answers typed questions instead of writing text. Step 2
-says where to get one.
+decide asks a decision model questions about your data. A decision model
+answers with yes or no, a choice, or a score, each with its probability,
+and writes no text.
 
-<Steps>
+## Install decide
 
-1. ## Install decide
+<Tabs syncKey="install">
+<TabItem label="Homebrew">
+```sh
+brew install deepnoodle-ai/tap/decide
+```
+</TabItem>
+<TabItem label="Go">
+```sh
+go install github.com/deepnoodle-ai/decide/cmd/decide@latest
+```
+</TabItem>
+<TabItem label="Download">
+Download a binary for Linux, macOS, or Windows from the
+[releases](https://github.com/deepnoodle-ai/decide/releases), and put it
+on your `PATH`.
+</TabItem>
+</Tabs>
 
-   <Tabs syncKey="install">
-   <TabItem label="Homebrew">
-   ```sh
-   brew install deepnoodle-ai/tap/decide
-   ```
-   </TabItem>
-   <TabItem label="Go">
-   ```sh
-   go install github.com/deepnoodle-ai/decide/cmd/decide@latest
-   ```
-   </TabItem>
-   <TabItem label="Download">
-   Download a binary for Linux, macOS, or Windows from the
-   [releases](https://github.com/deepnoodle-ai/decide/releases), and put it
-   on your `PATH`.
-   </TabItem>
-   </Tabs>
+`decide --version` prints the version you have.
 
-   `decide --version` prints the version you have.
+## Get a key
 
-2. ## Get a key
+Pick one provider and export its key:
 
-   decide asks a decision model. Pick one provider and export its key. The
-   commands and templates are the same with each, except templates that
-   read images, audio, video, or PDFs, which need a provider that takes them.
+<Tabs syncKey="provider">
+<TabItem label="Jev">
+Jev by TypeSafe is the default. Get a key at
+[typesafe.ai](https://typesafe.ai).
+```sh
+export TYPESAFE_API_KEY=...
+```
+</TabItem>
+<TabItem label="Clef">
+Clef runs on Cloudflare Workers AI. Create an API token that can use
+Workers AI in the
+[Cloudflare dashboard](https://developers.cloudflare.com/workers-ai/get-started/rest-api/).
+```sh
+export CLOUDFLARE_AUTH_TOKEN=...
+export CLOUDFLARE_ACCOUNT_ID=...
+export DECIDE_PROVIDER=cloudflare
+```
+</TabItem>
+<TabItem label="GPT-6 Luna">
+GPT-6 Luna runs on OpenAI's Decisions API, in beta. Create a key in the
+[OpenAI platform](https://platform.openai.com/api-keys).
+```sh
+export OPENAI_API_KEY=...
+export DECIDE_PROVIDER=openai
+```
+</TabItem>
+<TabItem label="Gemini Decision">
+Gemini Decision runs on Google's Gemini Decisions API, in beta. Create a
+key in [Google AI Studio](https://aistudio.google.com/apikey).
+```sh
+export GEMINI_API_KEY=...
+export DECIDE_PROVIDER=gemini
+```
+</TabItem>
+</Tabs>
 
-   <Tabs syncKey="provider">
-   <TabItem label="Jev">
-   Jev by TypeSafe is the default. Get a key at
-   [typesafe.ai](https://typesafe.ai).
-   ```sh
-   export TYPESAFE_API_KEY=...
-   ```
-   </TabItem>
-   <TabItem label="Clef">
-   Clef runs on Cloudflare Workers AI. Create an API token that can use
-   Workers AI in the
-   [Cloudflare dashboard](https://developers.cloudflare.com/workers-ai/get-started/rest-api/).
-   ```sh
-   export CLOUDFLARE_AUTH_TOKEN=...
-   export CLOUDFLARE_ACCOUNT_ID=...
-   export DECIDE_PROVIDER=cloudflare
-   ```
-   </TabItem>
-   <TabItem label="GPT-6 Luna">
-   GPT-6 Luna runs on OpenAI's Decisions API, in beta. Create a key in the
-   [OpenAI platform](https://platform.openai.com/api-keys).
-   ```sh
-   export OPENAI_API_KEY=...
-   export DECIDE_PROVIDER=openai
-   ```
-   </TabItem>
-   <TabItem label="Gemini Decision">
-   Gemini Decision runs on Google's Gemini Decisions API, in beta. Create a
-   key in [Google AI Studio](https://aistudio.google.com/apikey).
-   ```sh
-   export GEMINI_API_KEY=...
-   export DECIDE_PROVIDER=gemini
-   ```
-   </TabItem>
-   </Tabs>
+`decide models` checks that the key works. decide sends the text it asks
+about, such as your diff, to the provider you chose.
 
-   Check it with `decide models`.
+## Ask about one line
 
-   decide sends the text it asks about, such as your diff, to the provider
-   you chose, using your key.
+Pipe in a line of text and run the built-in `sentiment` template:
 
-   No key yet? Add `--dry-run` to a `decide run` command to see what would
-   be asked, without calling the model.
+<Terminal tape="start-line" title="~" label="decide answers positive about one line of text">
+**The answer is positive**, with its probability. Your percentage may
+differ a little.
+</Terminal>
 
-3. ## Ask about one line
+## Ask about your own changes
 
-   Pipe in a line of text and run the built-in `sentiment` template. A
-   template is a named set of questions:
+In a git repository with unstaged changes, judge each changed file:
 
-   <Terminal tape="start-line" title="~" label="decide answers positive about one line of text">
-   **The answer is positive**, with its probability. The first line names your
-   provider and model. Your percentage may differ a little.
-   </Terminal>
+<Terminal tape="start-diff" title="~/shop" label="decide flags billing/refund.go on risk and maintainability">
+**`billing/refund.go` is flagged on risk and maintainability.** This
+recording is from the demo's shop repository.
+</Terminal>
 
-   Each pass of a template over your data is a run, and every run is saved,
-   so `decide runs view` shows it again without asking the model.
+<Aside type="tip">
+`git diff` shows unstaged changes. Use `git diff HEAD` to include staged
+ones. If nothing has changed, try `git diff HEAD~1`.
+</Aside>
 
-4. ## Ask about your own changes
+`code-risk` asks whether each file could cause security or data
+problems, and how maintainable it is. A flagged answer is red and marked
+with `!`.
 
-   In a git repository with unstaged changes, judge each changed file:
+To make a script or CI act on the answers, add `--fail-on flagged`. decide
+then exits with code 2 when anything is flagged:
 
-   <Terminal tape="start-diff" title="~/shop" label="decide flags billing/refund.go on risk and maintainability">
-   **`billing/refund.go` is flagged**, which means it needs attention, on risk
-   and maintainability, in the demo's shop repository. Your own files get the same two questions.
-   </Terminal>
+```sh
+git diff | decide run code-risk --fail-on flagged
+```
 
-   `code-risk` asks whether each file could cause security or data
-   problems, and how maintainable it is. A flagged answer is red and marked
-   with `!`, and the summary lists the flagged files. `git diff` shows
-   unstaged changes. Use `git diff HEAD` to include staged ones. If nothing
-   has changed, try `git diff HEAD~1`.
+## What next
 
-   To make a script or CI act on the answers, add `--fail-on flagged`.
-   decide then exits with code 2 when anything is flagged:
+`decide templates` lists the twelve built-in templates.
 
-   ```sh
-   git diff | decide run code-risk --fail-on flagged
-   ```
+<CardGrid>
+<LinkCard title="Questions and answers" description="The three answer types, probabilities, and flags." href="/start/answers/" />
+<LinkCard title="Ask from Go" description="The same questions from your own program." href="/start/go/" />
+</CardGrid>
 
-5. ## Choose what's next
-
-   <CardGrid>
-   <LinkCard title="Questions and answers" description="The three answer types, probabilities, and flags." href="/start/answers/" />
-   <LinkCard title="Ask from Go" description="The same questions from your own program." href="/start/go/" />
-   </CardGrid>
-
-   `decide templates` lists the twelve built-in templates, and
-   `decide templates show code-risk` shows a template's questions and when
-   it flags an answer.
-
-</Steps>

@@ -65,7 +65,7 @@ build ./...`, `go vet ./...` and `go mod tidy` skip `site/` and its
 ### Pages
 
 ```
-/                          landing: headline, a playing terminal, three ways in
+/                          landing: superseded, see docs-site-look.md
 /start/                    quickstart: install, key, one line, your own git diff
 /start/go/                 go get, a key, one program from examples/, go run
 /start/answers/            the concepts: question types, probability, flags, providers
@@ -424,7 +424,10 @@ decision, with its upgrade cost written down.
 
 [docs-site-look.md](docs-site-look.md) sets the values inside these
 knobs: the palette, Inter and JetBrains Mono, the heading scale, the
-landing page, the frames, the tutorial page and motion. The
+landing page, the frames, the tutorial page, motion, and the one
+character and the voice: a nameless face that stands in for the reader,
+the pen rule, the poses, color meaning an answer, the tokens and the
+voice guide. The
 implementation PR shows screenshots of the landing, a tutorial and a
 reference page, in light and dark, at 1280, 1024 and 390 wide, and gets
 an independent design review. One real recording is checked on a

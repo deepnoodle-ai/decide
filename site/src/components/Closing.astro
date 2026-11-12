@@ -1,0 +1,126 @@
+---
+// The landing page's last band: one more command, the quickstart, the
+// source, and the licence in one line. The glad face holds the answer from the triage-check recording,
+// whole, at the right; below 860px it sits smaller above the heading.
+import CopyButton from './CopyButton.astro';
+import Doodle from './Doodle.astro';
+
+const command = 'brew install deepnoodle-ai/tap/decide';
+const repo = 'https://github.com/deepnoodle-ai/decide';
+---
+
+<section class="closing not-content">
+	<div class="mark"><Doodle size={200} face="glad-card" tag="no" tone="flag" /></div>
+	<div class="in">
+		<h2>Your turn. <span class="dim">Ask it something.</span></h2>
+		<p>Install it, set a key, and put it where your script makes a call.</p>
+		<div class="cmd">
+			<pre><span class="pr">$ </span>{command}</pre>
+			<CopyButton text={command} />
+		</div>
+		<div class="actions">
+			<a class="btn" href="/start/">Quickstart →</a>
+			<a class="btn ghost" href={repo}>Read the source</a>
+		</div>
+		<p class="terms">
+			Open source under Apache 2.0. <a href={`${repo}/blob/main/LICENSE`}>LICENSE</a>{' · '}<a href={`${repo}/blob/main/CONTRIBUTING.md`}>CONTRIBUTING.md</a>
+		</p>
+	</div>
+</section>
+
+<style>
+	h2 .dim {
+		display: block;
+		color: var(--sl-color-gray-3);
+	}
+	.closing {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas: 'in mark';
+		align-items: center;
+		gap: 48px;
+		margin-top: var(--space-band);
+		padding-block: clamp(72px, 9vw, 104px);
+		border-top: 1px solid var(--sl-color-hairline);
+	}
+	.in {
+		grid-area: in;
+		min-width: 0;
+		max-width: 34rem;
+	}
+	.mark {
+		grid-area: mark;
+		color: var(--sl-color-white);
+	}
+	h2 {
+		max-width: none;
+		margin: 0;
+		font-size: var(--display-2);
+		font-weight: 500;
+		line-height: 1.1;
+		letter-spacing: -0.03em;
+		color: var(--sl-color-white);
+		text-wrap: balance;
+	}
+	p {
+		max-width: 40ch;
+		margin: 16px 0 0;
+		color: var(--sl-color-gray-3);
+		text-wrap: balance;
+	}
+	.cmd {
+		display: inline-flex;
+		align-items: center;
+		gap: 14px;
+		max-width: 100%;
+		margin-top: 32px;
+		padding: 10px 10px 10px 18px;
+		border: 1px solid var(--sl-color-gray-4);
+	}
+	.cmd pre {
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		background: none;
+		border: 0;
+		font: 400 14px/1.5 var(--sl-font-mono);
+		color: var(--sl-color-white);
+		white-space: pre;
+		overflow-x: auto;
+		scrollbar-width: none;
+	}
+	.pr {
+		color: var(--sl-color-gray-4);
+	}
+	.terms {
+		max-width: none;
+		margin-top: 28px;
+		font: 400 12.5px/1.6 var(--sl-font-mono);
+	}
+	.terms a {
+		color: inherit;
+	}
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+		margin-top: 22px;
+	}
+	@media (max-width: 860px) {
+		.closing {
+			grid-template-columns: minmax(0, 1fr);
+			grid-template-areas: 'mark' 'in';
+			gap: 28px;
+		}
+		.mark :global(svg) {
+			width: auto;
+			height: 120px;
+		}
+	}
+	/* The hero already shows a face; on a phone this one would break the left edge. */
+	@media (max-width: 600px) {
+		.mark {
+			display: none;
+		}
+	}
+</style>

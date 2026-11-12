@@ -24,9 +24,8 @@ git diff main | decide run code-risk --each function
 echo "This is great" | decide run sentiment
 ```
 
-Over 100 items, it asks before it starts, unless you add `--yes`. It asks
-only when stdin is a terminal. With piped input or in CI it never asks, so
-check the size first with `--limit` or `--dry-run`.
+Over 100 items, it asks before it starts. Check the size of a run first
+with `--dry-run`.
 
 ### Choosing the data
 
@@ -50,7 +49,7 @@ decide run code-risk src --include '*.go' --exclude '*_test.go'
 #### `--each`
 
 Chooses what one item is: `file`, `line`, `paragraph`, `section`,
-`function`, or `hunk`. The default depends on the data; see
+`function`, or `hunk`. The default depends on the data. See
 [Items](/reference/items/).
 
 ```sh
@@ -124,9 +123,9 @@ decide run code-risk src --no-cache
 #### `--provider`
 
 Chooses the model's provider for this run: `typesafe`, `cloudflare`,
-`openai`, or `gemini`. The default is `typesafe`; a template that reads
-files other than text picks one that can take them. `DECIDE_PROVIDER` sets
-it for every run. See [Providers](/reference/providers/).
+`openai`, or `gemini`. The default is `typesafe`. A template that reads
+images, audio, video, or PDFs picks a provider that can take them.
+`DECIDE_PROVIDER` sets it for every run. See [Providers](/reference/providers/).
 
 ```sh
 decide run sentiment notes.txt --provider cloudflare
@@ -134,8 +133,9 @@ decide run sentiment notes.txt --provider cloudflare
 
 #### `--model`, `-m`
 
-Chooses the model by name. The default is each provider's own model: `jev-latest` for `typesafe`,
-`clef` for `cloudflare`, and `gpt-6-luna` for `openai`.
+Chooses the model by name. The default is each provider's own model:
+`jev-latest` for `typesafe`, `clef` for `cloudflare`, `gpt-6-luna` for
+`openai`, and `gemini-decision-1` for `gemini`.
 
 ```sh
 decide run sentiment notes.txt --model jev-1.13.0
@@ -144,8 +144,7 @@ decide run sentiment notes.txt --model jev-1.13.0
 #### `--workers`
 
 Sets how many requests run at once. The default is 4, or 2 for a template
-that reads images, audio, video, or PDFs, since each request holds its file
-in memory.
+that reads images, audio, video, or PDFs.
 
 ```sh
 decide run code-risk src --workers 8
@@ -190,7 +189,7 @@ decide run code-risk src --json | jq .answers
 
 Exits with code 2 if any item is `flagged`, or `matched`, so a script or CI
 job can stop on the result. An answer in the yellow band, close to being flagged, doesn't count. See
-[flags and matches](/start/answers/#flags-and-matches).
+[flags and matches](/reference/templates/#flags-and-matches).
 
 ```sh
 git diff main | decide run code-risk --each function --fail-on flagged
@@ -216,40 +215,30 @@ Lists saved runs, newest first. `decide runs` alone does the same.
 ### `decide runs view`
 
 Shows a run's results again, without calling the model. It takes a run
-ID, or the start of one, and shows the latest run by default. If the start
-of an ID matches several runs, decide stops and asks for more of the ID. It takes
+ID, or the start of one, and shows the latest run by default. It takes
 `--details`, `--format`, and `--json` as `run` does.
 
 #### `--top`
 
 Shows only this many items: the flagged ones first, then those nearest a
-flag. It works with text, JSON, and CSV output, not `md` or `github`. It
-is also refused for a template that flags no yes-or-no or choice answer.
+flag. It works with text, JSON, and CSV output.
 
 ```sh
 decide runs view --top 15
 ```
 
-`--top` ranks items by how far their likeliest flagged answer is above or
-below its flag's threshold. It uses matches when a template has no flags,
-and leaves out items that failed. Use it to read a long run from the top,
-such as `security` on a whole repository, where the ranking says where to
-look.
+Use it to read a long run from the top, such as `security` on a whole
+repository.
 
 ### `decide runs resume`
 
-Finishes a run that stopped early or had failures, using the saved inputs
-and questions. It never asks again about an item that already has an
-answer, and it keeps the cache setting of the run it resumes. It takes
-`--details`, `--format`, `--json`, `--workers`, and `--fail-on` as `run`
-does.
+Finishes a run that stopped early or had failures. It asks only about
+items with no answer yet, and prints the whole run. It takes `--details`,
+`--format`, `--json`, `--workers`, and `--fail-on` as `run` does.
 
 ```sh
 decide runs resume --fail-on flagged
 ```
-
-Its output covers the whole run, the items answered before it stopped as
-well as the new ones, so `--fail-on` gates on the whole run.
 
 ## Templates
 
@@ -292,9 +281,9 @@ decide templates new my-routing --project
 ## `decide models`
 
 Checks that your provider accepts your credentials, and lists the model
-names you can pass to `--model`. It asks no model anything. It checks
-credentials only, not permission to run decisions, credit, or access to a
-particular model.
+names you can pass to `--model`. It asks no model anything, so it checks
+credentials only. A key it accepts may still be out of credit, or lack
+permission to run decisions or to use a particular model.
 
 ```sh
 decide models
@@ -311,8 +300,9 @@ Not checked: running decisions, credit, or access to a model.
 ```
 
 A missing or rejected key names the variable to fix and exits with code 1.
-An accepted key may still be out of credit or unable to run decisions; decide
-does not check that.
+
+When decide can't tell whether a key works, it says so. Try a small
+`decide run` to find out.
 
 #### `--provider`
 
@@ -325,62 +315,26 @@ decide models --provider cloudflare
 
 #### `--json`
 
-Prints one JSON object instead of text, for scripts. `listed` is true when
-the provider listed its models, and false when `models` holds the names
-decide knows. `checked` says what decide asked the provider: `list models`
-for TypeSafe, OpenAI, and Gemini, `search models` for Cloudflare.
+Prints one JSON object instead of text, for scripts. `listed` is false when
+the provider doesn't list its models, and `models` then holds the names
+decide knows.
 
 ```json
-{"provider":"typesafe","listed":true,"checked":"list models","default":"jev-latest","models":[{"name":"jev-latest","description":"","release_date":""}]}
+{
+  "provider": "typesafe",
+  "listed": true,
+  "checked": "list models",
+  "default": "jev-latest",
+  "models": [{"name": "jev-latest", "description": "", "release_date": ""}]
+}
 ```
-
-Each provider is checked differently. decide builds the same client
-`decide run` would, so a bad base URL or account ID fails here with the same
-error. It shows no part of an answer other than TypeSafe's model names.
-
-- **TypeSafe** lists its models with `GET /v1/models`, which shows the key
-  is accepted. The request goes through the same client as `decide run`, so
-  it retries up to 2 times on a `408`, a `429`, a `5xx`, or a timeout or
-  connection error, and follows redirects as Go's default HTTP client does.
-- **Cloudflare** does not list models. decide sends one
-  `GET /accounts/ACCOUNT_ID/ai/models/search?per_page=1` with the token as a
-  bearer token. It follows no redirects and does not retry. It expects JSON with `"success": true`, and shows the models
-  it knows: `clef` and `clef-flash`.
-- **OpenAI** does not say which models its Decisions API takes. decide
-  sends one `GET /v1/models` with the key as a bearer token. It follows no
-  redirects and does not retry. It expects a JSON
-  list, ignores the models in it, and shows `gpt-6-luna`.
-- **Gemini** does not say which models its Decisions API takes either.
-  decide sends one `GET /v1beta/models?pageSize=1` with the key in the
-  `x-goog-api-key` header. It follows no redirects and does not retry. It
-  expects JSON with a `models` list, and shows `gemini-decision-1`.
-
-What the status means:
-
-- `401` means the credentials were rejected. TypeSafe answers `403` the same
-  way, because it sends `403` for a missing or wrong key. Gemini answers
-  `400` for a key it does not accept, so decide treats a `400` that names
-  the key as a rejection. Any other `400`, such as for an unsupported
-  region, says decide could not check.
-- `403` from Cloudflare, OpenAI, or Gemini means decide could not confirm the key,
-  and exits with 1. A restricted OpenAI key may lack permission to list
-  models and still work for decisions. Cloudflare answers `403` when the
-  token lacks Workers AI access or the account ID is wrong. Check the key's
-  permissions, or try a small `decide run`. Gemini answers `403` when the
-  key's project does not have the Gemini API enabled.
-- Any other failure says decide could not check, and does not blame the
-  key. For Cloudflare, OpenAI, and Gemini that includes a redirect, a `200` that is not the expected JSON, and
-  an answer that cannot be read.
-
-Error text never includes your key, token, account ID, or the user info of a
-URL.
 
 ## Exit codes
 
 | Code | Meaning |
 | --- | --- |
-| 0 | Every item was answered, a diff had nothing to judge, or you declined the confirmation and nothing was sent. With `--fail-on`, none was flagged or matched. |
-| 1 | An error, or some items failed or were not reached. This wins over 2, even if items were flagged. `decide models` exits with 1 when a key is missing or rejected, or cannot be checked. |
+| 0 | Every item was answered. With `--fail-on`, none was flagged or matched. |
+| 1 | An error, or some items failed. This wins over 2. |
 | 2 | With `--fail-on`, at least one item was flagged or matched. |
 | 130 | Stopped with Ctrl-C. Resume with `decide runs resume`. |
 

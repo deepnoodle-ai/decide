@@ -1,31 +1,67 @@
 ---
+// Starlight's footer, then our two lines: the mark face and the closing line,
+// then the links in mono. Hover the line and the face thinks.
 import Default from '@astrojs/starlight/components/Footer.astro';
+import Doodle from './Doodle.astro';
+
+const repo = 'https://github.com/deepnoodle-ai/decide';
 ---
 
 <Default />
 <div class="made">
-	<span>decide is open source under Apache 2.0.</span>
-	<span>Made by <a href="https://deepnoodle.ai">Deep Noodle</a></span>
+	<p class="line" data-doodle-hover>
+		<Doodle size={20} face="mark" />
+		<span>decide is Apache 2.0. Made by Deep Noodle, after some very hard thinking.</span>
+	</p>
+	<p class="links">
+		<a href={repo}>github</a>
+		<a href={`${repo}/blob/main/LICENSE`}>license</a>
+		<a href={`${repo}/blob/main/CHANGELOG.md`}>changelog</a>
+		<a href="https://deepnoodle.ai">deepnoodle.ai</a>
+	</p>
 </div>
 
 <style>
 	.made {
 		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		gap: 8px;
+		flex-direction: column;
+		gap: 10px;
 		margin-top: 2rem;
 		padding-top: 1.5rem;
 		border-top: 1px solid var(--sl-color-hairline);
 		font-size: var(--sl-text-sm);
 		color: var(--sl-color-gray-3);
 	}
-	.made a {
-		color: var(--sl-color-gray-2);
-		text-decoration-color: var(--sl-color-gray-4);
-		text-underline-offset: 0.22em;
+	.made p {
+		margin: 0;
 	}
-	.made a:hover {
+	.line {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.line :global(.doodle) {
+		flex: none;
+		transition: color 120ms var(--ease);
+	}
+	/* It brightens with the line it belongs to, and never on its own. */
+	.line:hover :global(.doodle) {
+		color: var(--sl-color-gray-2);
+	}
+	.links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px 20px;
+		font: 400 12px/1.4 var(--sl-font-mono);
+		letter-spacing: 0.04em;
+	}
+	.links a {
+		color: var(--sl-color-gray-3);
+		text-decoration: none;
+	}
+	.links a:hover {
 		color: var(--sl-color-white);
+		text-decoration: underline;
+		text-underline-offset: 0.22em;
 	}
 </style>

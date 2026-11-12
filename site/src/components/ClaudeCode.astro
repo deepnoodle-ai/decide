@@ -1,0 +1,279 @@
+---
+// "Audit a whole codebase from Claude Code." (anchor #claude-code): the
+// plugin's two skills, which the page otherwise shows only as an install
+// tab. A framed stage holds /decide:audit and /decide:hunt side by side,
+// names set as commands, over the haystack drawing at full width. Under it,
+// the way in: the two install lines on a dark panel, with what it needs,
+// one line on what else the plugin does, and the guide. The background
+// checks (prompt injection, severe commands, the judge tool) get that one
+// line only: the skills are the reason to install. Facts are from
+// /reference/claude-code/. No recording: the tapes record the CLI, not
+// Claude Code, and nothing here is drawn to look like one.
+import CopyButton from './CopyButton.astro';
+import Haystack from './Haystack.astro';
+
+// The two skills you run. The drawing under them is the first one.
+const skills = [
+	{
+		k: '/decide:audit',
+		title: 'Audits a repository for security bugs',
+		line: 'decide scores every function with the security template. Claude reads up to 15 of the highest with their callers, and reports which are real.',
+	},
+	{
+		k: '/decide:hunt',
+		title: 'Finds where a fixed bug was repeated',
+		line: 'Give it a fix commit or pull request. Claude writes one question about the mistake, decide asks it of every function, and Claude reads the top matches.',
+	},
+];
+const lines = ['/plugin marketplace add deepnoodle-ai/decide', '/plugin install decide@decide'];
+---
+
+<div class="cc">
+	<div class="stage">
+		<ul class="skills">
+			{
+				skills.map((r) => (
+					<li>
+						<p class="k cmd">{r.k}</p>
+						<h3>{r.title}</h3>
+						<p class="line">{r.line}</p>
+					</li>
+				))
+			}
+		</ul>
+		<div class="drawing">
+			<Haystack />
+		</div>
+	</div>
+
+	<div class="install">
+		<div class="how">
+			<p class="label">In Claude Code</p>
+			<div class="cmd">
+				<pre>{lines.map((l) => <span class="l"><span class="pr">&gt; </span>{l}</span>)}</pre>
+				<CopyButton text={lines.join('\n')} label="Copy commands" />
+			</div>
+		</div>
+		<div class="next">
+			<p class="needs">Needs the decide CLI and a key for a decision model. Once installed, the plugin also checks what Claude reads and runs.</p>
+			<a class="guide" href="/reference/claude-code/">Claude Code guide →</a>
+		</div>
+	</div>
+</div>
+
+<style>
+	.cc {
+		margin-top: 48px;
+		text-align: left;
+	}
+	ul {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	li {
+		margin: 0;
+		min-width: 0;
+	}
+	.k {
+		margin: 0;
+		font: 400 12.5px/1.4 var(--sl-font-mono);
+		letter-spacing: 0.04em;
+		color: var(--sl-color-gray-3);
+	}
+	/* A skill's name is something you type, so it is set like a command. */
+	.k.cmd {
+		letter-spacing: 0;
+		font-size: 14px;
+		font-weight: 700;
+		color: var(--sl-color-white);
+	}
+	h3 {
+		margin: 10px 0 0;
+		font-size: 21px;
+		font-weight: 500;
+		line-height: 1.25;
+		letter-spacing: -0.02em;
+		color: var(--sl-color-white);
+		text-wrap: balance;
+	}
+	.line {
+		max-width: 58ch;
+		margin: 10px 0 0;
+		font-size: 15px;
+		line-height: 1.6;
+		color: var(--sl-color-gray-2);
+		text-wrap: pretty;
+	}
+
+	/* The skills' stage: two names over one drawing, in a single frame. */
+	.stage {
+		margin-top: 0;
+		border: 1px solid var(--sl-color-hairline);
+	}
+	.skills {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		border-bottom: 1px solid var(--sl-color-hairline);
+	}
+	.skills li {
+		padding: 28px 32px 30px;
+	}
+	.skills li + li {
+		border-left: 1px solid var(--sl-color-hairline);
+	}
+	.drawing {
+		padding: 32px;
+	}
+
+	/* The way in. Dark in both themes, like every terminal on the site. */
+	.install {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		margin-top: 32px;
+		background: var(--term-bg);
+		border: 1px solid var(--term-border);
+		box-shadow: var(--term-shadow);
+	}
+	.how {
+		min-width: 0;
+		padding: 24px 32px 26px;
+	}
+	.label {
+		margin: 0 0 12px;
+		font: 400 12.5px/1.4 var(--sl-font-mono);
+		letter-spacing: 0.04em;
+		color: var(--term-muted);
+	}
+	.cmd {
+		display: flex;
+		align-items: center;
+		gap: 20px;
+	}
+	.cmd pre {
+		min-width: 0;
+		margin: 0;
+		padding: 0;
+		overflow-x: auto;
+		background: none;
+		border: 0;
+		font: 400 14px/1.8 var(--sl-font-mono);
+		color: var(--term-fg);
+		scrollbar-width: none;
+	}
+	.cmd :global(.copy) {
+		color: var(--term-muted);
+		border-color: rgba(255, 255, 255, 0.16);
+	}
+	.cmd :global(.copy:hover) {
+		color: var(--term-fg);
+	}
+	.l {
+		display: block;
+		white-space: nowrap;
+	}
+	.pr {
+		color: var(--term-muted);
+	}
+	.next {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: flex-start;
+		gap: 16px;
+		width: 340px;
+		padding: 24px 32px 26px;
+		border-left: 1px solid var(--term-line);
+	}
+	.needs {
+		margin: 0;
+		font-size: 14px;
+		line-height: 1.55;
+		color: var(--term-muted);
+		text-wrap: balance;
+	}
+	/* The site's button, in the terminal's own colors so it holds on the dark panel in light theme too. */
+	.guide {
+		display: inline-block;
+		padding: 11px 18px;
+		border: 1px solid var(--term-fg);
+		background: var(--term-fg);
+		font: 500 13px/1 var(--sl-font-mono);
+		color: var(--term-bg);
+		text-decoration: none;
+		transition:
+			background-color 120ms var(--ease),
+			color 120ms var(--ease);
+	}
+	.guide:hover {
+		background: transparent;
+		color: var(--term-fg);
+	}
+	.guide:focus-visible {
+		outline-color: var(--term-fg);
+	}
+
+	@media (max-width: 1000px) {
+		.skills li {
+			padding: 24px 24px 26px;
+		}
+		.drawing {
+			padding: 24px;
+		}
+		.how,
+		.next {
+			padding: 22px 24px 24px;
+		}
+		.next {
+			width: 280px;
+		}
+	}
+	@media (max-width: 760px) {
+		.skills {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.skills li + li {
+			border-left: 0;
+			border-top: 1px solid var(--sl-color-hairline);
+		}
+		.install {
+			grid-template-columns: minmax(0, 1fr);
+		}
+		.next {
+			width: auto;
+			border-left: 0;
+			border-top: 1px solid var(--term-line);
+		}
+	}
+	@media (max-width: 520px) {
+		.skills li,
+		.drawing,
+		.how,
+		.next {
+			padding: 20px 16px 22px;
+		}
+		/* The copy button moves up beside the label, so the commands get the full width. */
+		.how {
+			position: relative;
+		}
+		.cmd :global(.copy) {
+			position: absolute;
+			top: 12px;
+			right: 16px;
+		}
+		.cmd pre {
+			font-size: 12.5px;
+		}
+	}
+	/* On a phone the longer install line fits without scrolling. */
+	@media (max-width: 420px) {
+		.cmd pre {
+			font-size: 11px;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.guide {
+			transition: none;
+		}
+	}
+</style>

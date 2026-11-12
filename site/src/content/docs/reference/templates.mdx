@@ -11,7 +11,7 @@ has twelve built in. `decide templates` lists them with your own, and
 template asks or where it flags, copy it with
 `decide templates new NAME --from TEMPLATE`.
 
-A flag such as `yes` means that answer is 60% or more likely; `yes >= 80%`
+A flag such as `yes` marks an answer that is 60% or more likely. `yes >= 80%`
 sets the line yourself. See [flags and matches](#flags-and-matches).
 
 ## `code-risk`
@@ -80,7 +80,10 @@ A template looks like this:
   "name": "my-routing",
   "description": "Route each ticket to the team that should handle it.",
   "parameters": {
-    "product": {"description": "The product the tickets are about", "default": "Acme"}
+    "product": {
+      "description": "The product the tickets are about",
+      "default": "Acme"
+    }
   },
   "questions": {
     "team": {
@@ -100,12 +103,12 @@ A template looks like this:
 }
 ```
 
-A template reads text unless it says `"input"` is `"image"`, `"audio"`,
-`"video"`, or `"pdf"`. Those read one file at a time; see
-[Providers](/reference/providers/) for where each runs. Add `"each": "file"`
-(or `section`, `paragraph`, `function`, `hunk`, or `line`) to choose the
-unit its questions are written for; `--each` still overrides it. A `hunk` is
-one block of changes in a diff.
+Two optional fields say what the template reads:
+
+- `"input"` is `"image"`, `"audio"`, `"video"`, or `"pdf"` for a template
+  that reads those files. The default is text.
+- `"each"` sets the [unit](/reference/items/#choose-the-unit) its
+  questions are written for, such as `"function"`.
 
 A `score` question lists its levels in order, lowest first:
 
@@ -136,12 +139,8 @@ A `score` question lists its levels in order, lowest first:
 | `noul` or `choice` | `"yes >= 80%"` | that answer is at least as likely as you say |
 | `score` | `"<= 1.5"`, `">= 3"`, `"< 2"`, `"> 2"` | the score passes the line |
 
-The number in a score flag is the score on the question's levels, counted from
-0 for the first level. In the `clarity` example above, `"<= 0.5"` flags text
-that is closer to Confusing than to Understandable.
-
-A list such as `["negative", "mixed"]` flags an item when any one holds.
-Answers to questions without a flag are never flagged, and show in cyan.
+Score levels count from 0. In the `clarity` example above, `"<= 0.5"` flags
+text that is closer to Confusing than to Understandable.
 
 `matches` takes the same conditions and marks the answers someone is
 looking for, such as the items relevant to a topic:
@@ -150,8 +149,9 @@ looking for, such as the items relevant to a topic:
 "matches": {"relevant": "yes"}
 ```
 
-Write instructions about one item at a time, and treat the item as
-evidence rather than instructions. An optional `README.md` next to
+Write instructions about one item at a time. Have them tell the model to
+treat the item as evidence, since an item's text can contain instructions
+of its own. An optional `README.md` next to
 `template.json` holds notes that `decide templates show` prints.
 
 Check your template as you go:

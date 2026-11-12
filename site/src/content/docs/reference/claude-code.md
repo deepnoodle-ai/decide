@@ -3,10 +3,10 @@ title: Claude Code
 description: The decide plugin gives Claude a second opinion, audits a repository for security bugs, and finds where a fixed bug was repeated.
 ---
 
-The decide plugin gives Claude a second opinion. Once it's installed, it
-works in the background, and it adds two skills you run yourself: one
-audits a repository for security bugs, and one finds where a fixed bug
-was repeated. This guide shows how to set it up and use each part. For
+The decide plugin gives Claude a second opinion. It adds two skills you
+run yourself: `/decide:audit` audits a repository for security bugs, and
+`/decide:hunt` finds where a fixed bug was repeated. It also checks, in
+the background, what Claude reads and runs. For
 what each check asks, what it sends, and its options, see the
 [plugin's README](https://github.com/deepnoodle-ai/decide/blob/main/plugin/README.md).
 
@@ -48,9 +48,7 @@ To update later, run `brew upgrade decide`, then update the plugin:
 claude plugin update decide@decide
 ```
 
-Then restart Claude Code. To update on its own, turn on auto-update for
-the marketplace in `/plugin`. The plugin needs the decide release with the
-same version number or a later one.
+Then restart Claude Code.
 
 ## What happens on its own
 
@@ -72,7 +70,7 @@ You don't need to do anything for these:
 
 The footer shows a count, such as `decide 12 checked, 1 flagged`, and
 `/decide` shows the last 15 of the session's checks in a table. A ⚠ in the status line
-means some actions went unchecked or a check is off; `/decide` says why.
+means some actions went unchecked or a check is off, and `/decide` says why.
 
 ## Audit for security bugs
 
@@ -97,8 +95,8 @@ Name paths to audit only part of the repository. Claude then:
 4. Reports a table of findings, each **confirmed** or **suspected**, with
    the reason, and counts the ones it **dismissed**.
 
-decide's scores show where to look; they don't prove a bug. A finding is
-confirmed only after Claude reads the code. When it's done, ask Claude
+decide's answers show where to look. A finding is confirmed only after
+Claude reads the code. When it's done, ask Claude
 to write a failing test for each finding, or to fix them. If more
 functions scored 30% or more, ask it to read the next 15, which costs no
 new requests.
@@ -155,8 +153,12 @@ DECIDE_HOME=~/.decide/agent decide runs
 ## What it sends
 
 Each check sends the text it checks to the decision model's provider,
-with your key: in bypass mode, each shell command; each outside result
-the content check reads; and with an audit or a hunt, every function it
-covers. The plugin saves its runs and answers on your disk, under
+with your key:
+
+- in bypass mode, each shell command
+- each outside result the content check reads
+- with an audit or a hunt, every function it covers
+
+The plugin saves its runs and answers on your disk, under
 `~/.decide/agent/runs`. See
 [What it sends and keeps](https://github.com/deepnoodle-ai/decide/blob/main/plugin/README.md#what-it-sends-and-keeps).

@@ -1,0 +1,47 @@
+/*
+ * The docs pages in decide's own look: square corners, hairlines, mono
+ * labels. CSS only; no Starlight component is overridden. See
+ * docs/design/docs-site-look.md.
+ */
+
+/* Tabs: a 1px rule and mono labels; the selected one gets a white underline. */
+starlight-tabs [role='tablist'] {
+	border-bottom-width: 1px;
+}
+starlight-tabs .tab > [role='tab'] {
+	font-family: var(--sl-font-mono);
+	font-size: 13px;
+	box-shadow: 0 1px 0 var(--sl-tab-color-border);
+}
+starlight-tabs .tab [role='tab'][aria-selected='true'] {
+	font-weight: 400;
+	box-shadow: 0 2px 0 var(--sl-color-white);
+}
+
+/* Asides: a square hairline box with a mono title, no tinted fill. */
+.starlight-aside {
+	border: 1px solid var(--sl-color-gray-5);
+	border-inline-start: 2px solid var(--sl-color-gray-3);
+	border-radius: 0;
+	background: transparent;
+	color: var(--sl-color-gray-2);
+}
+.starlight-aside .starlight-aside__title {
+	font-family: var(--sl-font-mono);
+	font-size: 12px;
+	font-weight: 400;
+	letter-spacing: 0.06em;
+	text-transform: lowercase;
+	color: var(--sl-color-gray-3);
+}
+.starlight-aside--danger {
+	border-inline-start-color: var(--ans-flag);
+}
+
+/* Inline code and Starlight cards, square. */
+.sl-markdown-content code:not(:where(.not-content *, pre *)) {
+	border-radius: 0;
+}
+.sl-markdown-content :is(.card, .sl-link-card, details) {
+	border-radius: 0;
+}

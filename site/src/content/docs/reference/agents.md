@@ -1,15 +1,15 @@
 ---
-title: Use Decide from an agent
+title: Use decide from an agent
 description: Run a template, read typed JSON answers, and keep the decision policy in your own code.
 ---
 
-Decide gives an agent a second opinion about text, files, diffs, or images.
+decide gives an agent a second opinion about text, files, diffs, or images.
 It returns typed answers with probabilities. Your code chooses the threshold
-and the action; Decide never executes the commands or tools it judges.
+and the action. decide never runs the commands or tools it judges.
 
 ## Get oriented
 
-- [Quickstart](/start/): install Decide, set a provider key, and get a result.
+- [Quickstart](/start/): install decide, set a provider key, and get a result.
 - [Templates](/reference/templates/): the questions and flags in each built-in.
 - [Claude Code](/reference/claude-code/): install the plugin, audit, and hunt.
 - [Commands and flags](/reference/cli/): exact commands and exit codes.
@@ -33,7 +33,7 @@ is not the number of requests. Narrow the paths before a large run.
 
 Source code and other input leave the computer for the selected provider.
 Use only data the operator has authorized you to send. See
-[Providers](/reference/providers/) for setup; never print or commit a key.
+[Providers](/reference/providers/) for setup. Never print or commit a key.
 
 ## Read the answers
 
@@ -52,7 +52,7 @@ an answer into instructions to execute. See [Output formats](/reference/output/)
 
 With `--fail-on flagged`, exit 0 means no item was flagged, exit 2 means at
 least one was flagged, and exit 1 means an error. An empty diff can also
-exit 0; inspect the item count if your job requires code to be checked.
+exit 0, so check the item count if your job requires code to be checked.
 A probability is a model's judgment, not proof that code is safe or unsafe.
 
 ## Read a saved run
