@@ -72,6 +72,10 @@ off, or remove them, as they land.
       and `invoice-check`.
 - [ ] **Media by URL.** Send large files through Gemini's Files API or a
       URL instead of inline base64.
+- [ ] **Images on TypeSafe Jev.** Send PNG and JPEG images to Jev, a
+      preview behind the `TypeSafe-Danger-Zone-Images` header. First, a
+      spike measures how the place of the image references in the state
+      changes the answers (#106).
 - [ ] **More ways to give the CLI media.** Media templates read only files
       and folders on disk. Not yet: a URL as an argument, a path or URL in
       a record's field, media on stdin, and GIF and HEIC images.

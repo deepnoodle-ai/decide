@@ -60,7 +60,8 @@ We don't accept pull requests that read as unreviewed agent output.
 
 ## Rules that are easy to miss
 
-- The root package uses only the Go standard library.
+- The root package uses only the Go standard library. Its one internal
+  import, `internal/media`, uses only the standard library too.
 - New dependencies anywhere need agreement in an issue first.
 - Answers are validated against their questions. Thresholds and actions
   belong to the caller, not the root package.
