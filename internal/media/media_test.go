@@ -134,6 +134,53 @@ func TestContradicts(t *testing.T) {
 	}
 }
 
+// TestContradictsEveryRow checks every type of every signature row against
+// that row's bytes, and against bytes of a format of another kind.
+func TestContradictsEveryRow(t *testing.T) {
+	var jpg, gf bytes.Buffer
+	_ = jpeg.Encode(&jpg, image.NewGray(image.Rect(0, 0, 2, 2)), nil)
+	_ = gif.Encode(&gf, image.NewPaletted(image.Rect(0, 0, 2, 2), color.Palette{color.Black, color.White}), nil)
+	ftyp := func(brand string) []byte {
+		return append([]byte{0, 0, 0, 0x14}, "ftyp"+brand+"\x00\x00\x02\x00isom"...)
+	}
+	samples := map[string][][]byte{
+		"PNG":  {pngOf(1, 1)},
+		"JPEG": {jpg.Bytes()},
+		"GIF":  {gf.Bytes(), []byte("GIF87a\x01\x00\x01\x00")},
+		"WebP": {webpHeader("VP8L", 2, 2)},
+		"PDF":  {[]byte("%PDF-1.7\n")},
+		"WAV":  {[]byte("RIFF\x24\x00\x00\x00WAVEfmt ")},
+		"MP3":  {[]byte("ID3\x04\x00"), {0xff, 0xfb, 0x90}, {0xff, 0xf3, 0x90}, {0xff, 0xf2, 0x90}},
+		"Ogg":  {[]byte("OggS\x00\x02")},
+		"FLAC": {[]byte("fLaC\x00\x00\x00\x22")},
+		"MP4":  {ftyp("isom"), ftyp("qt  "), ftyp("M4A "), ftyp("3gp4"), ftyp("heic"), ftyp("avif")},
+		"WebM": {[]byte("\x1a\x45\xdf\xa3\x9f\x42\x86\x81")},
+	}
+	for _, s := range signatures {
+		data, ok := samples[s.name]
+		if !ok {
+			t.Errorf("no sample for the %s row", s.name)
+			continue
+		}
+		for _, typ := range s.types {
+			for _, d := range data {
+				if looks, bad := Contradicts(typ, d); bad || looks != s.name {
+					t.Errorf("Contradicts(%q, %s bytes %q) = %q, %t; want %q, false", typ, s.name, d[:min(8, len(d))], looks, bad, s.name)
+				}
+			}
+			// PDF bytes contradict every type that is not a PDF; FLAC
+			// bytes contradict a PDF.
+			other := samples["PDF"][0]
+			if Kind(typ) == PDF {
+				other = samples["FLAC"][0]
+			}
+			if _, bad := Contradicts(typ, other); !bad {
+				t.Errorf("Contradicts(%q, %q) = false, want true", typ, other[:8])
+			}
+		}
+	}
+}
+
 func TestDimensions(t *testing.T) {
 	var jpg bytes.Buffer
 	_ = jpeg.Encode(&jpg, image.NewGray(image.Rect(0, 0, 30, 20)), nil)
