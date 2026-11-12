@@ -33,7 +33,7 @@ const llmReply = `{
 const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 	{ k: 'You pay for', llm: 'Your prompt, plus every token of that reply', decide: 'Your prompt. On Jev that is $0.042 per million tokens, and the answer is free', note: true },
 	{ k: 'You wait for', llm: 'The reply to be written, a token at a time', decide: 'One answer. Nothing is written' },
-	{ k: 'You handle', llm: 'JSON to parse and check, and the odd refusal or cut-off reply', decide: 'A typed value, already checked against the question' },
+	{ k: 'You handle', llm: 'JSON to parse and check, and the odd refusal or truncated reply', decide: 'A typed value, already checked against the question' },
 	{ k: 'You branch on', llm: '0.9, a number the model typed. Or token logprobs you turn into one', decide: '98%, the probability the model gave that answer' },
 ];
 ---
@@ -157,6 +157,7 @@ const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 	}
 	tbody td {
 		color: var(--sl-color-gray-3);
+		text-wrap: pretty;
 	}
 	/* decide's column: the answer color on its edge, a faint fill, brighter text. */
 	.us {
@@ -182,6 +183,7 @@ const rows: { k: string; llm: string; decide: string; note?: boolean }[] = [
 		font-size: 13px;
 		line-height: 1.6;
 		color: var(--sl-color-gray-3);
+		text-wrap: pretty;
 	}
 	.note a {
 		color: var(--sl-color-gray-3);

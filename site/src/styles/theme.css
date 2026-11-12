@@ -212,7 +212,7 @@ nav.sidebar .group-label .large {
 	color: var(--sl-color-gray-3);
 }
 .band > .sub {
-	max-width: 50ch;
+	max-width: 68ch;
 	margin: 16px 0 0;
 	font-size: 16px;
 	color: var(--sl-color-gray-3);
@@ -226,6 +226,7 @@ nav.sidebar .group-label .large {
 	margin: 28px 0 0;
 	font: 400 12.5px/1.6 var(--sl-font-mono);
 	color: var(--sl-color-gray-3);
+	text-wrap: balance;
 }
 .band > .fine a {
 	color: inherit;
