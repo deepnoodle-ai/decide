@@ -192,7 +192,8 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    the link. It comes first because it shows what the reader can do.
 4. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`, linked
    from the hero): three cards in one row (stacked under 860px), no table
-   and no example reply: "Faster", "Cheaper", "A real probability". Each
+   and no example reply: "Faster", "Cheaper", "Calibrated" (defined in the card: of the answers
+   given 90%, about nine in ten are right; not "real" or "tuned"). Each
    is a 28px title, two or three plain sentences on why, and one figure in
    mono in the answer color at its foot: the issue.md run's time (read
    from the transcript), Jev's price, and the 98% from the recording. A

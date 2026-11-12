@@ -1,9 +1,11 @@
 ---
 // "Why not just call an LLM?": three reasons, one card each: faster,
-// cheaper, and a real probability. Each card is a word, one or
+// cheaper, and calibrated. Each card is a word, one or
 // two sentences on why, and one figure in mono at its foot. No table and no
 // example reply: the recording above is the example. The claims come from
-// how a decision model works, not from a benchmark.
+// how a decision model works, not from a benchmark. "Calibrated" is
+// TypeSafe's claim for Jev (https://typesafe.ai); the band below tells the
+// reader to test it on their own labeled items.
 //
 // The time is read from the triage-check transcript, as RunStage's caption
 // is, so it stays in step when the tape is recorded again. It is one
@@ -38,8 +40,8 @@ const reasons = [
 		note: true,
 	},
 	{
-		title: 'A real probability',
-		body: 'Ask an LLM how sure it is and it types a number. A decision model returns the probability of its answer, so you can set a threshold on it.',
+		title: 'Calibrated',
+		body: 'Ask an LLM how sure it is and it types a number, usually a confident one. A decision model is trained so that of the answers it gives 90%, about nine in ten are right.',
 		fig: '98%',
 		of: 'that the issue above is not ready',
 	},
