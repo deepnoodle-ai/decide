@@ -14,6 +14,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"net/url"
+	"slices"
 	"strings"
 )
 
@@ -25,6 +26,9 @@ const (
 	PDF   = "pdf"
 )
 
+// aliases maps other names of a type to the name the providers list. It
+// covers what Go's mime.TypeByExtension returns on macOS and Linux, and
+// what http.DetectContentType returns, for the formats providers take.
 var aliases = map[string]string{
 	"image/jpg":       "image/jpeg",
 	"audio/x-wav":     "audio/wav",
@@ -32,7 +36,15 @@ var aliases = map[string]string{
 	"audio/vnd.wave":  "audio/wav",
 	"audio/x-m4a":     "audio/m4a",
 	"audio/mp4":       "audio/m4a",
+	"audio/mp4a-latm": "audio/m4a",
+	"audio/x-aac":     "audio/aac",
+	"audio/x-flac":    "audio/flac",
+	"audio/x-aiff":    "audio/aiff",
+	"application/ogg": "audio/ogg",
 	"video/quicktime": "video/mov",
+	"video/x-m4v":     "video/mp4",
+	"video/x-msvideo": "video/avi",
+	"video/x-ms-wmv":  "video/wmv",
 }
 
 // Normalize lowers t, drops its parameters, and resolves known aliases,
@@ -103,7 +115,7 @@ var signatures = []signature{
 	{"MP3", func(b []byte) bool {
 		return bytes.HasPrefix(b, []byte("ID3")) || len(b) >= 2 && b[0] == 0xff && (b[1] == 0xfb || b[1] == 0xf3 || b[1] == 0xf2)
 	}, []string{"audio/mpeg", "audio/mp3"}},
-	{"Ogg", prefix("OggS"), []string{"audio/ogg", "audio/opus", "video/ogg", "application/ogg"}},
+	{"Ogg", prefix("OggS"), []string{"audio/ogg", "audio/opus", "video/ogg"}},
 	{"FLAC", prefix("fLaC"), []string{"audio/flac"}},
 	{"MP4", func(b []byte) bool { return len(b) >= 12 && string(b[4:8]) == "ftyp" }, []string{
 		"video/mp4", "video/mov", "video/3gpp", "video/3gpp2", "audio/m4a", "audio/aac",
@@ -122,22 +134,24 @@ var mustSign = map[string]string{
 
 // Contradicts reports whether data cannot be a file of the normalized type
 // t, and names what the bytes look like ("PNG"), or "" when decide does
-// not recognize them.
+// not recognize them. A PNG, JPEG, GIF, or WebP type needs bytes with its
+// own signature. For any other type, recognized bytes contradict t only
+// when none of their format's types has t's kind: FLAC bytes declared as
+// an audio type that decide does not know are left to the provider's list
+// of types.
 func Contradicts(t string, data []byte) (looksLike string, bad bool) {
+	want, signed := mustSign[t]
+	kind := Kind(t)
 	for _, s := range signatures {
-		if s.match(data) {
-			for _, ok := range s.types {
-				if ok == t {
-					return s.name, false
-				}
-			}
-			return s.name, true
+		if !s.match(data) {
+			continue
 		}
+		if signed {
+			return s.name, s.name != want
+		}
+		return s.name, !slices.ContainsFunc(s.types, func(st string) bool { return st == t || Kind(st) == kind })
 	}
-	if _, ok := mustSign[t]; ok {
-		return "", true
-	}
-	return "", false
+	return "", signed
 }
 
 // Dimensions reads the width and height from the header of a PNG, JPEG,

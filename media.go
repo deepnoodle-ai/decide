@@ -24,8 +24,11 @@ const (
 // provider fetch it. MIMEType is required in both cases.
 //
 // MIME types are matched without case and parameters, and common aliases
-// are accepted, such as image/jpg and video/quicktime. When the bytes have
-// a format decide recognizes, it must match MIMEType.
+// are accepted, such as image/jpg, video/quicktime, and the names Go's
+// mime.TypeByExtension and http.DetectContentType return. A PNG, JPEG,
+// GIF, or WebP must have the bytes of that format. Other bytes of a format
+// decide recognizes must be of MIMEType's kind: FLAC bytes declared as a
+// PDF fail.
 //
 // Providers take different kinds and limits; see the backend package. A
 // provider that cannot take a file returns an error wrapping
@@ -93,9 +96,9 @@ func validateMedia(files []Media) error {
 		}
 		if looks, bad := media.Contradicts(t, m.Data); bad {
 			if looks == "" {
-				return invalidRequest(fmt.Sprintf("%s is declared %s, but its bytes are not that format", at, t))
+				return invalidRequest(fmt.Sprintf("%s is declared %s, but its bytes are not that format", at, m.MIMEType))
 			}
-			return invalidRequest(fmt.Sprintf("%s is declared %s, but its bytes are %s", at, t, looks))
+			return invalidRequest(fmt.Sprintf("%s is declared %s, but its bytes are %s", at, m.MIMEType, looks))
 		}
 		if media.HasHeader(t) {
 			if _, _, err := media.Dimensions(t, m.Data); err != nil {

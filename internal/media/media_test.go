@@ -60,6 +60,14 @@ func TestNormalize(t *testing.T) {
 		"audio/x-m4a":               "audio/m4a",
 		"audio/mp4":                 "audio/m4a",
 		"video/quicktime":           "video/mov",
+		"audio/mp4a-latm":           "audio/m4a",
+		"audio/x-aac":               "audio/aac",
+		"audio/x-flac":              "audio/flac",
+		"audio/x-aiff":              "audio/aiff",
+		"application/ogg":           "audio/ogg",
+		"video/x-m4v":               "video/mp4",
+		"video/x-msvideo":           "video/avi",
+		"video/x-ms-wmv":            "video/wmv",
 		"application/PDF":           "application/pdf",
 		"text/plain; charset=utf-8": "text/plain",
 	} {
@@ -110,6 +118,14 @@ func TestContradicts(t *testing.T) {
 		{"video/webm", []byte("\x1a\x45\xdf\xa3"), false},
 		{"audio/aiff", []byte("FORM...."), false}, // not recognized: taken as declared
 		{"video/mp4", []byte("%PDF-1.4"), true},
+		// Bytes of a known format and a type of the same kind: the
+		// provider's type list decides.
+		{"audio/x-unknown", []byte("fLaC"), false},
+		{"audio/m4a", []byte("\x1a\x45\xdf\xa3"), false},
+		{"image/x-anything", pngOf(1, 1), false},
+		{"application/pdf", []byte("fLaC"), true},
+		{"audio/flac", []byte("%PDF-1.4"), true},
+		{"image/png", []byte("fLaC"), true},
 	}
 	for _, c := range cases {
 		if _, bad := Contradicts(c.t, c.data); bad != c.bad {
