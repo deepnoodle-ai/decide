@@ -54,6 +54,30 @@ func (e *TooLargeError) Error() string {
 	return fmt.Sprintf("%s is %s; %s files must be at most %s", e.Label, HumanBytes(e.Size), MediaName(e.Input), HumanBytes(e.Limit))
 }
 
+// InvalidMediaError reports a named media file whose contents fail a
+// check: it is empty, corrupt, or in another format.
+type InvalidMediaError struct {
+	Label  string
+	Input  template.Input
+	Reason string // such as "empty" or "not a readable image"
+}
+
+func (e *InvalidMediaError) Error() string { return e.Label + " is " + e.Reason }
+
+// PixelsError reports a named image with more pixels than
+// Options.MaxPixels.
+type PixelsError struct {
+	Label         string
+	Width, Height int
+	Limit         int64  // the most pixels
+	Provider      string // the provider that sets the limit, such as "Cloudflare"
+}
+
+func (e *PixelsError) Error() string {
+	return fmt.Sprintf("%s is %d×%d pixels, and %s takes images up to %d megapixels",
+		e.Label, e.Width, e.Height, e.Provider, e.Limit/1_000_000)
+}
+
 // NotTextError reports a named file or stdin that is not text, for a text
 // template, when its format is not one a media template reads.
 type NotTextError struct{ Label string }
@@ -64,14 +88,18 @@ func (e *NotTextError) Error() string { return e.Label + " is not text" }
 // path, not its contents, so a walk over large files holds little memory.
 func (w *walker) media(path, label string, info fs.FileInfo, explicit bool) error {
 	in := w.opts.Input
-	skip := func(counter *int, format string, args ...any) error {
-		msg := fmt.Sprintf(format, args...)
+	// skip returns err for a named file. In a folder, it counts the file
+	// and warns, with the reason.
+	skip := func(counter *int, reason string, err error) error {
 		if explicit {
-			return errors.New(msg)
+			return err
 		}
 		*counter++
-		w.opts.Warn("Skipped " + msg)
+		w.opts.Warn("Skipped " + label + " (" + reason + ")")
 		return nil
+	}
+	invalid := func(reason string) error {
+		return skip(&w.skipped.Invalid, reason, &InvalidMediaError{Label: label, Input: in, Reason: reason})
 	}
 	ctype, ok := mediaTypes[in][strings.ToLower(filepath.Ext(path))]
 	if !ok {
@@ -93,10 +121,10 @@ func (w *walker) media(path, label string, info fs.FileInfo, explicit bool) erro
 		if w.opts.Provider != "" {
 			on = w.opts.Provider
 		}
-		return skip(&w.skipped.TooLarge, "%s (%s; %s takes %s files up to %s)", label, HumanBytes(info.Size()), on, MediaName(in), HumanBytes(limit))
+		return skip(&w.skipped.TooLarge, fmt.Sprintf("%s; %s takes %s files up to %s", HumanBytes(info.Size()), on, MediaName(in), HumanBytes(limit)), nil)
 	}
 	if info.Size() == 0 {
-		return skip(&w.skipped.Invalid, "%s (empty)", label)
+		return invalid("empty")
 	}
 	f, err := os.Open(path)
 	if err != nil {
@@ -120,19 +148,20 @@ func (w *walker) media(path, label string, info fs.FileInfo, explicit bool) erro
 			}
 			cfg, _, err := image.DecodeConfig(bufio.NewReader(f))
 			if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
-				return skip(&w.skipped.Invalid, "%s (not a readable image)", label)
+				return invalid("not a readable image")
 			}
 			if most := w.opts.MaxPixels; most > 0 && int64(cfg.Width)*int64(cfg.Height) > most {
-				return skip(&w.skipped.TooLarge, "%s (%d×%d pixels; %s takes images up to %d megapixels)",
-					label, cfg.Width, cfg.Height, w.opts.Provider, most/1_000_000)
+				return skip(&w.skipped.TooLarge,
+					fmt.Sprintf("%d×%d pixels; %s takes images up to %d megapixels", cfg.Width, cfg.Height, w.opts.Provider, most/1_000_000),
+					&PixelsError{Label: label, Width: cfg.Width, Height: cfg.Height, Limit: most, Provider: w.opts.Provider})
 			}
 		case "image/webp":
 		default:
-			return skip(&w.skipped.Invalid, "%s (not a %s image)", label, MediaFormats(in))
+			return invalid("not a " + MediaFormats(in) + " image")
 		}
 	case template.PDF:
 		if !bytes.HasPrefix(head, []byte("%PDF-")) {
-			return skip(&w.skipped.Invalid, "%s (not a readable PDF)", label)
+			return invalid("not a readable PDF")
 		}
 	}
 	state, _ := json.Marshal(map[string]any{"path": label, "content_type": ctype})

@@ -162,6 +162,31 @@ func TestMediaChecksInTheWalk(t *testing.T) {
 	if skipped != (Skipped{Unsupported: 2, Invalid: 4, TooLarge: 1}) {
 		t.Fatalf("skipped = %+v", skipped)
 	}
+
+	// A named file that fails a check is a typed error.
+	for name, reason := range map[string]string{
+		"photos/c1.jpg":    "not a readable image",
+		"photos/empty.png": "empty",
+		"photos/gif.png":   "not a PNG, JPEG, or WebP image",
+	} {
+		err := Walk(context.Background(), []string{name}, nil, Options{Input: template.Image}, func(Item) error { return nil })
+		var ie *InvalidMediaError
+		if !errors.As(err, &ie) || ie.Label != name || ie.Reason != reason || ie.Input != template.Image {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	err := Walk(context.Background(), []string{"photos/huge.png"}, nil,
+		Options{Input: template.Image, MaxPixels: 16_000_000, Provider: "Cloudflare"}, func(Item) error { return nil })
+	var pe *PixelsError
+	if !errors.As(err, &pe) || pe.Width != 5000 || pe.Height != 4000 || pe.Limit != 16_000_000 || pe.Provider != "Cloudflare" {
+		t.Errorf("huge.png: %v", err)
+	}
+	tree(t, map[string]string{"fake.pdf": "not a PDF"})
+	err = Walk(context.Background(), []string{"fake.pdf"}, nil, Options{Input: template.PDF}, func(Item) error { return nil })
+	var ie *InvalidMediaError
+	if !errors.As(err, &ie) || ie.Reason != "not a readable PDF" {
+		t.Errorf("fake.pdf: %v", err)
+	}
 }
 
 func TestMediaTooLarge(t *testing.T) {

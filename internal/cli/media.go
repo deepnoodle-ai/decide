@@ -35,6 +35,8 @@ func walkError(s *template.Template, provider string, err error) error {
 	var media *source.MediaError
 	var notText *source.NotTextError
 	var large *source.TooLargeError
+	var invalid *source.InvalidMediaError
+	var pixels *source.PixelsError
 	switch {
 	case errors.As(err, &media):
 		return cli.Errorf("%s is %s, and %s reads text", media.Label, source.MediaNoun(media.Kind), s.Name).
@@ -49,8 +51,38 @@ func walkError(s *template.Template, provider string, err error) error {
 			return e.Hint(hint)
 		}
 		return e
+	case errors.As(err, &pixels):
+		e := cli.Errorf("%s is %d×%d pixels, and %s takes images up to %d megapixels",
+			pixels.Label, pixels.Width, pixels.Height, providerNames[provider], pixels.Limit/1_000_000)
+		return e.Hint(pixelsHint(provider, pixels.Limit))
+	case errors.As(err, &invalid):
+		return cli.Errorf("%s is %s", invalid.Label, invalid.Reason).Hint(invalidHint(s, invalid.Input))
 	}
 	return err
+}
+
+// invalidHint says what to do with a media file that fails a check, and
+// that a folder skips such files.
+func invalidHint(s *template.Template, in template.Input) string {
+	hint := "Open it to check it, and save it again as " + source.MediaFormats(in) + "."
+	if in == template.PDF {
+		hint = "Open it in a PDF viewer to check it, and save it again as a PDF."
+	}
+	return hint + fmt.Sprintf("\nIn a folder, decide skips files like this: decide run %s %s", s.Name, exampleData(s))
+}
+
+// pixelsHint names the providers that take larger images than provider,
+// and the other way: a smaller image.
+func pixelsHint(provider string, most int64) string {
+	var names, flags []string
+	for _, p := range mediaProviders[template.Image] {
+		if p != provider {
+			names = append(names, providerNames[p])
+			flags = append(flags, "--provider "+p)
+		}
+	}
+	return fmt.Sprintf("%s take larger images.\nRun it with %s, or resize it to %d megapixels or fewer.",
+		orJoin(names, "and"), orJoin(flags, "or"), most/1_000_000)
 }
 
 // mediaHint says which templates read media files, and how to see one. With

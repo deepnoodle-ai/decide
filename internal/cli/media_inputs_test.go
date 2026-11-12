@@ -259,3 +259,43 @@ func TestTextNotInUTF8(t *testing.T) {
 		t.Fatalf("%d requests sent", n)
 	}
 }
+
+// A named media file that fails a local check gets a sentence and a next
+// step. An image over Cloudflare's pixel limit names the providers that
+// take it.
+func TestNamedMediaThatFailsACheck(t *testing.T) {
+	clearProviderEnv(t)
+	t.Setenv("DECIDE_HOME", t.TempDir())
+	t.Setenv("CLOUDFLARE_AUTH_TOKEN", "cf")
+	t.Setenv("CLOUDFLARE_ACCOUNT_ID", "acct")
+	dir := t.TempDir()
+	write := func(name, data string) string {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	out := runReal("run", "receipt-quality", write("c1.jpg", corruptJPEG), "--dry-run")
+	if out.code != 1 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "c1.jpg is not a readable image",
+		"Open it to check it, and save it again as PNG, JPEG, or WebP.",
+		"In a folder, decide skips files like this: decide run receipt-quality photos")
+
+	out = runReal("run", "receipt-quality", write("huge.png", pngOf(t, 5000, 4000)), "--dry-run")
+	if out.code != 1 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "huge.png is 5000×4000 pixels, and Cloudflare takes images up to 16 megapixels",
+		"OpenAI and Gemini take larger images.",
+		"Run it with --provider openai or --provider gemini, or resize it to 16 megapixels or fewer.")
+
+	t.Setenv("GEMINI_API_KEY", "g")
+	out = runReal("run", "invoice-check", write("fake.pdf", "not a PDF"), "--dry-run")
+	if out.code != 1 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "fake.pdf is not a readable PDF", "save it again as a PDF")
+}
