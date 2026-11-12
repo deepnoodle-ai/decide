@@ -62,8 +62,6 @@
 	/* Type scale and rhythm for the landing page and the 404. */
 	--display-1: clamp(40px, 6.4vw, 76px);
 	--display-2: clamp(28px, 3.8vw, 44px);
-	--eyebrow: 400 12px/1.4 var(--sl-font-mono);
-	--eyebrow-track: 0.06em;
 	--space-band: clamp(96px, 12vw, 144px);
 }
 
@@ -189,7 +187,7 @@ nav.sidebar .group-label .large {
 	color: var(--sl-color-black);
 }
 
-/* Landing bands. Each opens with an <Eyebrow> and shares one rhythm. */
+/* Landing bands. Each opens with its headline and shares one rhythm. */
 .band {
 	margin-top: 0;
 	padding-top: var(--space-band);

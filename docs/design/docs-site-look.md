@@ -388,8 +388,9 @@ reader, who is always thinking very hard. It is never decide.
   included. Cyan (`--ans`) and red (`--ans-flag`) appear only on answer
   values, probabilities and answer bars.
 - **Tokens.** The type scale and band spacing live in `theme.css`:
-  `--display-1`, `--display-2`, `--eyebrow` and `--space-band`. No inline
-  `clamp()` in `.mdx`. Every band opens with a mono `Eyebrow`.
+  `--display-1`, `--display-2` and `--space-band`. No inline
+  `clamp()` in `.mdx`. A band opens with its headline: no mono label above
+  it, since the eye skips one and the headline already says it.
 
 Voice:
 

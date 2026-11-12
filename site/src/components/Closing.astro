@@ -4,7 +4,6 @@
 // whole, at the right; below 860px it sits smaller above the heading.
 import CopyButton from './CopyButton.astro';
 import Doodle from './Doodle.astro';
-import Eyebrow from './Eyebrow.astro';
 
 const command = 'brew install deepnoodle-ai/tap/decide';
 ---
@@ -12,7 +11,6 @@ const command = 'brew install deepnoodle-ai/tap/decide';
 <section class="closing not-content">
 	<div class="mark"><Doodle size={200} face="glad-card" tag="no" tone="flag" /></div>
 	<div class="in">
-		<Eyebrow k="install" v="brew" />
 		<h2>Your turn. <span class="dim">Ask it something.</span></h2>
 		<p>Install it, set a key, and put it where your script makes a call.</p>
 		<div class="cmd">
