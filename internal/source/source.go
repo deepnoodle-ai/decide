@@ -450,7 +450,7 @@ func (w *walker) file(path, label string, explicit bool) error {
 		case sent:
 			return w.media(path, label, info, kind, true)
 		case kind != "":
-			return w.formatError(label, kind, false)
+			return w.formatError(label, kind, "")
 		case w.opts.Input.Media():
 			return &UnsupportedError{Label: label, Input: w.opts.Input}
 		}

@@ -194,6 +194,21 @@ func TestProviderBeforeFormat(t *testing.T) {
 		"Hint: "+images+"\nSave it as PNG, JPEG, or WebP as well.\n")
 	lacks(t, out.stderr, "extension")
 
+	// The extension the hint names matches the format of the bytes, so
+	// following it sends the file as what it is.
+	for name, body := range map[string]string{
+		"rec":   "fLaC\x00\x00\x00\x22",
+		"voice": "OggS\x00\x02\x00\x00",
+		"clip":  "\x00\x00\x00\x18ftypisom\x00\x00\x02\x00",
+		"photo": "\xff\xd8\xff\xe0\x00\x10JFIF",
+	} {
+		h.write(name, body)
+		ext := map[string]string{"rec": ".flac", "voice": ".ogg", "clip": ".mp4", "photo": ".jpg"}[name]
+		out = h.run("", "run", "sentiment", name, "--provider", "gemini")
+		contains(t, out.stderr, "its name has no extension decide reads, such as "+ext,
+			"Name it with its extension, such as "+name+ext+", and run decide on that file.")
+	}
+
 	// UC-8: in a list, the provider hint shows once, then the format line.
 	out = h.run("", "run", "sentiment", "photo.gif", "shot.png")
 	contains(t, out.stderr, `Error: 2 files you named can't be sent

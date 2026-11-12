@@ -125,7 +125,7 @@ func explain(s *template.Template, provider string, err error, list bool) (label
 		if format.ByContent {
 			// The file is of a format decide sends; its name does not say so.
 			reason = fmt.Sprintf("%s, and its name has no extension decide reads, such as %s",
-				source.MediaNoun(format.Kind), source.MediaExt(format.Kind))
+				source.MediaNoun(format.Kind), format.Ext)
 		} else {
 			reason = fmt.Sprintf("%s, and decide sends %s only as %s", source.MediaNoun(format.Kind),
 				source.MediaPlural(format.Kind), source.MediaFormats(format.Kind))
@@ -196,7 +196,7 @@ func formatHint(format *source.FormatError, list, also bool) string {
 	var fix string
 	switch {
 	case format.ByContent:
-		fix = fmt.Sprintf("Name %s with its extension, such as %s%s,", it, label, source.MediaExt(format.Kind))
+		fix = fmt.Sprintf("Name %s with its extension, such as %s%s,", it, label, format.Ext)
 	case format.Kind == template.PDF:
 		fix = "Save " + it + " as a PDF"
 	default:

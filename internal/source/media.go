@@ -86,13 +86,14 @@ func (e *ProviderError) Error() string {
 type FormatError struct {
 	Label     string
 	Kind      template.Input
-	ByContent bool // the name does not say it is media; its first bytes do
+	ByContent bool   // the name does not say it is media; its first bytes do
+	Ext       string // with ByContent, the extension of the format of its bytes, such as ".flac"
 }
 
 func (e *FormatError) Error() string {
 	if e.ByContent {
 		return fmt.Sprintf("%s is %s, and its name has no extension decide reads, such as %s",
-			e.Label, MediaNoun(e.Kind), MediaExt(e.Kind))
+			e.Label, MediaNoun(e.Kind), e.Ext)
 	}
 	return fmt.Sprintf("%s is %s, and decide sends %s only as %s",
 		e.Label, MediaNoun(e.Kind), MediaPlural(e.Kind), MediaFormats(e.Kind))
@@ -205,7 +206,7 @@ func (w *walker) checkNamedFile(path, label string, info fs.FileInfo) error {
 		}
 		return err
 	case kind != "":
-		return w.formatError(label, kind, false)
+		return w.formatError(label, kind, "")
 	}
 	f, err := os.Open(path)
 	if err != nil {
@@ -216,7 +217,7 @@ func (w *walker) checkNamedFile(path, label string, info fs.FileInfo) error {
 	f.Close()
 	if isBinary(head[:n]) {
 		if k := sniffMedia(head[:n]); k != "" {
-			return w.formatError(label, k, sentByContent(k, head[:n]))
+			return w.formatError(label, k, sniffExt(head[:n]))
 		}
 	}
 	if w.opts.Input.Media() {
@@ -390,31 +391,74 @@ func (w *walker) notText(path, label string, head []byte, explicit bool) error {
 		return nil
 	}
 	if kind != "" {
-		return w.formatError(label, kind, sentByContent(kind, head))
+		return w.formatError(label, kind, sniffExt(head))
 	}
 	return &NotTextError{Label: label}
 }
 
-// sentByContent reports whether head, the first bytes of a file with no
-// media extension, is in a format decide sends, so that naming the file
-// with an extension is the fix. An image must be PNG, JPEG, or WebP; a
-// GIF or a TIFF needs saving in another format instead.
-func sentByContent(kind template.Input, head []byte) bool {
-	if kind != template.Image {
-		return true
+// sniffExt returns the extension that names the format of head, the first
+// bytes of a file with no media extension, such as ".flac", so that naming
+// the file with it sends the format it is. It returns "" for a format
+// decide does not send, such as a GIF, TIFF, or HEIC image, which needs
+// saving in another format instead.
+func sniffExt(head []byte) string {
+	has := func(off int, magic string) bool {
+		return len(head) >= off+len(magic) && string(head[off:off+len(magic)]) == magic
 	}
-	switch http.DetectContentType(head) {
-	case "image/png", "image/jpeg", "image/webp":
-		return true
+	switch {
+	case has(0, "%PDF-"):
+		return ".pdf"
+	case has(0, "\x89PNG\r\n\x1a\n"):
+		return ".png"
+	case has(0, "\xff\xd8\xff"):
+		return ".jpg"
+	case has(0, "RIFF") && has(8, "WEBP"):
+		return ".webp"
+	case has(0, "RIFF") && has(8, "WAVE"):
+		return ".wav"
+	case has(0, "RIFF") && has(8, "AVI "):
+		return ".avi"
+	case has(0, "FORM") && (has(8, "AIFF") || has(8, "AIFC")):
+		return ".aiff"
+	case has(0, "OggS\x00"):
+		return ".ogg"
+	case has(0, "fLaC"):
+		return ".flac"
+	case has(0, "ID3"):
+		return ".mp3"
+	case has(0, "\x1a\x45\xdf\xa3"):
+		return ".webm"
+	case has(4, "ftyp"):
+		brand := ""
+		if len(head) >= 12 {
+			brand = string(head[8:12])
+		}
+		switch {
+		case brand == "M4A " || brand == "M4B " || brand == "M4P ":
+			return ".m4a"
+		case brand == "qt  ":
+			return ".mov"
+		case strings.HasPrefix(brand, "3gp"):
+			return ".3gp"
+		case slices.Contains([]string{"heic", "heix", "hevc", "mif1", "msf1", "avif"}, brand):
+			return ""
+		}
+		return ".mp4"
+	case len(head) >= 2 && head[0] == 0xff && (head[1] == 0xf1 || head[1] == 0xf9):
+		return ".aac" // an AAC frame
+	case len(head) >= 2 && head[0] == 0xff:
+		return ".mp3" // an MP3 frame
 	}
-	return false
+	return ""
 }
 
 // formatError reports a named file of a media kind that decide does not
-// send. When the provider does not read the kind either, that is the
-// reason, since a new format or name alone would not help.
-func (w *walker) formatError(label string, kind template.Input, byContent bool) error {
-	fe := &FormatError{Label: label, Kind: kind, ByContent: byContent}
+// send. ext, for a file with no media extension, is the extension its
+// first bytes call for, or "" when decide does not send that format. When
+// the provider does not read the kind either, that is the reason, since a
+// new format or name alone would not help.
+func (w *walker) formatError(label string, kind template.Input, ext string) error {
+	fe := &FormatError{Label: label, Kind: kind, ByContent: ext != "", Ext: ext}
 	if _, ok := w.opts.limits(kind); !ok {
 		return &ProviderError{Label: label, Kind: kind, Provider: w.opts.Provider, Format: fe}
 	}
@@ -492,20 +536,6 @@ func sniffMedia(data []byte) template.Input {
 		return template.Video
 	}
 	return ""
-}
-
-// MediaExt is the usual extension of a media kind, such as ".png", for
-// messages.
-func MediaExt(kind template.Input) string {
-	switch kind {
-	case template.Audio:
-		return ".mp3"
-	case template.Video:
-		return ".mp4"
-	case template.PDF:
-		return ".pdf"
-	}
-	return ".png"
 }
 
 // otherImages are image formats no provider takes through decide, which a
