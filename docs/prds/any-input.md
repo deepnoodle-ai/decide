@@ -230,8 +230,13 @@ Acceptance:
       decide run sentiment shots/*.png --provider gemini
       ```
 
-      The glob uses the folder and extension of the first skipped media
-      file. `--provider` is the chosen one when it reads that kind, or
+      The command gives one pattern per folder and extension of the
+      skipped media files, in the order the walk found them, so no file
+      is left out: `mixed/*.png mixed/*.jpg`. A folder name that the
+      shell would split or expand is quoted: `'my shots'/*.png`. With
+      more than three patterns, the hint shows three and adds `That is 3
+      of N folders and extensions; name the rest the same way.`
+      `--provider` is the chosen one when it reads every kind named, or
       else the first provider that does.
 
 ### UC-6: A receipt as a PDF, with receipt-quality

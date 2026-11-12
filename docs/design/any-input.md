@@ -47,7 +47,8 @@ library stay as they are, except for the worker count.
 
 `Options.MaxMediaBytes` and `Options.MaxPixels` give way to one map, from
 a media kind to that kind's limits. A kind that is not in the map is one
-the provider does not read.
+the provider does not read. A nil map, like an empty one, reads no media,
+so a caller that forgets it sends nothing.
 
 ```go
 // MediaLimits are a provider's limits for one kind of media file.
@@ -195,13 +196,13 @@ type FormatError struct {
   - `UnsupportedError` for a media template: the R-8 text.
   - `TooLargeError` and `PixelsError` read the provider and kind from the
     error, since a run can hold several kinds.
-- **Nothing found.** `source.Skipped` gains `FirstMedia string` and
-  `FirstMediaKind template.Input`: the first media file a text
-  template's folder walk skipped. `nothingFound` adds the UC-5 hint when
-  it is set: the glob is `filepath.Dir(FirstMedia)/*<ext>`, and the
-  provider is the chosen one when `mediaOptions(provider)` has the kind,
-  else `mediaProviders[kind][0]`. The `Skipped ... not text` line does
-  not change.
+- **Nothing found.** `source.Skipped` gains `Media []SkippedMedia`: the
+  label and kind of each media file, of a format decide sends, that a
+  text template's folder walk skipped. `nothingFound` adds the UC-5 hint
+  when it is set: one pattern per folder and extension, with the folder
+  quoted for the shell when it needs it, at most three, and the first
+  provider that reads every kind named, the chosen one first. The
+  `Skipped ... not text` line does not change.
 - **Stdin.** `stdinItems` does not change. The CLI's hint for a
   `MediaError` on stdin becomes the R-10 text.
 - **`templates show`.** `reads` adds the PRD's sentence for each kind of
