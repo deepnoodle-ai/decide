@@ -195,6 +195,10 @@ func Walk(ctx context.Context, paths []string, stdin io.Reader, opts Options, fn
 	if n := len(w.diffLost); n > 0 {
 		opts.Warn(fmt.Sprintf("Could not find the functions in %s, so %s judged by hunk", listNames(w.diffLost), plural(n, "it was", "each was")))
 	}
+	for _, g := range w.skips {
+		n := len(g.names)
+		opts.Warn(fmt.Sprintf("Skipped %d %s (%s): %s", n, plural(n, "file", "files"), g.reason, listNames(g.names)))
+	}
 	if n := len(w.notTextNames); n > 0 {
 		opts.Warn(fmt.Sprintf("Skipped %d %s not text: %s",
 			n, plural(n, "file that is", "files that are"), listNames(w.notTextNames)))
@@ -235,7 +239,8 @@ type walker struct {
 	sample    []sampled
 
 	skipped      Skipped
-	notTextNames []string // files skipped for not being text
+	skips        []skipGroup // files skipped in a folder, by reason
+	notTextNames []string    // files skipped for not being text
 }
 
 // sampler keeps a uniform random sample (reservoir sampling). The seed is

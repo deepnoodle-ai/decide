@@ -126,7 +126,10 @@ func TestCorruptImagesDoNotStopARun(t *testing.T) {
 	if out.code != 0 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stderr, "c1.jpg (not a readable image)", "c6.jpg (not a readable image)",
+	if n := strings.Count(out.stderr, "Skipped"); n != 1 {
+		t.Fatalf("%d warnings:\n%s", n, out.stderr)
+	}
+	contains(t, out.stderr, "Skipped 6 files (not a readable image): ", "c3.jpg, and 3 more",
 		"Running receipt-quality on 2 images", "✓ 2 answered")
 	lacks(t, out.stderr, "Stopped because")
 	if len(*bodies) != 2 {
@@ -162,7 +165,7 @@ func TestTooLargeNamesTheProvider(t *testing.T) {
 	if out.code != 1 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stderr, "Skipped photos/big.png (5.0 MiB; Cloudflare takes image files up to 4 MiB)",
+	contains(t, out.stderr, "Skipped 1 file (over 4 MiB, the most Cloudflare takes for one image file): photos/big.png",
 		"Found nothing for receipt-quality", "--provider gemini")
 	lacks(t, out.stderr, "This template reads PNG")
 }

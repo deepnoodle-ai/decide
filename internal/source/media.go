@@ -90,13 +90,13 @@ func (e *NotTextError) Error() string { return e.Label + " is not text" }
 func (w *walker) media(path, label string, info fs.FileInfo, explicit bool) error {
 	in := w.opts.Input
 	// skip returns err for a named file. In a folder, it counts the file
-	// and warns, with the reason.
+	// under its reason, for one warning per reason after the walk.
 	skip := func(counter *int, reason string, err error) error {
 		if explicit {
 			return err
 		}
 		*counter++
-		w.opts.Warn("Skipped " + label + " (" + reason + ")")
+		w.skip(reason, label)
 		return nil
 	}
 	invalid := func(reason string) error {
@@ -122,7 +122,7 @@ func (w *walker) media(path, label string, info fs.FileInfo, explicit bool) erro
 		if w.opts.Provider != "" {
 			on = w.opts.Provider
 		}
-		return skip(&w.skipped.TooLarge, fmt.Sprintf("%s; %s takes %s files up to %s", HumanBytes(info.Size()), on, MediaName(in), HumanBytes(limit)), nil)
+		return skip(&w.skipped.TooLarge, fmt.Sprintf("over %s, the most %s takes for one %s file", HumanBytes(limit), on, MediaName(in)), nil)
 	}
 	if info.Size() == 0 {
 		return invalid("empty")
@@ -153,7 +153,7 @@ func (w *walker) media(path, label string, info fs.FileInfo, explicit bool) erro
 			}
 			if most := w.opts.MaxPixels; most > 0 && int64(cfg.Width)*int64(cfg.Height) > most {
 				return skip(&w.skipped.Pixels,
-					fmt.Sprintf("%d×%d pixels; %s takes images up to %d megapixels", cfg.Width, cfg.Height, w.opts.Provider, most/1_000_000),
+					fmt.Sprintf("over %d megapixels, the most %s takes for one image", most/1_000_000, w.opts.Provider),
 					&PixelsError{Label: label, Width: cfg.Width, Height: cfg.Height, Limit: most, Provider: w.opts.Provider})
 			}
 		case "image/webp":
@@ -181,8 +181,25 @@ func (w *walker) unreadable(label string, err error, explicit bool) error {
 	if errors.As(err, &pe) {
 		err = pe.Err // the label already names the file
 	}
-	w.opts.Warn(fmt.Sprintf("Skipped %s (could not read it: %v)", label, err))
+	w.skip(fmt.Sprintf("could not read it: %v", err), label)
 	return nil
+}
+
+// skipGroup is the files a walk skipped for one reason.
+type skipGroup struct {
+	reason string
+	names  []string
+}
+
+// skip records a file the walk skipped, under its reason.
+func (w *walker) skip(reason, label string) {
+	for i := range w.skips {
+		if w.skips[i].reason == reason {
+			w.skips[i].names = append(w.skips[i].names, label)
+			return
+		}
+	}
+	w.skips = append(w.skips, skipGroup{reason: reason, names: []string{label}})
 }
 
 // notText handles a file that is not text, for a text template. A file in a

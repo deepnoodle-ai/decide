@@ -51,7 +51,8 @@ may change the library API and the CLI.
 - **`decide runs resume` key hint.** A missing key no longer suggests `--dry-run`, which `runs resume` does not have.
 - **Text templates never read PDFs, images, or other binary files as text,**
   from files or stdin. A media file named to a text template says which
-  template reads it. A folder's skipped files are reported in one line.
+  template reads it. A folder's skipped files are reported in one line
+  for each reason.
 - **Media runs skip files decide rejects itself**, such as a corrupt JPEG,
   and those files never stop a run. Errors for a file that is too large or
   a missing key name the providers that work.

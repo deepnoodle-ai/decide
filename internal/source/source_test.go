@@ -185,7 +185,7 @@ func TestImages(t *testing.T) {
 	if items[0].Image == nil || items[0].Image.ContentType != "image/png" || items[0].Image.Path != "a.png" {
 		t.Fatalf("image = %+v", items[0].Image)
 	}
-	want := []string{"Skipped c.jpg (not a PNG, JPEG, or WebP image)", "Skipped 1 file that is not PNG, JPEG, or WebP"}
+	want := []string{"Skipped 1 file (not a PNG, JPEG, or WebP image): c.jpg", "Skipped 1 file that is not PNG, JPEG, or WebP"}
 	if !reflect.DeepEqual(warnings, want) {
 		t.Fatalf("warnings = %q", warnings)
 	}

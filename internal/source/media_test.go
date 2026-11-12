@@ -149,11 +149,10 @@ func TestMediaChecksInTheWalk(t *testing.T) {
 		t.Fatalf("labels = %v", got)
 	}
 	want := []string{
-		"Skipped photos/c1.jpg (not a readable image)",
-		"Skipped photos/c2.jpg (not a readable image)",
-		"Skipped photos/empty.png (empty)",
-		"Skipped photos/gif.png (not a PNG, JPEG, or WebP image)",
-		"Skipped photos/huge.png (5000×4000 pixels; Cloudflare takes images up to 16 megapixels)",
+		"Skipped 2 files (not a readable image): photos/c1.jpg, photos/c2.jpg",
+		"Skipped 1 file (empty): photos/empty.png",
+		"Skipped 1 file (not a PNG, JPEG, or WebP image): photos/gif.png",
+		"Skipped 1 file (over 16 megapixels, the most Cloudflare takes for one image): photos/huge.png",
 		"Skipped 2 files that are not PNG, JPEG, or WebP",
 	}
 	if !reflect.DeepEqual(warnings, want) {
@@ -191,13 +190,13 @@ func TestMediaChecksInTheWalk(t *testing.T) {
 
 func TestMediaTooLarge(t *testing.T) {
 	big := pngOf(1, 1) + strings.Repeat("\x00", 1<<20)
-	tree(t, map[string]string{"dir/big.png": big})
+	tree(t, map[string]string{"dir/big.png": big, "dir/big2.png": big, "dir/big3.png": big, "dir/big4.png": big, "dir/big5.png": big})
 	opts := Options{Input: template.Image, MaxMediaBytes: 1 << 20, Provider: "Cloudflare"}
 	var skipped Skipped
 	opts.Skipped = &skipped
 	items, warnings := walk(t, []string{"dir"}, "", opts)
-	if len(items) != 0 || skipped.TooLarge != 1 || len(warnings) != 1 ||
-		warnings[0] != "Skipped dir/big.png (1.0 MiB; Cloudflare takes image files up to 1 MiB)" {
+	if len(items) != 0 || skipped.TooLarge != 5 || len(warnings) != 1 ||
+		warnings[0] != "Skipped 5 files (over 1 MiB, the most Cloudflare takes for one image file): dir/big.png, dir/big2.png, dir/big3.png, and 2 more" {
 		t.Fatalf("items %v, skipped %+v, warnings %q", labels(items), skipped, warnings)
 	}
 	err := Walk(context.Background(), []string{"dir/big.png"}, nil, opts, func(Item) error { return nil })
@@ -224,7 +223,7 @@ func TestUnreadableFilesAreSkipped(t *testing.T) {
 		}
 		found := false
 		for _, w := range warnings {
-			found = found || strings.Contains(w, "(could not read it: permission denied)")
+			found = found || strings.Contains(w, "Skipped 1 file (could not read it: permission denied): dir/a.")
 		}
 		if !found {
 			t.Fatalf("%s: warnings = %q", in, warnings)
