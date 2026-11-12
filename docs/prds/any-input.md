@@ -1,7 +1,7 @@
 # Judge an image, audio, video, or PDF file with any template
 
 Status: Draft
-Issue: #111  PRD PR: #113  Implementation PR: none yet  Updated: 2026-11-12
+Issue: #111  PRD PR: #113  Implementation PR: #114  Updated: 2026-11-12
 Tech spec: [docs/design/any-input.md](../design/any-input.md)
 
 ## Problem
