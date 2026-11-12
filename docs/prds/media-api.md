@@ -38,8 +38,10 @@ already carries, and a wrong provider gives quiet, wrong answers.
 package validates differently: Clef checks image headers and limits;
 OpenAI checks no size or count and reads only 12 bytes of a WebP; Gemini
 trusts the declared MIME type, rejects common aliases such as
-`video/quicktime` and `Image/PNG`, and accepts `http://`. A `[]byte`
-nested in state is sent as base64 text. `decidetest` fakes only the
+`video/quicktime` and `Image/PNG`, and accepts `http://`.
+`Request.Validate` rejects a `[]byte` at the top of the state and as a
+direct element of a `map[string]any` or `[]any`, but one nested deeper,
+or in a struct field, is sent as base64 text. `decidetest` fakes only the
 TypeSafe API, and a request with media to it gets default answers with no
 error. Go programs cannot ask a built-in template which kind of file it
 reads. `funnel.Shared` cannot carry media.
