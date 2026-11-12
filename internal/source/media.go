@@ -72,6 +72,9 @@ type ProviderError struct {
 	Label    string
 	Kind     template.Input
 	Provider string // such as "OpenAI"
+	// Format is set when decide does not send the file's format either,
+	// so the hint can say how to fix both.
+	Format *FormatError
 }
 
 func (e *ProviderError) Error() string {
@@ -189,8 +192,8 @@ func (w *walker) checkNamed(paths []string) error {
 	return &NamedErrors{Errs: errs}
 }
 
-// checkNamedFile checks one named file: its format, that the provider
-// reads its kind, and the provider's limits. A text file passes for a
+// checkNamedFile checks one named file: that the provider reads its
+// kind, its format, and the provider's limits. A text file passes for a
 // text template, and is left to the walk.
 func (w *walker) checkNamedFile(path, label string, info fs.FileInfo) error {
 	kind, sent := extKind(path)
@@ -203,7 +206,7 @@ func (w *walker) checkNamedFile(path, label string, info fs.FileInfo) error {
 		}
 		return err
 	case kind != "":
-		return &FormatError{Label: label, Kind: kind}
+		return w.formatError(label, kind, false)
 	}
 	f, err := os.Open(path)
 	if err != nil {
@@ -214,7 +217,7 @@ func (w *walker) checkNamedFile(path, label string, info fs.FileInfo) error {
 	f.Close()
 	if isBinary(head[:n]) {
 		if k := sniffMedia(head[:n]); k != "" {
-			return &FormatError{Label: label, Kind: k, ByContent: true}
+			return w.formatError(label, k, true)
 		}
 	}
 	if w.opts.Input.Media() {
@@ -387,9 +390,20 @@ func (w *walker) notText(path, label string, head []byte, explicit bool) error {
 		return nil
 	}
 	if kind != "" {
-		return &FormatError{Label: label, Kind: kind, ByContent: true}
+		return w.formatError(label, kind, true)
 	}
 	return &NotTextError{Label: label}
+}
+
+// formatError reports a named file of a media kind that decide does not
+// send. When the provider does not read the kind either, that is the
+// reason, since a new format or name alone would not help.
+func (w *walker) formatError(label string, kind template.Input, byContent bool) error {
+	fe := &FormatError{Label: label, Kind: kind, ByContent: byContent}
+	if _, ok := w.opts.limits(kind); !ok {
+		return &ProviderError{Label: label, Kind: kind, Provider: w.opts.Provider, Format: fe}
+	}
+	return fe
 }
 
 // isBinary reports whether data, the start of a file or stream, is not

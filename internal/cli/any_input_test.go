@@ -149,6 +149,53 @@ func TestNamedImageOnTypeSafe(t *testing.T) {
 	}
 }
 
+// R-3: a provider that does not read a file's kind is the reason, before
+// its format, since a new format alone would not help. The format fix
+// follows "as well".
+func TestProviderBeforeFormat(t *testing.T) {
+	h := mediaSetup(t)
+	h.write("photo.gif", "GIF89a\x01\x00\x01\x00\x80\x00\x00")
+	h.write("shot", pngOf(t, 1, 1))
+	h.write("scan", asciiPDF)
+	h.write("shot.png", pngOf(t, 1, 1))
+	images := "Images run on Cloudflare, OpenAI, or Gemini.\nRun it with --provider cloudflare, --provider openai, or --provider gemini"
+
+	out := h.run("", "run", "code-risk", "photo.gif")
+	if out.code != 1 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "Error: photo.gif is an image, and TypeSafe reads text only\n",
+		"Hint: "+images+"\nSave it as PNG, JPEG, or WebP as well.\n")
+	lacks(t, out.stderr, "decide sends images only as")
+
+	out = h.run("", "run", "code-risk", "shot")
+	contains(t, out.stderr, "Error: shot is an image, and TypeSafe reads text only\n",
+		"Hint: "+images+"\nName it with its extension, such as shot.png, as well.\n")
+
+	out = h.run("", "run", "code-risk", "scan", "--provider", "openai")
+	contains(t, out.stderr, "Error: scan is a PDF, and OpenAI reads images, not PDFs\n",
+		"Hint: PDFs run on Gemini.\nRun it with --provider gemini\nName it with its extension, such as scan.pdf, as well.\n")
+
+	// A provider that reads images: the format is the reason, as before.
+	out = h.run("", "run", "code-risk", "photo.gif", "--provider", "openai")
+	contains(t, out.stderr, "Error: photo.gif is an image, and decide sends images only as PNG, JPEG, or WebP",
+		"Save it as PNG, JPEG, or WebP, and run decide on that file.")
+	lacks(t, out.stderr, "OpenAI reads")
+
+	// UC-8: in a list, the provider hint shows once, then the format line.
+	out = h.run("", "run", "sentiment", "photo.gif", "shot.png")
+	contains(t, out.stderr, `Error: 2 files you named can't be sent
+  photo.gif: an image, and TypeSafe reads text only
+  shot.png: an image, and TypeSafe reads text only
+
+Hint: `+images+`
+Save photo.gif as PNG, JPEG, or WebP as well.
+`)
+	if n := h.requests(); n != 0 {
+		t.Fatalf("%d requests sent", n)
+	}
+}
+
 // UC-3: the chosen provider reads images, not audio or PDFs.
 func TestNamedMediaKindProviderCannotRead(t *testing.T) {
 	h := mediaSetup(t)

@@ -84,6 +84,14 @@ func TestNamedMediaWithAnyTemplate(t *testing.T) {
 	if err := walkErr([]string{"shot"}, Options{Input: template.Text, Media: gemini}); !errors.As(err, &fe) || !fe.ByContent || fe.Kind != template.Image {
 		t.Fatalf("shot: %v", err)
 	}
+	// A provider that does not read the kind comes first, and carries the
+	// format error for the hint.
+	for _, name := range []string{"photo.gif", "shot"} {
+		err := walkErr([]string{name}, Options{Input: template.Text, Media: map[template.Input]MediaLimits{}, Provider: "TypeSafe"})
+		if !errors.As(err, &pe) || pe.Format == nil || pe.Format.ByContent != (name == "shot") {
+			t.Fatalf("%s on TypeSafe: %v", name, err)
+		}
+	}
 	// A media template takes only media files.
 	var ue *UnsupportedError
 	if err := walkErr([]string{"notes.txt"}, Options{Input: template.Image, Media: gemini}); !errors.As(err, &ue) || ue.Input != template.Image {

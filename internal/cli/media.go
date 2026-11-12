@@ -57,7 +57,7 @@ func walkError(s *template.Template, provider string, err error) error {
 		var b strings.Builder
 		var hints []string
 		for i, e := range named.Errs {
-			label, reason, hint, ok := explain(s, provider, e, true)
+			label, reason, parts, ok := explain(s, provider, e, true)
 			if !ok {
 				label, reason = "", clean(e.Error())
 			}
@@ -68,8 +68,10 @@ func walkError(s *template.Template, provider string, err error) error {
 					fmt.Fprintf(&b, "\n  %s", reason)
 				}
 			}
-			if hint != "" && !slices.Contains(hints, hint) {
-				hints = append(hints, hint)
+			for _, hint := range parts {
+				if hint != "" && !slices.Contains(hints, hint) {
+					hints = append(hints, hint)
+				}
 			}
 		}
 		if n := len(named.Errs); n > shown {
@@ -81,9 +83,9 @@ func walkError(s *template.Template, provider string, err error) error {
 		}
 		return e
 	}
-	if label, reason, hint, ok := explain(s, provider, err, false); ok {
+	if label, reason, hints, ok := explain(s, provider, err, false); ok {
 		e := cli.Errorf("%s is %s", label, reason)
-		if hint != "" {
+		if hint := strings.Join(slices.DeleteFunc(hints, func(h string) bool { return h == "" }), "\n"); hint != "" {
 			return e.Hint(hint)
 		}
 		return e
@@ -92,10 +94,11 @@ func walkError(s *template.Template, provider string, err error) error {
 }
 
 // explain says why decide cannot read or send a file: its label, the
-// reason as words that follow "<file> is", and a hint. In a list of
-// several files, the hint names the file instead of saying "it". ok is
-// false for an error that is not about one file.
-func explain(s *template.Template, provider string, err error, list bool) (label, reason, hint string, ok bool) {
+// reason as words that follow "<file> is", and its hints, each one or
+// more lines. In a list of several files, a hint names the file instead
+// of saying "it", and the list shows each distinct hint once. ok is false
+// for an error that is not about one file.
+func explain(s *template.Template, provider string, err error, list bool) (label string, reason string, hints []string, ok bool) {
 	var (
 		stdin       *source.MediaError
 		notText     *source.NotTextError
@@ -108,41 +111,44 @@ func explain(s *template.Template, provider string, err error, list bool) (label
 	)
 	switch {
 	case errors.As(err, &notRead):
-		return clean(notRead.Label), fmt.Sprintf("%s, and %s reads %s", source.MediaNoun(notRead.Kind),
-			providerNames[provider], readsText(provider, notRead.Kind)), providerHint(notRead.Kind), true
+		label = clean(notRead.Label)
+		hints = []string{providerHint(notRead.Kind)}
+		if notRead.Format != nil {
+			// A new format alone would not help on this provider, so
+			// the format fix comes second.
+			hints = append(hints, formatHint(notRead.Format, list, true))
+		}
+		return label, fmt.Sprintf("%s, and %s reads %s", source.MediaNoun(notRead.Kind),
+			providerNames[provider], readsText(provider, notRead.Kind)), hints, true
 	case errors.As(err, &format):
 		label = clean(format.Label)
-		it := "it"
-		if list {
-			it = label
-		}
 		if format.ByContent {
 			// The file is of a format decide sends; its name does not say so.
-			ext := source.MediaExt(format.Kind)
-			return label, fmt.Sprintf("%s, and its name has no extension decide reads, such as %s", source.MediaNoun(format.Kind), ext),
-				fmt.Sprintf("Name %s with its extension, such as %s%s, and run decide on that file.", it, label, ext), true
+			reason = fmt.Sprintf("%s, and its name has no extension decide reads, such as %s",
+				source.MediaNoun(format.Kind), source.MediaExt(format.Kind))
+		} else {
+			reason = fmt.Sprintf("%s, and decide sends %s only as %s", source.MediaNoun(format.Kind),
+				source.MediaPlural(format.Kind), source.MediaFormats(format.Kind))
 		}
-		reason = fmt.Sprintf("%s, and decide sends %s only as %s", source.MediaNoun(format.Kind),
-			source.MediaPlural(format.Kind), source.MediaFormats(format.Kind))
-		return label, reason, saveAsHint(it, format.Kind), true
+		return label, reason, []string{formatHint(format, list, false)}, true
 	case errors.As(err, &large):
 		return clean(large.Label), fmt.Sprintf("%s, and %s takes %s files up to %s", source.HumanBytes(large.Size),
-			providerNames[provider], source.MediaName(large.Input), source.HumanBytes(large.Limit)), largerHint(provider, large.Input), true
+			providerNames[provider], source.MediaName(large.Input), source.HumanBytes(large.Limit)), []string{largerHint(provider, large.Input)}, true
 	case errors.As(err, &pixels):
 		return clean(pixels.Label), fmt.Sprintf("%d×%d pixels, and %s takes images up to %d megapixels",
-			pixels.Width, pixels.Height, providerNames[provider], pixels.Limit/1_000_000), pixelsHint(provider, pixels.Limit), true
+			pixels.Width, pixels.Height, providerNames[provider], pixels.Limit/1_000_000), []string{pixelsHint(provider, pixels.Limit)}, true
 	case errors.As(err, &unsupported):
 		return clean(unsupported.Label), fmt.Sprintf("not an image, audio, video, or PDF file, and %s reads %s",
-			s.Name, source.MediaPlural(unsupported.Input)), "See the templates that read text with: decide templates", true
+			s.Name, source.MediaPlural(unsupported.Input)), []string{"See the templates that read text with: decide templates"}, true
 	case errors.As(err, &invalid):
-		return clean(invalid.Label), invalid.Reason, invalidHint(s, invalid.Input), true
+		return clean(invalid.Label), invalid.Reason, []string{invalidHint(s, invalid.Input)}, true
 	case errors.As(err, &notText):
-		return clean(notText.Label), fmt.Sprintf("not text, and %s reads text", s.Name), textHint(notText.Label), true
+		return clean(notText.Label), fmt.Sprintf("not text, and %s reads text", s.Name), []string{textHint(notText.Label)}, true
 	case errors.As(err, &stdin):
 		return stdin.Label, fmt.Sprintf("%s, and %s reads text", source.MediaNoun(stdin.Kind), s.Name),
-			fmt.Sprintf("decide reads images, audio, video, and PDFs only from files you name.\nSave it to a file, and run: decide run %s FILE", s.Name), true
+			[]string{fmt.Sprintf("decide reads images, audio, video, and PDFs only from files you name.\nSave it to a file, and run: decide run %s FILE", s.Name)}, true
 	}
-	return "", "", "", false
+	return "", "", nil, false
 }
 
 // readsText says what a provider reads, for a file of a kind it does not
@@ -177,12 +183,29 @@ func providerHint(kind template.Input) string {
 	return fmt.Sprintf("%s%s %s on %s.\nRun it with %s", strings.ToUpper(what[:1]), what[1:], verb, orJoin(names, "or"), orJoin(flags, "or"))
 }
 
-// saveAsHint says to save a file in a format decide sends.
-func saveAsHint(it string, kind template.Input) string {
-	if kind == template.PDF {
-		return "Save " + it + " as a PDF, and run decide on that file."
+// formatHint says how to fix a file of a format decide does not send:
+// save it in one it sends, or, for a file with no extension, name it with
+// one. With also, the fix follows a provider hint, and ends "as well".
+// In a list, the hint names the file instead of saying "it".
+func formatHint(format *source.FormatError, list, also bool) string {
+	label := clean(format.Label)
+	it := "it"
+	if list {
+		it = label
 	}
-	return "Save " + it + " as " + source.MediaFormats(kind) + ", and run decide on that file."
+	var fix string
+	switch {
+	case format.ByContent:
+		fix = fmt.Sprintf("Name %s with its extension, such as %s%s,", it, label, source.MediaExt(format.Kind))
+	case format.Kind == template.PDF:
+		fix = "Save " + it + " as a PDF"
+	default:
+		fix = "Save " + it + " as " + source.MediaFormats(format.Kind)
+	}
+	if also {
+		return fix + " as well."
+	}
+	return strings.TrimSuffix(fix, ",") + ", and run decide on that file."
 }
 
 // invalidHint says what to do with a media file that fails a check, and,
