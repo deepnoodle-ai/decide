@@ -6,6 +6,11 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+### Changed
+
+- **A shorter README.** It opens with one command and its answer, and
+  moves provider setup into a table.
+
 ## [0.5.0] - 2026-11-12
 
 decide reads images, audio, video, and PDFs. Gemini Decision joins the
