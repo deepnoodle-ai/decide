@@ -194,7 +194,18 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    flags in its string color; no verdict colors. The whole card is the
    link. It comes first because it shows what the reader can do, and the
    chips are where the page first shows that decide reads more than text.
-4. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`, linked
+4. **"What decide adds to the model."** `Adds.astro`: what a reader would
+   write themselves if they called a decision model's API directly. Six
+   link cards in one hairline grid, three columns (two under 980px, one
+   under 640px): templates, code split into functions, any data split into
+   items, the answer cache, output a script can act on, and the Go
+   library. Each is a 20px title, two sentences, and one line in mono at
+   its foot (a command, or a line decide prints), and links to its
+   reference page. It follows the use cases because both are about decide itself:
+   what you can do, then what is behind those commands. The three bands
+   after it are about the model: why one, how to act on its probability,
+   and which to pick.
+5. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`, linked
    from the hero): three cards in one row (stacked under 860px), no table
    and no example reply: "Faster", "Cheaper", "Calibrated" (defined in the
    card: the probability matches how often the model is right; not "real"
@@ -206,15 +217,6 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    take in; keep this to three claims. A footnote cites the public prices;
    no multipliers and no output-cost claim for OpenAI or Cloudflare. The
    subhead gives LLMs their due for writing and reasoning.
-5. **"What decide adds to the model."** `Adds.astro`: what a reader would
-   write themselves if they called a decision model's API directly. Six
-   link cards in one hairline grid, three columns (two under 980px, one
-   under 640px): templates, code split into functions, any data split into
-   items, the answer cache, output a script can act on, and the Go
-   library. Each is a 20px title, two sentences, and one line in mono at
-   its foot (a command, or a line decide prints), and links to its
-   reference page. It follows the LLM question because it answers the
-   next one: why not call the model yourself.
 6. **"Close calls go to a person."** `UseIt.astro`:
    `triage.go` branches three ways (allow, reject, `gate.Review`), with a
    strip in the pass, unsure and flag colors (three columns, stacked under
