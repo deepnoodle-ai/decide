@@ -422,6 +422,15 @@ func TestNamedFormatErrors(t *testing.T) {
 	out = h.run("", "run", "receipt-quality", "notes.txt", "--provider", "openai")
 	contains(t, out.stderr, "notes.txt is not an image, audio, video, or PDF file, and receipt-quality reads images",
 		"See the templates that read text with: decide templates")
+	// A text file with no extension is text, not a media file to rename.
+	h.write("LICENSE", "MIT License\n\nPermission is hereby granted.\n")
+	out = h.run("", "run", "receipt-quality", "LICENSE", "--provider", "openai")
+	if out.code != 1 {
+		t.Fatalf("LICENSE: exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stderr, "Error: LICENSE is not an image, audio, video, or PDF file, and receipt-quality reads images",
+		"See the templates that read text with: decide templates")
+	lacks(t, out.stderr, "extension", "decide sends images only as")
 	if n := h.requests(); n != 0 {
 		t.Fatalf("%d requests sent", n)
 	}
