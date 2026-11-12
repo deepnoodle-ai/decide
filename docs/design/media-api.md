@@ -172,7 +172,10 @@ Adds, after the existing checks:
    each other. PNG, JPEG, GIF, and WebP bytes must also start with their
    own signature and have a header that `Dimensions` reads. Bytes with no
    signature in the table are taken as declared.
-2. Reserved `Extra` keys: `images`, `media`, `videos`, `assets`.
+2. Reserved `Extra` keys: `images`, `media`, `videos`, `assets`. The
+   first three are the removed helpers' keys. `assets` is the TypeSafe
+   API's image member (PRD R-3); reserving it keeps files off TypeSafe
+   until #106 sends them.
 3. `checkBytes` becomes a walk with `reflect` over maps, slices, arrays,
    pointers, interfaces, and exported struct fields, with a depth bound of
    64 and a visited set for pointers. It rejects only bytes that

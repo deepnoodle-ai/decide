@@ -398,7 +398,11 @@ On every provider:
 - R-3: `Request.Extra` keys `images`, `media`, `videos`, and `assets` are
   reserved. `Request.Validate` rejects them:
   `Extra key "images" is reserved; attach files with decide.WithMedia`.
-  Other keys pass through as today.
+  Other keys pass through as today. `images`, `media`, and `videos` are
+  the keys of the removed helpers. `assets` is the TypeSafe API's member
+  for images ([Images guide](https://docs.typesafe.ai/images.md)). A
+  caller who set it in `Extra` would send files past the transport that
+  rejects media, and #106 will write that member from `Request.Media`.
 - R-4: The client sends a request with media only to a transport that
   implements `MediaTransport`. For any other transport, built-in or
   custom, `SystemOne` returns an error wrapping `errors.ErrUnsupported`
