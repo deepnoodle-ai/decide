@@ -211,7 +211,15 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    what you can do, then what is behind those commands. The three bands
    after it are about the model: why one, how to act on its probability,
    and which to pick.
-5. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`): three cards in one row (stacked under 860px), no table
+5. **"A second opinion inside Claude Code."** `ClaudeCode.astro` (anchor
+   `#claude-code`): the plugin, which was only an install tab before. Five
+   rows on the left, each a mono label, a 20px title and two sentences:
+   prompt injection caught and severe commands stopped on its own, the
+   judge tool, then `/decide:audit` and `/decide:hunt` with their names
+   set as commands. On the right (below, under 1000px) the two install
+   lines on a dark panel and a button to the guide. No recording and
+   nothing drawn to look like Claude Code: the tapes record the CLI.
+6. **"Why not just call an LLM?"** `Compare.astro` (anchor `#compare`): three cards in one row (stacked under 860px), no table
    and no example reply: "Faster", "Cheaper", "Calibrated" (defined in the
    card: the probability matches how often the model is right; not "real"
    or "tuned"). Each is a 28px title, two or three plain sentences on why,
@@ -222,7 +230,7 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    take in; keep this to three claims. A footnote cites the public prices;
    no multipliers and no output-cost claim for OpenAI or Cloudflare. The
    subhead gives LLMs their due for writing and reasoning.
-6. **"Close calls go to a person."** `UseIt.astro`:
+7. **"Close calls go to a person."** `UseIt.astro`:
    `triage.go` branches three ways (allow, reject, `gate.Review`), with a
    strip in the pass, unsure and flag colors (three columns, stacked under
    600px; "a person decides" is the widest and set in sans). The Go is
@@ -232,13 +240,13 @@ claude.ai/artifact/5T1hjf3hHgKA7teFZneyRE):
    switching, and that the probability is the model's judgment; it links
    the calibrate example. The headline is
    the page's one statement about people; don't repeat it in other bands.
-7. **"Four decision models, one set of commands."** `Models.astro`: one
+8. **"Four decision models, one set of commands."** `Models.astro`: one
    row of four (two by two under 860px). Each card ends with the same five
    chips (text, images, audio, video, PDF), lit when that provider reads
    them, and the subhead says it in words. Then the line on where your text
    goes, linking to the providers reference. Providers only: the licence
    is a separate fact and lives in the closing.
-8. **`Closing.astro`.** "Your turn. Ask it something." One command, the
+9. **`Closing.astro`.** "Your turn. Ask it something." One command, the
    quickstart and the source, then one fine line: open source under Apache
    2.0, with LICENSE and CONTRIBUTING.md linked. The glad-card face sits at
    the right (hidden under 600px, where the hero's face is enough).

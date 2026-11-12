@@ -40,7 +40,7 @@ may change the library API and the CLI.
   value and its probability instead of text, suits the quick calls a script
   makes on every item,
   where it runs in CI, hooks and queues, what decide adds to the model,
-  and how unsure ones go to a person.
+  the Claude Code plugin, and how unsure ones go to a person.
 - `--help` names what each flag takes, such as `--limit N` and
   `--include PATTERN`, so flags that take a value stand out.
 

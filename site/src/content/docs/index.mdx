@@ -17,6 +17,7 @@ answer: "! ready  no"
 import RunStage from '../../components/RunStage.astro';
 import Compare from '../../components/Compare.astro';
 import Adds from '../../components/Adds.astro';
+import ClaudeCode from '../../components/ClaudeCode.astro';
 import WhereItRuns from '../../components/WhereItRuns.astro';
 import UseIt from '../../components/UseIt.astro';
 import Models from '../../components/Models.astro';
@@ -36,6 +37,12 @@ import Closing from '../../components/Closing.astro';
 	<h2>What you'd otherwise build yourself.</h2>
 	<p class="sub">A decision model's API takes one text and one question. decide brings the questions, splits your data into items, and gives your script something to act on.</p>
 	<Adds />
+</section>
+
+<section class="band wide not-content" id="claude-code">
+	<h2>A second opinion inside Claude Code.</h2>
+	<p class="sub">Install the plugin and decide checks what Claude reads and runs, in the background. Two skills put it to work on your own codebase.</p>
+	<ClaudeCode />
 </section>
 
 <section class="band not-content" id="compare">
