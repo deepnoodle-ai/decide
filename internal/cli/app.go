@@ -45,7 +45,8 @@ Get started:
   decide runs view                    look at your latest results
   decide models                       check your key and list models
 
-Set TYPESAFE_API_KEY before your first run.`
+Set TYPESAFE_API_KEY before your first run. Templates that read images,
+PDFs, audio, or video need a Cloudflare, OpenAI, or Gemini key instead.`
 
 // Run executes the command line and returns the exit code.
 func (a *App) Run(ctx context.Context, args []string) int {
