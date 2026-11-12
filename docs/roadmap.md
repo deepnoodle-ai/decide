@@ -79,7 +79,7 @@ off, or remove them, as they land.
       preview behind the `TypeSafe-Danger-Zone-Images` header. First, a
       spike measures how the place of the image references in the state
       changes the answers (#106).
-- [ ] **Media with any template.** A text template also takes an image,
+- [x] **Media with any template.** A text template also takes an image,
       audio, video, or PDF file that you name, on a provider that reads
       it. See the [PRD](prds/any-input.md) and
       [#111](https://github.com/deepnoodle-ai/decide/issues/111).

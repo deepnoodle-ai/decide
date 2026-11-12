@@ -8,6 +8,9 @@ may change the library API and the CLI.
 
 ### Added
 
+- **Media files with any template.** A text template also takes an image,
+  audio, video, or PDF file that you name, on a provider that reads it.
+  Folders still give a text template text only (#111).
 - **One way to attach files from Go.** `decide.WithMedia` attaches an image,
   PDF, audio clip, or video the same way on every provider. A provider that
   can't read it returns `errors.ErrUnsupported` before sending anything.

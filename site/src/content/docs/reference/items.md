@@ -11,7 +11,7 @@ as one item depends on the data:
 | JSONL, JSON, or CSV | each record |
 | a `.txt` file, or piped text | each line |
 | any other text file, such as Markdown or code | the whole file |
-| images, audio, video, or PDFs | each file |
+| images, audio, video, or PDFs | each file. See [below](#images-audio-video-and-pdfs). |
 | a diff | each block of changed lines. See [Diffs](/reference/diffs/). |
 
 ## Choose the unit
@@ -54,11 +54,8 @@ and skips:
 - files listed in `.gitignore` or `.decideignore`
 - binary files, and text files over 1 MiB
 
-A template that reads images, audio, video, or PDFs reads each file of its
-kind in the folders you name, and skips the rest. It skips a file over the
-[provider's limit](/reference/providers/#files-each-provider-reads), and
-says so. A file you name of the wrong kind or size stops the run. It
-doesn't read stdin, URLs, or paths in records: download the files first.
+Images, audio, video, and PDFs follow the rules in
+[Images, audio, video, and PDFs](#images-audio-video-and-pdfs).
 
 Narrow a run by file name. A pattern without a slash matches at any depth:
 
@@ -85,6 +82,38 @@ To see what a run will read before anything is sent, add `--dry-run`:
 ```sh
 decide run code-risk . --dry-run
 ```
+
+## Images, audio, video, and PDFs
+
+An image, audio file, video, or PDF is one item, whatever `--each` says.
+Which ones a template takes depends on what it reads:
+
+- **A text template also takes an image, audio, video, or PDF file that
+  you name.** A folder gives it text only, so a repository's images are
+  never sent by accident. One run can mix text and files:
+
+  ```sh
+  decide run sentiment notes.txt review.png --provider gemini
+  ```
+
+  To send every image in a folder, name them with a pattern:
+  `decide run sentiment shots/*.png --provider gemini`.
+- **A media template takes only media files.** It reads each file of its
+  kind in the folders you name, and skips the rest. It also takes a file
+  of another kind that you name, such as a PDF receipt for
+  `receipt-quality`.
+
+Either way, the [provider](/reference/providers/#files-each-provider-reads)
+must read that kind of file. If it does not, the run stops before anything
+is sent, and the error names the providers that do. decide never changes
+the provider because of your files. A folder skips a file over the
+provider's limit, and says so. A file you name that the provider cannot
+take stops the run, and the error lists every such file at once. decide
+doesn't read media from stdin, URLs, or paths in records: download the
+files first.
+
+The template's questions are asked as written, about the file. No one has
+measured how well a question written for text works on a picture of text.
 
 ## Long items
 
