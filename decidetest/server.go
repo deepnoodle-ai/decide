@@ -46,9 +46,10 @@ type Server struct {
 	ts *httptest.Server
 
 	// Set by options before the server starts; read-only afterwards.
-	apiKey   string
-	resolved string
-	models   []decide.Model
+	apiKey      string
+	resolved    string
+	models      []decide.Model
+	acceptMedia bool
 
 	mu        sync.Mutex
 	responder Responder // nil: default responder
@@ -65,8 +66,11 @@ type Recorded struct {
 	Authorization string // raw header value; test keys only
 	Header        http.Header
 	Body          []byte
-	Request       *decide.Request // decoded POST body; nil for GET or on decode failure
-	RequestID     string          // the id the server sent back
+	// Request is the decoded POST body; nil for GET or on decode failure.
+	// With AcceptMedia, Request.Media holds the files the request carried,
+	// in order, and State and Extra are what the caller built.
+	Request   *decide.Request
+	RequestID string // the id the server sent back
 }
 
 // Responder produces the answer to a decoded POST /v1/systemone request. A
@@ -146,6 +150,18 @@ func (s *Server) NewClient(opts ...decide.ClientOption) (*decide.Client, error) 
 // Handler() on httptest.NewTestServer inside a synctest bubble: pass that
 // server's URL and Client(). hc may be nil for the default HTTP client.
 func (s *Server) NewClientFor(baseURL string, hc *http.Client, opts ...decide.ClientOption) (*decide.Client, error) {
+	if s.acceptMedia {
+		t, err := decide.NewHTTPTransport(decide.HTTPTransportConfig{APIKey: s.apiKey, BaseURL: baseURL, HTTPClient: hc})
+		if err != nil {
+			return nil, err
+		}
+		all := []decide.ClientOption{
+			decide.WithoutEnvironment(),
+			decide.WithTransport(mediaTransport{t}),
+			decide.WithRetryBackoff(time.Millisecond, 5*time.Millisecond),
+		}
+		return decide.NewClient(append(all, opts...)...)
+	}
 	all := []decide.ClientOption{
 		decide.WithoutEnvironment(),
 		decide.WithBaseURL(baseURL),
@@ -252,7 +268,10 @@ func (s *Server) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	var decodeErr error
 	if r.Method == http.MethodPost {
 		decoded = &decide.Request{}
-		if decodeErr = decoded.UnmarshalJSON(body); decodeErr != nil {
+		if decodeErr = decoded.UnmarshalJSON(body); decodeErr == nil {
+			decodeErr = takeMedia(decoded)
+		}
+		if decodeErr != nil {
 			decoded = nil
 		}
 		rec.Request = decoded // nil on decode failure

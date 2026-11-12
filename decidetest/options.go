@@ -24,6 +24,22 @@ func WithModels(models ...decide.Model) Option {
 	return func(s *Server) { s.models = append([]decide.Model{}, models...) }
 }
 
+// AcceptMedia makes the server's clients accept every file and record it
+// in Recorded.Request.Media, as a provider that takes media would. Use it
+// to test code written for Cloudflare, OpenAI, or Gemini.
+//
+// Without it, a client rejects media as the default TypeSafe provider
+// does, so a test fails where production on TypeSafe fails. With it, files
+// that are wrong on every provider still fail with decide.ErrInvalidRequest,
+// but no provider's kinds, formats, or limits are checked: test those with
+// the provider's transport and an httptest.Server, through
+// backend.Config.BaseURL.
+//
+// With AcceptMedia, the client is built with decide.WithTransport, so its
+// options must not include WithAPIKey, WithBaseURL, WithHTTPClient, or
+// WithUserAgent.
+func AcceptMedia() Option { return func(s *Server) { s.acceptMedia = true } }
+
 // fault is one queued failure response.
 type fault struct {
 	status    int

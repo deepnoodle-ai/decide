@@ -160,6 +160,10 @@ func isType[E error](err error) bool {
 type retryPolicy struct {
 	maxRetries     int
 	attemptTimeout time.Duration
+	// noRetryOnTimeout ends the call when an attempt reaches its own
+	// timeout. A request with media sets it: an upload that did not finish
+	// in one long attempt rarely finishes in the next.
+	noRetryOnTimeout bool
 }
 
 // withRetry runs call up to 1+maxRetries times. Each attempt gets a context
@@ -204,6 +208,9 @@ func withRetry[T any](ctx context.Context, c *Client, p retryPolicy, op string,
 		lastErr = err
 		if !retryable(ctx, err) {
 			return v, err
+		}
+		if p.noRetryOnTimeout && errors.Is(err, context.DeadlineExceeded) {
+			return v, err // the caller's context is live, so the attempt timed out
 		}
 		exhausted := func() (T, error) {
 			c.logger.LogAttrs(ctx, slog.LevelWarn, "decide retries exhausted",

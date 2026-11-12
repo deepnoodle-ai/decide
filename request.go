@@ -17,6 +17,7 @@ type Request struct {
 	State     any    // string, object, array, or json.RawMessage
 	Model     string // empty: client default
 	Questions map[string]Question
+	Media     []Media        // files sent with the state, in order; see WithMedia
 	Extra     map[string]any // unmodeled top-level fields
 }
 
@@ -49,7 +50,8 @@ func WithRequestExtra(key string, value any) RequestOption {
 }
 
 // MarshalJSON writes state, model (omitted when empty), questions sorted by
-// key, then Extra sorted by key.
+// key, then Extra sorted by key. Media is not part of the native JSON form:
+// a MediaTransport sends it, so MarshalJSON writes no files.
 func (r *Request) MarshalJSON() ([]byte, error) {
 	w := newObjectWriter()
 	w.field("state", r.State)
@@ -113,7 +115,10 @@ func (r *Request) UnmarshalJSON(data []byte) error {
 
 // Validate reports whether the request can be sent. Errors wrap
 // ErrInvalidRequest. It does not enforce per-model limits such as the
-// 255-option or 10-level caps; the server reports those as 422.
+// 255-option or 10-level caps; the server reports those as 422. It checks
+// each file in Media for what fails on every provider, such as a missing
+// MIME type or bytes of another format; a provider's own kinds and limits
+// are checked by its transport and wrap errors.ErrUnsupported.
 func (r *Request) Validate() error {
 	if r == nil {
 		return invalidRequest("request is nil")
@@ -145,7 +150,7 @@ func (r *Request) Validate() error {
 			return invalidRequest(fmt.Sprintf("Extra key %q collides with a modeled field", k))
 		}
 	}
-	return nil
+	return validateMedia(r.Media)
 }
 
 func validateQuestion(k string, q Question) error {
