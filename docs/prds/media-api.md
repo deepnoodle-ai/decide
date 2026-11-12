@@ -1,7 +1,7 @@
 # Attach a file the same way on every provider
 
 Status: Draft
-PRD PR: TBD  Implementation PR: TBD  Updated: 2026-11-12
+PRD PR: #107  Implementation PR: TBD  Updated: 2026-11-12
 
 ## Problem
 
