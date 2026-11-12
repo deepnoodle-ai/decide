@@ -41,8 +41,14 @@ the better tool:
 brew install deepnoodle-ai/tap/decide
 ```
 
-Or `go install github.com/deepnoodle-ai/decide/cmd/decide@latest`, or
-grab a binary from the [releases](https://github.com/deepnoodle-ai/decide/releases).
+Or grab a binary from the
+[releases](https://github.com/deepnoodle-ai/decide/releases), or build it
+with Go 1.27 or later:
+
+```sh
+go install github.com/deepnoodle-ai/decide/cmd/decide@latest
+```
+
 Run `decide` on its own for a tour.
 
 ## Try it
