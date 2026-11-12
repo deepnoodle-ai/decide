@@ -39,8 +39,9 @@ type Media struct {
 	URL      string // an https URL, such as a Gemini Files API URI
 }
 
-// Kind returns the kind of m's MIME type, or "" for a type decide does
-// not send.
+// Kind returns the kind of m's MIME type, or "" for a type that is not an
+// image, audio, video, or PDF type. A kind does not mean a provider takes
+// the file: image/svg+xml is an image, and no provider takes it.
 func (m Media) Kind() MediaKind {
 	return MediaKind(media.Kind(media.Normalize(m.MIMEType)))
 }
