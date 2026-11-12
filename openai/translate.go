@@ -114,6 +114,12 @@ func encodeRequest(req *decide.Request) ([]byte, error) {
 		}
 		body.Questions = append(body.Questions, q)
 	}
+	if len(req.Media) > 0 {
+		if _, ok := req.Extra["images"]; ok {
+			return nil, invalid(`set images with decide.WithMedia or Extra["images"], not both`)
+		}
+		return encodeMedia(req, body, text(state))
+	}
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("%w: openai request: %w", decide.ErrInvalidRequest, err)

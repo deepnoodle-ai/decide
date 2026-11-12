@@ -220,4 +220,4 @@ func (t *Transport) safeError(err error) error {
 	return &transportError{cause: err, message: message}
 }
 
-var _ decide.Transport = (*Transport)(nil)
+var _ decide.MediaTransport = (*Transport)(nil)
