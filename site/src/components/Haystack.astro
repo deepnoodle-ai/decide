@@ -1,0 +1,145 @@
+---
+// The audit, drawn: every function is one cell, scored by decide, and
+// Claude reads only the few that score highest. It is a drawing of how
+// /decide:audit works, not a run, and the caption says so. The numbers in
+// the legend (30%, 15) are the skill's own, from /reference/claude-code/.
+// The cells' scores come from a fixed hash, so the picture is the same on
+// every build. Scores are answers, so the high ones use the flag color.
+const COLS = 32;
+const ROWS = 15;
+const READ = 15;
+
+// A small integer hash: the same "score" for a cell on every build.
+const hash = (n: number) => {
+	let x = (n + 1) * 2654435761;
+	x ^= x >>> 15;
+	x = Math.imul(x, 2246822519);
+	x ^= x >>> 13;
+	return (x >>> 0) / 4294967296;
+};
+const cells = Array.from({ length: COLS * ROWS }, (_, i) => {
+	const r = hash(i);
+	// Most functions score near zero; a few score high.
+	const score = r > 0.955 ? 0.3 + hash(i + 9999) * 0.68 : r * r * 0.22;
+	return { i, score };
+});
+const top = new Set(
+	[...cells]
+		.sort((a, b) => b.score - a.score)
+		.slice(0, READ)
+		.map((c) => c.i),
+);
+---
+
+<figure class="hay" data-hay>
+	<div class="grid" style={`--cols:${COLS}`} aria-hidden="true">
+		{
+			cells.map((c) => (
+				<i
+					class:list={{ hot: c.score >= 0.3, read: top.has(c.i) }}
+					style={`--o:${(c.score >= 0.3 ? 0.45 + c.score * 0.55 : 0.1 + c.score * 1.6).toFixed(2)};--d:${(c.i % COLS) * 18 + Math.floor(c.i / COLS) * 26}ms`}
+				/>
+			))
+		}
+	</div>
+	<figcaption>
+		<ol>
+			<li><i class="key" /><span><b>decide scores every function,</b> one request each.</span></li>
+			<li><i class="key hot" /><span><b>A few score 30% or more.</b> Most don't.</span></li>
+			<li><i class="key hot read" /><span><b>Claude reads up to 15 of the highest,</b> with their callers, and says which are real.</span></li>
+		</ol>
+		<p>A drawing of one audit, not a run.</p>
+	</figcaption>
+</figure>
+
+<script>
+	// Play the sweep once, when the drawing scrolls into view.
+	const io = new IntersectionObserver(
+		(entries) => {
+			for (const e of entries) {
+				if (!e.isIntersecting) continue;
+				e.target.setAttribute('data-on', '');
+				io.unobserve(e.target);
+			}
+		},
+		{ threshold: 0.4 },
+	);
+	document.querySelectorAll('[data-hay]').forEach((el) => io.observe(el));
+</script>
+
+<style>
+	.hay {
+		width: 100%;
+		margin: 0;
+		padding: 20px;
+		border: 1px solid var(--sl-color-hairline);
+	}
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+		gap: 3px;
+	}
+	.grid i {
+		aspect-ratio: 1;
+		background: var(--sl-color-white);
+		opacity: var(--o);
+	}
+	.grid i.hot,
+	.key.hot {
+		background: var(--ans-flag);
+	}
+	.grid i.read,
+	.key.read {
+		outline: 1.5px solid var(--sl-color-white);
+		outline-offset: 1.5px;
+	}
+	/* The sweep: cells start unscored, then take their shade left to right. */
+	@media (prefers-reduced-motion: no-preference) {
+		.grid i {
+			transition:
+				opacity 0.35s var(--d),
+				background-color 0.35s var(--d),
+				outline-color 0.4s calc(var(--d) + 0.9s);
+		}
+		.hay:not([data-on]) .grid i {
+			background: var(--sl-color-white);
+			opacity: 0.06;
+			outline-color: transparent;
+		}
+	}
+	figcaption {
+		margin-top: 20px;
+	}
+	ol {
+		display: grid;
+		gap: 10px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	li {
+		display: grid;
+		grid-template-columns: 12px minmax(0, 1fr);
+		gap: 12px;
+		align-items: start;
+		margin: 0;
+		font-size: 14px;
+		line-height: 1.5;
+		color: var(--sl-color-gray-2);
+	}
+	li b {
+		font-weight: 500;
+		color: var(--sl-color-white);
+	}
+	.key {
+		width: 10px;
+		height: 10px;
+		margin-top: 5px;
+		background: var(--sl-color-gray-4);
+	}
+	figcaption p {
+		margin: 16px 0 0;
+		font: 400 12px/1.5 var(--sl-font-mono);
+		color: var(--sl-color-gray-3);
+	}
+</style>
