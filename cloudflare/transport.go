@@ -110,12 +110,24 @@ func (t *Transport) SystemOne(ctx context.Context, req *decide.Request) (*decide
 	if err := validate(req); err != nil {
 		return nil, err
 	}
-	body, err := json.Marshal(req)
-	if err != nil {
-		return nil, fmt.Errorf("%w: cloudflare request: %w", decide.ErrInvalidRequest, err)
+	if err := t.CheckMedia(req); err != nil {
+		return nil, err
 	}
-	if len(body) > maxRequestBytes {
-		return nil, fmt.Errorf("%w: cloudflare request exceeds 13 MiB", decide.ErrInvalidRequest)
+	var body []byte
+	var err error
+	if len(req.Media) > 0 {
+		body, err = encodeBody(req)
+	} else {
+		body, err = json.Marshal(req)
+		if err == nil && len(body) > maxRequestBytes {
+			return nil, fmt.Errorf("%w: cloudflare request exceeds 13 MiB", decide.ErrInvalidRequest)
+		}
+	}
+	if err != nil {
+		if errors.Is(err, errors.ErrUnsupported) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("%w: cloudflare request: %w", decide.ErrInvalidRequest, err)
 	}
 	endpoint := t.baseURL + "/accounts/" + t.accountID + "/ai/run/@cf/cloudflare/" + req.Model
 	hreq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
@@ -264,4 +276,4 @@ func (t *Transport) safeError(err error) error {
 	return &transportError{cause: err, message: message}
 }
 
-var _ decide.Transport = (*Transport)(nil)
+var _ decide.MediaTransport = (*Transport)(nil)
