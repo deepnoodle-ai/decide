@@ -6,6 +6,11 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-12
+
+decide reads images, audio, video, and PDFs. Gemini Decision joins the
+providers, OpenAI reads images, and any template takes a file you name.
+
 ### Added
 
 - **Media files with any template.** A text template also takes an image,
@@ -69,7 +74,8 @@ may change the library API and the CLI.
 - **Media runs hold less memory.** A dry run or `--sample` no longer reads
   every file into memory. An unreadable file in a folder is skipped.
 - **Media in the docs and plugin.** Providers lists which provider reads
-  which files, and the plugin's judge tool says it reads text only.
+  which files, the quickstart and recipes show how to judge a screenshot or
+  PDF, and the plugin's judge tool says it reads text only.
 
 ## [0.4.0] - 2026-10-08
 
@@ -185,7 +191,8 @@ answers with probabilities, from the command line or from Go.
 - **Install** with `brew install deepnoodle-ai/tap/decide`, or download a
   binary with checksums.
 
-[Unreleased]: https://github.com/deepnoodle-ai/decide/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/deepnoodle-ai/decide/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/deepnoodle-ai/decide/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/deepnoodle-ai/decide/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/deepnoodle-ai/decide/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/deepnoodle-ai/decide/compare/v0.2.0...v0.2.1
