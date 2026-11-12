@@ -138,8 +138,9 @@ Acceptance:
 ## Requirements
 
 - R-1: The site lives at `https://decide.deepnoodle.ai`.
-- R-2: The live site describes the latest release, not unreleased work
-  on `main`.
+- R-2: The live site follows `main`, so a site fix goes live without a
+  release. Changed on 2026-11-12 (#123): it described only the latest
+  release, and a site fix waited for a release of the CLI.
 - R-3: Each pull request that changes the site gets a preview link.
 - R-4: Each terminal recording comes from a script in the repository
   and runs the real `decide`. A maintainer makes them all again with one

@@ -238,12 +238,13 @@ the same tape as the site's hero.
 
 ### Workflow: `.github/workflows/site.yml`
 
-Triggers: pull requests that touch `site/**`, `demo/**`, `examples/**`,
-`plugin/.claude-plugin/plugin.json` or the workflow. Also `v*` tags and
+Triggers: pull requests and pushes to `main` that touch `site/**`,
+`demo/**`, `examples/**`, `internal/template/builtin/**`,
+`plugin/.claude-plugin/plugin.json` or the workflow. Also
 `workflow_dispatch`.
 
 ```
-site.yml          build ──► deploy   (v* tags, or a dispatch run from a tag)
+site.yml          build ──► deploy   (pushes to main, or a dispatch run from main)
                     │
 site-preview.yml    └─► preview      (pull requests from this repository)
 ```
@@ -262,9 +263,10 @@ site-preview.yml    └─► preview      (pull requests from this repository)
    site has none, and Previews are in beta, so we use aliased version
    URLs.
 3. **deploy.** `wrangler deploy`, in a GitHub environment named `site`
-   that only `v*` tags can use. To deploy again, run the workflow from a
-   tag: `gh workflow run site.yml --ref v0.3.1`. A run from `main` is
-   refused, so the live site never shows unreleased docs.
+   that only `main` can use. To deploy again, run the workflow from
+   `main`: `gh workflow run site.yml --ref main`. The live site follows
+   `main` (R-2), so a site fix goes live when it merges. A release goes
+   live when its release commit merges, a few minutes before the tag.
 
 `site/wrangler.jsonc`:
 
@@ -289,7 +291,7 @@ secret, never a repository secret. A workflow on any branch can read a
 repository secret, and a pull request can change its own workflow. Two
 environments hold the token:
 
-- `site`, which only `v*` tags can use, for deploys.
+- `site`, which only `main` can use, for deploys.
 - `site-preview`, which only `main` can use, for previews.
 
 No job that runs for a pull request can reach either one. The account ID
@@ -303,7 +305,7 @@ request builds and runs the checks, but gets no preview. A change to
 - **Analytics:** Cloudflare Web Analytics. It uses no cookies, and its
   beacon goes in Starlight's `head` config (R-9). Its site token is the
   repository variable `CF_BEACON_TOKEN`, which `site.yml` passes only to
-  builds from a tag, so previews count nothing.
+  builds from `main`, so previews count nothing.
 - **Link previews:** `astro-og-canvas` makes a preview image for each page
   at build time, from its title and description, and a route middleware
   adds the `og:image` tag to each page (UC-5). No image is committed, so
