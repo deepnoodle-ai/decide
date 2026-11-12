@@ -34,12 +34,9 @@ import (
 	"time"
 
 	"github.com/deepnoodle-ai/decide"
-	"github.com/deepnoodle-ai/decide/cloudflare"
-	"github.com/deepnoodle-ai/decide/gemini"
 	"github.com/deepnoodle-ai/decide/internal/cache"
 	"github.com/deepnoodle-ai/decide/internal/source"
 	"github.com/deepnoodle-ai/decide/internal/template"
-	"github.com/deepnoodle-ai/decide/openai"
 )
 
 // Status values.
@@ -621,32 +618,11 @@ type questionSet struct {
 	sent    map[string][]byte
 }
 
-// attach adds a media file to req in the form the run's provider takes.
-// Cloudflare checks Clef's limits; OpenAI and Gemini check their own.
+// attach adds a media file to req. The client checks it against the run's
+// provider before sending.
 func (r *Run) attach(req *decide.Request, contentType string, data []byte) error {
-	switch r.Provider {
-	case "openai":
-		im, err := openai.NewImage(contentType, data)
-		if err != nil {
-			return err
-		}
-		return openai.SetImages(req, im)
-	case "gemini":
-		kind, ok := gemini.MediaKind(contentType)
-		if !ok {
-			return fmt.Errorf("gemini does not take %s files", contentType)
-		}
-		m, err := gemini.NewMedia(kind, contentType, data)
-		if err != nil {
-			return err
-		}
-		return gemini.SetMedia(req, m)
-	}
-	im, err := cloudflare.NewImage(contentType, data)
-	if err != nil {
-		return err
-	}
-	return cloudflare.SetImages(req, im)
+	req.Media = append(req.Media, decide.Media{MIMEType: contentType, Data: data})
+	return nil
 }
 
 // evaluate answers one input. With a cache, it asks only the questions
@@ -755,22 +731,10 @@ func ValidAnswer(q decide.Question, raw json.RawMessage) bool {
 	return true
 }
 
-// MediaAttemptTimeout is how long one attempt of a request that carries a
-// media file may take, sending it and reading the answer. Uploading a large
-// file takes longer than the client's default; a text request keeps it.
-const MediaAttemptTimeout = 5 * time.Minute
-
-// callOptions gives a request that carries media the longer attempt timeout.
-func callOptions(req *decide.Request) []decide.CallOption {
-	if req.Extra["images"] != nil || req.Extra["media"] != nil {
-		return []decide.CallOption{decide.WithCallAttemptTimeout(MediaAttemptTimeout)}
-	}
-	return nil
-}
-
-// ask sends a request and records its answers in res.
+// ask sends a request and records its answers in res. A request with media
+// gets the library's longer attempt timeout.
 func (r *Run) ask(ctx context.Context, client *decide.Client, req *decide.Request, res Result) (Result, error) {
-	resp, err := client.SystemOne(ctx, req, callOptions(req)...)
+	resp, err := client.SystemOne(ctx, req)
 	if resp != nil {
 		res.Model, res.RequestID = resp.Model, resp.RequestID
 	}
