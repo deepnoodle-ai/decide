@@ -455,7 +455,9 @@ On every provider:
   embedded struct, exported or not. It rejects only bytes that
   `encoding/json` would write as base64: a nil `[]byte`, a field tagged `json:"-"`, an unexported field,
   and a value whose type has its own `MarshalJSON` or `MarshalText` (such
-  as `json.RawMessage`) are allowed. The message names the path
+  as `json.RawMessage`) are allowed. `Validate` does not hang on a pointer,
+  slice, or map that holds itself; for such a state it returns
+  `ErrInvalidRequest` with the cycle error from `encoding/json`. The message names the path
   and the media API:
   `state.receipt is []byte, which would be sent as base64 text; attach files with decide.WithMedia, or pass text as a string`.
 - R-10: `decidetest` without `AcceptMedia` builds clients with the

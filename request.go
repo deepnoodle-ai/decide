@@ -253,15 +253,42 @@ func marshalQuestion(q Question) (err error) {
 // arrays, pointers, interfaces, and the struct fields encoding/json writes,
 // including the fields of an embedded struct: encoding/json would send it
 // as base64 text. A value whose type encodes itself, such as
-// json.RawMessage, is not entered.
+// json.RawMessage, is not entered. A pointer, slice, or map that holds
+// itself is walked once, so a cycle ends the walk without an error;
+// encoding/json reports the cycle when the value is encoded.
 func checkBytes(where string, v any) error {
-	if path, ok := findBytes(reflect.ValueOf(v), where, 0, map[uintptr]bool{}, map[reflect.Type]bool{}); ok {
+	if path, ok := findBytes(reflect.ValueOf(v), where, 0, map[visit]int{}, map[reflect.Type]bool{}); ok {
 		return invalidRequest(path + " is []byte, which would be sent as base64 text; attach files with decide.WithMedia, or pass text as a string")
 	}
 	return nil
 }
 
 const maxBytesDepth = 64
+
+// visit identifies a container findBytes has entered: a pointer, a map, or
+// a slice, which is keyed by its length too because two slices can share
+// the first element of one array.
+type visit struct {
+	t   reflect.Type
+	ptr uintptr
+	len int
+}
+
+// enter reports whether findBytes walks v at depth. It skips a container
+// it already walked at the same or a smaller depth, so a cycle is walked
+// once, and a container cut off by maxBytesDepth is walked again when a
+// shorter path reaches it.
+func enter(v reflect.Value, depth int, visited map[visit]int) bool {
+	k := visit{t: v.Type(), ptr: v.Pointer()}
+	if v.Kind() == reflect.Slice {
+		k.len = v.Len()
+	}
+	if d, ok := visited[k]; ok && d <= depth {
+		return false
+	}
+	visited[k] = depth
+	return true
+}
 
 var (
 	jsonMarshaler = reflect.TypeFor[json.Marshaler]()
@@ -334,7 +361,7 @@ func jsonField(f reflect.StructField) (name string, ok bool) {
 	return name, true
 }
 
-func findBytes(v reflect.Value, path string, depth int, visited map[uintptr]bool, seen map[reflect.Type]bool) (string, bool) {
+func findBytes(v reflect.Value, path string, depth int, visited map[visit]int, seen map[reflect.Type]bool) (string, bool) {
 	if !v.IsValid() || depth > maxBytesDepth || !mayHoldBytes(v.Type(), seen) {
 		return "", false
 	}
@@ -345,14 +372,16 @@ func findBytes(v reflect.Value, path string, depth int, visited map[uintptr]bool
 		}
 		return findBytes(v.Elem(), path, depth+1, visited, seen)
 	case reflect.Pointer:
-		if v.IsNil() || visited[v.Pointer()] {
+		if v.IsNil() || !enter(v, depth, visited) {
 			return "", false
 		}
-		visited[v.Pointer()] = true
 		return findBytes(v.Elem(), path, depth+1, visited, seen)
 	case reflect.Slice:
 		if v.Type().Elem().Kind() == reflect.Uint8 {
 			return path, !v.IsNil()
+		}
+		if v.Len() == 0 || !enter(v, depth, visited) {
+			return "", false
 		}
 		fallthrough
 	case reflect.Array:
@@ -362,6 +391,9 @@ func findBytes(v reflect.Value, path string, depth int, visited map[uintptr]bool
 			}
 		}
 	case reflect.Map:
+		if v.Len() == 0 || !enter(v, depth, visited) {
+			return "", false
+		}
 		keys := v.MapKeys()
 		slices.SortFunc(keys, func(a, b reflect.Value) int { return strings.Compare(fmt.Sprint(a), fmt.Sprint(b)) })
 		for _, k := range keys {

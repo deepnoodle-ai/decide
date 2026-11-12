@@ -154,6 +154,55 @@ func TestBytesAtAnyDepth(t *testing.T) {
 	}
 }
 
+// TestBytesInCycles checks that a slice or map that holds itself ends the
+// walk: without a visit record, each path is walked to the depth limit,
+// about 2^64 calls for two self-references.
+func TestBytesInCycles(t *testing.T) {
+	s := []any{nil, nil}
+	s[0], s[1] = s, s
+	m := map[string]any{}
+	m["a"], m["b"] = m, m
+	withBytes := map[string]any{}
+	withBytes["a"], withBytes["b"], withBytes["c"] = withBytes, withBytes, []byte("x")
+	cases := []struct {
+		name  string
+		state any
+		want  string
+	}{
+		{"slice", s, "encountered a cycle"},
+		{"map", m, "encountered a cycle"},
+		{"map with bytes", withBytes, "state.c is []byte"},
+	}
+	for _, c := range cases {
+		done := make(chan error, 1)
+		go func() { done <- noulRequest(func(r *decide.Request) { r.State = c.state }).Validate() }()
+		select {
+		case err := <-done:
+			if !errors.Is(err, decide.ErrInvalidRequest) || !strings.Contains(err.Error(), c.want) {
+				t.Errorf("%s: err = %v, want %q", c.name, err, c.want)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatalf("%s: Validate did not return", c.name)
+		}
+	}
+}
+
+// TestBytesReachedTwice checks that a map first reached at the depth limit
+// is walked again when a shorter path reaches it.
+func TestBytesReachedTwice(t *testing.T) {
+	shared := map[string]any{"b": []byte("x")}
+	for n := range 40 {
+		var deep any = shared
+		for range n {
+			deep = []any{deep}
+		}
+		state := []any{deep, shared}
+		if err := noulRequest(func(r *decide.Request) { r.State = state }).Validate(); err == nil || !strings.Contains(err.Error(), " is []byte") {
+			t.Errorf("%d wrappers: err = %v", n, err)
+		}
+	}
+}
+
 func TestReservedExtraKeys(t *testing.T) {
 	for _, k := range []string{"images", "media", "videos", "assets"} {
 		err := noulRequest(decide.WithRequestExtra(k, []string{"x"})).Validate()

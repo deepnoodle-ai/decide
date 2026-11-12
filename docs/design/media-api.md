@@ -189,7 +189,12 @@ Adds, after the existing checks:
    until #106 sends them.
 3. `checkBytes` becomes a walk with `reflect` over maps, slices, arrays,
    pointers, interfaces, and the struct fields `encoding/json` writes,
-   with a depth bound of 64 and a visited set for pointers. Like
+   with a depth bound of 64 and a visited set for pointers, slices (keyed
+   by data pointer and length), and maps. The set records the depth of
+   each visit, so a cycle is walked once and a container first reached at
+   the depth bound is walked again from a shorter path. A cycle is no
+   error in the walk; `encoding/json` reports it, so `Validate` returns
+   `ErrInvalidRequest` for a cyclic state. Like
    `encoding/json`, it enters an embedded struct or pointer to struct,
    exported or not, and names its fields as fields of the outer struct. It rejects only bytes that
    `encoding/json` would write as base64, so it skips a nil `[]byte`
@@ -424,7 +429,8 @@ retried. The CLI's media tests check wire shapes, which do not change.
   `audio/webm`, and an `ftypqt` MOV declared `video/quicktime`, which
   pass; each reserved key; deep
   `[]byte` in maps, slices, pointers, structs, and embedded structs,
-  exported or not; and a nil `[]byte`, a
+  exported or not; a slice and a map that hold themselves, which return
+  promptly; and a nil `[]byte`, a
   `json:"-"` field, and a type with a `[]byte` field and its own
   `MarshalJSON` or `MarshalText`, which pass; `WithMedia` appends;
   `MarshalJSON` of a request with media equals the request without it.
