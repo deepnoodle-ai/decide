@@ -36,7 +36,7 @@ For a walk through setup and each skill, see the
 
 ## Install
 
-You need Claude Code 2.1.287 or later, decide 0.4.0 or later, and a key for
+You need Claude Code 2.1.287 or later, decide 0.5.0 or later, and a key for
 a decision model:
 
 ```sh

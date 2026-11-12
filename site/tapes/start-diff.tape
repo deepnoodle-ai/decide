@@ -10,4 +10,3 @@ Sleep 3s
 # Expect: Flagged: billing/refund.go
 # Expect: ✓ 4 answered
 # Expect: ! risk
-# Expect: ! maintainability
