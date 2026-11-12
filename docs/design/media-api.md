@@ -230,7 +230,8 @@ the CLI reads, and the names `http.DetectContentType` returns:
 `image/jpg`; `audio/x-wav`, `audio/wave`, `audio/vnd.wave`;
 `audio/x-m4a`, `audio/mp4`, `audio/mp4a-latm`; `audio/x-aac`;
 `audio/x-flac`; `audio/x-aiff`; `application/ogg`; `video/quicktime`;
-`video/x-m4v`; `video/x-msvideo`; `video/x-ms-wmv`. A Gemini test
+`video/x-m4v`; `video/x-msvideo`, `video/vnd.avi`; `video/x-ms-wmv`. A
+Gemini test
 declares each of those names, and this machine's table, for a file of
 each extension.
 

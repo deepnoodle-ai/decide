@@ -67,6 +67,7 @@ func TestNormalize(t *testing.T) {
 		"application/ogg":           "audio/ogg",
 		"video/x-m4v":               "video/mp4",
 		"video/x-msvideo":           "video/avi",
+		"video/vnd.avi":             "video/avi",
 		"video/x-ms-wmv":            "video/wmv",
 		"application/PDF":           "application/pdf",
 		"text/plain; charset=utf-8": "text/plain",

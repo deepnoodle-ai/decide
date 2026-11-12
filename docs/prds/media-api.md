@@ -380,8 +380,8 @@ On every provider:
   `audio/mp4`, `audio/mp4a-latm` → `audio/m4a`; `audio/x-aac` →
   `audio/aac`; `audio/x-flac` → `audio/flac`; `audio/x-aiff` →
   `audio/aiff`; `application/ogg` → `audio/ogg`; `video/quicktime` →
-  `video/mov`; `video/x-m4v` → `video/mp4`; `video/x-msvideo` →
-  `video/avi`; `video/x-ms-wmv` → `video/wmv`. With them, every name that
+  `video/mov`; `video/x-m4v` → `video/mp4`; `video/x-msvideo`,
+  `video/vnd.avi` → `video/avi`; `video/x-ms-wmv` → `video/wmv`. With them, every name that
   Go's `mime.TypeByExtension` (on macOS and Linux) and
   `http.DetectContentType` return for a format a provider takes is
   accepted.

@@ -119,8 +119,8 @@ func TestFilesRejectedBeforeSending(t *testing.T) {
 
 // goTypeSamples are files of each extension the CLI reads, with the types
 // Go's mime.TypeByExtension returns for it on macOS
-// (/etc/apache2/mime.types), Debian (media-types and shared-mime-info),
-// Alpine (mailcap), and Go's built-in table.
+// (/etc/apache2/mime.types), Debian and Ubuntu (media-types and
+// shared-mime-info), Alpine (mailcap), and Go's built-in table.
 var goTypeSamples = []struct {
 	ext   string
 	data  []byte
@@ -145,7 +145,7 @@ var goTypeSamples = []struct {
 	{".mov", ftyp("qt  "), []string{"video/quicktime"}},
 	{".webm", []byte("\x1a\x45\xdf\xa3\x00"), []string{"video/webm", "audio/webm"}},
 	{".mpg", []byte("\x00\x00\x01\xba"), []string{"video/mpeg"}},
-	{".avi", []byte("RIFF\x00\x00\x00\x00AVI LIST"), []string{"video/x-msvideo"}},
+	{".avi", []byte("RIFF\x00\x00\x00\x00AVI LIST"), []string{"video/x-msvideo", "video/vnd.avi"}},
 	{".wmv", []byte("\x30\x26\xb2\x75\x8e\x66\xcf\x11"), []string{"video/x-ms-wmv"}},
 	{".flv", []byte("FLV\x01\x05"), []string{"video/x-flv"}},
 	{".3gp", ftyp("3gp4"), []string{"video/3gpp"}},

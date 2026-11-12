@@ -44,6 +44,7 @@ var aliases = map[string]string{
 	"video/quicktime": "video/mov",
 	"video/x-m4v":     "video/mp4",
 	"video/x-msvideo": "video/avi",
+	"video/vnd.avi":   "video/avi",
 	"video/x-ms-wmv":  "video/wmv",
 }
 
