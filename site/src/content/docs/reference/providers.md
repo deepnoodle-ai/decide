@@ -7,7 +7,7 @@ decide runs on four decision models, through the same commands and
 templates:
 
 - **Jev** by [TypeSafe](https://docs.typesafe.ai/introduction), the
-  default, with the `jev-latest` model:
+  default, with the `jev-latest` model. It reads text only:
 
   ```sh
   export TYPESAFE_API_KEY=...
@@ -57,10 +57,27 @@ export TYPESAFE_BASE_URL=https://decisions.example.com
 decide run sentiment notes.txt --model my-model
 ```
 
-An image template with no `--provider` runs on the first of Cloudflare,
-OpenAI, and Gemini whose credentials are set, and an audio, video, or PDF
-template runs on Gemini.
-
 Choose for one run with `--provider` and `--model`, or for every run with
 `DECIDE_PROVIDER` and `DECIDE_MODEL`. Check your setup with
 [`decide models`](/reference/cli/#decide-models).
+
+## Files each provider reads
+
+Every provider reads text. Only some read a template's files:
+
+| Provider | Images | Audio | Video | PDFs |
+| --- | --- | --- | --- | --- |
+| Jev | no | no | no | no |
+| Clef | yes | no | no | no |
+| GPT-6 Luna | yes | no | no | no |
+| Gemini Decision | yes | yes | yes | yes |
+
+decide reads PNG, JPEG, and WebP images; MP3, WAV, M4A, AAC, FLAC, OGG,
+Opus, AIFF, and WebM audio; MP4, MOV, WebM, MPEG, AVI, WMV, FLV, and 3GP
+video; and PDFs. It knows a file's kind by its extension. Convert other
+formats, such as GIF and HEIC, first.
+
+An image template with no `--provider` or `DECIDE_PROVIDER` runs on the
+first of Cloudflare, OpenAI, and Gemini whose credentials are set, and an
+audio, video, or PDF template runs on Gemini. A provider that can't read
+a template's files stops the run before anything is sent.

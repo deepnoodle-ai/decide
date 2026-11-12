@@ -3,7 +3,8 @@ title: Use decide from an agent
 description: Run a template, read typed JSON answers, and keep the decision policy in your own code.
 ---
 
-decide gives an agent a second opinion about text, files, diffs, or images.
+decide gives an agent a second opinion about text, files, diffs, images,
+audio, video, or PDFs.
 It returns typed answers with probabilities. Your code chooses the threshold
 and the action. decide never runs the commands or tools it judges.
 
