@@ -16,6 +16,7 @@ type Layout[T any] struct {
 	perItem   func(context.Context, Item[T]) (*decide.Request, error)
 	questions func(Item[T]) (map[string]decide.Question, error)
 	state     any
+	opts      []decide.RequestOption
 	size      int
 	shared    bool
 }
@@ -33,9 +34,11 @@ func PerItem[T any](build func(context.Context, Item[T]) (*decide.Request, error
 // before any request is sent. Requests hold at most size items; 0 puts all
 // survivors in one request. Wire keys are "<index>.<local>" and are mapped
 // back to local names. Question keys are not sent to the model, so the
-// question itself must say which item it is about.
-func Shared[T any](state any, questions func(Item[T]) (map[string]decide.Question, error), size int) Layout[T] {
-	return Layout[T]{questions: questions, state: state, size: size, shared: true}
+// question itself must say which item it is about. opts apply to every
+// request, such as decide.WithMedia to attach a file that all the items'
+// questions are about.
+func Shared[T any](state any, questions func(Item[T]) (map[string]decide.Question, error), size int, opts ...decide.RequestOption) Layout[T] {
+	return Layout[T]{questions: questions, state: state, opts: opts, size: size, shared: true}
 }
 
 func (l Layout[T]) check() error {
@@ -99,7 +102,7 @@ func (l Layout[T]) plan(items []Item[T], survivors []int) (batches []*batch, fai
 	}
 	for chunk := range slices.Chunk(asked, size) {
 		b := &batch{items: chunk, keys: make(map[int]map[string]string, len(chunk)),
-			req: decide.NewRequest(l.state)}
+			req: decide.NewRequest(l.state, l.opts...)}
 		for _, i := range chunk {
 			b.keys[i] = keys[i]
 			for _, wire := range keys[i] {
