@@ -16,8 +16,9 @@ and the action. decide never runs the commands or tools it judges.
 - [Commands and flags](/reference/cli/): exact commands and exit codes.
 
 The site's `/llms.txt` index lists Markdown reference pages. These
-describe the latest release. Use `decide --version` to check the installed
-binary before relying on a flag.
+follow the main branch, so a page can name a flag newer than the latest
+release. Use `decide --version` to check the installed binary before
+relying on a flag.
 
 ## Prepare a run
 
