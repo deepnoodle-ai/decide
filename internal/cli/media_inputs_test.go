@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"image"
 	"image/png"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,14 +26,21 @@ const (
 	corruptJPEG = "\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00\xff\xd9"
 )
 
-// notUTF8 is binary data with no NUL byte.
-var notUTF8 = string(bytes.Repeat([]byte{0xc3, 0x28, 0xa0, 0xa1, 0x41, 0xfe}, 500))
+// noNUL is random bytes with no NUL byte.
+var noNUL = func() string {
+	r := rand.New(rand.NewPCG(1, 2))
+	b := make([]byte, 4000)
+	for i := range b {
+		b[i] = byte(1 + r.IntN(255))
+	}
+	return string(b)
+}()
 
 // Use case 1: a PDF given to a text template.
 func TestTextTemplateRejectsAPDF(t *testing.T) {
 	h := setup(t)
 	h.write("report.pdf", asciiPDF)
-	h.write("nonul.bin", notUTF8)
+	h.write("nonul.bin", noNUL)
 	out := h.run("", "run", "sentiment", "report.pdf")
 	if out.code != 1 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
@@ -43,7 +51,9 @@ func TestTextTemplateRejectsAPDF(t *testing.T) {
 	if out.code != 1 {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
-	contains(t, out.stderr, "nonul.bin is not text, and sentiment reads text")
+	contains(t, out.stderr, "nonul.bin is not text, and sentiment reads text",
+		"decide reads text, such as .txt, .md, .csv, .jsonl, and source files.")
+	lacks(t, out.stderr, "Images, PDFs")
 	if n := len(h.server.Requests()); n != 0 {
 		t.Fatalf("%d requests sent", n)
 	}
@@ -57,7 +67,7 @@ func TestDryRunListsOnlyText(t *testing.T) {
 	h.write("mixed/main.go", "package main\n")
 	h.write("mixed/a.pdf", asciiPDF)
 	h.write("mixed/a.png", pngOf(t, 1, 1))
-	h.write("mixed/nonul.bin", notUTF8)
+	h.write("mixed/nonul.bin", noNUL)
 	h.write("mixed/a.docx", "PK\x03\x04[Content_Types].xml")
 	out := h.run("", "run", "code-risk", "mixed", "--dry-run")
 	if out.code != 0 {
@@ -88,7 +98,7 @@ func TestTextTemplateRejectsAnImageOnStdin(t *testing.T) {
 		t.Fatalf("exit %d: %s", out.code, out.stderr)
 	}
 	contains(t, out.stderr, "stdin is an image, and sentiment reads text", "decide templates show receipt-quality")
-	out = h.run(notUTF8, "run", "sentiment")
+	out = h.run(noNUL, "run", "sentiment")
 	contains(t, out.stderr, "stdin is not text, and sentiment reads text")
 	if n := len(h.server.Requests()); n != 0 {
 		t.Fatalf("%d requests sent", n)
@@ -207,4 +217,45 @@ func TestMediaHelpText(t *testing.T) {
 	contains(t, out.stdout, "Reads: PDF files, one item per file\n")
 	out = h.run("")
 	contains(t, out.stdout, "need a Cloudflare, OpenAI, or Gemini key instead")
+}
+
+// Text that is not UTF-8, such as a CSV saved by Excel as Windows-1252, is
+// read as text. A binary file that no media template reads gets a hint
+// about text, not about media templates.
+func TestTextNotInUTF8(t *testing.T) {
+	h := setup(t)
+	h.write("l.csv", "id,review\n1,Caf\xe9\n")
+	out := h.run("", "run", "sentiment", "l.csv", "--dry-run")
+	if out.code != 0 {
+		t.Fatalf("exit %d: %s", out.code, out.stderr)
+	}
+	contains(t, out.stdout, "l.csv:2")
+	lacks(t, out.stderr, "not text")
+	out = h.run("id,review\n1,Caf\xe9\n", "run", "sentiment", "--dry-run")
+	if out.code != 0 {
+		t.Fatalf("stdin: exit %d: %s", out.code, out.stderr)
+	}
+
+	for name, hint := range map[string]string{
+		"a.docx": "Save it as plain text or Markdown",
+		"a.xlsx": "Save it as CSV",
+		"a.zip":  "Unpack it",
+	} {
+		h.write(name, "PK\x03\x04[Content_Types].xml")
+		out := h.run("", "run", "sentiment", name)
+		if out.code != 1 {
+			t.Fatalf("%s: exit %d: %s", name, out.code, out.stderr)
+		}
+		contains(t, out.stderr, name+" is not text, and sentiment reads text", hint)
+		lacks(t, out.stderr, "Images, PDFs", "receipt-quality")
+	}
+
+	// A folder of documents with nothing to read says what decide reads.
+	h.write("docs/a.docx", "PK\x03\x04")
+	out = h.run("", "run", "sentiment", "docs", "--dry-run")
+	contains(t, out.stderr, "Found nothing for sentiment", "sentiment reads text, such as .txt")
+	lacks(t, out.stderr, "Images, PDFs")
+	if n := len(h.server.Requests()); n != 0 {
+		t.Fatalf("%d requests sent", n)
+	}
 }

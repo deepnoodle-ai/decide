@@ -652,8 +652,10 @@ func nothingFound(s *template.Template, paths []string, opts source.Options, pro
 		return err
 	case s.Input.Media():
 		return err.Hint(fmt.Sprintf("This template reads %s files.", source.MediaFormats(s.Input)))
-	case opts.Skipped != nil && opts.Skipped.NotText > 0:
+	case opts.Skipped != nil && opts.Skipped.NotTextMedia > 0:
 		return err.Hint(s.Name + " reads text. " + mediaHint(""))
+	case opts.Skipped != nil && opts.Skipped.NotText > 0:
+		return err.Hint(s.Name + " reads " + textKinds + ".")
 	}
 	return err
 }

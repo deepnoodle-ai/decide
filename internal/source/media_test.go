@@ -6,6 +6,8 @@ import (
 	"errors"
 	"image"
 	"image/png"
+	"io"
+	"math/rand/v2"
 	"os"
 	"reflect"
 	"strings"
@@ -28,8 +30,18 @@ const corruptJPEG = "\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x0
 
 const asciiPDF = "%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n"
 
-// notUTF8 is bytes with no NUL that are not UTF-8, like a compressed file.
-var notUTF8 = string(bytes.Repeat([]byte{0xc3, 0x28, 0xa0, 0xa1, 0x41, 0xfe}, 500))
+// noNUL is random bytes with no NUL byte, like part of a compressed file.
+var noNUL = func() string {
+	r := rand.New(rand.NewPCG(1, 2))
+	b := make([]byte, 4000)
+	for i := range b {
+		b[i] = byte(1 + r.IntN(255))
+	}
+	return string(b)
+}()
+
+// latin1CSV is text saved as Latin-1 or Windows-1252, which is not UTF-8.
+const latin1CSV = "id,review\n1,Caf\xe9\n2,na\xefve but \x93good\x94\n"
 
 func TestIsBinary(t *testing.T) {
 	for _, tc := range []struct {
@@ -40,7 +52,12 @@ func TestIsBinary(t *testing.T) {
 		{"UTF-8 text", "café ☕ naïve\n", false},
 		{"text cut inside a character", strings.Repeat("a", 7999) + "é", false},
 		{"NUL", "a\x00b", true},
-		{"not UTF-8", notUTF8, true},
+		{"Latin-1 text", latin1CSV, false},
+		{"Latin-1 text, all of it", strings.Repeat("\xe9t\xe9 \xe0 Gen\xe8ve, ", 400), false},
+		{"text with a few control characters", strings.Repeat("a line of text with one stray\x01 control character\n", 50), false},
+		{"text with terminal colors", strings.Repeat("\x1b[31mred\x1b[0m\n", 100), false},
+		{"random bytes with no NUL", noNUL, true},
+		{"control characters, more than 1 in 20", strings.Repeat("\x01", 6) + strings.Repeat("a", 94), true},
 		{"PDF", asciiPDF, true},
 		{"PNG", pngOf(1, 1), true},
 		{"zip", "PK\x03\x04[Content_Types].xml", true},
@@ -57,13 +74,14 @@ func TestTextTemplatesSkipBinaryFiles(t *testing.T) {
 	tree(t, map[string]string{
 		"mixed/notes.md":    "# Notes\n",
 		"mixed/a.pdf":       asciiPDF,
-		"mixed/nonul.bin":   notUTF8,
+		"mixed/nonul.bin":   noNUL,
 		"mixed/a.png":       pngOf(1, 1),
 		"mixed/big.mp4":     strings.Repeat("x", MaxFileBytes+1), // skipped by its name, not its size
 		"mixed/reviews.txt": "great\n",
+		"mixed/latin1.csv":  latin1CSV,
 	})
 	items, warnings := walk(t, []string{"mixed"}, "", Options{Input: template.Text})
-	if got := labels(items); !reflect.DeepEqual(got, []string{"mixed/notes.md", "mixed/reviews.txt:1"}) {
+	if got := labels(items); !reflect.DeepEqual(got, []string{"mixed/latin1.csv:2", "mixed/latin1.csv:3", "mixed/notes.md", "mixed/reviews.txt:1"}) {
 		t.Fatalf("labels = %v", got)
 	}
 	want := []string{"Skipped 4 files that are not text: mixed/a.pdf, mixed/a.png, mixed/big.mp4, and 1 more"}
@@ -96,7 +114,8 @@ func TestStdinThatIsNotText(t *testing.T) {
 	}{
 		{pngOf(1, 1), template.Image},
 		{asciiPDF, template.PDF},
-		{notUTF8, ""},
+		{noNUL, ""},
+		{"PK\x03\x04[Content_Types].xml", ""},
 	} {
 		err := Walk(context.Background(), nil, strings.NewReader(tc.data), Options{Input: template.Text}, func(Item) error {
 			t.Fatal("stdin was read as text")
@@ -202,5 +221,40 @@ func TestSampledMediaHoldNoBytes(t *testing.T) {
 		if it.Image == nil || it.Image.Path == "" || it.Image.Size != 1<<16+12 {
 			t.Fatalf("image = %+v", it.Image)
 		}
+	}
+}
+
+func TestTextNotInUTF8IsRead(t *testing.T) {
+	tree(t, map[string]string{"l.csv": latin1CSV})
+	for _, stdin := range []bool{false, true} {
+		var items []Item
+		paths, in := []string{"l.csv"}, io.Reader(nil)
+		if stdin {
+			paths, in = nil, strings.NewReader(latin1CSV)
+		}
+		err := Walk(context.Background(), paths, in, Options{Input: template.Text}, func(it Item) error {
+			items = append(items, it)
+			return nil
+		})
+		if err != nil || len(items) < 2 || !strings.Contains(string(items[len(items)-1].State), "na\ufffdve") {
+			t.Fatalf("stdin %v: %d items, %v", stdin, len(items), err)
+		}
+	}
+}
+
+func TestBinaryThatIsNotMedia(t *testing.T) {
+	tree(t, map[string]string{"a.docx": "PK\x03\x04[Content_Types].xml", "blob": noNUL})
+	for _, name := range []string{"a.docx", "blob"} {
+		err := Walk(context.Background(), []string{name}, nil, Options{Input: template.Text}, func(Item) error { return nil })
+		var nt *NotTextError
+		if !errors.As(err, &nt) || nt.Label != name {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	var skipped Skipped
+	tree(t, map[string]string{"d/a.docx": "PK\x03\x04", "d/a.pdf": asciiPDF, "d/blob": noNUL})
+	walk(t, []string{"d"}, "", Options{Input: template.Text, Skipped: &skipped})
+	if skipped.NotText != 3 || skipped.NotTextMedia != 1 {
+		t.Fatalf("skipped = %+v", skipped)
 	}
 }

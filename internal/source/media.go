@@ -15,7 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/deepnoodle-ai/decide/internal/template"
 )
@@ -23,11 +22,12 @@ import (
 // Skipped counts the files a walk skipped, by reason. Files named
 // directly are errors instead, and are not counted.
 type Skipped struct {
-	NotText     int // binary files, for a text template
-	Unsupported int // files of a format the media template does not read
-	TooLarge    int // media files over Options.MaxMediaBytes
-	Invalid     int // media files whose contents fail a check: empty, corrupt, or another format
-	Unreadable  int // files that could not be opened or read
+	NotText      int // binary files, for a text template
+	NotTextMedia int // of NotText, the images, PDFs, audio, and video
+	Unsupported  int // files of a format the media template does not read
+	TooLarge     int // media files over Options.MaxMediaBytes
+	Invalid      int // media files whose contents fail a check: empty, corrupt, or another format
+	Unreadable   int // files that could not be opened or read
 }
 
 // MediaError reports a media file, or media on stdin, given to a template
@@ -159,38 +159,40 @@ func (w *walker) unreadable(label string, err error, explicit bool) error {
 // folder is counted and skipped. A named file is an error that says which
 // kind of media it is, when it is one.
 func (w *walker) notText(path, label string, head []byte, explicit bool) error {
+	kind := mediaKind(path, head)
 	if !explicit {
 		w.skipped.NotText++
+		if kind != "" {
+			w.skipped.NotTextMedia++
+		}
 		w.notTextNames = append(w.notTextNames, label)
 		return nil
 	}
-	if kind := mediaKind(path, head); kind != "" {
+	if kind != "" {
 		return &MediaError{Label: label, Kind: kind}
 	}
 	return &NotTextError{Label: label}
 }
 
 // isBinary reports whether data, the start of a file or stream, is not
-// text: it holds a NUL byte, starts like a known binary format, or is not
-// UTF-8.
+// text: it holds a NUL byte, starts like a known binary format, or more
+// than 1 byte in 20 is a control character. Text that is not UTF-8, such
+// as a CSV saved as Windows-1252, is text. Random bytes are about 10%
+// control characters, and text has few or none.
 func isBinary(data []byte) bool {
 	head := data[:min(len(data), 8000)]
 	if bytes.IndexByte(head, 0) >= 0 || sniffMedia(head) != "" || binaryFormat(head) {
 		return true
 	}
-	if utf8.Valid(head) {
-		return false
-	}
-	// The cut may split the last character.
-	for i := len(head) - 1; i >= max(0, len(head)-utf8.UTFMax); i-- {
-		if utf8.RuneStart(head[i]) {
-			if !utf8.FullRune(head[i:]) {
-				head = head[:i]
-			}
-			break
+	controls := 0
+	for _, b := range head {
+		switch {
+		case b == '\t', b == '\n', b == '\r', b == '\f', b == '\v', b == 0x1b: // 0x1b starts terminal colors
+		case b < 0x20, b == 0x7f:
+			controls++
 		}
 	}
-	return !utf8.Valid(head)
+	return controls*20 > len(head)
 }
 
 // binaryFormat reports whether data starts like an archive or a program.

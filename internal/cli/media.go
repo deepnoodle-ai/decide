@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -40,7 +41,7 @@ func walkError(s *template.Template, provider string, err error) error {
 			Hint(mediaHint(media.Kind))
 	case errors.As(err, &notText):
 		return cli.Errorf("%s is not text, and %s reads text", notText.Label, s.Name).
-			Hint(mediaHint(""))
+			Hint(textHint(notText.Label))
 	case errors.As(err, &large):
 		e := cli.Errorf("%s is %s, and %s takes %s files up to %s", large.Label, source.HumanBytes(large.Size),
 			providerNames[provider], source.MediaName(large.Input), source.HumanBytes(large.Limit))
@@ -65,6 +66,23 @@ func mediaHint(kind template.Input) string {
 		return hint + fmt.Sprintf("\nMake one with: decide templates new my-%s-check\nThen set \"input\": %q in its template.json.", kind, kind)
 	}
 	return hint + "\nSee them with: decide templates show receipt-quality, or decide templates show invoice-check"
+}
+
+// textKinds are the files a text template reads.
+const textKinds = "text, such as .txt, .md, .csv, .jsonl, and source files"
+
+// textHint says what to do with a file that is not text and that no media
+// template reads, such as a Word document or a zip file.
+func textHint(label string) string {
+	switch strings.ToLower(filepath.Ext(label)) {
+	case ".docx", ".doc", ".odt", ".rtf", ".pages":
+		return "Save it as plain text or Markdown, and run decide on that file."
+	case ".xlsx", ".xls", ".ods", ".numbers":
+		return "Save it as CSV, and run decide on that file."
+	case ".zip", ".gz", ".tgz", ".tar", ".7z", ".rar":
+		return "Unpack it, and run decide on the folder."
+	}
+	return "decide reads " + textKinds + "."
 }
 
 // largerHint names the providers that take larger media files than
