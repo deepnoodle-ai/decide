@@ -165,16 +165,42 @@ Adds, after the existing checks:
 
 1. Each `Media`: `MIMEType` set and of a known kind after `Normalize`;
    exactly one of `Data` and `URL`; `Data` not empty; `URL` absolute,
-   `https`, with a host; the bytes not `Contradicts` the type. A
-   recognized signature must belong to the declared type, and PNG, JPEG,
-   GIF, and WebP bytes must start with their own signature and have a
-   header that `Dimensions` reads. Other formats without a recognized
-   signature are taken as declared.
+   `https`, with a host; the bytes not `Contradicts` the type. When the
+   bytes start with a signature in the table below, the declared type,
+   after `Normalize`, must be one of that signature's types. A container
+   that holds several formats is one row, so its types do not contradict
+   each other. PNG, JPEG, GIF, and WebP bytes must also start with their
+   own signature and have a header that `Dimensions` reads. Bytes with no
+   signature in the table are taken as declared.
 2. Reserved `Extra` keys: `images`, `media`, `videos`, `assets`.
 3. `checkBytes` becomes a walk with `reflect` over maps, slices, arrays,
    pointers, interfaces, and exported struct fields, with a depth bound of
    64 and a visited set for pointers. `json.RawMessage` is skipped. The
    error names the path, such as `state.receipt` or `state.items[2]`.
+
+Signatures that `Contradicts` reads, and the normalized types that each
+one can be:
+
+| Signature | Bytes start with | Types |
+| --- | --- | --- |
+| PNG | `89 50 4E 47 0D 0A 1A 0A` | `image/png`, `image/apng` |
+| JPEG | `FF D8 FF` | `image/jpeg` |
+| GIF | `GIF87a` or `GIF89a` | `image/gif` |
+| WebP | `RIFF`, 4 bytes, `WEBP` | `image/webp` |
+| PDF | `%PDF-` | `application/pdf` |
+| WAV | `RIFF`, 4 bytes, `WAVE` | `audio/wav` |
+| MP3 | `ID3`, or a frame sync `FF FB`, `FF F3`, or `FF F2` | `audio/mpeg`, `audio/mp3` |
+| Ogg | `OggS` | `audio/ogg`, `audio/opus`, `video/ogg`, `application/ogg` |
+| FLAC | `fLaC` | `audio/flac` |
+| MP4 (ISO base media: MP4, MOV, M4A, 3GP, HEIF, AVIF) | `ftyp` at bytes 4 to 8 | `video/mp4`, `video/mov`, `video/3gpp`, `video/3gpp2`, `audio/m4a`, `audio/aac`, `image/heic`, `image/heif`, `image/avif` |
+| WebM (Matroska, EBML) | `1A 45 DF A3` | `video/webm`, `audio/webm`, `video/x-matroska` |
+
+`audio/mpeg` and `audio/mp3` are not aliases of each other: Gemini lists
+both names, so `Normalize` keeps each, and the MP3 row holds both. So an
+MP3 declared `audio/mpeg` or `audio/mp3`, a WebM declared `audio/webm` or
+`video/webm`, and a MOV declared `video/quicktime` (normalized to
+`video/mov`) all pass. A MOV that starts with an older atom, such as
+`moov` or `mdat`, has no signature in the table and is taken as declared.
 
 All three wrap `ErrInvalidRequest`. They are cheap: no file bytes are
 read past the first 512.
@@ -352,10 +378,14 @@ retried. The CLI's media tests check wire shapes, which do not change.
 ## Test plan
 
 - `internal/media`: table tests for `Normalize` aliases and case;
-  `Contradicts` on each signature and on unknown bytes; `Dimensions` on PNG,
+  `Contradicts` on each row of the signature table, with each of its
+  types, and on unknown bytes; `Dimensions` on PNG,
   JPEG, GIF, WebP VP8, VP8L, VP8X; `Check` messages for each limit; a fuzz
   test for `Dimensions` (moved from Cloudflare).
-- Root: `Validate` cases for each R-1 rule, each reserved key, and deep
+- Root: `Validate` cases for each R-1 rule, including an MP3 that
+  starts with a frame sync declared `audio/mpeg`, a WebM declared
+  `audio/webm`, and an `ftypqt` MOV declared `video/quicktime`, which
+  pass; each reserved key; and deep
   `[]byte` in maps, slices, pointers, and structs; `WithMedia` appends;
   `MarshalJSON` of a request with media equals the request without it.
   Client tests with a fake transport: a non-`MediaTransport` gets no

@@ -371,7 +371,12 @@ On every provider:
   `audio/wave`, `audio/vnd.wave` → `audio/wav`; `audio/x-m4a`,
   `audio/mp4` → `audio/m4a`; `video/quicktime` → `video/mov`.
 - When the bytes have a format decide recognizes (PNG, JPEG, GIF, WebP,
-  PDF, WAV, MP3, OGG, FLAC, MP4, WebM), it must match the declared type.
+  PDF, WAV, MP3, OGG, FLAC, MP4, WebM), the declared type must be one
+  that format can be. A container is one format: MP4, MOV, M4A, and 3GP
+  share the MP4 header, and WebM audio and video share the WebM header.
+  So an MP3 declared `audio/mpeg`, a WebM declared `audio/webm`, and a
+  MOV declared `video/quicktime` pass. The tech spec lists each format
+  and its types.
 - Files are sent in the order they were attached.
 
 ## Requirements
