@@ -124,7 +124,11 @@ reads anything. For each file whose extension is a media kind, or which
 a media template is given, the pass runs the checks that `media` runs
 today, plus the provider check, in the PRD's order:
 
-1. Format: an extension in `otherImages`, or no extension -> `FormatError`.
+1. Format: an extension in `otherImages` -> `FormatError`. A file with
+   no media extension whose first bytes are media (`sniffMedia(head) !=
+   ""`) -> `FormatError` that asks for the extension. Any other file with
+   no media extension is text: a text template reads it in the walk, and
+   a media template gets `UnsupportedError`, the R-8 message.
 2. Provider: `opts.Media[kind]` is missing -> `ProviderError`.
 3. Size, then empty, then the header and pixels -> today's
    `TooLargeError`, `InvalidMediaError`, `PixelsError`.
@@ -273,7 +277,7 @@ keys only.
 | UC-6 | `TestMediaTemplateOtherKind` (cli) | `receipt-quality receipt.pdf --provider gemini` sends a PDF; with only a Cloudflare key, the Cloudflare error; `receipt-quality photos` reads images only. |
 | UC-7 | `TestMediaTemplateFolderWrongProvider` (cli) | `invoice-check invoices` on TypeSafe and OpenAI stops before the walk, also with `--dry-run`; `invoice-check scan.png --provider openai` runs. |
 | UC-8 | `TestSeveralNamedFilesFail` (cli), `TestWalkNamedErrors` (source) | the list, the order, the cap of 10 with `and N more`, one hint per distinct hint; a passing file is not listed; `--limit 1` still checks every named file. |
-| R-6, R-8, R-10 | `TestNamedFormatErrors`, `TestMediaTemplateRefusesText`, `TestBinaryStdinHint` (cli) | GIF and no-extension messages; the R-8 message; the R-10 hint. |
+| R-6, R-8, R-10 | `TestNamedFormatErrors`, `TestMediaTemplateRefusesText`, `TestBinaryStdinHint` (cli) | GIF and no-extension messages; the R-8 message, also for `receipt-quality LICENSE`; the R-10 hint. |
 | R-5 | `TestMediaTableMatchesTransports` (cli) | for each provider and kind, a 1-pixel PNG, a WAV header, a short MP4 header, and `%PDF-` sent through `backend.NewClient` to a fake server: `errors.ErrUnsupported` exactly when the table says the provider does not read the kind. |
 
 Existing tests in `media_test.go` and `media_inputs_test.go` that expect
