@@ -83,7 +83,7 @@ func (a *App) addRun(app *cli.App) {
 			cli.String("format", "f").Placeholder("FORMAT").Enum(formats...).Help(formatHelp),
 			cli.String("fail-on").Placeholder("WHEN").Enum("flagged", "matched").Help("Exit with code 2 if any item is flagged or matched, as you choose"),
 			cli.String("provider").Placeholder("NAME").Env("DECIDE_PROVIDER").Enum("typesafe", "cloudflare", "openai", "gemini").
-				Help("Model provider: typesafe, cloudflare, openai, or gemini (default: typesafe; cloudflare for images)"),
+				Help("Model provider: typesafe, cloudflare, openai, or gemini (default: typesafe for text; for images, PDFs, audio, and video, one that reads them and has a key set)"),
 			cli.String("model", "m").Placeholder("MODEL").Env("DECIDE_MODEL").Help("Model name (default: the provider's default)"),
 			cli.Int("workers").Placeholder("N").Default(4).Help("How many requests to send at once (default 4, or 2 for media)"),
 			cli.Bool("yes", "y").Help(fmt.Sprintf("Don't ask before running more than %d items", confirmAbove)),
@@ -133,8 +133,16 @@ func (a *App) run(c *cli.Context) error {
 		return err
 	}
 	each := c.String("each")
-	if each != "" && s.Input.Media() {
-		return cli.Errorf("%s reads one %s file at a time, so --each does not apply", s.Name, source.MediaName(s.Input))
+	if s.Input.Media() {
+		for _, flag := range []string{"each", "field", "items"} {
+			if c.String(flag) != "" {
+				return cli.Errorf("%s reads one %s file at a time, so --%s does not apply", s.Name, source.MediaName(s.Input), flag)
+			}
+		}
+		if len(paths) == 0 || slices.Contains(paths, "-") {
+			return cli.Errorf("%s reads %s files, not stdin", s.Name, source.MediaName(s.Input)).
+				Hint(fmt.Sprintf("Name files or a folder: decide run %s %s", s.Name, exampleData(s)))
+		}
 	}
 	if each == "" {
 		each = s.Each
@@ -154,6 +162,12 @@ func (a *App) run(c *cli.Context) error {
 	opts.Changes = func() { changes = true }
 	provider, model := providerOf(c, s)
 	opts.MaxMediaBytes = mediaLimit(provider, s.Input)
+	opts.Provider = providerNames[provider]
+	if provider == "cloudflare" && s.Input == template.Image {
+		opts.MaxPixels = clefMaxPixels
+	}
+	var skipped source.Skipped
+	opts.Skipped = &skipped
 	if err := checkMediaProvider(s, provider); err != nil {
 		return err
 	}
@@ -161,9 +175,12 @@ func (a *App) run(c *cli.Context) error {
 		if format != "text" && format != "json" {
 			return cli.Errorf("--dry-run prints text or JSON, not --format %s", format)
 		}
-		return a.dryRun(c, resolved, paths, opts, format, &changes, provider, model)
+		return walkError(s, provider, a.dryRun(c, resolved, paths, opts, format, &changes, provider, model))
 	}
 
+	if err := mediaCredentials(c, s, provider); err != nil && a.envClient {
+		return err
+	}
 	client, err := a.NewClient(provider, model)
 	if err != nil {
 		return err
@@ -184,7 +201,10 @@ func (a *App) run(c *cli.Context) error {
 		return nothingToJudge(c, s, format)
 	}
 	if err == nil && run.Total == 0 {
-		err = nothingFound(s, paths, opts)
+		err = nothingFound(s, paths, opts, provider)
+	}
+	if err == nil {
+		tooLargeNote(c, s, opts, provider)
 	}
 	if err == nil && run.Total > confirmAbove && !c.Bool("yes") && a.interactiveStdin() {
 		if !a.confirm(c, fmt.Sprintf("Run %s on %s? That is %d model requests. [y/N] ", s.Name, found, run.Total)) {
@@ -201,7 +221,7 @@ func (a *App) run(c *cli.Context) error {
 	}
 	if err != nil {
 		run.Discard()
-		return err
+		return walkError(s, provider, err)
 	}
 	fmt.Fprintf(c.Stderr(), "%s\n", dim(fmt.Sprintf("Running %s on %s · %s %s", s.Name, found, provider, model)))
 	if hint := eachHint(found, c.String("each") != "", s.Each, paths); hint != "" {
@@ -555,8 +575,9 @@ func (a *App) dryRun(c *cli.Context, s *template.Template, paths []string, opts 
 		return nothingToJudge(c, s, format)
 	}
 	if total == 0 {
-		return nothingFound(s, paths, opts)
+		return nothingFound(s, paths, opts, provider)
 	}
+	tooLargeNote(c, s, opts, provider)
 	w := c.Stdout()
 	fmt.Fprintf(w, "%s would look at %s:\n\n", bold(s.Name), found)
 	for _, it := range items {
@@ -615,7 +636,7 @@ func nothingToJudge(c *cli.Context, s *template.Template, format string) error {
 	return nil
 }
 
-func nothingFound(s *template.Template, paths []string, opts source.Options) error {
+func nothingFound(s *template.Template, paths []string, opts source.Options, provider string) error {
 	where := "the input"
 	if len(paths) > 0 {
 		where = strings.Join(paths, ", ")
@@ -624,8 +645,15 @@ func nothingFound(s *template.Template, paths []string, opts source.Options) err
 	switch {
 	case len(opts.Include) > 0:
 		return err.Hint("No files matched --include " + strings.Join(opts.Include, ", ") + ". Patterns like '*.go' match at any depth.")
+	case s.Input.Media() && opts.Skipped != nil && opts.Skipped.TooLarge > 0:
+		if hint := largerHint(provider, s.Input); hint != "" {
+			return err.Hint(hint)
+		}
+		return err
 	case s.Input.Media():
 		return err.Hint(fmt.Sprintf("This template reads %s files.", source.MediaFormats(s.Input)))
+	case opts.Skipped != nil && opts.Skipped.NotText > 0:
+		return err.Hint(s.Name + " reads text. " + mediaHint(""))
 	}
 	return err
 }

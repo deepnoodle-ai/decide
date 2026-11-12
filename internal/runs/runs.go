@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"maps"
 	"os"
@@ -85,6 +86,9 @@ type Result struct {
 	RequestID string                     `json:"request_id,omitempty"`
 	Cached    []string                   `json:"cached,omitempty"` // the questions whose answers came from the cache
 	Error     string                     `json:"error,omitempty"`
+	// Local is set when decide rejected the item itself, before sending it,
+	// such as an image the provider would not take.
+	Local bool `json:"local,omitempty"`
 }
 
 // Part says which part of an item a result is for. The parts of an item
@@ -159,7 +163,8 @@ func (r *Run) add(in input, it source.Item) error {
 		if err := os.MkdirAll(filepath.Join(r.Dir, "images"), 0o700); err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(r.Dir, in.Image), it.Image.Data, 0o600); err != nil {
+		// The run keeps a copy, so it can resume after the file moves.
+		if err := copyFile(filepath.Join(r.Dir, in.Image), it.Image.Path); err != nil {
 			return err
 		}
 	}
@@ -172,6 +177,24 @@ func (r *Run) add(in input, it source.Item) error {
 	}
 	r.Total++
 	return nil
+}
+
+// copyFile copies the file at from to a new file at to, in pieces.
+func copyFile(to, from string) error {
+	src, err := os.Open(from)
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	dst, err := os.OpenFile(to, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(dst, src); err != nil {
+		dst.Close()
+		return err
+	}
+	return dst.Close()
 }
 
 // Ready finishes adding items.
@@ -482,6 +505,10 @@ func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, f
 		switch {
 		case res.Status == "complete":
 			streak = 0
+		case res.Local:
+			// A file decide rejected itself says nothing about the
+			// provider or the model, so it neither counts nor breaks a
+			// streak.
 		case item == lastItem:
 			// Another part of an item that already failed.
 		case res.Error == lastErr:
@@ -489,7 +516,7 @@ func (r *Run) Execute(ctx context.Context, client *decide.Client, workers int, f
 		default:
 			lastErr, streak = res.Error, 1
 		}
-		if res.Status != "complete" {
+		if res.Status != "complete" && !res.Local {
 			lastItem = item
 		}
 		if err == nil && streak >= RepeatLimit {
@@ -630,14 +657,18 @@ func (r *Run) evaluate(ctx context.Context, client *decide.Client, questions que
 	req := decide.NewRequest(in.State)
 	var image []byte
 	if in.Image != "" {
+		res.Local = true
 		data, err := os.ReadFile(filepath.Join(r.Dir, in.Image))
-		if err == nil {
-			err = r.attach(req, in.ContentType, data)
-		}
 		if err != nil {
+			// The error would name a path in the home directory.
+			res.Error = "decide could not read the run's copy of this file"
+			return res, nil
+		}
+		if err := r.attach(req, in.ContentType, data); err != nil {
 			res.Error = err.Error()
 			return res, nil
 		}
+		res.Local = false
 		image = data
 	}
 	if r.cache == nil {

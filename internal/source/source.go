@@ -14,16 +14,18 @@
 //     Languages is one item per function or method. Other files are
 //     skipped. A file whose structure the scanner cannot follow is one
 //     item.
-//   - An image template has one item per image file.
+//   - A template that reads media (images, audio, video, or PDFs) has one
+//     item per file. The item carries the file's path, not its contents.
 //
 // An item too large to send whole is cut into parts, which the caller
 // judges separately and combines. A source file is cut between its
 // functions.
 //
 // Directory walks skip hidden files and folders (such as .git and .env),
-// files ignored by .gitignore or .decideignore, symbolic links, and files a
-// template cannot read, such as binary files for a file template. Files named
-// directly are always read.
+// files ignored by .gitignore or .decideignore, symbolic links, files that
+// cannot be read, and files a template cannot read, such as binary files
+// for a text template. A file named directly that the template cannot read
+// is an error.
 package source
 
 import (
@@ -37,7 +39,6 @@ import (
 	"io"
 	"io/fs"
 	"math/rand"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -78,6 +79,15 @@ type Options struct {
 	Sample        int    // pick this many items at random
 	Warn          func(msg string)
 
+	// MaxPixels is the most pixels in an image; larger ones are skipped.
+	// Zero means no limit.
+	MaxPixels int64
+	// Provider names the provider that sets these limits, for messages,
+	// such as "Cloudflare".
+	Provider string
+	// Skipped, when not nil, counts the files the walk skipped.
+	Skipped *Skipped
+
 	// Changes, when not nil, is called for each diff read, and for empty
 	// stdin, which is what git diff prints when nothing changed. A run
 	// that finds no items in them has nothing to judge, which is not an
@@ -88,7 +98,7 @@ type Options struct {
 // Item is one thing to evaluate.
 type Item struct {
 	Label string          `json:"source"`          // where it came from, e.g. "src/main.go" or "tickets.jsonl:3"
-	Unit  string          `json:"unit"`            // "file", "line", "paragraph", "section", "function", "record", or "image"
+	Unit  string          `json:"unit"`            // "file", "line", "paragraph", "section", "function", "record", or a media input such as "image"
 	Value json.RawMessage `json:"input,omitempty"` // the original record, a paragraph's text, a section's headings, or a function's name
 	State json.RawMessage `json:"state,omitempty"` // what the model sees; empty when the item has parts
 	Parts []Part          `json:"parts,omitempty"` // the item cut into pieces, when it is too large to send whole
@@ -113,10 +123,12 @@ const (
 	UnitPDF    = "pdf"
 )
 
-// ImageData is a media file's contents: an image, audio, video, or PDF.
+// ImageData is a media file: an image, audio, video, or PDF. It names the
+// file, which the caller reads when it needs the contents.
 type ImageData struct {
 	ContentType string
-	Data        []byte
+	Path        string // the file on disk
+	Size        int64  // its size when the walk read it
 }
 
 // errStop ends a walk early once the limit is reached.
@@ -183,6 +195,16 @@ func Walk(ctx context.Context, paths []string, stdin io.Reader, opts Options, fn
 	if n := len(w.diffLost); n > 0 {
 		opts.Warn(fmt.Sprintf("Could not find the functions in %s, so %s judged by hunk", listNames(w.diffLost), plural(n, "it was", "each was")))
 	}
+	if n := len(w.notTextNames); n > 0 {
+		opts.Warn(fmt.Sprintf("Skipped %d %s not text: %s",
+			n, plural(n, "file that is", "files that are"), listNames(w.notTextNames)))
+	}
+	if n := w.skipped.Unsupported; n > 0 {
+		opts.Warn(fmt.Sprintf("Skipped %d %s not %s", n, plural(n, "file that is", "files that are"), MediaFormats(opts.Input)))
+	}
+	if opts.Skipped != nil {
+		*opts.Skipped = w.skipped
+	}
 	// Report sampled items in input order.
 	slices.SortFunc(w.sample, func(a, b sampled) int { return a.order - b.order })
 	for _, s := range w.sample {
@@ -211,6 +233,9 @@ type walker struct {
 	diffLost  []string // changed files judged by hunk because their functions could not be found
 	seen      int
 	sample    []sampled
+
+	skipped      Skipped
+	notTextNames []string // files skipped for not being text
 }
 
 // sampler keeps a uniform random sample (reservoir sampling). The seed is
@@ -410,41 +435,12 @@ func (w *walker) file(path, label string, explicit bool) error {
 	if err != nil {
 		return err
 	}
-	if in := w.opts.Input; in.Media() {
-		ctype, ok := mediaTypes[in][strings.ToLower(filepath.Ext(path))]
-		if !ok {
-			if explicit {
-				return fmt.Errorf("%s is not %s; this template reads %s files", label, MediaNoun(in), MediaFormats(in))
-			}
-			return nil
-		}
-		limit := w.opts.MaxMediaBytes
-		if limit <= 0 {
-			limit = MaxImageBytes
-		}
-		if info.Size() > limit {
-			return skip("%s (%s files must be at most %s on this provider)", label, MediaName(in), humanBytes(limit))
-		}
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		switch in {
-		case template.Image:
-			// Images are sniffed: the providers check the header too.
-			if ctype = http.DetectContentType(data); !strings.HasPrefix(ctype, "image/") {
-				return skip("%s (not a readable image)", label)
-			}
-		case template.PDF:
-			if !bytes.HasPrefix(data, []byte("%PDF-")) {
-				return skip("%s (not a readable PDF)", label)
-			}
-		}
-		if len(data) == 0 {
-			return skip("%s (empty)", label)
-		}
-		state, _ := json.Marshal(map[string]any{"path": label, "content_type": ctype})
-		return w.emit(Item{Label: label, Unit: string(in), State: state, Image: &ImageData{ContentType: ctype, Data: data}})
+	if w.opts.Input.Media() {
+		return w.media(path, label, info, explicit)
+	}
+	if mediaKind(path, nil) != "" {
+		// A media file, by its name, is never read as text, whatever its size.
+		return w.notText(path, label, nil, explicit)
 	}
 	if formatOf(path) == diffText && (explicit || w.opts.Each == template.EachHunk) {
 		if info.Size() > MaxJSONBytes {
@@ -452,7 +448,7 @@ func (w *walker) file(path, label string, explicit bool) error {
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return err
+			return w.unreadable(label, err, explicit)
 		}
 		if explicit {
 			return w.diff(data, label, "")
@@ -479,10 +475,10 @@ func (w *walker) file(path, label string, explicit bool) error {
 		}
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return err
+			return w.unreadable(label, err, explicit)
 		}
 		if isBinary(data) {
-			return skip("%s (binary file)", label)
+			return w.notText(path, label, data, explicit)
 		}
 		return w.functions(label, string(data), lang, explicit)
 	}
@@ -497,16 +493,19 @@ func (w *walker) file(path, label string, explicit bool) error {
 		}
 		fh, err := os.Open(path)
 		if err != nil {
-			return err
+			return w.unreadable(label, err, explicit)
 		}
 		defer fh.Close()
 		head := make([]byte, 8000)
-		n, _ := io.ReadFull(fh, head)
+		n, err := io.ReadFull(fh, head)
+		if err != nil && !errors.Is(err, io.ErrUnexpectedEOF) && !errors.Is(err, io.EOF) {
+			return w.unreadable(label, err, explicit)
+		}
 		if isBinary(head[:n]) {
-			return skip("%s (binary file)", label)
+			return w.notText(path, label, head[:n], explicit)
 		}
 		if _, err := fh.Seek(0, io.SeekStart); err != nil {
-			return err
+			return w.unreadable(label, err, explicit)
 		}
 		if !f.dataset() {
 			f = lines
@@ -518,10 +517,10 @@ func (w *walker) file(path, label string, explicit bool) error {
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return err
+		return w.unreadable(label, err, explicit)
 	}
 	if isBinary(data) {
-		return skip("%s (binary file)", label)
+		return w.notText(path, label, data, explicit)
 	}
 	return w.text(label, string(data), f == markdown, each, explicit)
 }
@@ -769,6 +768,12 @@ func (w *walker) stdinItems() error {
 	}
 	if w.opts.Each == template.EachHunk {
 		return errors.New(notDiff("stdin"))
+	}
+	if isBinary(peek) {
+		if kind := sniffMedia(peek); kind != "" {
+			return &MediaError{Label: "stdin", Kind: kind}
+		}
+		return &NotTextError{Label: "stdin"}
 	}
 	switch w.opts.Each {
 	case template.EachFunction:
@@ -1129,15 +1134,12 @@ func MediaNoun(in template.Input) string {
 	return "a file"
 }
 
-func humanBytes(n int64) string {
+// HumanBytes is a size in MiB, such as "4 MiB" or "70.5 MiB".
+func HumanBytes(n int64) string {
 	if n%(1<<20) == 0 {
 		return fmt.Sprintf("%d MiB", n>>20)
 	}
 	return fmt.Sprintf("%.1f MiB", float64(n)/(1<<20))
-}
-
-func isBinary(data []byte) bool {
-	return bytes.IndexByte(data[:min(len(data), 8000)], 0) >= 0
 }
 
 type rule struct {

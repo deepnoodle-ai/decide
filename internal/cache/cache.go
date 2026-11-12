@@ -98,6 +98,24 @@ func ItemOf(state []byte, contentType string, image []byte) Item {
 	return it
 }
 
+// ItemOfReader is ItemOf for an image read from r, which holds size bytes.
+// It reads r in pieces, so a large file is never held in memory.
+func ItemOfReader(state []byte, contentType string, r io.Reader, size int64) (Item, error) {
+	h := sha256.New()
+	field(h, []byte("item"))
+	field(h, state)
+	field(h, []byte(contentType))
+	var n [8]byte
+	binary.BigEndian.PutUint64(n[:], uint64(size))
+	h.Write(n[:])
+	if _, err := io.CopyN(h, r, size); err != nil {
+		return Item{}, err
+	}
+	var it Item
+	h.Sum(it[:0])
+	return it, nil
+}
+
 // field writes b with its length, so that fields cannot run together.
 func field(h interface{ Write([]byte) (int, error) }, b []byte) {
 	var n [8]byte
