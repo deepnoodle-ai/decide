@@ -507,7 +507,7 @@ No shims and no deprecated aliases:
 Made by the orchestrator, recorded here:
 
 - Media is a root-package concept, reached through a `RequestOption` and a
-  `Request` field; the root package stays standard-library only.
+  `Request` field; the root package depends only on the standard library.
 - Each transport translates media or rejects it with `errors.ErrUnsupported`.
 - The per-provider helpers and the `images`/`media`/`videos` conventions
   go, with no shims. `Request.Extra` stays a pass-through for other keys,

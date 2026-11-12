@@ -1,6 +1,6 @@
 # One media API for every provider
 
-**Status:** Accepted
+**Status:** In Review
 **Date:** 2026-11-12
 **Workflow:** Spec, then build in parallel. The PRD settles the behavior;
 this spec settles where the code goes. The build starts on a branch
@@ -160,8 +160,9 @@ comes before form, so a video URL on OpenAI fails as a video.
 
 The root package imports `internal/media`, which imports only the
 standard library, so the root package's dependencies stay the standard
-library. The maintainer approved this, and AGENTS.md's Layout section
-says so.
+library. One copy of the tables serves the root package and the three
+providers, so they cannot drift. AGENTS.md's Layout section and
+CONTRIBUTING.md name this one exception. See the open question.
 
 ### Root `Request.Validate`
 
@@ -462,6 +463,9 @@ with the same behavior apart from the two moves named above.
 
 ## Open questions
 
-None. The maintainer approved the root package importing
-`internal/media`, because that package imports only the standard
-library. AGENTS.md's Layout section records it.
+- **Root importing `internal/media`** (for the maintainer to confirm in
+  this pull request). The build follows the import. If the maintainer
+  rules against it, the root package keeps `Normalize`, `Kind`,
+  `Contradicts`, and `Dimensions` unexported and `internal/media` copies
+  them, with a test that the two signature and alias tables match. The
+  move is one commit and does not change behavior.
