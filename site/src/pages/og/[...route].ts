@@ -4,7 +4,8 @@ import { getCollection } from 'astro:content';
 import { OGImageRoute } from 'astro-og-canvas';
 
 const entries = await getCollection('docs');
-const pages = Object.fromEntries(entries.map(({ id, data }) => [id === 'index' ? 'index' : id, data]));
+// The home page has its own card, in index.png.ts.
+const pages = Object.fromEntries(entries.filter(({ id }) => id !== 'index').map(({ id, data }) => [id, data]));
 
 const font = (file: string) => `./node_modules/${file}`;
 
