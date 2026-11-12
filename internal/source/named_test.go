@@ -40,7 +40,7 @@ func TestNamedMediaWithAnyTemplate(t *testing.T) {
 	items, warnings := walk(t, []string{"docs"}, "", Options{Input: template.Text, Media: gemini, Skipped: &skipped})
 	if got := labels(items); !reflect.DeepEqual(got, []string{"docs/b.md"}) ||
 		!reflect.DeepEqual(warnings, []string{"Skipped 1 file that is not text: docs/a.png"}) ||
-		skipped.FirstMedia != "docs/a.png" || skipped.FirstMediaKind != template.Image {
+		!reflect.DeepEqual(skipped.Media, []SkippedMedia{{Label: "docs/a.png", Kind: template.Image}}) {
 		t.Fatalf("labels = %v, warnings = %q, skipped = %+v", got, warnings, skipped)
 	}
 

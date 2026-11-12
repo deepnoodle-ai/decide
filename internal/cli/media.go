@@ -215,17 +215,75 @@ func pixelsHint(provider string, most int64) string {
 // namedMediaHint says how to send the media files a text template's
 // folder walk skipped: name them. It is "" when the walk skipped none.
 func namedMediaHint(s *template.Template, provider string, skipped *source.Skipped) string {
-	if skipped == nil || skipped.FirstMedia == "" {
+	if skipped == nil || len(skipped.Media) == 0 {
 		return ""
 	}
-	kind := skipped.FirstMediaKind
-	if !slices.Contains(mediaProviders[kind], provider) {
-		provider = mediaProviders[kind][0]
+	// One pattern per folder and extension, in the order the walk found
+	// them, so the command names every file the walk skipped.
+	const shown = 3
+	var globs, kinds []string
+	var kindSet []template.Input
+	for _, m := range skipped.Media {
+		label := filepath.ToSlash(m.Label)
+		glob := shellQuote(path.Dir(label)) + "/*" + path.Ext(label)
+		if !slices.Contains(globs, glob) {
+			globs = append(globs, glob)
+		}
+		if !slices.Contains(kindSet, m.Kind) {
+			kindSet = append(kindSet, m.Kind)
+		}
 	}
-	label := filepath.ToSlash(skipped.FirstMedia)
-	glob := path.Join(path.Dir(label), "*"+path.Ext(label))
-	return fmt.Sprintf("In a folder, %s reads only text. To send the %s, name them:\ndecide run %s %s --provider %s",
-		s.Name, source.MediaPlural(kind), s.Name, clean(glob), provider)
+	for _, k := range mediaKinds {
+		if slices.Contains(kindSet, k) {
+			kinds = append(kinds, source.MediaPlural(k))
+		}
+	}
+	provider = readerOf(provider, kindSet)
+	more := ""
+	if len(globs) > shown {
+		more = fmt.Sprintf("\nThat is %d of %d folders and extensions; name the rest the same way.", shown, len(globs))
+		globs = globs[:shown]
+	}
+	return fmt.Sprintf("In a folder, %s reads only text. To send the %s, name them:\ndecide run %s %s --provider %s%s",
+		s.Name, orJoin(kinds, "and"), s.Name, clean(strings.Join(globs, " ")), provider, more)
+}
+
+// readerOf returns provider when it reads every kind, or else the first
+// provider that does.
+func readerOf(provider string, kinds []template.Input) string {
+	readsAll := func(p string) bool {
+		for _, k := range kinds {
+			if !slices.Contains(mediaProviders[k], p) {
+				return false
+			}
+		}
+		return true
+	}
+	if readsAll(provider) {
+		return provider
+	}
+	for _, p := range []string{"cloudflare", "openai", "gemini"} {
+		if readsAll(p) {
+			return p
+		}
+	}
+	return "gemini"
+}
+
+// shellQuote quotes a path for a POSIX shell when it holds anything but
+// letters, digits, and the characters paths often use.
+func shellQuote(s string) string {
+	safe := true
+	for _, r := range s {
+		if !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || strings.ContainsRune("._-/+@%:,=", r)) {
+			safe = false
+			break
+		}
+	}
+	if safe && s != "" {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // textKinds are the files a text template reads.

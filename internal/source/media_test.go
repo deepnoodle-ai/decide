@@ -161,7 +161,7 @@ func TestMediaChecksInTheWalk(t *testing.T) {
 	if !reflect.DeepEqual(warnings, want) {
 		t.Fatalf("warnings = %q", warnings)
 	}
-	if skipped != (Skipped{Unsupported: 2, Invalid: 4, Pixels: 1}) {
+	if !reflect.DeepEqual(skipped, Skipped{Unsupported: 2, Invalid: 4, Pixels: 1}) {
 		t.Fatalf("skipped = %+v", skipped)
 	}
 

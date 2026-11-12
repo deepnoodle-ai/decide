@@ -48,11 +48,15 @@ type Skipped struct {
 	Unreadable   int // files that could not be opened or read
 	NotRead      int // media files of a kind the provider does not read
 
-	// FirstMedia is the first media file a text template's folder walk
-	// skipped, and FirstMediaKind its kind, so a hint can show how to
-	// name such files.
-	FirstMedia     string
-	FirstMediaKind template.Input
+	// Media lists the media files of a format decide sends that a text
+	// template's folder walk skipped, so a hint can show how to name them.
+	Media []SkippedMedia
+}
+
+// SkippedMedia is a media file a folder walk skipped for a text template.
+type SkippedMedia struct {
+	Label string
+	Kind  template.Input
 }
 
 // MediaError reports media on stdin, which decide reads as text only.
@@ -378,8 +382,8 @@ func (w *walker) notText(path, label string, head []byte, explicit bool) error {
 		w.skipped.NotText++
 		if kind != "" {
 			w.skipped.NotTextMedia++
-			if _, sent := extKind(path); sent && w.skipped.FirstMedia == "" {
-				w.skipped.FirstMedia, w.skipped.FirstMediaKind = label, kind
+			if _, sent := extKind(path); sent {
+				w.skipped.Media = append(w.skipped.Media, SkippedMedia{Label: label, Kind: kind})
 			}
 		}
 		w.notTextNames = append(w.notTextNames, label)

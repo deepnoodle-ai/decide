@@ -282,6 +282,29 @@ func TestFolderWithImagesStaysText(t *testing.T) {
 		"Hint: In a folder, code-risk reads only text. To send the images, name them:\ndecide run code-risk docs/*.png --provider openai")
 	out = h.run("", "run", "code-risk", "docs", "--dry-run")
 	contains(t, out.stderr, "decide run code-risk docs/*.png --provider cloudflare")
+
+	// A folder name that needs quotes is quoted, so the command can be
+	// pasted.
+	h.write("my shots/a.png", pngOf(t, 1, 1))
+	out = h.run("", "run", "sentiment", "my shots", "--provider", "gemini", "--dry-run")
+	contains(t, out.stderr, "decide run sentiment 'my shots'/*.png --provider gemini")
+
+	// Each extension gets its own pattern, so none of the files is left out.
+	// A PDF among them needs a provider that reads both kinds.
+	h.write("mixed/a.png", pngOf(t, 1, 1))
+	h.write("mixed/b.jpg", "\xff\xd8\xff\xe0")
+	h.write("mixed/sub/c.pdf", asciiPDF)
+	out = h.run("", "run", "sentiment", "mixed", "--provider", "openai", "--dry-run")
+	contains(t, out.stderr, "To send the images and PDFs, name them:\ndecide run sentiment mixed/*.png mixed/*.jpg mixed/sub/*.pdf --provider gemini")
+	lacks(t, out.stderr, "name the rest")
+
+	// More than three patterns: the first three, and a note.
+	h.write("many/a.png", pngOf(t, 1, 1))
+	h.write("many/b.jpg", "\xff\xd8\xff\xe0")
+	h.write("many/c.jpeg", "\xff\xd8\xff\xe0")
+	h.write("many/d.webp", "RIFF\x00\x00\x00\x00WEBP")
+	out = h.run("", "run", "sentiment", "many", "--provider", "openai", "--dry-run")
+	contains(t, out.stderr, "decide run sentiment many/*.png many/*.jpg many/*.jpeg --provider openai\nThat is 3 of 4 folders and extensions; name the rest the same way.")
 }
 
 // UC-6: a media template takes a named media file of another kind.
