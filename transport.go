@@ -32,10 +32,15 @@ type Transport interface {
 	ListModels(ctx context.Context) (*ModelList, error)
 }
 
-// MediaTransport is a Transport that can send Request.Media. The client
-// sends a request with media only to a MediaTransport; any other transport
-// gets no call, and SystemOne returns an error wrapping
-// errors.ErrUnsupported.
+// MediaTransport is a Transport that checks Request.Media itself and sends
+// the files it takes. The client sends a request with media only to a
+// MediaTransport; any other transport gets no call, and SystemOne returns
+// an error wrapping errors.ErrUnsupported.
+//
+// Implementing MediaTransport does not mean a transport takes any file:
+// HTTPTransport implements it and rejects every file until TypeSafe takes
+// media. To learn whether a transport takes a file, call CheckMedia with
+// a request that carries it.
 //
 // The client calls CheckMedia once per call, after Request.Validate and
 // before the first attempt. An error from it ends the call with no attempt.
