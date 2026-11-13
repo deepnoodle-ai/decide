@@ -17,9 +17,9 @@ type Answers = (template: string, text: string) => Record<string, unknown> | und
  * by the template's name (or its folder's, for a path), one JSON line per
  * stdin record, and keeps each run with the text the model would read.
  */
-function fakeDecide(on: On, answers: Answers, files: readonly string[] = []) {
+function fakeDecide(on: On, answers: Answers, files: readonly string[] = [], version?: string) {
   const runs: { argv: readonly string[]; texts: string[]; home?: string; cwd?: string; timeoutMs?: number }[] = []
-  const shown = session(on, files)
+  const shown = session(on, files, version)
   on('process.run', ($, e) => {
     const template = String(e.argv[2]).split('/').pop() ?? ''
     const at = e.argv.indexOf('--field')
@@ -40,8 +40,9 @@ function fakeDecide(on: On, answers: Answers, files: readonly string[] = []) {
  * registrations, a screen, and a file system where the plugin's folder
  * exists and nothing else does, but for the paths in `files`.
  */
-function session(on: On, files: readonly string[] = []) {
+function session(on: On, files: readonly string[] = [], version = '2.1.323') {
   mock.env(on, { HOME: '/home/me' })
+  on('session.version', () => ({ value: { version } }))
   const clock = mock.clock(on)
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('tool.register', ($, e) => ({ value: { tool: `mcp__decide__${e.name}` } }))
@@ -117,6 +118,22 @@ describe('register', () => {
     expect(out.isError ?? out.deny !== undefined).toBe(true)
     expect(String(out.text ?? out.deny)).toContain('decide judged this command 97% likely to cause severe harm that is hard to undo')
     expect(String(out.text ?? out.deny)).toContain('No one was there to approve it, so it was not run.')
+  })
+
+  test('before Claude Code says who can approve, a flagged command asks, and Claude Code refuses it where no one can', async ($, on) => {
+    fakeDecide(on, RISK, [], '2.1.306')
+    const ran: string[] = []
+    on('tool.check', BYPASS)
+    on('tool.call', { tool: 'Bash' }, ($, e) => {
+      ran.push(e.command)
+      return { result: { stdout: '', stderr: '', interrupted: false } }
+    })
+
+    await $.session.start(SESSION)
+    const out = await $.tool.call({ tool: 'Bash', command: 'rm -rf ~/git/project', tool_use_id: 't1b' })
+
+    expect(ran, 'the command never reached the shell').toEqual([])
+    expect(String(out.text ?? out.deny)).not.toContain('No one was there to approve it')
   })
 
   test('when the log cannot be written, a flagged command is still held and its row still flagged', async ($, on) => {

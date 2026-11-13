@@ -43,6 +43,17 @@ type CheckName = keyof typeof TEMPLATES
 /** The plugin's options, read each time it loads. */
 const config = { commands: 'ask', bin: 'decide' }
 
+/**
+ * Whether Claude Code says who can approve a call, on tool.check's
+ * `approver` (2.1.307 and later). Until it says so, an absent approver
+ * proves nothing, so a flagged command asks, and Claude Code refuses it
+ * where no one can be asked.
+ */
+const engine = { reportsApprover: false }
+
+/** The first Claude Code release that sets `approver` on tool.check. */
+const APPROVER_SINCE = [2, 1, 307]
+
 /** DECIDE_HOME for the plugin's runs, and decide's working directory. */
 let home: string | undefined
 
@@ -61,6 +72,10 @@ export const register: Register = (on, options) => {
   for (const h of Object.values(health)) Object.assign(h, { offUntil: 0, reason: '' })
 
   on('session.start', async ($, e, next) => {
+    engine.reportsApprover = await $.session
+      .version()
+      .then(v => isAtLeast(v.version, APPROVER_SINCE))
+      .catch(() => false)
     // A failed registration loses that one feature, not the session's start.
     await $.tool.register({ name: NAME, description: DESCRIPTION, inputSchema: SCHEMA }).catch(err => {
       $.ui.log(`decide could not add its judge tool: ${oneLine(String(err), 160)}`, { to: 'debug' })
@@ -130,7 +145,7 @@ export const register: Register = (on, options) => {
     if (flagged.length === 0) return decided
 
     const why = flagged.map(q => `${pct(yes(answers, q))} ${COMMAND_RISKS[q] ?? `likely: ${q}`}`).join(', and ')
-    if (config.commands === 'deny' || !e.approver) {
+    if (config.commands === 'deny' || (engine.reportsApprover && !e.approver)) {
       const who = config.commands === 'deny' ? 'It was not run' : 'No one was there to approve it, so it was not run'
       return { decision: 'deny', reason: `decide judged this command ${why}. ${who}. Find a safer way to do this, or ask the user to run it.` }
     }
@@ -319,6 +334,17 @@ async function fail($: EngineInterface, name: CheckName, now: number, reason: st
   Object.assign(h, { offUntil: now + RETRY_MS, reason: oneLine(reason, 200) })
   if (isNew) $.ui.log(`decide's ${name} check is off for now: ${h.reason}`)
   return skip($)
+}
+
+/** Whether a version such as `2.1.307` or `2.1.307-dev.…` is at least `min`. */
+function isAtLeast(version: string, min: readonly number[]): boolean {
+  const parts = version.split(/[.-]/).slice(0, min.length).map(Number)
+  for (let i = 0; i < min.length; i++) {
+    const have = parts[i] ?? 0
+    if (Number.isNaN(have)) return false
+    if (have !== min[i]) return have > min[i]!
+  }
+  return true
 }
 
 /** Why `$.process.run` rejected, in words that say what to do. */

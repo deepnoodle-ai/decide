@@ -52,8 +52,9 @@ We don't accept pull requests that read as unreviewed agent output.
   go mod tidy && git diff --exit-code go.mod go.sum
   ```
 
-  A change under `plugin/` also needs Claude Code 2.1.287 or later and
-  `claude plugin validate . && claude plugin test plugin`.
+  A change under `plugin/` also needs
+  `claude plugin validate . && claude plugin test plugin`, run with Claude
+  Code 2.1.307 or later. The plugin itself runs on 2.1.287 or later.
 
 - **A short description** of the behavior that changed and how you
   verified it.
