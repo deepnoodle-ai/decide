@@ -1,6 +1,7 @@
 Use it on shell commands before they run: one command per line of text,
 or one per JSON record with `--field`. The decide plugin for Claude Code
-runs it before each command Claude runs in bypass mode, and acts only on
+runs it before each command Claude Code would run without asking anyone,
+as in bypass mode, and acts only on
 `severe`.
 
     echo 'git reset --hard HEAD~3' | decide run command-risk

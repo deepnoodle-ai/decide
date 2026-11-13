@@ -123,8 +123,10 @@ export const register: Register = (on, options) => {
 
     const { flags } = TEMPLATES.command
     const flagged = flaggedOf(answers, flags)
+    // What the person sees can fail; that must not undo a flag.
     await record($, { kind: 'command', subject: oneLine(command), verdict: verdictOf(answers, flags), isFlagged: flagged.length > 0 })
-    await mark($, e.tool_use_id, 'command', answers, flagged)
+      .then(() => mark($, e.tool_use_id, 'command', answers, flagged))
+      .catch(err => $.ui.log(`decide could not show a command check: ${oneLine(String(err), 160)}`, { to: 'debug' }))
     if (flagged.length === 0) return decided
 
     const why = flagged.map(q => `${pct(yes(answers, q))} ${COMMAND_RISKS[q] ?? `likely: ${q}`}`).join(', and ')
