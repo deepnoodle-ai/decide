@@ -119,6 +119,22 @@ describe('register', () => {
     expect(String(out.text ?? out.deny)).toContain('No one was there to approve it, so it was not run.')
   })
 
+  test('when the log cannot be written, a flagged command is still held and its row still flagged', async ($, on) => {
+    fakeDecide(on, RISK)
+    on('tool.check', BYPASS)
+    on('state.set', { key: 'log' }, () => ({ deny: 'the log is full' }))
+    on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: '', stderr: '', interrupted: false } }))
+
+    await $.session.start(SESSION)
+    const out = await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 't1c' })
+    const row = await $.ui.mount({ plugin: 'decide', surface: 'terminal', component: 'ToolUse', requestId: 't1c',
+      props: { tool_use_id: 't1c', tool: 'Bash', input: { command: 'rm -rf build' }, isRunning: false, isErrored: false, isInterrupted: false } })
+
+    expect(String(out.text ?? out.deny)).toContain('97% likely to cause severe harm')
+    expect(await row.find({ type: 'Text', text: '⎿  decide: severe 97%' })).toBeDefined()
+    await row.unmount()
+  })
+
   test('a safe command runs with no question', async ($, on) => {
     const runs = fakeDecide(on, RISK)
     const ran: string[] = []
