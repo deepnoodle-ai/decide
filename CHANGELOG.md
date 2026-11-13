@@ -6,6 +6,10 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-11-13
+
+The Claude Code plugin checks commands on Team and Enterprise accounts.
+
 ### Fixed
 
 - **The plugin's command check works on Team and Enterprise accounts.**
@@ -205,7 +209,8 @@ answers with probabilities, from the command line or from Go.
 - **Install** with `brew install deepnoodle-ai/tap/decide`, or download a
   binary with checksums.
 
-[Unreleased]: https://github.com/deepnoodle-ai/decide/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/deepnoodle-ai/decide/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/deepnoodle-ai/decide/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/deepnoodle-ai/decide/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/deepnoodle-ai/decide/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/deepnoodle-ai/decide/compare/v0.2.1...v0.3.0

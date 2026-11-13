@@ -17,7 +17,7 @@ The [pull request workflow](/tutorials/review-pull-requests/#run-it-on-each-pull
 runs as it is. A few things to know before you rely on it:
 
 - **Pin a version** by replacing `latest/download` with a release's
-  tag, such as `download/v0.5.0`, so an upgrade happens when you choose.
+  tag, such as `download/v0.5.1`, so an upgrade happens when you choose.
 - **The cache** keeps decide's [answers](/reference/cache/) between
   pushes to a pull request, so a function judged on an earlier push isn't
   asked about again.
