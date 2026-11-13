@@ -38,25 +38,11 @@ const COMMAND_RISKS: Record<string, string> = {
   severe: 'likely to cause severe harm that is hard to undo',
 }
 
-/**
- * The one permission mode the command check runs in. Elsewhere Claude Code
- * asks the person, or its auto-mode classifier judges the command.
- */
-const UNCHECKED_MODE = 'bypassPermissions'
-
 type CheckName = keyof typeof TEMPLATES
 
 /** The plugin's options, read each time it loads. */
 const config = { commands: 'ask', bin: 'decide' }
 
-/** The session as the checks need it: who can answer. */
-const session = { isInteractive: false }
-
-/**
- * Each loop's latest permission mode, by its agent id; the main loop's
- * under ''. A subagent can run in a mode of its own.
- */
-const modes = new Map<string, string>()
 
 /** DECIDE_HOME for the plugin's runs, and decide's working directory. */
 let home: string | undefined
@@ -74,10 +60,8 @@ export const register: Register = (on, options) => {
   config.commands = String(options.commands ?? 'ask')
   config.bin = String(options.decidePath ?? 'decide')
   for (const h of Object.values(health)) Object.assign(h, { offUntil: 0, reason: '' })
-  modes.clear()
 
   on('session.start', async ($, e, next) => {
-    session.isInteractive = e.isInteractive
     // A failed registration loses that one feature, not the session's start.
     await $.tool.register({ name: NAME, description: DESCRIPTION, inputSchema: SCHEMA }).catch(err => {
       $.ui.log(`decide could not add its judge tool: ${oneLine(String(err), 160)}`, { to: 'debug' })
@@ -90,17 +74,6 @@ export const register: Register = (on, options) => {
       .catch(err => {
         $.ui.log(`decide could not add /decide: ${oneLine(String(err), 160)}`, { to: 'debug' })
       })
-    return next(e)
-  })
-
-  // The settings-hook events carry the permission mode; keep each loop's
-  // latest, from each prompt and after each tool call.
-  on('classic.UserPromptSubmit', ($, e, next) => {
-    if (e.permission_mode) modes.set(e.agent_id ?? '', e.permission_mode)
-    return next(e)
-  })
-  on('classic.PostToolUse', ($, e, next) => {
-    if (e.permission_mode) modes.set(e.agent_id ?? '', e.permission_mode)
     return next(e)
   })
 
@@ -133,61 +106,35 @@ export const register: Register = (on, options) => {
     return { result: text }
   })
 
-  // The command check: in bypass mode, where nothing else checks a shell
-  // command, a second opinion on each one before it runs. It flags only
-  // severe harm, not routine work that discards local changes.
-  on('tool.call', { tool: SHELLS }, async ($, e, next) => {
-    const { tool, tool_use_id, agentId, ...input } = e as { tool: string; tool_use_id?: string; agentId?: string; command?: unknown }
-    const command = input.command
-    // A subagent's mode, until its first tool call reports it, is its parent's.
-    const mode = modes.get(agentId ?? '') ?? modes.get('')
-    if (config.commands === 'off' || mode !== UNCHECKED_MODE) return next(e)
-    if (typeof command !== 'string' || !command.trim()) return next(e)
+  // The command check: a second opinion on each shell command that Claude
+  // Code would run without asking anyone, as in bypass mode. Where a person
+  // or auto mode's classifier decides, or a rule allowed the command, decide
+  // stays out. It flags only severe harm, not routine work that discards
+  // local changes. It never allows a command: it can only ask or deny.
+  on('tool.check', { tool: SHELLS }, async ($, e, next) => {
+    const decided = await next(e)
+    if (config.commands === 'off' || !e.tool_use_id || e.isReadOnly) return decided
+    if (decided.decision !== 'allow' || decided.rule || decided.hook || decided.setting || decided.plugin) return decided
+    const command = (e.input as { command?: unknown } | null)?.command
+    if (typeof command !== 'string' || !command.trim()) return decided
 
     const answers = await check($, 'command', { command }, 'command', COMMAND_MS)
-    if (answers === undefined) return next(e)
+    if (answers === undefined) return decided
 
     const { flags } = TEMPLATES.command
     const flagged = flaggedOf(answers, flags)
     await record($, { kind: 'command', subject: oneLine(command), verdict: verdictOf(answers, flags), isFlagged: flagged.length > 0 })
-    await mark($, tool_use_id, answers, flagged)
-    if (flagged.length === 0) return next(e)
+    await mark($, e.tool_use_id, 'command', answers, flagged)
+    if (flagged.length === 0) return decided
 
     const why = flagged.map(q => `${pct(yes(answers, q))} ${COMMAND_RISKS[q] ?? `likely: ${q}`}`).join(', and ')
-    const reason = `decide judged this command ${why}.`
-    if (config.commands === 'deny') {
-      return { deny: `${reason} It was not run. Find a safer way to do this, or ask the user to run it.` }
+    if (config.commands === 'deny' || !e.approver) {
+      const who = config.commands === 'deny' ? 'It was not run' : 'No one was there to approve it, so it was not run'
+      return { decision: 'deny', reason: `decide judged this command ${why}. ${who}. Find a safer way to do this, or ask the user to run it.` }
     }
-
-    // Bypass mode still refuses or asks about a few commands. When Claude
-    // Code will ask the person, add decide's line to that dialog.
-    const engine = await $.tool.check({ tool, input }).catch(() => undefined)
-    if (engine?.decision === 'deny') return next(e)
-    if (engine?.decision === 'ask') {
-      if (tool_use_id) {
-        try {
-          $.ui.notice(tool_use_id, `decide: ${why}`)
-        } catch {
-          // The dialog draws without the line.
-        }
-      }
-      return next(e)
-    }
-
-    // Nobody else will ask the person: ask here, with the whole command.
-    let choice: string
-    try {
-      choice = await $.ui.ask(`decide judged this command ${why}:\n\n${printable(command)}\n\nRun it?`, {
-        header: 'decide',
-        options: ['Run it', "Don't run it"],
-      })
-    } catch {
-      const how = session.isInteractive ? 'The user dismissed the question' : 'No one was there to approve it'
-      return { deny: `${reason} ${how}, so it was not run.` }
-    }
-    if (choice === 'Run it') return next(e)
-    const said = choice === "Don't run it" ? '' : ` They said: ${choice}`
-    return { deny: `${reason} The user chose not to run it.${said} Find another way, or ask them how to go on.` }
+    // A plugin's ask goes to a person, in Claude Code's own dialog, even in
+    // auto mode. If they say no, Claude reads this reason.
+    return { decision: 'ask', reason: `decide judged this command ${why}. Claude Code would have run it without asking.` }
   })
 
   // The content check: what comes from outside, before Claude acts on it.
@@ -204,7 +151,7 @@ export const register: Register = (on, options) => {
     const tool = oneLine(String(e.tool), 60)
     const subject = e.tool === 'Bash' ? oneLine(e.command) : `${tool} ${oneLine(subjectOf(e), 60)}`
     await record($, { kind: 'content', subject, verdict: verdictOf(answers, flags), isFlagged: flagged.length > 0 })
-    await mark($, e.tool_use_id, answers, flagged)
+    await mark($, e.tool_use_id, 'content', answers, flagged)
     if (flagged.length === 0) return ran
 
     const injection = yes(answers, 'injection')
@@ -229,7 +176,7 @@ export const register: Register = (on, options) => {
     if (all.length === 0) {
       return {
         text: [
-          "Nothing checked in this session yet. It checks content from outside, and in bypass mode, shell commands before they run.",
+          "Nothing checked in this session yet. It checks content from outside, and shell commands that Claude Code would run without asking you, as in bypass mode.",
           ...off,
           ...skipped,
           saved,
@@ -397,16 +344,24 @@ async function record($: EngineInterface, j: Omit<Judgment, 'at'>): Promise<void
   await showStatus($)
 }
 
+/** What a passed check names on its row: the command, or the result it read. */
+const CHECKED: Record<CheckName, string> = { command: 'command', content: 'result' }
+
 /**
  * Puts a check's verdict on its tool's row in the transcript. A fetching
- * Bash call gets two checks, its command and then its result, so a row
- * stays flagged if either check flags it, with every check's flags.
+ * Bash call can get two checks, its command and then its result, so a row
+ * stays flagged if either check flags it, with every check's flags, and a
+ * passed row names each check that passed.
  */
-async function mark($: EngineInterface, id: string | undefined, answers: Record<string, Answer>, flagged: readonly string[]): Promise<void> {
+async function mark($: EngineInterface, id: string | undefined, name: CheckName, answers: Record<string, Answer>, flagged: readonly string[]): Promise<void> {
   if (!id) return
   const text = flagged.map(q => `${q} ${pct(yes(answers, q))}`).join(', ')
   await update($, memberOf(rows, { requestId: id }), prev => {
-    if (flagged.length === 0) return prev?.isFlagged ? prev : { isFlagged: false, text }
+    if (flagged.length === 0) {
+      if (prev?.isFlagged) return prev
+      const checked = prev?.text ? `${prev.text}, ${CHECKED[name]}` : CHECKED[name]
+      return { isFlagged: false, text: checked }
+    }
     return { isFlagged: true, text: prev?.isFlagged ? `${prev.text}, ${text}` : text }
   })
 }
@@ -443,7 +398,7 @@ function withVerdict($: EngineInterface, e: Parameters<EngineInterface['ui']['re
     <Box flexDirection="row" alignItems="flex-end" gap={2}>
       <Box flexGrow={1} flexShrink={1}>{row}</Box>
       <Box flexShrink={0}>
-        <Text dimColor>decide ✓</Text>
+        <Text dimColor>decide ✓ {v.text}</Text>
       </Box>
     </Box>
   )
