@@ -8,7 +8,9 @@ Code 2.1.288; this spec fixes its shape before it moves into the repository.
 **PRD:** [docs/prds/claude-code-plugin.md](../prds/claude-code-plugin.md)
 **Revised:** 2026-10-04. The command check runs only in bypass mode and
 flags only `severe` (#54). The reply check is removed (#53); its sections
-stay as a record.
+stay as a record. 2026-11-13: the command check moves to `tool.check` and
+runs where Claude Code would run a command without asking anyone, since the
+built-in guard passes over `classic.*` hooks.
 
 ## Context
 
@@ -88,7 +90,7 @@ module never runs a shell: `$.process.run` takes an argv.
 
 | Check | Hook | Template | Record | Flagged when | Action |
 | --- | --- | --- | --- | --- | --- |
-| Command | `tool.call` on `Bash` and `Monitor`, before `next`, in `bypassPermissions` mode only | `command-risk`, `--field command` | `{"command"}` | `severe` ≥ 80% | see below |
+| Command | `tool.check` on `Bash`, `Monitor` and `PowerShell`, after `next`, when core's verdict is a bare `allow` | `command-risk`, `--field command` | `{"command"}` | `severe` ≥ 80% | see below |
 | Content | `tool.call` on WebFetch, WebSearch, `mcp__*` but our own, and Bash with `gh`, `curl`, `wget`, `http`; after `next` | `prompt-injection`, `--field text` | `{"text"}`, results of 80+ characters | `injection` or `hidden` ≥ 60% | add a `context` note to the result; toast |
 | Reply | `turn.complete`, main loop, reason `answer`, after a turn with tool calls, in an interactive terminal or desktop session | `reply-check` | `{"reply", "tools"}` | `overclaims` ≥ 70% | set the band's notice; toast |
 
@@ -97,32 +99,29 @@ them, and a Go test holds the two in step (below). The CLI flags
 `command-risk` on `destructive`, `leak`, `publish`, or `severe`. The plugin reads
 `severe` alone, so local cleanup such as `git checkout -- .` does not ask.
 
-The command check's action, when flagged and `commands` is `ask`:
+The command check is a `tool.check` hook. It awaits `next(e)`, Claude
+Code's own verdict, and checks the command only when that verdict is a
+bare `allow`, with no `rule`, `hook`, `setting` or `plugin` behind it, on a
+real call (`tool_use_id`) that is not read-only (`isReadOnly`). That is
+where nothing else checks a command: bypass mode, and the file commands
+acceptEdits allows in the project. In default and auto mode, core answers
+`ask`, and the person or the auto-mode classifier decides. A command that
+matches an allow rule runs unchecked, as the person chose.
 
-1. Ask the engine what it would decide: `$.tool.check({ tool: 'Bash', input })`.
-2. `deny`: pass the call on; the engine refuses it.
-3. `ask`: bypass mode still asks about a few commands. Put decide's line
-   under the engine's dialog with `$.ui.notice`, and pass the call on. One
-   dialog.
-4. `allow`: ask with `$.ui.ask`. **Run it** passes the call on. Anything
-   else returns `{ deny }` with decide's reason and the person's words. A
-   rejected ask returns `{ deny }` that says the user dismissed the
-   question, or, in a session with no one at the prompt, that no one could
-   approve it.
+When flagged and `commands` is `ask`, the hook answers `{ decision: 'ask',
+reason }`. A plugin's ask goes to a person in Claude Code's own dialog,
+with decide's reason, and no classifier's allow settles it. Where no one
+can be asked (`approver` absent), it answers `deny` with a reason Claude
+reads. The hook never answers `allow`, and a hook that fails leaves core's
+verdict.
 
-The check runs only in `bypassPermissions`, where nothing else checks a
-command. In the other modes Claude Code asks the person, or the auto-mode
-classifier judges, about each command that no allow rule matches. A
-command that matches an allow rule runs unchecked, as the person chose.
+An earlier version hooked `tool.call` and learned the mode from
+`classic.UserPromptSubmit` and `classic.PostToolUse`. Claude Code's
+built-in guard, which loads on Team and Enterprise logins and with managed
+settings, passes over a user plugin's `classic.*` hooks, so the mode stayed
+unknown there and no command was checked.
 
-`tool.call` does not carry the permission mode. `classic.UserPromptSubmit`
-and `classic.PostToolUse` do, as `permission_mode`, so the plugin keeps the
-latest value for each loop, by `agent_id`. A subagent can run in a mode of
-its own; until its first tool call reports one, it has its parent's. A mode
-switched mid-turn takes effect after the next tool call. Before the first
-prompt the mode is unknown, and commands are not checked.
-
-With `commands` set to `deny`, a flagged command returns `{ deny }` at once.
+With `commands` set to `deny`, a flagged command is denied at once.
 
 The reply check reads what a separate `tool.call` hook collected for the
 main loop since `turn.start`: each tool, its subject (URL, path, command),
@@ -257,7 +256,7 @@ not run it; it needs a key.
 
 ## Security considerations
 
-- **What leaves the machine.** Each shell command in bypass mode; each checked result,
+- **What leaves the machine.** Each shell command Claude Code would run without asking anyone; each checked result,
   whole, MCP results from private connectors included; and each final
   reply with the first and last 400 characters of each tool result in
   the turn (a file's contents among them), up to 12,000 characters. Every

@@ -16,7 +16,7 @@ export type Judgment = {
 export type RowVerdict = {
   /** True when an answer passed the threshold. */
   isFlagged: boolean
-  /** The flagged answers, such as "destructive 96%"; empty when none was. */
+  /** Flagged: the flagged answers, such as "severe 96%". Passed: what was checked, such as "command, result". */
   text: string
 }
 

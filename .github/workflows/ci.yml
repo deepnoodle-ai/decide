@@ -53,7 +53,7 @@ jobs:
         with:
           node-version: "22"
       - name: install claude code
-        run: npm install -g @anthropic-ai/claude-code@2.1.288 # mods are early access; upgrade deliberately
+        run: npm install -g @anthropic-ai/claude-code@2.1.307 # mods are early access; upgrade deliberately. The tests need tool.check on tool calls
       - name: validate the marketplace and the plugin
         run: |
           claude plugin validate .

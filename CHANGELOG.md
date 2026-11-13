@@ -6,6 +6,15 @@ may change the library API and the CLI.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The plugin's command check works on Team and Enterprise accounts.**
+  It asked Claude Code's settings hooks for the permission mode, which
+  Claude Code's built-in guard passes over there, so commands went
+  unchecked. It now checks each command Claude Code would run without
+  asking anyone, and asks in Claude Code's own dialog. A passed row says
+  what was checked: `decide ✓ command`, `decide ✓ result`.
+
 ### Changed
 
 - **A shorter README.** It opens with what you can run and why a

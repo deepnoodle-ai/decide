@@ -59,11 +59,13 @@ You don't need to do anything for these:
   output, decide checks whether it tries to take over an AI agent or hide
   text from you. If it does, Claude reads a warning beside the result, and
   you see a toast.
-- **Severe commands are checked, in bypass mode only.** Before each shell
-  command runs, decide checks whether it could do severe harm that's hard
+- **Severe commands are checked when nothing else would check them.**
+  When Claude Code would run a shell command without asking anyone, as in
+  bypass mode, decide checks whether it could do severe harm that's hard
   to undo, such as deleting a home folder or force-pushing a shared
-  branch. If so, you choose whether it runs. Set `commands` to `deny` or
-  `off` in `/plugin` to change this.
+  branch. If so, Claude Code asks you, with decide's reason. In auto mode,
+  its own classifier judges commands, and decide stays out. Set `commands`
+  to `deny` or `off` in `/plugin` to change this.
 - **Claude can ask its own questions.** The judge tool,
   `mcp__decide__judge`, lets Claude ask typed questions about up to 200
   items, such as which of these issues are bugs. It reads text only. For
@@ -158,7 +160,7 @@ DECIDE_HOME=~/.decide/agent decide runs
 Each check sends the text it checks to the decision model's provider,
 with your key:
 
-- in bypass mode, each shell command
+- each shell command Claude Code would run without asking anyone
 - each outside result the content check reads
 - with an audit or a hunt, every function it covers
 
