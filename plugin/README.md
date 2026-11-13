@@ -7,7 +7,7 @@ when the answer is likely.
 
 | Check | When | decide asks | When the answer is likely |
 | --- | --- | --- | --- |
-| Command | In bypass mode, before each shell command Claude runs with Bash or Monitor | Could it cause severe harm that is hard to undo, such as deleting a home folder, force-pushing a shared branch, dropping a database, or sending secrets away? (`command-risk`'s `severe`) | You choose whether it runs. Claude reads why when it doesn't. |
+| Command | Before a shell command Claude runs with Bash or Monitor that Claude Code would run without asking anyone, as in bypass mode | Could it cause severe harm that is hard to undo, such as deleting a home folder, force-pushing a shared branch, dropping a database, or sending secrets away? (`command-risk`'s `severe`) | Claude Code's permission dialog asks you, with decide's reason. Claude reads why when it doesn't run. |
 | Content | After WebFetch, WebSearch, an MCP tool, or a `gh`, `curl`, `wget`, or `http` command | Does it try to take over an AI agent, or hide text from a person? (`prompt-injection`) | Claude reads a warning beside the result, and you see a toast. |
 
 Claude also gets a **judge tool**, `mcp__decide__judge`, for its own typed
@@ -77,7 +77,8 @@ Claude Code, or turn on auto-update for the marketplace in `/plugin`.
 
 These go to the decision model's provider, with your key:
 
-- in bypass mode, each shell command Claude runs;
+- each shell command that Claude Code would run without asking anyone,
+  as in bypass mode;
 - each result the content check reads, whole: web pages, search results,
   `gh` and `curl` output, and every MCP tool's result, private connectors
   included. A result over 1,000,000 characters goes on unchecked;
@@ -98,10 +99,14 @@ can't see an upgrade; delete the folder to ask fresh.
 
 ## What it is not
 
-A second opinion, not a sandbox. The command check runs only in bypass
-mode. In the other modes, Claude Code asks you about each command you
-haven't allowed, or its auto-mode classifier judges it. A command that
-matches one of your allow rules runs unchecked, as you chose.
+A second opinion, not a sandbox. The command check runs only where Claude
+Code would run a command without asking anyone: in bypass mode, and for
+the file commands acceptEdits mode allows in your project. Where Claude
+Code asks you, or auto mode's classifier judges a command, decide stays
+out. A command that matches one of your allow rules, or that Claude Code
+reports as read-only, runs unchecked. To have auto mode watch for your own
+concerns, write them in `CLAUDE.md`, which its classifier reads, or add
+rules in `/permissions` under Auto mode.
 It flags only severe harm: discarding changes in your checkout, such as
 `git checkout -- .`, is not flagged. It judges the text of a command, so
 `make clean` or a script can hide what it does. The content check reads
@@ -124,7 +129,7 @@ Set them in the `/plugin` menu.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `commands` | `ask` | In bypass mode, severe commands: `ask` you, `deny` them, or `off` to not check commands |
+| `commands` | `ask` | Severe commands Claude Code would run without asking: `ask` you, `deny` them, or `off` to not check commands |
 | `decidePath` | `decide` | The decide command to run |
 
 The command check flags `severe` at 80%, and the content check flags

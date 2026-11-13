@@ -99,9 +99,9 @@ and finds where the same mistake lives elsewhere.
 
 The plugin also gives Claude a second opinion at the moments its own
 judgment is most likely to slip. When Claude fetches a page or reads a
-tool result, decide checks it for prompt injection first. In bypass
-mode, decide checks each shell command before it runs. Claude also gets
-a judge tool for its own questions. See the
+tool result, decide checks it for prompt injection first. When Claude
+Code would run a shell command without asking anyone, as in bypass mode,
+decide checks it first. Claude also gets a judge tool for its own questions. See the
 [Claude Code guide](https://decide.deepnoodle.ai/reference/claude-code/)
 and [plugin/README.md](plugin/README.md).
 
